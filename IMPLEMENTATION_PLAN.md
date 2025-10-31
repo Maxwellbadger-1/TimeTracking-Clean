@@ -737,26 +737,32 @@ TimeTracking-Clean/
   - [x] LoadingSpinner (size variants)
 - [x] Login Component mit Validation
 - [x] App.tsx Auth-Flow (Login → Dashboard Routing)
-- [x] EmployeeDashboard Component (Skeleton)
-  - [x] Quick Stats Cards (Platzhalter)
+- [x] EmployeeDashboard Component mit echten Daten
+  - [x] Quick Stats Cards mit API-Daten
+  - [x] Heutige Arbeitszeit (echte Daten)
+  - [x] Wochenübersicht (echte Daten)
+  - [x] Verbleibende Urlaubstage (echte Daten)
+  - [x] Überstunden-Saldo (echte Daten)
+  - [x] Recent Entries Liste (letzte 5 Einträge)
   - [x] Schnellzugriff Buttons
-  - [ ] Heutige Arbeitszeit (echte Daten)
-  - [ ] Wochenübersicht (echte Daten)
-  - [ ] Verbleibende Urlaubstage (echte Daten)
-  - [ ] Überstunden-Saldo (echte Daten)
-  - [ ] Recent Entries Liste
-- [x] AdminDashboard Component (Skeleton)
-  - [x] Quick Stats Cards (Platzhalter)
+- [x] AdminDashboard Component mit echten Daten
+  - [x] Mitarbeiteranzahl (active only)
+  - [x] Heute im Dienst (Count)
+  - [x] Offene Anträge mit Approve/Reject
+  - [x] Monatsstatistik (Stunden)
+  - [x] Team-Übersicht mit Status-Indikatoren
   - [x] Schnellzugriff Buttons
-  - [ ] Team-Übersicht (wer arbeitet gerade?)
-  - [ ] Offene Urlaubsanträge (echte Daten)
-  - [ ] Monatsstatistik (echte Daten)
-- [ ] TanStack Query Hooks (API Integration)
-  - [ ] useTimeEntries
-  - [ ] useAbsenceRequests
-  - [ ] useVacationBalance
-  - [ ] useOvertimeBalance
-  - [ ] useUsers (Admin)
+- [x] TanStack Query Hooks (API Integration)
+  - [x] useTimeEntries (+ useTodayTimeEntries, useWeekTimeEntries)
+  - [x] useAbsenceRequests (+ usePendingAbsenceRequests)
+  - [x] useVacationBalance (+ useCurrentVacationBalance, useRemainingVacationDays)
+  - [x] useOvertimeBalance (+ useTotalOvertime)
+  - [x] useUsers (+ useActiveEmployees)
+  - [x] useNotifications (+ useUnreadNotifications)
+  - [x] CRUD Mutations (Create, Update, Delete, Approve, Reject)
+- [x] Utility Functions
+  - [x] timeUtils: calculateHours, formatHours, formatOvertimeHours, date helpers
+  - [x] validation: email, time, date, password validation
 - [ ] Time Entry Components
   - [ ] TimeEntryForm
   - [ ] TimeEntryList
@@ -765,20 +771,26 @@ TimeTracking-Clean/
   - [ ] AbsenceRequestForm
   - [ ] AbsenceRequestList
   - [ ] AbsenceApproval (Admin)
-- [ ] Notifications System
+- [ ] Notifications System UI
 - [ ] WebSocket für Real-time Updates
 
 **Success Criteria:**
 - ✅ Login-Flow funktioniert
 - ✅ Role-based Routing (Admin vs Employee)
-- ⏳ Mitarbeiter sieht eigene Daten auf einen Blick
-- ⏳ Admin sieht Team-Übersicht
-- ⏳ Benachrichtigungen funktionieren
+- ✅ Mitarbeiter sieht eigene Daten auf einen Blick
+- ✅ Admin sieht Team-Übersicht
+- ✅ Echte API-Daten in Dashboards
+- ✅ Loading States überall
+- ✅ Toast Notifications für Feedback
+- ⏳ Benachrichtigungen UI
 - ⏳ Real-time Updates via WebSocket
 
-**Commit:** 1140bb4 (2025-10-31)
-**Status:** Foundation complete, data integration pending
-**Geschätzte Zeit:** 5-6 Stunden
+**Commits:**
+- 1140bb4 (2025-10-31) - Foundation (Auth, UI Components, Login)
+- 48668ca (2025-10-31) - Data Integration (TanStack Query Hooks, Real Data)
+
+**Status:** Core dashboards complete with real data, form components pending
+**Geschätzte Zeit:** 5-6 Stunden (ca. 80% complete)
 
 ---
 
