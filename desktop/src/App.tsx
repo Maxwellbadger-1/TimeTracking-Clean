@@ -8,6 +8,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { TimeEntriesPage } from './pages/TimeEntriesPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { AbsencesPage } from './pages/AbsencesPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -72,24 +73,7 @@ export default function App() {
             {currentView === 'time-entries' && <TimeEntriesPage />}
             {currentView === 'absences' && <AbsencesPage />}
             {currentView === 'users' && user.role === 'admin' && <UserManagementPage />}
-            {currentView === 'reports' && user.role === 'admin' && (
-              <div className="p-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Berichte & Export
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Monatsberichte, Überstunden-Reports, PDF/CSV Export
-                </p>
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-blue-800 dark:text-blue-200">
-                    📊 <strong>Phase 7</strong> - Wird als nächstes implementiert
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                    Features: Monatsberichte, Überstunden-Auswertung, Urlaubsübersichten, PDF/CSV Export
-                  </p>
-                </div>
-              </div>
-            )}
+            {currentView === 'reports' && <ReportsPage />}
           </main>
         </div>
       </div>
