@@ -30,15 +30,20 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
       });
 
+      console.log('🔐 Login response:', response);
+
       if (response.success && response.data) {
+        console.log('✅ Login successful, setting user:', response.data.user);
         set({
           user: response.data.user,
           isAuthenticated: true,
           isLoading: false,
           error: null,
         });
+        console.log('✅ Auth state updated, isAuthenticated: true');
         return true;
       } else {
+        console.error('❌ Login failed:', response.error);
         set({
           error: response.error || 'Login fehlgeschlagen',
           isLoading: false,
@@ -48,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Netzwerkfehler';
+      console.error('❌ Login error:', error);
       set({
         error: errorMessage,
         isLoading: false,

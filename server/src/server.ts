@@ -18,7 +18,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-produ
 
 // Middleware
 app.use(cors({
-  origin: ['tauri://localhost', 'http://localhost:5173', 'http://localhost:1420'],
+  origin: ['tauri://localhost', 'https://tauri.localhost', 'http://localhost:5173', 'http://localhost:1420'],
   credentials: true,
 }));
 app.use(express.json());
@@ -31,7 +31,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Must be false for localhost and tauri://localhost
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },

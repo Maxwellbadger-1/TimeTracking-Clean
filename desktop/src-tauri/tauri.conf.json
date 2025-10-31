@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TimeTracking",
-  "version": "0.1.0",
-  "identifier": "com.timetracking.app",
+  "productName": "Stiftung der DPolG TimeTracker",
+  "version": "1.0.0",
+  "identifier": "com.dpolg-stiftung.timetracker",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,13 +12,17 @@
   "app": {
     "windows": [
       {
-        "title": "TimeTracking System",
+        "title": "Stiftung der DPolG TimeTracker",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "center": true
       }
     ],
     "security": {
@@ -27,7 +31,8 @@
         "enable": true,
         "scope": ["**"]
       }
-    }
+    },
+    "macOSPrivateApi": false
   },
   "bundle": {
     "active": true,
@@ -38,6 +43,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Stiftung der Deutschen Polizeigewerkschaft",
+    "copyright": "Copyright © 2025 Stiftung der DPolG. All rights reserved.",
+    "category": "Productivity",
+    "shortDescription": "Professional time tracking for organizations",
+    "longDescription": "Stiftung der DPolG TimeTracker is a professional desktop application for tracking work hours, managing absences, and monitoring overtime. Built for organizations that need reliable, local-first time management."
   }
 }

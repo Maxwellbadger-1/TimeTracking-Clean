@@ -49,7 +49,9 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
 
     res.json({
       success: true,
-      data: result.user,
+      data: {
+        user: result.user,
+      },
       message: 'Login successful',
     });
   } catch (error) {
@@ -112,10 +114,12 @@ router.get('/session', (req: Request, res: Response<ApiResponse<SessionUser | nu
  * GET /api/auth/me
  * Get current user (requires auth)
  */
-router.get('/me', requireAuth, (req: Request, res: Response<ApiResponse<SessionUser>>) => {
+router.get('/me', requireAuth, (req: Request, res: Response<ApiResponse<{ user: SessionUser }>>) => {
   res.json({
     success: true,
-    data: req.session.user!,
+    data: {
+      user: req.session.user!,
+    },
   });
 });
 

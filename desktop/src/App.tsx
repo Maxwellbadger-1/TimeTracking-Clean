@@ -4,6 +4,7 @@ import { Login } from './components/auth/Login';
 import { EmployeeDashboard } from './components/dashboard/EmployeeDashboard';
 import { AdminDashboard } from './components/dashboard/AdminDashboard';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import DebugPanel from './components/DebugPanel';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, checkSession } = useAuthStore();
@@ -16,21 +17,39 @@ export default function App() {
   // Show loading spinner while checking session
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <>
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+        <DebugPanel />
+      </>
     );
   }
 
   // Show login if not authenticated
   if (!isAuthenticated || !user) {
-    return <Login />;
+    return (
+      <>
+        <Login />
+        <DebugPanel />
+      </>
+    );
   }
 
   // Show dashboard based on role
   if (user.role === 'admin') {
-    return <AdminDashboard />;
+    return (
+      <>
+        <AdminDashboard />
+        <DebugPanel />
+      </>
+    );
   }
 
-  return <EmployeeDashboard />;
+  return (
+    <>
+      <EmployeeDashboard />
+      <DebugPanel />
+    </>
+  );
 }

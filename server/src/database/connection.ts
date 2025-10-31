@@ -24,4 +24,5 @@ const db = new Database(DB_PATH, {
 initializeDatabase(db);
 
 // Export database instance
+export { db };
 export default db;
