@@ -4,6 +4,9 @@ import session from 'express-session';
 import './database/connection.js'; // Initialize database
 import { seedDatabase } from './database/seed.js';
 import authRoutes from './routes/auth.js';
+import usersRoutes from './routes/users.js';
+import departmentsRoutes from './routes/departments.js';
+import projectsRoutes from './routes/projects.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -56,6 +59,9 @@ app.get('/api/test', (_req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/departments', departmentsRoutes);
+app.use('/api/projects', projectsRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);
