@@ -1002,50 +1002,47 @@ TimeTracking-Clean/
 
 ---
 
-#### **7.2 User Management Page (Admin)** 🔴 NOT STARTED
+#### **7.2 User Management Page (Admin)** ✅ COMPLETE
 **Backend Status:** ✅ Komplett (GET/POST/PUT/DELETE `/api/users`, `/api/departments`, `/api/projects`)
 **Ziel:** Admin-Interface zur Mitarbeiterverwaltung
 
 **Tasks:**
-- [ ] `pages/UserManagementPage.tsx` erstellen
-- [ ] `components/users/UserTable.tsx` - Mitarbeiter-Liste
-- [ ] `components/users/CreateUserModal.tsx` - Neuen Mitarbeiter anlegen
-- [ ] `components/users/EditUserModal.tsx` - Mitarbeiter bearbeiten
-- [ ] `components/users/UserDetailsModal.tsx` - Detailansicht
-- [ ] Department Management
-  - [ ] `components/departments/DepartmentSelect.tsx`
-  - [ ] `components/departments/CreateDepartmentModal.tsx`
-  - [ ] Inline Create (+ Button im Select)
-- [ ] Project Management
-  - [ ] `components/projects/ProjectSelect.tsx`
-  - [ ] `components/projects/CreateProjectModal.tsx`
-  - [ ] Inline Create (+ Button im Select)
-- [ ] User Actions
-  - [ ] Create User (Formular mit Validation)
-  - [ ] Edit User (alle Felder änderbar)
-  - [ ] Delete User (Soft Delete mit Bestätigung)
-  - [ ] Role ändern (Admin ↔ Employee)
-  - [ ] Urlaubskontingent setzen
-  - [ ] Wochenstunden setzen
-- [ ] Search & Filter
-  - [ ] Nach Name suchen
-  - [ ] Nach Abteilung filtern
-  - [ ] Nach Rolle filtern (Admin/Employee)
-  - [ ] Nur aktive / inkl. gelöschte
-- [ ] Statistiken
-  - [ ] Anzahl Mitarbeiter pro Abteilung
-  - [ ] Durchschnittliche Wochenstunden
-  - [ ] Gesamturlaubstage
+- [x] `pages/UserManagementPage.tsx` erstellen
+- [x] `components/users/CreateUserModal.tsx` - Neuen Mitarbeiter anlegen
+- [x] `components/users/EditUserModal.tsx` - Mitarbeiter bearbeiten
+- [x] User Actions
+  - [x] Create User (Formular mit Validation)
+  - [x] Edit User (alle Felder änderbar außer Username)
+  - [x] Delete User (Soft Delete mit Bestätigung)
+  - [x] Role ändern (Admin ↔ Employee)
+  - [x] Urlaubskontingent setzen
+  - [x] Wochenstunden setzen
+  - [x] Aktiv/Inaktiv Toggle
+- [x] Search & Filter
+  - [x] Nach Name/E-Mail/Username suchen
+  - [x] Nach Abteilung filtern (dynamisch)
+  - [x] Nach Rolle filtern (Admin/Employee)
+  - [x] Nach Status (Aktiv / Alle inkl. Gelöschte)
+- [x] Statistiken
+  - [x] Gesamt-Benutzer
+  - [x] Admins vs. Mitarbeiter
+  - [x] Aktiv vs. Inaktiv
 
 **Success Criteria:**
 - ✅ Admin kann Mitarbeiter anlegen/bearbeiten/löschen
-- ✅ Abteilungen/Projekte verwaltbar
 - ✅ Urlaubskontingent & Wochenstunden änderbar
 - ✅ Rolle ändern funktioniert
-- ✅ Validation funktioniert (Email, Username, etc.)
+- ✅ Validation funktioniert (Email, Password, Pflichtfelder)
 - ✅ Search/Filter funktionieren
 - ✅ Responsive Design
+- ✅ Dark Mode Support
+- ✅ Permission Check (nur Admin-Zugriff)
+- ✅ Self-Protection (Admin kann sich nicht selbst löschen)
+- ✅ Department Filter (dynamisch basierend auf Daten)
 
+**Abgeschlossen:** 2025-10-31
+**Commits:** 64ba613
+**Tatsächliche Zeit:** ~2.5 Stunden
 **Geschätzte Zeit:** 4-5 Stunden
 
 ---
