@@ -13,6 +13,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { Button } from './components/ui/Button';
+import { ThemeToggle } from './components/ui/ThemeToggle';
 import { LogOut } from 'lucide-react';
 import DebugPanel from './components/DebugPanel';
 import { useGlobalKeyboardShortcuts } from './hooks';
@@ -64,6 +65,7 @@ export default function App() {
       <div className="flex flex-col h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
         {/* Top Header Bar */}
         <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end px-6 gap-2">
+          <ThemeToggle />
           <NotificationBell />
           <Button variant="ghost" size="sm" onClick={logout}>
             <LogOut className="w-4 h-4" />
