@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+target/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+server/database.db
+server/database.backup.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop-ini
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+
+# Tauri
+desktop/src-tauri/target/
+desktop/src-tauri/WixTools/
+
+# Production builds
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.AppImage

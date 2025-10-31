@@ -1,0 +1,26 @@
+{
+  "name": "timetracking-system",
+  "version": "0.1.0",
+  "description": "Modern Multi-User Time Tracking System",
+  "private": true,
+  "workspaces": [
+    "desktop",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:desktop": "npm run tauri:dev --workspace=desktop",
+    "build:server": "npm run build --workspace=server",
+    "build:desktop": "npm run tauri:build --workspace=desktop",
+    "build": "npm run build:server && npm run build:desktop",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,rs}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
