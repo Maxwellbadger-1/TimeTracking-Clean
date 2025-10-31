@@ -1,13 +1,44 @@
-# Stiftung der DPolG TimeTracker - Claude AI Development Guidelines
+# TimeTracking System - Claude AI Development Guidelines
 
-**Projekt:** Stiftung der DPolG - Zeiterfassung Plus
-**Offizieller Name:** "Stiftung der DPolG TimeTracker"
-**Entwickler:** Maxflow Software
-**Auftraggeber:** Stiftung der Deutschen Polizeigewerkschaft
-**Typ:** Tauri Desktop-App mit Multi-User Server
+**Projekt:** Multi-User Zeiterfassungssystem
+**Offizieller Name:** "TimeTracking System"
+**Typ:** Tauri Desktop-App + Backend Server
 **Ziel:** Production-ready, intuitiv, privater Server, Multi-User fähig
 **Version:** 1.0
 **Letzte Aktualisierung:** 2025-10-31
+
+---
+
+# 📋 KRITISCH: IMPLEMENTATION_PLAN.md IMMER AKTUELL HALTEN!
+
+**PFLICHT bei JEDEM Task:**
+
+1. ✅ **VOR Beginn:** IMPLEMENTATION_PLAN.md lesen
+   - Welche Phase?
+   - Welche Tasks?
+   - Was sind Success Criteria?
+
+2. ✅ **WÄHREND der Arbeit:** Plan aktualisieren
+   - Tasks abhaken: `- [ ]` → `- [x]`
+   - Status ändern: `🔴 NOT STARTED` → `🟢 IN PROGRESS` → `✅ COMPLETE`
+   - Bei Abschluss: Commit Hash + Datum hinzufügen
+
+3. ✅ **NACH Abschluss:** Plan committen
+   ```bash
+   git add IMPLEMENTATION_PLAN.md
+   git commit -m "docs: Update Phase X status"
+   ```
+
+**Warum?**
+- 🎯 Überblick behalten (was ist schon gemacht?)
+- 🎯 User kann Fortschritt sehen
+- 🎯 Neue Chat-Sessions wissen, wo wir stehen
+- 🎯 Verhindert doppelte Arbeit
+
+**NIEMALS:**
+- ❌ Plan ignorieren und "frei" coden
+- ❌ Plan nicht aktualisieren nach Fertigstellung
+- ❌ Phasen überspringen ohne Grund
 
 ---
 
