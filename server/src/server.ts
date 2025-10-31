@@ -1,15 +1,36 @@
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
+import './database/connection.js'; // Initialize database
+import { seedDatabase } from './database/seed.js';
+import authRoutes from './routes/auth.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
 
 // Middleware
 app.use(cors({
-  origin: ['tauri://localhost', 'http://localhost:5173'],
+  origin: ['tauri://localhost', 'http://localhost:5173', 'http://localhost:1420'],
   credentials: true,
 }));
 app.use(express.json());
+
+// Session middleware
+app.use(
+  session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
@@ -33,9 +54,30 @@ app.get('/api/test', (_req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('✅ TimeTracking Server started');
-  console.log(`📡 Listening on http://localhost:${PORT}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
-});
+// Routes
+app.use('/api/auth', authRoutes);
+
+// 404 handler (must be after all routes)
+app.use(notFoundHandler);
+
+// Error handler (must be last)
+app.use(errorHandler);
+
+// Seed database and start server
+async function startServer() {
+  try {
+    await seedDatabase();
+
+    app.listen(PORT, () => {
+      console.log('✅ TimeTracking Server started');
+      console.log(`📡 Listening on http://localhost:${PORT}`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
