@@ -25,6 +25,7 @@ import {
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
+import { getFullName } from '../../utils/userColors';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface YearCalendarProps {
@@ -86,12 +87,23 @@ export function YearCalendar({
   const yearEnd = endOfYear(currentYear);
   const allDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
 
-  // Calculate hours worked per day
+  // Calculate hours worked per day (with user details)
   const hoursByDay = useMemo(() => {
     const map = new Map<string, number>();
     timeEntries.forEach((entry) => {
       const dateKey = entry.date;
       map.set(dateKey, (map.get(dateKey) || 0) + (entry.hours || 0));
+    });
+    return map;
+  }, [timeEntries]);
+
+  // Get entries by day for tooltips
+  const entriesByDay = useMemo(() => {
+    const map = new Map<string, TimeEntry[]>();
+    timeEntries.forEach((entry) => {
+      const dateKey = entry.date;
+      const existing = map.get(dateKey) || [];
+      map.set(dateKey, [...existing, entry]);
     });
     return map;
   }, [timeEntries]);
@@ -235,10 +247,35 @@ export function YearCalendar({
 
                   const dateKey = format(day, 'yyyy-MM-dd');
                   const hours = hoursByDay.get(dateKey) || 0;
+                  const dayEntries = entriesByDay.get(dateKey) || [];
                   const dayAbsences = absencesByDay.get(dateKey) || [];
                   const hasAbsence = dayAbsences.length > 0;
                   const colorClass = getIntensityColor(hours, hasAbsence);
                   const dayIsToday = isToday(day);
+
+                  // Build detailed tooltip
+                  let tooltipText = `${format(day, 'd. MMM yyyy', { locale: de })}`;
+
+                  if (dayEntries.length > 0) {
+                    tooltipText += `\n\n📊 Arbeitsstunden (${hours.toFixed(1)}h):`;
+                    dayEntries.forEach(entry => {
+                      const fullName = getFullName(entry.firstName, entry.lastName);
+                      tooltipText += `\n• ${fullName}: ${entry.hours}h (${entry.startTime}-${entry.endTime})`;
+                    });
+                  } else {
+                    tooltipText += `\n${hours.toFixed(1)}h gearbeitet`;
+                  }
+
+                  if (hasAbsence) {
+                    tooltipText += `\n\n🏖️ Abwesenheiten:`;
+                    dayAbsences.forEach(absence => {
+                      const fullName = getFullName(absence.firstName, absence.lastName);
+                      const typeLabel = absence.type === 'vacation' ? 'Urlaub' :
+                                       absence.type === 'sick' ? 'Krank' :
+                                       absence.type === 'overtime_comp' ? 'Ausgleich' : 'Unbezahlt';
+                      tooltipText += `\n• ${fullName}: ${typeLabel}`;
+                    });
+                  }
 
                   return (
                     <div
@@ -247,11 +284,7 @@ export function YearCalendar({
                         dayIsToday ? 'ring-2 ring-blue-500' : ''
                       }`}
                       onClick={() => onDayClick?.(day)}
-                      title={`${format(day, 'd. MMM yyyy', { locale: de })}\n${hours.toFixed(1)}h gearbeitet${
-                        hasAbsence
-                          ? `\n${dayAbsences.map((a) => a.type).join(', ')}`
-                          : ''
-                      }`}
+                      title={tooltipText}
                     />
                   );
                 })}

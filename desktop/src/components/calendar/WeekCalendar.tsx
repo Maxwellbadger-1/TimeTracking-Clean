@@ -24,6 +24,7 @@ import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarLegend } from './CalendarLegend';
 import { getEventColor } from '../../utils/calendarUtils';
+import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface WeekCalendarProps {
@@ -217,12 +218,26 @@ export function WeekCalendar({
                 {dayAbsences.length > 0 && (
                   <div className="absolute top-2 left-2 right-2 z-10">
                     {dayAbsences.map((absence) => {
-                      const colors = getEventColor(absence.type as any);
+                      const type = absence.type === 'vacation' ? 'vacation' :
+                                   absence.type === 'sick' ? 'sick' :
+                                   absence.type === 'overtime_comp' ? 'overtime_comp' : 'unpaid';
+                      const colors = getEventColor(type);
+                      const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
+                      const fullName = getFullName(absence.firstName, absence.lastName);
+
                       return (
                         <div
                           key={absence.id}
-                          className={`${colors.bg} ${colors.border} ${colors.text} border-l-4 px-2 py-1 rounded text-xs font-medium mb-1 shadow-sm`}
+                          className={`${colors.bg} ${colors.border} ${colors.text} border-l-4 px-2 py-1 rounded text-xs font-medium mb-1 shadow-sm flex items-center gap-1`}
+                          title={`${fullName}: ${
+                            type === 'vacation' ? 'Urlaub' :
+                            type === 'sick' ? 'Krank' :
+                            type === 'overtime_comp' ? 'Überstunden-Ausgleich' : 'Unbezahlt'
+                          }`}
                         >
+                          <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
+                            {initials}
+                          </span>
                           {absence.type === 'vacation' && '🏖️ Urlaub'}
                           {absence.type === 'sick' && '🤒 Krank'}
                           {absence.type === 'unpaid' && '📅 Unbezahlt'}
@@ -238,18 +253,26 @@ export function WeekCalendar({
                   const style = getEntryStyle(entry);
                   if (!style) return null;
 
-                  const colors = getEventColor('work');
+                  const userColor = getUserColor(entry.userId);
+                  const initials = getInitials(entry.firstName, entry.lastName, entry.userInitials);
+                  const fullName = getFullName(entry.firstName, entry.lastName);
 
                   return (
                     <div
                       key={entry.id}
-                      className={`absolute left-1 right-1 ${colors.bg} ${colors.border} ${colors.text} border-l-4 rounded px-2 py-1 text-xs font-medium shadow-sm hover:shadow-md transition-all cursor-pointer z-10 overflow-hidden`}
+                      className={`absolute left-1 right-1 ${userColor.bg} ${userColor.border} ${userColor.text} border-l-4 rounded px-2 py-1 text-xs font-medium shadow-sm hover:shadow-md transition-all cursor-pointer z-10 overflow-hidden`}
                       style={{
                         top: `${style.top}px`,
                         height: `${style.height}px`,
                       }}
-                      title={`${entry.startTime} - ${entry.endTime} (${entry.hours}h)`}
+                      title={`${fullName}\n${entry.startTime} - ${entry.endTime} (${entry.hours}h)${entry.breakMinutes ? `\nPause: ${entry.breakMinutes}min` : ''}`}
                     >
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className={`w-4 h-4 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold`}>
+                          {initials}
+                        </span>
+                        <span className="font-semibold truncate">{fullName}</span>
+                      </div>
                       <div className="font-semibold truncate">
                         {entry.startTime} - {entry.endTime}
                       </div>
@@ -257,11 +280,6 @@ export function WeekCalendar({
                         {entry.hours}h
                         {entry.breakMinutes ? ` (${entry.breakMinutes}min Pause)` : ''}
                       </div>
-                      {entry.description && (
-                        <div className="text-xs opacity-70 truncate mt-1">
-                          {entry.description}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
