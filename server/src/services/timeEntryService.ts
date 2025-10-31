@@ -174,27 +174,36 @@ export function checkOverlap(
 
 /**
  * Get all time entries (with optional user filter)
+ * Includes user information (firstName, lastName, initials) via JOIN
  */
 export function getAllTimeEntries(userId?: number): TimeEntry[] {
   let query = `
-    SELECT * FROM time_entries
+    SELECT
+      te.*,
+      u.firstName,
+      u.lastName,
+      u.email,
+      SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
+    FROM time_entries te
+    LEFT JOIN users u ON te.userId = u.id
     WHERE 1=1
   `;
 
   const params: unknown[] = [];
 
   if (userId) {
-    query += ' AND userId = ?';
+    query += ' AND te.userId = ?';
     params.push(userId);
   }
 
-  query += ' ORDER BY date DESC, startTime DESC';
+  query += ' ORDER BY te.date DESC, te.startTime DESC';
 
   return db.prepare(query).all(...params) as TimeEntry[];
 }
 
 /**
  * Get time entries by date range
+ * Includes user information (firstName, lastName, initials) via JOIN
  */
 export function getTimeEntriesByDate(
   userId: number,
@@ -202,9 +211,16 @@ export function getTimeEntriesByDate(
   endDate: string
 ): TimeEntry[] {
   const query = `
-    SELECT * FROM time_entries
-    WHERE userId = ? AND date >= ? AND date <= ?
-    ORDER BY date ASC, startTime ASC
+    SELECT
+      te.*,
+      u.firstName,
+      u.lastName,
+      u.email,
+      SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
+    FROM time_entries te
+    LEFT JOIN users u ON te.userId = u.id
+    WHERE te.userId = ? AND te.date >= ? AND te.date <= ?
+    ORDER BY te.date ASC, te.startTime ASC
   `;
 
   return db.prepare(query).all(userId, startDate, endDate) as TimeEntry[];

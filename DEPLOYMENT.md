@@ -1,27 +1,554 @@
 # TimeTracker - Deployment Guide
 
-Komplette Anleitung zur Installation des TimeTracker Systems für den Produktivbetrieb.
+**Die einfachste Multi-User Zeiterfassung der Welt!**
+
+> 💡 **Installation in 30 Sekunden:** Download → Doppelklick → Fertig!
+> 🚀 **Automatischer Multi-User:** Keine Konfiguration nötig!
+> 🌐 **Funktioniert überall:** Büro (LAN) oder Home-Office (kostenlos über Cloudflare)
+
+---
+
+## 🎯 Wie es funktioniert
+
+### Embedded Server Architektur
+
+Jede TimeTracker Installation enthält **ALLES**:
+- ✅ Desktop-App (Frontend)
+- ✅ Server (Backend, automatisch im Hintergrund)
+- ✅ Datenbank (SQLite)
+- ✅ Standard Admin-User (vorinstalliert)
+
+**Der erste PC wird automatisch zum "Master-Server".**
+**Alle anderen PCs finden ihn automatisch und verbinden sich.**
+
+### Keine Cloud-Kosten!
+
+- 💰 **Büro (LAN):** 100% kostenlos, automatische Server-Erkennung
+- 💰 **Home-Office:** 100% kostenlos über Cloudflare Tunnel
 
 ---
 
 ## 📋 Voraussetzungen
 
-### Server-Computer
-- **Windows Server**, **Linux Server** oder **Windows/macOS PC** der 24/7 läuft
-- **Node.js 20+** installiert
-- **Netzwerkzugang** für alle Mitarbeiter-PCs (LAN/WLAN)
-- Mindestens **2 GB RAM** und **10 GB freier Speicher**
-
-### Mitarbeiter-PCs
+### Für ALLE PCs (Master + Clients)
 - **Windows 10/11**, **macOS 10.15+** oder **Linux**
-- Netzwerkverbindung zum Server
-- Keine besonderen Anforderungen (Desktop-App ist nur ~10 MB)
+- Mindestens **2 GB RAM** und **500 MB freier Speicher**
+- Netzwerkverbindung (LAN/WLAN für Büro, Internet für Home-Office)
+
+### Master-Server PC (der erste PC, der installiert wird)
+- Sollte während Arbeitszeiten laufen
+- Empfohlen: Dedizierter PC oder Server (kann auch normaler Arbeitsplatz-PC sein)
 
 ---
 
-## 🚀 Setup-Prozess
+## 🚀 Installation - So einfach geht's!
 
-### Phase 1: Server installieren (EINMALIG)
+### Schritt 1: Download von GitHub
+
+1. Besuche: **[github.com/username/timetracker/releases/latest](https://github.com/username/timetracker/releases/latest)**
+2. Wähle deine Plattform:
+   - **Windows:** `TimeTracker_1.0.0_x64-setup.exe`
+   - **macOS:** `TimeTracker_1.0.0_x64.dmg`
+   - **Linux:** `TimeTracker_1.0.0_amd64.AppImage`
+3. Download starten (~15 MB)
+
+---
+
+### Schritt 2: Installation (Master-Server PC)
+
+**Der erste PC wird automatisch zum Master-Server!**
+
+#### Windows:
+1. Doppelklick auf `TimeTracker_1.0.0_x64-setup.exe`
+2. Klick "Installieren"
+3. Warten (~30 Sekunden)
+4. "Fertig" klicken
+
+#### macOS:
+1. Doppelklick auf `TimeTracker_1.0.0_x64.dmg`
+2. TimeTracker.app nach Programme ziehen
+3. Programme → TimeTracker doppelklicken
+
+#### Linux:
+1. Rechtsklick auf `.AppImage` → Eigenschaften → Ausführbar machen
+2. Doppelklick zum Starten
+
+**✅ Installation abgeschlossen!**
+
+---
+
+### Schritt 3: Erster Start (Master-Server Setup)
+
+**Die App startet automatisch...**
+
+```
+┌─────────────────────────────────────────────┐
+│  🔍 Suche nach Server im Netzwerk...       │
+│  ⏳ Bitte warten...                        │
+└─────────────────────────────────────────────┘
+```
+
+**...nach 3 Sekunden:**
+
+```
+┌─────────────────────────────────────────────┐
+│  📡 Kein Server gefunden                    │
+│                                             │
+│  Möchten Sie Master-Server werden?          │
+│                                             │
+│  ℹ️  Als Master-Server können andere PCs   │
+│     im Netzwerk automatisch verbinden.      │
+│                                             │
+│  [ Ja, Master werden ]  [ Abbrechen ]       │
+└─────────────────────────────────────────────┘
+```
+
+**Klick "Ja, Master werden"**
+
+**Die App richtet sich automatisch ein:**
+```
+✅ Server wird gestartet...
+✅ Datenbank wird initialisiert...
+✅ Admin-User wird erstellt...
+✅ Netzwerk-Discovery aktiviert...
+✅ Fertig!
+```
+
+---
+
+### Schritt 4: Admin-Login (Erster Login)
+
+```
+┌─────────────────────────────────────────────┐
+│  🎉 Willkommen zu TimeTracker!              │
+│                                             │
+│  Sie sind der Master-Server!                │
+│                                             │
+│  Standard-Zugangsdaten:                     │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━                  │
+│  Username: admin                            │
+│  Passwort: admin123                         │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━                  │
+│                                             │
+│  [ Anmelden ]                               │
+└─────────────────────────────────────────────┘
+```
+
+**Login mit:**
+- Username: `admin`
+- Passwort: `admin123`
+
+---
+
+### Schritt 5: Passwort ändern (Zwingend!)
+
+```
+┌─────────────────────────────────────────────┐
+│  ⚠️  Passwort ändern erforderlich           │
+│                                             │
+│  Aus Sicherheitsgründen müssen Sie          │
+│  Ihr Passwort ändern.                       │
+│                                             │
+│  Neues Passwort:                            │
+│  [ ••••••••••••••••               ]         │
+│                                             │
+│  Bestätigen:                                │
+│  [ ••••••••••••••••               ]         │
+│                                             │
+│  [ Passwort ändern ]                        │
+└─────────────────────────────────────────────┘
+```
+
+**✅ Master-Server ist bereit!**
+
+```
+┌─────────────────────────────────────────────┐
+│  ✅ Master-Server läuft!                    │
+│                                             │
+│  📡 Im Netzwerk sichtbar als:               │
+│     "TimeTracker Master"                    │
+│                                             │
+│  🌐 Server-URL:                             │
+│     http://192.168.1.100:3000               │
+│                                             │
+│  👥 Andere PCs können jetzt automatisch     │
+│     verbinden!                              │
+│                                             │
+│  [ OK ]                                     │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+### Schritt 6: Mitarbeiter-Accounts erstellen
+
+**Im Admin-Dashboard:**
+
+1. Sidebar → **"Mitarbeiter"** (oder `Ctrl/Cmd+6`)
+2. Klick **"Neuer Mitarbeiter"**
+3. Formular ausfüllen:
+   ```
+   Username:       max.mustermann
+   E-Mail:         max.mustermann@firma.de
+   Vorname:        Max
+   Nachname:       Mustermann
+   Passwort:       Erstpasswort123
+   Abteilung:      IT
+   Position:       Entwickler
+   Wochenstunden:  40
+   Urlaubstage:    30
+   Rolle:          Mitarbeiter
+   Status:         Aktiv
+   ```
+4. Klick **"Erstellen"**
+
+**✅ Mitarbeiter angelegt!**
+
+**Login-Daten notieren und an Mitarbeiter übergeben:**
+- Username: `max.mustermann`
+- Passwort: `Erstpasswort123`
+
+---
+
+### Schritt 7: Weitere PCs installieren (Mitarbeiter)
+
+**Jeder Mitarbeiter installiert die gleiche `.exe` auf seinem PC:**
+
+#### Installation:
+1. Download `TimeTracker_1.0.0_x64-setup.exe` (gleiche Datei!)
+2. Doppelklick → Installieren
+3. App öffnen
+
+#### Automatische Server-Erkennung:
+
+```
+┌─────────────────────────────────────────────┐
+│  🔍 Suche nach Server im Netzwerk...       │
+│  ⏳ Bitte warten...                        │
+└─────────────────────────────────────────────┘
+```
+
+**...nach 2-3 Sekunden:**
+
+```
+┌─────────────────────────────────────────────┐
+│  ✅ Master-Server gefunden!                 │
+│                                             │
+│  Server:                                    │
+│  📡 DESKTOP-PC-01 (192.168.1.100)          │
+│                                             │
+│  [ Verbinden ]  [ Ignorieren ]              │
+└─────────────────────────────────────────────┘
+```
+
+**Klick "Verbinden"**
+
+#### Login:
+
+```
+┌─────────────────────────────────────────────┐
+│  Anmeldung                                  │
+│                                             │
+│  Verbunden mit: DESKTOP-PC-01               │
+│                                             │
+│  Benutzername:                              │
+│  [ max.mustermann             ]             │
+│                                             │
+│  Passwort:                                  │
+│  [ ••••••••••••••             ]             │
+│                                             │
+│  [ Anmelden ]                               │
+└─────────────────────────────────────────────┘
+```
+
+**Login mit:**
+- Username: `max.mustermann`
+- Passwort: `Erstpasswort123`
+
+**✅ FERTIG! Mitarbeiter kann arbeiten!**
+
+---
+
+## 🏢 Multi-User Modi
+
+### Modus 1: Büro (LAN) - Standard ⭐
+
+**Wie es funktioniert:**
+- Automatische Server-Erkennung über **mDNS** (wie AirDrop, Chromecast)
+- Keine Konfiguration nötig
+- Sehr schnell (lokales Netzwerk)
+- Kein Internet nötig
+
+**Anforderungen:**
+- Alle PCs im gleichen Netzwerk (LAN/WLAN)
+- Router erlaubt mDNS (Standard bei den meisten Routern)
+
+**Setup:** KEINE! Funktioniert automatisch.
+
+---
+
+### Modus 2: Home-Office (Cloudflare Tunnel) - Optional
+
+**Für Mitarbeiter im Home-Office oder Remote-Arbeit**
+
+#### Admin aktiviert Remote-Zugriff:
+
+1. Master-Server PC → **Einstellungen** → **Netzwerk**
+2. Klick **"Remote-Zugriff aktivieren"**
+
+```
+┌─────────────────────────────────────────────┐
+│  Remote-Zugriff aktivieren                  │
+│                                             │
+│  Cloudflare Tunnel wird eingerichtet...     │
+│  ⏳ Bitte warten...                        │
+└─────────────────────────────────────────────┘
+```
+
+**...nach 10-20 Sekunden:**
+
+```
+┌─────────────────────────────────────────────┐
+│  ✅ Remote-Zugriff aktiviert!               │
+│                                             │
+│  🌐 Server-URL (öffentlich):                │
+│  ┌─────────────────────────────────┐        │
+│  │ https://tt-firma-abc123.cf.com │        │
+│  └─────────────────────────────────┘        │
+│                                             │
+│  [ URL kopieren ]  [ QR-Code zeigen ]       │
+│                                             │
+│  ℹ️  Diese URL an Home-Office Mitarbeiter  │
+│     schicken!                               │
+│                                             │
+│  [ Schließen ]                              │
+└─────────────────────────────────────────────┘
+```
+
+#### Home-Office Mitarbeiter verbindet:
+
+1. App installieren (gleiche `.exe`)
+2. App startet
+
+```
+┌─────────────────────────────────────────────┐
+│  🔍 Kein lokaler Server gefunden            │
+│                                             │
+│  Remote-Server URL:                         │
+│  ┌─────────────────────────────────┐        │
+│  │ https://tt-firma-abc123.cf.com │        │
+│  └─────────────────────────────────┘        │
+│                                             │
+│  [ Verbinden ]                              │
+└─────────────────────────────────────────────┘
+```
+
+3. URL einfügen (von Admin erhalten)
+4. Klick "Verbinden"
+5. Login mit Zugangsdaten
+6. ✅ Fertig!
+
+**Kosten:** 💰 **0,00 € - Cloudflare Tunnel ist 100% kostenlos!**
+
+---
+
+## 📊 Zusammenfassung: Was muss gemacht werden?
+
+| Schritt | Wer? | Dauer | Komplexität |
+|---------|------|-------|-------------|
+| 1. App downloaden | Admin | 30 Sek | ⭐ Sehr einfach |
+| 2. App installieren | Admin | 30 Sek | ⭐ Sehr einfach |
+| 3. Master-Server Setup | Admin | 1 Min | ⭐ Sehr einfach |
+| 4. Mitarbeiter anlegen | Admin | 1 Min pro Person | ⭐ Sehr einfach |
+| 5. App auf weiteren PCs | Mitarbeiter | 1 Min | ⭐ Sehr einfach |
+| 6. Remote aktivieren (optional) | Admin | 2 Min | ⭐⭐ Einfach |
+
+**Gesamt-Aufwand für 10 Mitarbeiter:** ~20 Minuten
+
+---
+
+## ❓ Häufige Fragen (FAQ)
+
+### Q: Brauche ich einen separaten Server?
+**A:** Nein! Der erste PC der installiert wird, ist automatisch der Server.
+
+### Q: Muss ich Ports freigeben oder Router konfigurieren?
+**A:** Nein! Im LAN funktioniert alles automatisch. Für Home-Office nutzt du Cloudflare (auch keine Router-Konfiguration nötig).
+
+### Q: Was kostet Cloudflare Tunnel?
+**A:** 0,00 € - Komplett kostenlos! Auch für kommerzielle Nutzung.
+
+### Q: Was wenn der Master-Server PC neu startet?
+**A:** Die App startet automatisch mit Windows/macOS. Server läuft nach ~10 Sekunden wieder.
+
+### Q: Kann ich den Master-Server später wechseln?
+**A:** Ja! Datenbank-Backup kopieren, auf neuem PC installieren, Backup wiederherstellen, als Master starten.
+
+### Q: Wie viele Mitarbeiter kann das System handhaben?
+**A:** Problemlos 50-100 Benutzer auf einem normalen PC. Für mehr: Bessere Hardware für Master-Server.
+
+### Q: Was wenn Mitarbeiter die App zu Hause UND im Büro nutzen will?
+**A:** Kein Problem! Gleicher Login funktioniert überall. Im Büro verbindet die App automatisch zum LAN-Server, zu Hause zur Cloudflare-URL.
+
+### Q: Brauchen Mitarbeiter Admin-Rechte auf ihrem PC?
+**A:** Nein! Normale Benutzer-Rechte reichen.
+
+### Q: Funktioniert es ohne Internet?
+**A:** Ja! Im LAN (Büro) brauchst du kein Internet. Nur für Home-Office über Cloudflare.
+
+---
+
+## 🔒 Sicherheit
+
+### Automatische Sicherheits-Features:
+
+✅ **Passwörter:** Bcrypt-Hashing (nicht im Klartext)
+✅ **Sessions:** HttpOnly Cookies (XSS-Schutz)
+✅ **HTTPS:** Automatisch über Cloudflare Tunnel
+✅ **Firewall:** Nur lokales Netzwerk (LAN-Modus)
+✅ **Updates:** Automatisch über GitHub Releases
+
+### Best Practices:
+
+1. ⚠️ **Master-Server PC:** Sollte physisch gesichert sein
+2. ⚠️ **Admin-Passwort:** Stark und einzigartig
+3. ⚠️ **Backups:** Täglich automatisch (siehe unten)
+4. ⚠️ **Updates:** Immer installieren
+
+---
+
+## 💾 Automatische Backups
+
+### Datenbank-Backup (Täglich, automatisch)
+
+Die App erstellt automatisch Backups:
+
+**Speicherort:**
+```
+Windows: C:\Users\USERNAME\AppData\Roaming\TimeTracker\backups\
+macOS:   ~/Library/Application Support/TimeTracker/backups/
+Linux:   ~/.local/share/TimeTracker/backups/
+```
+
+**Backup-Strategie:**
+- Täglich: Letzte 7 Tage behalten
+- Wöchentlich: Letzte 4 Wochen behalten
+- Monatlich: Letzte 12 Monate behalten
+
+**Manuelles Backup:**
+1. Einstellungen → Datenbank
+2. "Backup jetzt erstellen"
+3. Backup-Datei speichern
+
+---
+
+## 🔄 Updates
+
+### Automatische Updates (Standard)
+
+```
+Neue Version verfügbar!
+┌─────────────────────────────────────────────┐
+│  🎉 Update verfügbar!                       │
+│                                             │
+│  Aktuelle Version: 1.0.0                    │
+│  Neue Version:     1.1.0                    │
+│                                             │
+│  Änderungen:                                │
+│  • Neue Reports                             │
+│  • Bug-Fixes                                │
+│  • Performance-Verbesserungen               │
+│                                             │
+│  [ Jetzt aktualisieren ]  [ Später ]        │
+└─────────────────────────────────────────────┘
+```
+
+**Klick "Jetzt aktualisieren":**
+1. Download läuft im Hintergrund
+2. "Update bereit - App neu starten?"
+3. Klick "Ja"
+4. App startet neu mit neuer Version
+5. ✅ Fertig!
+
+---
+
+## 🛠️ Troubleshooting
+
+### Problem: "Kein Server gefunden" (Mitarbeiter-PC)
+
+**Lösung 1:** Manuelle Verbindung
+1. Login-Screen → "Erweiterte Einstellungen"
+2. Server-URL manuell eingeben: `http://192.168.1.100:3000`
+3. Verbinden
+
+**Lösung 2:** mDNS/Bonjour aktivieren
+- Windows: Bonjour-Service installieren (Apple Bonjour Print Services)
+- macOS: Sollte standardmäßig funktionieren
+- Linux: Avahi installieren (`sudo apt install avahi-daemon`)
+
+### Problem: Master-Server nicht erreichbar
+
+**Checkliste:**
+- ✅ Ist Master-Server PC eingeschaltet?
+- ✅ Ist TimeTracker App auf Master-Server gestartet?
+- ✅ Sind beide PCs im gleichen Netzwerk?
+- ✅ Firewall blockiert Port 3000? (Windows Firewall Regel erstellen)
+
+### Problem: Cloudflare Tunnel startet nicht
+
+**Lösung:**
+1. Einstellungen → Netzwerk
+2. "Remote-Zugriff deaktivieren"
+3. Warten 10 Sekunden
+4. "Remote-Zugriff aktivieren"
+5. Neuer Tunnel wird erstellt
+
+---
+
+## 📞 Support & Hilfe
+
+**Bei Problemen:**
+
+1. **App-Logs prüfen:**
+   - Hilfe → Logs anzeigen
+   - Oder: `%APPDATA%\TimeTracker\logs\`
+
+2. **GitHub Issues:**
+   - [github.com/username/timetracker/issues](https://github.com/username/timetracker/issues)
+   - Neues Issue erstellen mit:
+     - Beschreibung des Problems
+     - Screenshots
+     - Log-Dateien
+
+3. **Datenbank wiederherstellen:**
+   - Einstellungen → Datenbank → Backup wiederherstellen
+   - Backup-Datei auswählen
+   - App neu starten
+
+---
+
+## 🎉 Fertig!
+
+**Du hast jetzt ein vollständiges Multi-User Zeiterfassungssystem:**
+
+✅ Automatische Installation
+✅ Automatische Server-Erkennung
+✅ Automatische Backups
+✅ Automatische Updates
+✅ Multi-User (LAN + Home-Office)
+✅ 100% kostenlos
+✅ Datenschutz (Deine Daten bleiben bei dir!)
+
+**Viel Erfolg mit TimeTracker!** 🚀
+
+---
+
+### Alte Installation (Manuelle Server-Setup)
+
+<details>
+<summary>Nur für fortgeschrittene Benutzer - Klicken um alte Anleitung anzuzeigen</summary>
+
+### Phase 1: Server installieren (EINMALIG - NUR WENN EMBEDDED SERVER NICHT FUNKTIONIERT)
 
 #### Schritt 1: Repository auf Server kopieren
 

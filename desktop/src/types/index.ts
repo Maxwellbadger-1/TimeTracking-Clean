@@ -30,6 +30,11 @@ export interface TimeEntry {
   notes: string | null;
   createdAt: string;
   updatedAt: string | null;
+  // User information (from JOIN)
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  userInitials?: string; // e.g. "MM" for Max Mustermann
 }
 
 export interface AbsenceRequest {
@@ -45,6 +50,11 @@ export interface AbsenceRequest {
   approvedBy: number | null;
   approvedAt: string | null;
   createdAt: string;
+  // User information (from JOIN)
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  userInitials?: string; // e.g. "MM" for Max Mustermann
 }
 
 export interface VacationBalance {

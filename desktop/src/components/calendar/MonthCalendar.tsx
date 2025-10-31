@@ -26,6 +26,7 @@ import {
   formatCalendarDate,
   getEventColor,
 } from '../../utils/calendarUtils';
+import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface MonthCalendarProps {
@@ -177,50 +178,65 @@ export function MonthCalendar({
                     </div>
                   )}
 
-                  {/* Absences */}
+                  {/* Absences - with User Info */}
                   {dayAbsences.slice(0, 2).map((absence, idx) => {
                     const type = absence.type === 'vacation' ? 'vacation' :
                                  absence.type === 'sick' ? 'sick' :
                                  absence.type === 'overtime_comp' ? 'overtime_comp' : 'unpaid';
                     const colors = getEventColor(type);
+                    const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
+                    const fullName = getFullName(absence.firstName, absence.lastName);
 
                     return (
                       <div
                         key={idx}
                         className={`
-                          px-2 py-1 rounded-md text-xs font-medium truncate
+                          px-2 py-1 rounded-md text-xs font-medium truncate flex items-center gap-1
                           ${colors.bg} ${colors.text}
                         `}
-                        title={
+                        title={`${fullName}: ${
                           type === 'vacation' ? 'Urlaub' :
                           type === 'sick' ? 'Krank' :
                           type === 'overtime_comp' ? 'Überstunden-Ausgleich' : 'Unbezahlt'
-                        }
+                        }`}
                       >
-                        {type === 'vacation' ? '🏖️ Urlaub' :
-                         type === 'sick' ? '🤒 Krank' :
-                         type === 'overtime_comp' ? '⏰ Überstunden' : '📅 Unbezahlt'}
+                        <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
+                          {initials}
+                        </span>
+                        {type === 'vacation' ? '🏖️' :
+                         type === 'sick' ? '🤒' :
+                         type === 'overtime_comp' ? '⏰' : '📅'}
                       </div>
                     );
                   })}
 
-                  {/* Work Hours */}
-                  {totalHours > 0 && !dayAbsences.length && (
-                    <div
-                      className={`
-                        px-2 py-1 rounded-md text-xs font-medium
-                        ${getEventColor('work').bg}
-                        ${getEventColor('work').text}
-                      `}
-                    >
-                      💼 {totalHours.toFixed(1)}h
-                    </div>
-                  )}
+                  {/* Time Entries - Individual entries with User Info */}
+                  {dayEntries.slice(0, 3).map((entry, idx) => {
+                    const userColor = getUserColor(entry.userId);
+                    const initials = getInitials(entry.firstName, entry.lastName, entry.userInitials);
+                    const fullName = getFullName(entry.firstName, entry.lastName);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`
+                          px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1
+                          ${userColor.bg} ${userColor.text}
+                        `}
+                        title={`${fullName}: ${entry.hours.toFixed(1)}h (${entry.startTime} - ${entry.endTime})`}
+                      >
+                        <span className={`w-4 h-4 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold`}>
+                          {initials}
+                        </span>
+                        <span>{entry.hours.toFixed(1)}h</span>
+                      </div>
+                    );
+                  })}
 
                   {/* More indicator */}
-                  {(dayAbsences.length + (totalHours > 0 ? 1 : 0)) > 2 && (
+                  {(dayAbsences.length + dayEntries.length) > 3 && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
-                      +{(dayAbsences.length + (totalHours > 0 ? 1 : 0)) - 2} mehr
+                      +{(dayAbsences.length + dayEntries.length) - 3} mehr
                     </div>
                   )}
                 </div>

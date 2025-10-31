@@ -133,31 +133,42 @@ export function hasEnoughVacationDays(
 
 /**
  * Get all absence requests (with optional filters)
+ * Includes user information (firstName, lastName, initials) via JOIN
  */
 export function getAllAbsenceRequests(filters?: {
   userId?: number;
   status?: string;
   type?: string;
 }): AbsenceRequest[] {
-  let query = 'SELECT * FROM absence_requests WHERE 1=1';
+  let query = `
+    SELECT
+      ar.*,
+      u.firstName,
+      u.lastName,
+      u.email,
+      SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
+    FROM absence_requests ar
+    LEFT JOIN users u ON ar.userId = u.id
+    WHERE 1=1
+  `;
   const params: unknown[] = [];
 
   if (filters?.userId) {
-    query += ' AND userId = ?';
+    query += ' AND ar.userId = ?';
     params.push(filters.userId);
   }
 
   if (filters?.status) {
-    query += ' AND status = ?';
+    query += ' AND ar.status = ?';
     params.push(filters.status);
   }
 
   if (filters?.type) {
-    query += ' AND type = ?';
+    query += ' AND ar.type = ?';
     params.push(filters.type);
   }
 
-  query += ' ORDER BY createdAt DESC';
+  query += ' ORDER BY ar.createdAt DESC';
 
   return db.prepare(query).all(...params) as AbsenceRequest[];
 }
