@@ -18,11 +18,12 @@ import {
   Users,
   FileText,
   Clock,
+  Umbrella,
   LogOut,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-type ViewType = 'dashboard' | 'calendar' | 'users' | 'reports' | 'time-entries';
+type ViewType = 'dashboard' | 'calendar' | 'users' | 'reports' | 'time-entries' | 'absences';
 
 interface NavItem {
   id: ViewType;
@@ -46,6 +47,11 @@ const navItems: NavItem[] = [
     id: 'time-entries',
     label: 'Zeiterfassung',
     icon: <Clock className="w-5 h-5" />,
+  },
+  {
+    id: 'absences',
+    label: 'Abwesenheiten',
+    icon: <Umbrella className="w-5 h-5" />,
   },
   {
     id: 'users',

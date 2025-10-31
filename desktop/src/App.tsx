@@ -7,6 +7,7 @@ import { AdminDashboard } from './components/dashboard/AdminDashboard';
 import { CalendarPage } from './pages/CalendarPage';
 import { TimeEntriesPage } from './pages/TimeEntriesPage';
 import { UserManagementPage } from './pages/UserManagementPage';
+import { AbsencesPage } from './pages/AbsencesPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -69,6 +70,7 @@ export default function App() {
             )}
             {currentView === 'calendar' && <CalendarPage />}
             {currentView === 'time-entries' && <TimeEntriesPage />}
+            {currentView === 'absences' && <AbsencesPage />}
             {currentView === 'users' && user.role === 'admin' && <UserManagementPage />}
             {currentView === 'reports' && user.role === 'admin' && (
               <div className="p-8">
