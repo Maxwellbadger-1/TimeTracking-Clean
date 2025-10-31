@@ -13,7 +13,8 @@ export function getAllUsers(): UserPublic[] {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, status, createdAt
+             department, weeklyHours, vacationDaysPerYear, status, createdAt,
+             CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE deletedAt IS NULL
       ORDER BY createdAt DESC
@@ -33,7 +34,8 @@ export function getUserById(id: number): UserPublic | undefined {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, status, createdAt
+             department, weeklyHours, vacationDaysPerYear, status, createdAt,
+             CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE id = ? AND deletedAt IS NULL
     `);
