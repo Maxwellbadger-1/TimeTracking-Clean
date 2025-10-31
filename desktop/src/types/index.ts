@@ -8,9 +8,11 @@ export interface User {
   lastName: string;
   role: 'admin' | 'employee';
   department: string | null;
+  position?: string | null;
   weeklyHours: number;
   vacationDaysPerYear: number;
-  status: 'active' | 'inactive';
+  isActive: boolean;
+  status?: 'active' | 'inactive';
   createdAt: string;
 }
 
@@ -36,7 +38,7 @@ export interface AbsenceRequest {
   type: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
   startDate: string;
   endDate: string;
-  days: number;
+  daysRequired: number;
   status: 'pending' | 'approved' | 'rejected';
   reason: string | null;
   adminNote: string | null;

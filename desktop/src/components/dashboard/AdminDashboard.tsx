@@ -1,12 +1,76 @@
 import { useAuthStore } from '../../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Users, Clock, Umbrella, FileText, LogOut, CheckCircle } from 'lucide-react';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { Users, Clock, Umbrella, FileText, LogOut, CheckCircle, User } from 'lucide-react';
+import {
+  useActiveEmployees,
+  usePendingAbsenceRequests,
+  useApproveAbsenceRequest,
+  useRejectAbsenceRequest,
+  useTodayTimeEntries,
+} from '../../hooks';
+import { formatDateDE, calculateTotalHours, formatHours } from '../../utils';
+import type { AbsenceRequest, User as UserType, TimeEntry } from '../../types';
+import { useState } from 'react';
 
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+
+  // Fetch data
+  const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
+  const { data: pendingRequests, isLoading: loadingRequests } = usePendingAbsenceRequests();
+  const { data: todayEntries } = useTodayTimeEntries(0); // All entries for today
+
+  // Mutations
+  const approveRequest = useApproveAbsenceRequest();
+  const rejectRequest = useRejectAbsenceRequest();
 
   if (!user) return null;
+
+  // Calculate stats
+  const employeeCount = employees?.length || 0;
+  const pendingCount = pendingRequests?.length || 0;
+
+  // Get employees working today (have time entries today)
+  const workingToday = todayEntries?.reduce((acc: number[], entry: TimeEntry) => {
+    if (!acc.includes(entry.userId)) acc.push(entry.userId);
+    return acc;
+  }, [] as number[]).length || 0;
+
+  // Calculate total hours this month
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const monthlyHours = todayEntries
+    ? calculateTotalHours(todayEntries.filter((e: TimeEntry) => e.date.startsWith(currentMonth)))
+    : 0;
+
+  const handleApprove = async (requestId: number) => {
+    setApprovingId(requestId);
+    try {
+      await approveRequest.mutateAsync({
+        id: requestId,
+        data: { approvedBy: user.id },
+      });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (requestId: number) => {
+    const reason = prompt('Grund für Ablehnung:');
+    if (!reason) return;
+
+    setApprovingId(requestId);
+    try {
+      await rejectRequest.mutateAsync({
+        id: requestId,
+        data: { rejectedBy: user.id, reason },
+      });
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -42,9 +106,13 @@ export function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Mitarbeiter
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    0
-                  </p>
+                  {loadingEmployees ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {employeeCount}
+                    </p>
+                  )}
                 </div>
                 <div className="bg-blue-100 dark:bg-blue-900/20 p-3 rounded-lg">
                   <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -59,10 +127,10 @@ export function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Aktuell im Dienst
+                    Heute im Dienst
                   </p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    0
+                    {workingToday}
                   </p>
                 </div>
                 <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-lg">
@@ -80,9 +148,13 @@ export function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Offene Anträge
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    0
-                  </p>
+                  {loadingRequests ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {pendingCount}
+                    </p>
+                  )}
                 </div>
                 <div className="bg-yellow-100 dark:bg-yellow-900/20 p-3 rounded-lg">
                   <Umbrella className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
@@ -100,7 +172,7 @@ export function AdminDashboard() {
                     Stunden (Monat)
                   </p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    0h
+                    {formatHours(monthlyHours)}
                   </p>
                 </div>
                 <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
@@ -137,12 +209,82 @@ export function AdminDashboard() {
         {/* Pending Absence Requests */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Offene Urlaubsanträge</CardTitle>
+            <CardTitle>Offene Urlaubsanträge ({pendingCount})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <p>Keine offenen Anträge</p>
-            </div>
+            {loadingRequests ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner size="md" />
+              </div>
+            ) : pendingRequests && pendingRequests.length > 0 ? (
+              <div className="space-y-4">
+                {pendingRequests.map((request: AbsenceRequest) => {
+                  const employee = employees?.find((e: UserType) => e.id === request.userId);
+                  return (
+                    <div
+                      key={request.id}
+                      className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded">
+                            <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">
+                              {employee?.firstName} {employee?.lastName}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {request.type === 'vacation' && 'Urlaub'}
+                              {request.type === 'sick' && 'Krankmeldung'}
+                              {request.type === 'unpaid' && 'Unbezahlter Urlaub'}
+                              {request.type === 'overtime_comp' && 'Überstundenausgleich'}
+                            </p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                              {formatDateDE(request.startDate)} - {formatDateDE(request.endDate)}
+                              <span className="text-gray-500 dark:text-gray-400 ml-2">
+                                ({request.daysRequired} Tage)
+                              </span>
+                            </p>
+                            {request.reason && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 italic">
+                                "{request.reason}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleApprove(request.id)}
+                            disabled={approvingId === request.id}
+                          >
+                            {approvingId === request.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              'Genehmigen'
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleReject(request.id)}
+                            disabled={approvingId === request.id}
+                          >
+                            Ablehnen
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>Keine offenen Anträge</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -152,9 +294,61 @@ export function AdminDashboard() {
             <CardTitle>Team-Übersicht</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <p>Noch keine Mitarbeiter vorhanden</p>
-            </div>
+            {loadingEmployees ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner size="md" />
+              </div>
+            ) : employees && employees.length > 0 ? (
+              <div className="space-y-3">
+                {employees.map((employee: UserType) => {
+                  const isWorkingToday = todayEntries?.some((e: TimeEntry) => e.userId === employee.id);
+                  return (
+                    <div
+                      key={employee.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded ${
+                          isWorkingToday
+                            ? 'bg-green-100 dark:bg-green-900/20'
+                            : 'bg-gray-200 dark:bg-gray-600'
+                        }`}>
+                          <User className={`w-5 h-5 ${
+                            isWorkingToday
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {employee.firstName} {employee.lastName}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {employee.department || 'Keine Abteilung'} • {employee.position || 'Keine Position'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-medium ${
+                          isWorkingToday
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {isWorkingToday ? 'Im Dienst' : 'Nicht im Dienst'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {employee.weeklyHours}h/Woche
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>Noch keine Mitarbeiter vorhanden</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
