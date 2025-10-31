@@ -725,30 +725,59 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 6: Dashboard & Overview** 🔴 NOT STARTED
+### **Phase 6: Dashboard & Overview** 🟢 IN PROGRESS
 **Ziel:** Persönliches + Admin Dashboard
 
 **Tasks:**
-- [ ] EmployeeDashboard Component
-  - [ ] Heutige Arbeitszeit
-  - [ ] Wochenübersicht
-  - [ ] Verbleibende Urlaubstage
-  - [ ] Überstunden-Saldo
-  - [ ] Schnellzugriff (Zeit erfassen, Urlaub beantragen)
-- [ ] AdminDashboard Component
+- [x] Auth Store (Zustand) - Session Management
+- [x] UI Components Foundation
+  - [x] Button (variants: primary, secondary, danger, ghost)
+  - [x] Input (with label, error, helper text)
+  - [x] Card (Header, Title, Content, Footer)
+  - [x] LoadingSpinner (size variants)
+- [x] Login Component mit Validation
+- [x] App.tsx Auth-Flow (Login → Dashboard Routing)
+- [x] EmployeeDashboard Component (Skeleton)
+  - [x] Quick Stats Cards (Platzhalter)
+  - [x] Schnellzugriff Buttons
+  - [ ] Heutige Arbeitszeit (echte Daten)
+  - [ ] Wochenübersicht (echte Daten)
+  - [ ] Verbleibende Urlaubstage (echte Daten)
+  - [ ] Überstunden-Saldo (echte Daten)
+  - [ ] Recent Entries Liste
+- [x] AdminDashboard Component (Skeleton)
+  - [x] Quick Stats Cards (Platzhalter)
+  - [x] Schnellzugriff Buttons
   - [ ] Team-Übersicht (wer arbeitet gerade?)
-  - [ ] Offene Urlaubsanträge
-  - [ ] Monatsstatistik
-  - [ ] Schnellzugriff (Genehmigungen, Reports)
+  - [ ] Offene Urlaubsanträge (echte Daten)
+  - [ ] Monatsstatistik (echte Daten)
+- [ ] TanStack Query Hooks (API Integration)
+  - [ ] useTimeEntries
+  - [ ] useAbsenceRequests
+  - [ ] useVacationBalance
+  - [ ] useOvertimeBalance
+  - [ ] useUsers (Admin)
+- [ ] Time Entry Components
+  - [ ] TimeEntryForm
+  - [ ] TimeEntryList
+  - [ ] TimeEntryEdit
+- [ ] Absence Request Components
+  - [ ] AbsenceRequestForm
+  - [ ] AbsenceRequestList
+  - [ ] AbsenceApproval (Admin)
 - [ ] Notifications System
 - [ ] WebSocket für Real-time Updates
 
 **Success Criteria:**
-- ✅ Mitarbeiter sieht eigene Daten auf einen Blick
-- ✅ Admin sieht Team-Übersicht
-- ✅ Benachrichtigungen funktionieren
-- ✅ Real-time Updates via WebSocket
+- ✅ Login-Flow funktioniert
+- ✅ Role-based Routing (Admin vs Employee)
+- ⏳ Mitarbeiter sieht eigene Daten auf einen Blick
+- ⏳ Admin sieht Team-Übersicht
+- ⏳ Benachrichtigungen funktionieren
+- ⏳ Real-time Updates via WebSocket
 
+**Commit:** 1140bb4 (2025-10-31)
+**Status:** Foundation complete, data integration pending
 **Geschätzte Zeit:** 5-6 Stunden
 
 ---
