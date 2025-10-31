@@ -28,36 +28,35 @@ export function useCurrentVacationBalance(userId: number) {
 }
 
 // Get overtime balance
-export function useOvertimeBalance(userId: number) {
+export function useOvertimeBalance(userId: number, month?: string) {
+  const targetMonth = month || new Date().toISOString().substring(0, 7);
+
   return useQuery({
-    queryKey: ['overtimeBalance', userId],
+    queryKey: ['overtimeBalance', userId, targetMonth],
     queryFn: async () => {
-      const response = await apiClient.get<OvertimeBalance[]>(
-        `/time-entries/stats/overtime?userId=${userId}`
+      const response = await apiClient.get<OvertimeBalance>(
+        `/time-entries/stats/overtime?userId=${userId}&month=${targetMonth}`
       );
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch overtime balance');
       }
 
-      return response.data || [];
+      return response.data || { targetHours: 0, actualHours: 0, overtime: 0 };
     },
     enabled: !!userId,
   });
 }
 
 // Calculate total overtime hours
-export function useTotalOvertime(userId: number) {
-  const { data: overtimeBalances, ...rest } = useOvertimeBalance(userId);
+export function useTotalOvertime(userId: number, month?: string) {
+  const { data: overtimeBalance, ...rest } = useOvertimeBalance(userId, month);
 
-  const totalHours = overtimeBalances?.reduce(
-    (sum, balance) => sum + (balance.balance || 0),
-    0
-  ) || 0;
+  const totalHours = overtimeBalance?.overtime || 0;
 
   return {
     ...rest,
-    data: overtimeBalances,
+    data: overtimeBalance,
     totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimals
   };
 }
