@@ -547,7 +547,8 @@ TimeTracking-Clean/
 - ✅ Indexes erstellt für Performance
 
 **Abgeschlossen:** 2025-10-31
-**Commits:** TBD
+**Commits:** 547489e, fac0d44
+**Tag:** v0.2.0-phase1
 **Tatsächliche Zeit:** ~2 Stunden
 
 ---
