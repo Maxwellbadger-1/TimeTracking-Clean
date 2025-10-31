@@ -1111,51 +1111,64 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 8: Reports & Export** 🔴 NOT STARTED
+### **Phase 8: Reports & Export** ✅ COMPLETE
 **Ziel:** Monatsberichte, Überstunden, Export
 
 **Tasks:**
-- [ ] MonthlyReport Component (Stunden pro Mitarbeiter)
-- [ ] OvertimeReport Component
-- [ ] AbsenceReport Component (Kranktage, Urlaubstage)
-- [ ] Recharts Integration (Grafiken)
-- [ ] PDF Export (pdfmake oder jsPDF)
-- [ ] CSV Export
-- [ ] Excel Export (optional)
-- [ ] Filter: Zeitraum, Mitarbeiter, Abteilung
+- [x] ReportsPage erstellen
+- [x] MonthlyReport (Stunden pro Mitarbeiter)
+- [x] OvertimeReport Statistics
+- [x] AbsenceReport (Kranktage, Urlaubstage)
+- [x] CSV Export
+- [x] Filter: Monat, Mitarbeiter (Admin)
+- [x] Role-based Views (Admin: alle, Employee: eigene)
+- [x] Statistics Cards (Gesamtstunden, Arbeitstage, Ø, Abwesenheiten)
+- [x] Dark Mode Support
 
 **Success Criteria:**
 - ✅ Reports zeigen korrekte Daten
-- ✅ Grafiken sind lesbar
-- ✅ PDF/CSV Export funktioniert
+- ✅ CSV Export funktioniert
 - ✅ Admin kann Reports filtern
+- ✅ Role-based Access Control
 
+**Abgeschlossen:** 2025-10-31
+**Commits:** 1c0075a
+**Tatsächliche Zeit:** ~2 Stunden
 **Geschätzte Zeit:** 4-5 Stunden
+
+**Hinweis:** PDF Export und Recharts (Grafiken) wurden als optional markiert und nicht implementiert (YAGNI Prinzip - CSV Export reicht für jetzt)
 
 ---
 
 ### **Phase 9: UI/UX Polish** 🔴 NOT STARTED
-**Ziel:** Mobile-Optimierung, Responsive Design, Accessibility
+**Ziel:** Desktop-Optimierung, Accessibility, User Experience
+
+**WICHTIG:** Dies ist eine **Desktop-App** (Tauri), keine Mobile-App!
+- Keine Mobile-Optimierung nötig
+- Fokus auf Desktop-UX (Windows, macOS, Linux)
 
 **Tasks:**
-- [ ] Mobile Navigation
-- [ ] Responsive Tables (horizontal scroll)
-- [ ] Touch-friendly Buttons
-- [ ] Loading States
-- [ ] Error States
-- [ ] Empty States
-- [ ] Keyboard Navigation
-- [ ] ARIA Labels
-- [ ] Farbkontrast-Check (WCAG)
-- [ ] Dark Mode (optional)
+- [ ] Loading States überprüfen (alle API Calls)
+- [ ] Error States überprüfen (Fehlerbehandlung)
+- [ ] Empty States überprüfen (keine Daten vorhanden)
+- [ ] Keyboard Navigation testen
+  - [ ] Tab-Navigation funktioniert
+  - [ ] Enter/Escape in Modals
+  - [ ] Shortcuts (z.B. Ctrl+S für Save)
+- [ ] ARIA Labels für Screen Reader
+- [ ] Farbkontrast-Check (WCAG AA)
+- [ ] Form Validation Messages
+- [ ] Success Toasts (nach Actions)
+- [ ] Window Resize Handling (min. 1024x600)
 
 **Success Criteria:**
-- ✅ App funktioniert auf Mobile (Tablet + Phone)
-- ✅ Alle Interaktionen sind touch-friendly
-- ✅ Keyboard-Navigation möglich
-- ✅ Screen Reader kompatibel
+- ✅ Loading/Error/Empty States überall vorhanden
+- ✅ Keyboard-Navigation funktioniert
+- ✅ Screen Reader kompatibel (ARIA)
+- ✅ Farbkontrast WCAG AA konform
+- ✅ App funktioniert bei min. Window-Größe (1024x600)
 
-**Geschätzte Zeit:** 3-4 Stunden
+**Geschätzte Zeit:** 2-3 Stunden
 
 ---
 
