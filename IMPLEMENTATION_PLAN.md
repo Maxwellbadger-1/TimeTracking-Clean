@@ -579,27 +579,50 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 3: Time Tracking (Manual Entry)** 🔴 NOT STARTED
+### **Phase 3: Time Tracking (Manual Entry)** ✅ COMPLETE (Backend)
 **Ziel:** Manuelle Zeiterfassung für Mitarbeiter
 
 **Tasks:**
-- [ ] API Routes: GET/POST/PUT/DELETE /api/time-entries
-- [ ] Time Entry Service
-- [ ] Automatische Stunden-Berechnung
-- [ ] Pausen-Handling
-- [ ] Frontend: TimeEntryForm Component
-- [ ] Frontend: TimeEntryList Component
-- [ ] Nachträgliche Erfassung
-- [ ] Admin: Zeit-Korrektur
-- [ ] Validation (keine Überschneidungen, realistische Zeiten)
+- [x] API Routes: GET/POST/PUT/DELETE /api/time-entries
+- [x] Time Entry Service
+- [x] Automatische Stunden-Berechnung
+- [x] Pausen-Handling
+- [x] Validation (keine Überschneidungen, realistische Zeiten)
+- [x] Overtime Balance Calculation
+- [x] Admin: Zeit-Korrektur Permission Check
+- [x] Nachträgliche Erfassung (past dates only)
+- [ ] Frontend: TimeEntryForm Component (Phase 6)
+- [ ] Frontend: TimeEntryList Component (Phase 6)
 
 **Success Criteria:**
-- ✅ Mitarbeiter kann Zeiten erfassen
+- ✅ API Endpoints erstellt (GET/POST/PUT/DELETE)
 - ✅ Pausen werden korrekt abgezogen
+- ✅ Überschneidungen werden verhindert
 - ✅ Admin kann fremde Einträge korrigieren
 - ✅ Vergangene Tage erfassbar
+- ✅ Zukunfts-Datum wird abgelehnt
+- ✅ Pausen-Regel: >6h = min. 30 Min Pause
+- ✅ Overtime Balance wird automatisch berechnet
+- ✅ Audit Log Integration
+- ✅ Permission Checks (Employee: own, Admin: all)
 
-**Geschätzte Zeit:** 5-6 Stunden
+**Abgeschlossen:** 2025-10-31
+**Commits:** TBD (nach git commit)
+**Tatsächliche Zeit:** ~3 Stunden (Backend only)
+**Hinweis:** Frontend UI wird in Phase 6 (Dashboard) implementiert
+
+**Implementierte Features:**
+- `server/src/services/timeEntryService.ts` - Complete Business Logic
+- `server/src/routes/timeEntries.ts` - REST API Endpoints
+- `server/src/middleware/validation.ts` - Time Entry Validation
+- Automatic hours calculation from start/end/break
+- Overlap detection for same day
+- Future date prevention
+- Break rule enforcement (>6h requires 30min)
+- Overtime balance tracking per month
+- Permission system (Employee vs Admin)
+
+**Test Guide:** See `TEST_PHASE3.md` for complete API testing instructions
 
 ---
 

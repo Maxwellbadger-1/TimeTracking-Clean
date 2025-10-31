@@ -226,3 +226,184 @@ export function validateUserUpdate(
 
   next();
 }
+
+/**
+ * Validate time entry creation data
+ */
+export function validateTimeEntryCreate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const data = req.body;
+
+  // Required fields
+  if (!data.date?.trim()) {
+    res.status(400).json({
+      success: false,
+      error: 'Date is required',
+    });
+    return;
+  }
+
+  if (!data.startTime?.trim()) {
+    res.status(400).json({
+      success: false,
+      error: 'Start time is required',
+    });
+    return;
+  }
+
+  if (!data.endTime?.trim()) {
+    res.status(400).json({
+      success: false,
+      error: 'End time is required',
+    });
+    return;
+  }
+
+  if (!data.location || !['office', 'homeoffice', 'field'].includes(data.location)) {
+    res.status(400).json({
+      success: false,
+      error: 'Location must be "office", "homeoffice", or "field"',
+    });
+    return;
+  }
+
+  // Date format validation (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(data.date)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid date format (use YYYY-MM-DD)',
+    });
+    return;
+  }
+
+  // Time format validation (HH:MM)
+  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+  if (!timeRegex.test(data.startTime)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid start time format (use HH:MM)',
+    });
+    return;
+  }
+
+  if (!timeRegex.test(data.endTime)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid end time format (use HH:MM)',
+    });
+    return;
+  }
+
+  // Break minutes validation
+  if (data.breakMinutes !== undefined) {
+    const breakMinutes = parseInt(data.breakMinutes);
+    if (isNaN(breakMinutes) || breakMinutes < 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Break minutes must be a positive number',
+      });
+      return;
+    }
+  }
+
+  next();
+}
+
+/**
+ * Validate time entry update data
+ */
+export function validateTimeEntryUpdate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const data = req.body;
+
+  // Date format validation (if provided)
+  if (data.date !== undefined) {
+    if (!data.date.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'Date cannot be empty',
+      });
+      return;
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(data.date)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid date format (use YYYY-MM-DD)',
+      });
+      return;
+    }
+  }
+
+  // Time format validation (if provided)
+  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+
+  if (data.startTime !== undefined) {
+    if (!data.startTime.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'Start time cannot be empty',
+      });
+      return;
+    }
+
+    if (!timeRegex.test(data.startTime)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid start time format (use HH:MM)',
+      });
+      return;
+    }
+  }
+
+  if (data.endTime !== undefined) {
+    if (!data.endTime.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'End time cannot be empty',
+      });
+      return;
+    }
+
+    if (!timeRegex.test(data.endTime)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid end time format (use HH:MM)',
+      });
+      return;
+    }
+  }
+
+  // Location validation (if provided)
+  if (data.location !== undefined) {
+    if (!['office', 'homeoffice', 'field'].includes(data.location)) {
+      res.status(400).json({
+        success: false,
+        error: 'Location must be "office", "homeoffice", or "field"',
+      });
+      return;
+    }
+  }
+
+  // Break minutes validation (if provided)
+  if (data.breakMinutes !== undefined) {
+    const breakMinutes = parseInt(data.breakMinutes);
+    if (isNaN(breakMinutes) || breakMinutes < 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Break minutes must be a positive number',
+      });
+      return;
+    }
+  }
+
+  next();
+}
