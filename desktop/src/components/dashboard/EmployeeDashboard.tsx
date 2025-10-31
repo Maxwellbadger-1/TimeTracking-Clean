@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -11,9 +12,13 @@ import {
 } from '../../hooks';
 import { calculateTotalHours, formatHours, formatOvertimeHours, formatDateDE } from '../../utils';
 import type { TimeEntry } from '../../types';
+import { TimeEntryForm } from '../timeEntries/TimeEntryForm';
+import { AbsenceRequestForm } from '../absences/AbsenceRequestForm';
 
 export function EmployeeDashboard() {
   const { user, logout } = useAuthStore();
+  const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
+  const [showAbsenceForm, setShowAbsenceForm] = useState(false);
 
   // Fetch data
   const { data: todayEntries, isLoading: loadingToday } = useTodayTimeEntries(user?.id || 0);
@@ -153,11 +158,11 @@ export function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button variant="primary" fullWidth>
+              <Button variant="primary" fullWidth onClick={() => setShowTimeEntryForm(true)}>
                 <Clock className="w-4 h-4 mr-2" />
                 Zeit erfassen
               </Button>
-              <Button variant="secondary" fullWidth>
+              <Button variant="secondary" fullWidth onClick={() => setShowAbsenceForm(true)}>
                 <Umbrella className="w-4 h-4 mr-2" />
                 Urlaub beantragen
               </Button>
@@ -217,6 +222,10 @@ export function EmployeeDashboard() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Modals */}
+      <TimeEntryForm isOpen={showTimeEntryForm} onClose={() => setShowTimeEntryForm(false)} />
+      <AbsenceRequestForm isOpen={showAbsenceForm} onClose={() => setShowAbsenceForm(false)} />
     </div>
   );
 }
