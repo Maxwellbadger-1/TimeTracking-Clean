@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -16,6 +17,7 @@ import { useState } from 'react';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
+  const { setCurrentView } = useUIStore();
   const [approvingId, setApprovingId] = useState<number | null>(null);
 
   // Fetch data
@@ -179,15 +181,15 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button variant="primary" fullWidth>
+              <Button variant="primary" fullWidth onClick={() => setCurrentView('users')}>
                 <Users className="w-4 h-4 mr-2" />
                 Mitarbeiter verwalten
               </Button>
-              <Button variant="secondary" fullWidth>
+              <Button variant="secondary" fullWidth onClick={() => setCurrentView('absences')}>
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Anträge genehmigen
               </Button>
-              <Button variant="secondary" fullWidth>
+              <Button variant="secondary" fullWidth onClick={() => setCurrentView('reports')}>
                 <FileText className="w-4 h-4 mr-2" />
                 Berichte erstellen
               </Button>
