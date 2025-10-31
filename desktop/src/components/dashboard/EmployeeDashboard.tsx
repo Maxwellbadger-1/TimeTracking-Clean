@@ -14,6 +14,7 @@ import { calculateTotalHours, formatHours, formatOvertimeHours, formatDateDE } f
 import type { TimeEntry } from '../../types';
 import { TimeEntryForm } from '../timeEntries/TimeEntryForm';
 import { AbsenceRequestForm } from '../absences/AbsenceRequestForm';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 export function EmployeeDashboard() {
   const { user, logout } = useAuthStore();
@@ -46,10 +47,13 @@ export function EmployeeDashboard() {
                 {user.department || 'Keine Abteilung'}
               </p>
             </div>
-            <Button variant="ghost" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Abmelden
-            </Button>
+            <div className="flex items-center space-x-2">
+              <NotificationBell />
+              <Button variant="ghost" onClick={logout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Abmelden
+              </Button>
+            </div>
           </div>
         </div>
       </header>

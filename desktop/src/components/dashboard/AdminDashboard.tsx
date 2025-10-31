@@ -13,6 +13,7 @@ import {
 import { formatDateDE, calculateTotalHours, formatHours } from '../../utils';
 import type { AbsenceRequest, User as UserType, TimeEntry } from '../../types';
 import { useState } from 'react';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
@@ -86,10 +87,13 @@ export function AdminDashboard() {
                 {user.firstName} {user.lastName} - Administrator
               </p>
             </div>
-            <Button variant="ghost" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Abmelden
-            </Button>
+            <div className="flex items-center space-x-2">
+              <NotificationBell />
+              <Button variant="ghost" onClick={logout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Abmelden
+              </Button>
+            </div>
           </div>
         </div>
       </header>
