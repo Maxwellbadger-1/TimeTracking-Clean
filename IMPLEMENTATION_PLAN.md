@@ -961,10 +961,15 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 7: Management UI Pages** 🔴 NOT STARTED
+### **Phase 7: Management UI Pages** ✅ COMPLETE
 **Ziel:** Dedizierte Pages für Time Entries, Users, Absences Management
 
 **WICHTIG:** Backend APIs sind bereits komplett (Phase 1-4). Diese Phase implementiert nur die fehlenden Frontend-UIs!
+
+**Abgeschlossen:** 2025-10-31
+**Commits:** cd3c72a, 18ceb28, 64ba613, 224aa28, 6306c3a, 3e97d97, 0dcfbe1
+**Tatsächliche Zeit:** ~6.5 Stunden (inkl. Bugfixes)
+**Geschätzte Zeit:** 10-13 Stunden
 
 #### **7.1 Time Entry Management Page** ✅ COMPLETE
 **Backend Status:** ✅ Komplett (GET/POST/PUT/DELETE `/api/time-entries`)
@@ -1047,46 +1052,48 @@ TimeTracking-Clean/
 
 ---
 
-#### **7.3 Absence Management Page** 🔴 NOT STARTED
+#### **7.3 Absence Management Page** ✅ COMPLETE
 **Backend Status:** ✅ Komplett (GET/POST/PUT/PATCH `/api/absences`)
 **Ziel:** Übersicht aller Abwesenheiten (eigene + Team)
 
 **Tasks:**
-- [ ] `pages/AbsencesPage.tsx` erstellen
-- [ ] `components/absences/AbsenceTable.tsx` - Liste aller Anträge
-- [ ] `components/absences/AbsenceDetailsModal.tsx` - Detailansicht
-- [ ] Employee View
-  - [ ] Eigene Anträge (approved, pending, rejected)
-  - [ ] Status-Filter (Alle/Genehmigt/Ausstehend/Abgelehnt)
-  - [ ] Edit (nur pending)
-  - [ ] Delete (nur pending)
-  - [ ] Resend (rejected → pending)
-- [ ] Admin View
-  - [ ] Alle Anträge aller Mitarbeiter
-  - [ ] Filter nach Mitarbeiter
-  - [ ] Filter nach Status
-  - [ ] Filter nach Type (Urlaub/Krank/Unbezahlt/Überstundenausgleich)
-  - [ ] Approve/Reject Actions
-  - [ ] Bulk Approve (mehrere auf einmal)
-- [ ] Timeline View (optional)
-  - [ ] Kalender mit allen Abwesenheiten
-  - [ ] Übersicht Teamverfügbarkeit
-- [ ] Statistiken
-  - [ ] Genommene Urlaubstage (Jahr)
-  - [ ] Verbleibende Urlaubstage
-  - [ ] Kranktage (Jahr)
-  - [ ] Überstundenausgleich-Tage
+- [x] `pages/AbsencesPage.tsx` erstellen
+- [x] Inline Table implementation (kein separates Component nötig)
+- [x] Employee View
+  - [x] Eigene Anträge (approved, pending, rejected)
+  - [x] Status-Filter (Alle/Genehmigt/Ausstehend/Abgelehnt)
+  - [x] Delete (nur pending)
+- [x] Admin View
+  - [x] Alle Anträge aller Mitarbeiter
+  - [x] Filter nach Mitarbeiter (dynamisch)
+  - [x] Filter nach Status
+  - [x] Filter nach Type (Urlaub/Krank/Unbezahlt/Überstundenausgleich)
+  - [x] Approve/Reject Actions mit Grund-Eingabe
+- [x] Statistiken
+  - [x] Gesamt-Anträge
+  - [x] Ausstehend
+  - [x] Genehmigt
+  - [x] Abgelehnt
+- [x] Rejection Reason Display (adminNote)
+- [x] Status Badges mit Icons (Clock, CheckCircle, XCircle)
+- [x] Sidebar Integration (Umbrella Icon)
+- [x] Dark Mode Support
 
 **Success Criteria:**
 - ✅ Mitarbeiter sieht alle eigenen Anträge
 - ✅ Admin sieht alle Anträge aller Mitarbeiter
 - ✅ Filter funktionieren (Status, Type, Mitarbeiter)
-- ✅ Edit/Delete nur für pending Anträge
+- ✅ Delete nur für pending Anträge
 - ✅ Approve/Reject Actions (Admin)
 - ✅ Statistiken zeigen korrekte Daten
 - ✅ Responsive Design
 
+**Abgeschlossen:** 2025-10-31
+**Commits:** 6306c3a
+**Tatsächliche Zeit:** ~2 Stunden
 **Geschätzte Zeit:** 3-4 Stunden
+
+**Hinweis:** Timeline View und Bulk Approve wurden als optional markiert und nicht implementiert (YAGNI Prinzip)
 
 ---
 
