@@ -1,4 +1,8 @@
-use tauri::{Manager, menu::{Menu, MenuItem}, tray::{TrayIconBuilder, TrayIconEvent}};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
+};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -13,19 +17,34 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            // Create system tray menu
-            let show = MenuItem::with_id(app, "show", "Anzeigen", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &quit])?;
+            // System Tray Menü erstellen
+            let show_item = MenuItem::with_id(app, "show", "Anzeigen", true, None::<&str>)?;
+            let hide_item = MenuItem::with_id(app, "hide", "Verstecken", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
 
-            // Build system tray
+            let menu = Menu::with_items(
+                app,
+                &[&show_item, &hide_item, &quit_item],
+            )?;
+
+            // System Tray Icon erstellen
+            // Load icon from embedded resources
+            let icon = app.default_window_icon().cloned().unwrap();
+
             let _tray = TrayIconBuilder::new()
+                .icon(icon)
                 .menu(&menu)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
                         }
                     }
                     "quit" => {
@@ -34,12 +53,19 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => {
+                            // Bei Linksklick: Fenster anzeigen/fokussieren
+                            if let Some(window) = tray.app_handle().get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
+                        _ => {}
                     }
                 })
                 .build(app)?;

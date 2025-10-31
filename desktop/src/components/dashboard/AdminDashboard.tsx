@@ -2,7 +2,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { Users, Clock, Umbrella, FileText, LogOut, CheckCircle, User } from 'lucide-react';
+import { Users, Clock, Umbrella, FileText, CheckCircle, User } from 'lucide-react';
 import {
   useActiveEmployees,
   usePendingAbsenceRequests,
@@ -13,10 +13,9 @@ import {
 import { formatDateDE, calculateTotalHours, formatHours } from '../../utils';
 import type { AbsenceRequest, User as UserType, TimeEntry } from '../../types';
 import { useState } from 'react';
-import { NotificationBell } from '../notifications/NotificationBell';
 
 export function AdminDashboard() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [approvingId, setApprovingId] = useState<number | null>(null);
 
   // Fetch data
@@ -75,31 +74,17 @@ export function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Admin Dashboard
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {user.firstName} {user.lastName} - Administrator
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <NotificationBell />
-              <Button variant="ghost" onClick={logout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Abmelden
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Admin Dashboard
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            {user.firstName} {user.lastName} - Administrator
+          </p>
+        </div>
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Users */}

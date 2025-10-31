@@ -47,3 +47,9 @@ export {
   useMarkAllNotificationsRead,
   useDeleteNotification,
 } from './useNotifications';
+
+// Holidays
+export {
+  useHolidays,
+  useCurrentYearHolidays,
+} from './useHolidays';
