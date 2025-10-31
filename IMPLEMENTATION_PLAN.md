@@ -658,7 +658,7 @@ TimeTracking-Clean/
 - ✅ Insufficient overtime hours check
 
 **Abgeschlossen:** 2025-10-31
-**Commits:** TBD
+**Commits:** 264f4df
 **Tatsächliche Zeit:** ~4 Stunden (Backend only)
 **Hinweis:** Frontend UI wird in Phase 6 implementiert
 
