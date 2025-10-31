@@ -497,10 +497,12 @@ TimeTracking-Clean/
 - [x] Server package.json (Express, TypeScript, CORS)
 - [x] TypeScript Konfiguration (strict mode für Frontend + Backend)
 - [x] **Tauri Configuration** (tauri.conf.json)
-  - Bundle Identifier: `com.timetracking.app` ✅
-  - Window Title: "TimeTracking System" ✅
+  - Bundle Identifier: `com.dpolg-stiftung.timetracker` ✅
+  - Product Name: "Stiftung der DPolG TimeTracker" ✅
+  - Window Title: "Stiftung der DPolG TimeTracker" ✅
   - Window Size: 1280x800 (min: 1024x600) ✅
-  - Bundle targets: NSIS (Windows) ✅
+  - Publisher: "Stiftung der Deutschen Polizeigewerkschaft" ✅
+  - Bundle targets: NSIS (Windows), DMG (macOS), AppImage (Linux) ✅
 - [x] ESLint + Prettier Setup
 - [x] Tailwind CSS Setup (Frontend)
 - [x] README.md erstellen
@@ -702,26 +704,86 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 5: Calendar Views** 🔴 NOT STARTED
+### **Phase 5: Calendar Views** 🟢 IN PROGRESS
 **Ziel:** Monats-, Wochen-, Jahreskalender + Team-Kalender
 
 **Tasks:**
-- [ ] MonthCalendar Component
-- [ ] WeekCalendar Component
-- [ ] YearCalendar Component
-- [ ] TeamCalendar Component (alle Mitarbeiter)
-- [ ] Feiertage-Integration
-- [ ] Farbcodierung (Urlaub, Krank, Arbeit, etc.)
-- [ ] Responsive Design
-- [ ] Filter (Abteilung, Mitarbeiter)
+- [x] Navigation & Layout
+  - [x] Sidebar Component (modern, minimalistisch)
+  - [x] UI Store für View-Management
+  - [x] App.tsx Routing Integration
+  - [x] Calendar Page Container
+- [x] Calendar Utilities & Helpers
+  - [x] calendarUtils.ts (getDaysInMonth, getEventColor, etc.)
+  - [x] CalendarHeader Component (Today, Prev/Next, View Switcher)
+  - [x] CalendarLegend Component (Color Coding)
+- [x] Backend: Holidays API
+  - [x] GET /api/holidays (with year filter)
+  - [x] useHolidays Hook (TanStack Query)
+- [x] MonthCalendar Component (✅ COMPLETE)
+  - [x] Grid Layout (7 columns)
+  - [x] Color-coded Events (Arbeit, Urlaub, Krank, etc.)
+  - [x] Today Highlight
+  - [x] Previous/Next Month Navigation
+  - [x] Modern Design (soft shadows, rounded corners, smooth transitions)
+  - [x] Dark Mode Support
+- [ ] WeekCalendar Component (Timeline View)
+  - [ ] Timeline Design (8:00-18:00 Stunden-Blöcke)
+  - [ ] Drag & Drop Support (optional, später)
+  - [ ] Multi-day Events spanning
+  - [ ] Current Time Indicator
+- [ ] YearCalendar Component (Heatmap)
+  - [ ] GitHub-style Contribution Graph
+  - [ ] Arbeitsintensität pro Tag visualisiert
+  - [ ] Hover: Details anzeigen
+  - [ ] Click: Zu Tag springen
+- [ ] TeamCalendar Component (Admin only)
+  - [ ] Alle Mitarbeiter auf einen Blick
+  - [ ] Abwesenheiten/Verfügbarkeit
+  - [ ] Filter (Abteilung)
+- [ ] Additional Features (später)
+  - [ ] Day View (volle Tages-Timeline 8:00-18:00)
+  - [ ] Quick Edit (Klick auf Event → Inline bearbeiten)
+  - [ ] Drag & Drop (Time Entries verschieben)
+  - [ ] Print View (Monats-Report drucken)
+  - [ ] Filter & Search
+- [ ] Seed Holiday Data für Testing
+- [ ] Responsive Design für alle Views
+- [ ] Mobile Optimization
 
 **Success Criteria:**
-- ✅ Alle Kalender-Ansichten funktionieren
-- ✅ Feiertage werden angezeigt
-- ✅ Team-Übersicht zeigt alle Abwesenheiten
-- ✅ Mobile-optimiert
+- ✅ Sidebar Navigation funktioniert
+- ✅ Kalender ist sichtbar und navigierbar
+- ✅ MonthCalendar zeigt Daten korrekt an
+- ⏳ WeekCalendar funktioniert
+- ⏳ YearCalendar funktioniert (Heatmap)
+- ⏳ TeamCalendar funktioniert (Admin)
+- ⏳ Feiertage werden angezeigt
+- ⏳ Team-Übersicht zeigt alle Abwesenheiten
+- ⏳ Mobile-optimiert
 
-**Geschätzte Zeit:** 5-6 Stunden
+**Design Inspiration (Research):**
+- ✅ Professionelle Tools analysiert: Toggl Track, Clockify, Harvest
+- ✅ Best Practices identifiziert:
+  - Multiple View Options (Month, Week, Year) ✅
+  - Color-coded Entries ✅
+  - Clean, Minimal Design ✅
+  - Quick Navigation (Today, Prev/Next) ✅
+  - Timeline View für Week (TODO)
+  - Heatmap für Year (TODO)
+  - Team Availability Overview (TODO)
+
+**Future Enhancements (dokumentiert für später):**
+- **Day View:** Volle Tages-Timeline (8:00-18:00) mit Stunden-Blöcken
+- **Drag & Drop:** Time Entries per Drag & Drop verschieben (wie Toggl)
+- **Quick Edit:** Klick auf Event → Inline bearbeiten (kein Modal)
+- **Print View:** Monats-Report drucken für Papier-Archiv
+- **Advanced Filters:** Nach Projekt, Aktivität, Location filtern
+- **Export Calendar:** iCal, Google Calendar Integration
+
+**Geschätzte Zeit:** 5-6 Stunden (begonnen)
+**Bisher investiert:** ~2 Stunden
+**Verbleibend:** ~3-4 Stunden
 
 ---
 
@@ -811,7 +873,237 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 7: Reports & Export** 🔴 NOT STARTED
+### **Phase 6.5: Tauri Production-Ready** ✅ COMPLETE
+**Ziel:** Desktop-App production-ready machen mit System Tray, Notifications, HTTP Plugin
+
+**Tasks:**
+- [x] **Tauri HTTP Plugin** (tauri-plugin-http)
+  - [x] Installation: Rust Dependency + Frontend Package
+  - [x] Universal Fetch Wrapper (desktop/src/lib/tauriHttpClient.ts)
+  - [x] Auto-detect Tauri vs Browser
+  - [x] HttpOnly Cookie Support
+  - [x] Integration in API Client
+- [x] **System Tray Integration**
+  - [x] Cargo.toml: `tray-icon` Feature hinzufügen
+  - [x] Rust Implementation (desktop/src-tauri/src/lib.rs)
+  - [x] Tray Menu: "Anzeigen", "Verstecken", "Beenden"
+  - [x] Linksklick: Fenster anzeigen
+  - [x] Rechtsklick: Menü öffnen
+- [x] **Native Notifications**
+  - [x] Installation: tauri-plugin-notification
+  - [x] Frontend Helper Functions (desktop/src/lib/notifications.ts)
+  - [x] Permission Management
+  - [x] Notification Types: Absence Requests, Overtime, Reminders
+- [x] **Authentication Fixes für Tauri**
+  - [x] Server Response Format Fix ({data: {user}})
+  - [x] CORS: tauri://localhost Origin hinzufügen
+  - [x] Session Cookies: secure: false für localhost
+- [x] **Debug Tools**
+  - [x] DebugPanel Component (desktop/src/components/DebugPanel.tsx)
+  - [x] Real-time API Request/Response Logging
+  - [x] HTTP Method, URL, Status, Data Display
+- [x] **Production Configuration**
+  - [x] tauri.conf.json: Metadata aktualisieren
+  - [x] Product Name, Version, Bundle ID
+  - [x] Publisher, Copyright, Category
+- [x] **Dokumentation**
+  - [x] TAURI_DEPLOYMENT.md erstellen
+  - [x] Prerequisites (macOS, Windows, Linux)
+  - [x] Development Setup
+  - [x] Production Build Guide
+  - [x] Known Issues & Solutions
+  - [x] Distribution Guide
+
+**Success Criteria:**
+- ✅ Login funktioniert mit Tauri HTTP Plugin
+- ✅ HttpOnly Cookies werden persistent gespeichert
+- ✅ System Tray Icon in Menüleiste sichtbar
+- ✅ Tray Menu funktioniert (Anzeigen/Verstecken/Beenden)
+- ✅ Native Notifications konfiguriert
+- ✅ Debug Panel zeigt API Calls
+- ✅ CORS für Tauri Origins konfiguriert
+- ✅ Production Metadata vollständig
+- ✅ Multi-User Funktionalität bleibt erhalten
+
+**Commits:**
+- [Commit Hash] (2025-10-31) - Tauri HTTP Plugin + Auth Fixes
+- [Commit Hash] (2025-10-31) - System Tray + Native Notifications
+- [Commit Hash] (2025-10-31) - TAURI_DEPLOYMENT.md + Debug Panel
+
+**Abgeschlossen:** 2025-10-31
+**Status:** ✅ COMPLETE
+**Geschätzte Zeit:** 4 Stunden
+**Tatsächliche Zeit:** ~3 Stunden
+
+**Implementierte Files:**
+- `desktop/src-tauri/Cargo.toml` - Rust Dependencies (tray-icon, tauri-plugin-notification)
+- `desktop/src-tauri/src/lib.rs` - System Tray + Notification Plugin Init
+- `desktop/src/lib/tauriHttpClient.ts` - Universal Fetch Wrapper
+- `desktop/src/lib/notifications.ts` - Native Notification Helpers
+- `desktop/src/components/DebugPanel.tsx` - API Debug Panel
+- `desktop/src/api/client.ts` - Tauri HTTP Integration
+- `server/src/routes/auth.ts` - Response Format Fix
+- `server/src/server.ts` - CORS + Session Config
+- `TAURI_DEPLOYMENT.md` - Complete Deployment Guide
+
+**Tech Stack:**
+- **@tauri-apps/plugin-http** v2.5.4 - HttpOnly Cookie Support
+- **@tauri-apps/plugin-notification** v2.3.3 - Native Notifications
+- **tauri tray-icon** v0.21.2 - System Tray Integration
+- **mac-notification-sys** v0.6.8 - macOS Native Notifications
+- **notify-rust** v4.11.7 - Cross-platform Notifications
+
+**Known Issues (Gelöst):**
+- ~~Browser fetch() funktioniert nicht mit HttpOnly Cookies in Tauri~~ → Gelöst mit tauri-plugin-http
+- ~~CORS Errors von tauri://localhost~~ → Gelöst durch CORS Origin Konfiguration
+- ~~Session Cookies nicht persistent~~ → Gelöst mit Universal Fetch Wrapper
+- ~~Response Format Mismatch~~ → Gelöst durch Server Response Format Fix
+
+---
+
+### **Phase 7: Management UI Pages** 🔴 NOT STARTED
+**Ziel:** Dedizierte Pages für Time Entries, Users, Absences Management
+
+**WICHTIG:** Backend APIs sind bereits komplett (Phase 1-4). Diese Phase implementiert nur die fehlenden Frontend-UIs!
+
+#### **7.1 Time Entry Management Page** 🔴 NOT STARTED
+**Backend Status:** ✅ Komplett (GET/POST/PUT/DELETE `/api/time-entries`)
+**Ziel:** Dedizierte Seite zur Verwaltung aller Zeiteinträge
+
+**Tasks:**
+- [ ] `pages/TimeEntriesPage.tsx` erstellen
+- [ ] `components/timeEntries/TimeEntriesTable.tsx` - Liste mit Filterung
+- [ ] `components/timeEntries/TimeEntryRow.tsx` - Einzelne Zeile mit Actions
+- [ ] `components/timeEntries/EditTimeEntryModal.tsx` - Eintrag bearbeiten
+- [ ] Filter & Search Functionality
+  - [ ] Nach Datum (Von-Bis)
+  - [ ] Nach Location (Büro/Home Office/Außendienst)
+  - [ ] Nach Projekt (optional)
+  - [ ] Textsuche
+- [ ] Sortierung (Datum, Stunden, Location)
+- [ ] Pagination (wenn >100 Einträge)
+- [ ] CSV Export (nur eigene Einträge)
+- [ ] Statistiken (Gesamt-Stunden, Durchschnitt)
+- [ ] Edit/Delete Actions (mit Permission Check)
+
+**Success Criteria:**
+- ✅ Mitarbeiter sieht alle eigenen Zeiteinträge
+- ✅ Admin sieht Zeiteinträge aller Mitarbeiter
+- ✅ Filter funktionieren (Datum, Location)
+- ✅ Edit/Delete mit Permission Check
+- ✅ CSV Export funktioniert
+- ✅ Responsive Design
+
+**Geschätzte Zeit:** 3-4 Stunden
+
+---
+
+#### **7.2 User Management Page (Admin)** 🔴 NOT STARTED
+**Backend Status:** ✅ Komplett (GET/POST/PUT/DELETE `/api/users`, `/api/departments`, `/api/projects`)
+**Ziel:** Admin-Interface zur Mitarbeiterverwaltung
+
+**Tasks:**
+- [ ] `pages/UserManagementPage.tsx` erstellen
+- [ ] `components/users/UserTable.tsx` - Mitarbeiter-Liste
+- [ ] `components/users/CreateUserModal.tsx` - Neuen Mitarbeiter anlegen
+- [ ] `components/users/EditUserModal.tsx` - Mitarbeiter bearbeiten
+- [ ] `components/users/UserDetailsModal.tsx` - Detailansicht
+- [ ] Department Management
+  - [ ] `components/departments/DepartmentSelect.tsx`
+  - [ ] `components/departments/CreateDepartmentModal.tsx`
+  - [ ] Inline Create (+ Button im Select)
+- [ ] Project Management
+  - [ ] `components/projects/ProjectSelect.tsx`
+  - [ ] `components/projects/CreateProjectModal.tsx`
+  - [ ] Inline Create (+ Button im Select)
+- [ ] User Actions
+  - [ ] Create User (Formular mit Validation)
+  - [ ] Edit User (alle Felder änderbar)
+  - [ ] Delete User (Soft Delete mit Bestätigung)
+  - [ ] Role ändern (Admin ↔ Employee)
+  - [ ] Urlaubskontingent setzen
+  - [ ] Wochenstunden setzen
+- [ ] Search & Filter
+  - [ ] Nach Name suchen
+  - [ ] Nach Abteilung filtern
+  - [ ] Nach Rolle filtern (Admin/Employee)
+  - [ ] Nur aktive / inkl. gelöschte
+- [ ] Statistiken
+  - [ ] Anzahl Mitarbeiter pro Abteilung
+  - [ ] Durchschnittliche Wochenstunden
+  - [ ] Gesamturlaubstage
+
+**Success Criteria:**
+- ✅ Admin kann Mitarbeiter anlegen/bearbeiten/löschen
+- ✅ Abteilungen/Projekte verwaltbar
+- ✅ Urlaubskontingent & Wochenstunden änderbar
+- ✅ Rolle ändern funktioniert
+- ✅ Validation funktioniert (Email, Username, etc.)
+- ✅ Search/Filter funktionieren
+- ✅ Responsive Design
+
+**Geschätzte Zeit:** 4-5 Stunden
+
+---
+
+#### **7.3 Absence Management Page** 🔴 NOT STARTED
+**Backend Status:** ✅ Komplett (GET/POST/PUT/PATCH `/api/absences`)
+**Ziel:** Übersicht aller Abwesenheiten (eigene + Team)
+
+**Tasks:**
+- [ ] `pages/AbsencesPage.tsx` erstellen
+- [ ] `components/absences/AbsenceTable.tsx` - Liste aller Anträge
+- [ ] `components/absences/AbsenceDetailsModal.tsx` - Detailansicht
+- [ ] Employee View
+  - [ ] Eigene Anträge (approved, pending, rejected)
+  - [ ] Status-Filter (Alle/Genehmigt/Ausstehend/Abgelehnt)
+  - [ ] Edit (nur pending)
+  - [ ] Delete (nur pending)
+  - [ ] Resend (rejected → pending)
+- [ ] Admin View
+  - [ ] Alle Anträge aller Mitarbeiter
+  - [ ] Filter nach Mitarbeiter
+  - [ ] Filter nach Status
+  - [ ] Filter nach Type (Urlaub/Krank/Unbezahlt/Überstundenausgleich)
+  - [ ] Approve/Reject Actions
+  - [ ] Bulk Approve (mehrere auf einmal)
+- [ ] Timeline View (optional)
+  - [ ] Kalender mit allen Abwesenheiten
+  - [ ] Übersicht Teamverfügbarkeit
+- [ ] Statistiken
+  - [ ] Genommene Urlaubstage (Jahr)
+  - [ ] Verbleibende Urlaubstage
+  - [ ] Kranktage (Jahr)
+  - [ ] Überstundenausgleich-Tage
+
+**Success Criteria:**
+- ✅ Mitarbeiter sieht alle eigenen Anträge
+- ✅ Admin sieht alle Anträge aller Mitarbeiter
+- ✅ Filter funktionieren (Status, Type, Mitarbeiter)
+- ✅ Edit/Delete nur für pending Anträge
+- ✅ Approve/Reject Actions (Admin)
+- ✅ Statistiken zeigen korrekte Daten
+- ✅ Responsive Design
+
+**Geschätzte Zeit:** 3-4 Stunden
+
+---
+
+**Phase 7 Gesamt:**
+- **Geschätzte Zeit:** 10-13 Stunden
+- **Priorät:** HOCH (Backend fertig, nur UI fehlt!)
+- **Abhängigkeiten:** Keine (kann sofort starten)
+
+**Wichtig:**
+- Diese Phase implementiert KEINE neuen Backend-APIs
+- Alle APIs sind bereits in Phase 1-4 gebaut
+- Fokus liegt ausschließlich auf Frontend UI
+- Forms (TimeEntryForm, AbsenceRequestForm) existieren bereits im Dashboard
+- Diese Phase baut die Management/List Views
+
+---
+
+### **Phase 8: Reports & Export** 🔴 NOT STARTED
 **Ziel:** Monatsberichte, Überstunden, Export
 
 **Tasks:**
@@ -834,7 +1126,7 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 8: UI/UX Polish** 🔴 NOT STARTED
+### **Phase 9: UI/UX Polish** 🔴 NOT STARTED
 **Ziel:** Mobile-Optimierung, Responsive Design, Accessibility
 
 **Tasks:**
@@ -859,7 +1151,7 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 9: Testing & Bug Fixes** 🔴 NOT STARTED
+### **Phase 10: Testing & Bug Fixes** 🔴 NOT STARTED
 **Ziel:** Manuelles Testing, Bug-Fixing, Edge Cases
 
 **Tasks:**
@@ -884,7 +1176,7 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 10: Deployment Preparation** 🔴 NOT STARTED
+### **Phase 11: Deployment Preparation** 🔴 NOT STARTED
 **Ziel:** Production Build (Server + Desktop-Apps), Server Setup, Deployment
 
 **Tasks:**
@@ -945,7 +1237,7 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 11: GitHub Releases & Auto-Update** 🔴 NOT STARTED
+### **Phase 12: GitHub Releases & Auto-Update** 🔴 NOT STARTED
 **Ziel:** Versionierung, GitHub Releases, Tauri Auto-Update System für Desktop-Apps
 
 **Tasks:**
@@ -1018,23 +1310,28 @@ TimeTracking-Clean/
 
 ## 📊 Gesamtaufwand-Schätzung
 
-| Phase | Geschätzte Zeit |
-|-------|-----------------|
-| Phase 0: Setup + Tauri Installation | 1-2h |
-| Phase 1: Backend Foundation | 4h |
-| Phase 2: User Management | 5h |
-| Phase 3: Time Tracking | 6h |
-| Phase 4: Absence Management | 7h |
-| Phase 5: Calendar Views | 6h |
-| Phase 6: Dashboard | 6h |
-| Phase 7: Reports & Export | 5h |
-| Phase 8: UI/UX Polish + Desktop Features | 5h |
-| Phase 9: Testing | 5h |
-| Phase 10: Deployment (Server + Desktop Builds) | 5h |
-| Phase 11: GitHub Releases & Auto-Update (Tauri) | 6-8h |
-| **TOTAL** | **~65-75 Stunden** |
+| Phase | Geschätzte Zeit | Tatsächliche Zeit | Status |
+|-------|-----------------|-------------------|--------|
+| Phase 0: Setup + Tauri Installation | 1-2h | ~2h | ✅ COMPLETE |
+| Phase 1: Backend Foundation | 4h | ~2h | ✅ COMPLETE |
+| Phase 2: User Management | 5h | ~1.5h | ✅ COMPLETE |
+| Phase 3: Time Tracking | 6h | ~3h | ✅ COMPLETE (Backend) |
+| Phase 4: Absence Management | 7h | ~4h | ✅ COMPLETE (Backend) |
+| Phase 5: Calendar Views | 6h | - | 🔴 NOT STARTED |
+| Phase 6: Dashboard | 6h | ~6h | ✅ COMPLETE |
+| Phase 6.5: Tauri Production-Ready | 4h | ~3h | ✅ COMPLETE |
+| Phase 7: Reports & Export | 5h | - | 🔴 NOT STARTED |
+| Phase 8: UI/UX Polish + Desktop Features | 5h | - | 🔴 NOT STARTED |
+| Phase 9: Testing | 5h | - | 🔴 NOT STARTED |
+| Phase 10: Deployment (Server + Desktop Builds) | 5h | - | 🔴 NOT STARTED |
+| Phase 11: GitHub Releases & Auto-Update (Tauri) | 6-8h | - | 🔴 NOT STARTED |
+| **TOTAL** | **~65-75 Stunden** | **~21.5h** (von 75h) | **29% Complete** |
 
 **Realistisch mit Buffer:** 65-75 Stunden
+**Bereits investiert:** ~21.5 Stunden
+**Verbleibend:** ~43.5-53.5 Stunden
+
+**Produktiver als geplant:** Backend-Phasen waren ~30% schneller als geschätzt dank strukturierter Planung!
 
 ---
 
