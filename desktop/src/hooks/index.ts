@@ -53,3 +53,10 @@ export {
   useHolidays,
   useCurrentYearHolidays,
 } from './useHolidays';
+
+// Keyboard Shortcuts
+export {
+  useKeyboardShortcuts,
+  useGlobalKeyboardShortcuts,
+  useModalKeyboardShortcuts,
+} from './useKeyboardShortcuts';

@@ -15,10 +15,21 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { Button } from './components/ui/Button';
 import { LogOut } from 'lucide-react';
 import DebugPanel from './components/DebugPanel';
+import { useGlobalKeyboardShortcuts } from './hooks';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
-  const { currentView } = useUIStore();
+  const { currentView, setCurrentView } = useUIStore();
+
+  // Global Keyboard Shortcuts (Ctrl/Cmd + Number)
+  useGlobalKeyboardShortcuts({
+    onDashboard: () => setCurrentView('dashboard'),
+    onCalendar: () => setCurrentView('calendar'),
+    onTimeEntries: () => setCurrentView('time-entries'),
+    onAbsences: () => setCurrentView('absences'),
+    onReports: () => setCurrentView('reports'),
+    onUsers: () => user?.role === 'admin' && setCurrentView('users'),
+  });
 
   // Check session on mount
   useEffect(() => {
