@@ -1,0 +1,562 @@
+import { Router } from 'express';
+import type { Request, Response } from 'express';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import {
+  validateAbsenceCreate,
+  validateAbsenceUpdate,
+} from '../middleware/validation.js';
+import {
+  getAllAbsenceRequests,
+  getAbsenceRequestById,
+  createAbsenceRequest,
+  updateAbsenceRequest,
+  approveAbsenceRequest,
+  rejectAbsenceRequest,
+  deleteAbsenceRequest,
+  getVacationBalance,
+  initializeVacationBalance,
+} from '../services/absenceService.js';
+import {
+  notifyAbsenceApproved,
+  notifyAbsenceRejected,
+} from '../services/notificationService.js';
+import { logAudit } from '../services/auditService.js';
+import type { ApiResponse, AbsenceRequest } from '../types/index.js';
+
+const router = Router();
+
+/**
+ * GET /api/absences
+ * Get all absence requests (Admin: all, Employee: own)
+ */
+router.get(
+  '/',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest[]>>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+
+      // Query params for filtering
+      const { status, type } = req.query;
+
+      const filters: {
+        userId?: number;
+        status?: string;
+        type?: string;
+      } = {};
+
+      // Admin can see all, Employee only own
+      if (!isAdmin) {
+        filters.userId = req.session.user!.id;
+      }
+
+      if (status) {
+        filters.status = status as string;
+      }
+
+      if (type) {
+        filters.type = type as string;
+      }
+
+      const requests = getAllAbsenceRequests(filters);
+
+      res.json({
+        success: true,
+        data: requests,
+      });
+    } catch (error) {
+      console.error('❌ Error getting absence requests:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get absence requests',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/absences/:id
+ * Get single absence request by ID
+ */
+router.get(
+  '/:id',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid absence request ID',
+        });
+        return;
+      }
+
+      const request = getAbsenceRequestById(id);
+
+      if (!request) {
+        res.status(404).json({
+          success: false,
+          error: 'Absence request not found',
+        });
+        return;
+      }
+
+      // Check permission: Admin can see all, Employee can only see own
+      const isAdmin = req.session.user!.role === 'admin';
+      const isOwner = request.userId === req.session.user!.id;
+
+      if (!isAdmin && !isOwner) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this absence request',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: request,
+      });
+    } catch (error) {
+      console.error('❌ Error getting absence request:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get absence request',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/absences
+ * Create new absence request
+ */
+router.post(
+  '/',
+  requireAuth,
+  validateAbsenceCreate,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+    try {
+      const data = req.body;
+
+      // Determine userId: Admin can create for any user, Employee only for self
+      const isAdmin = req.session.user!.role === 'admin';
+      const userId = isAdmin && data.userId ? data.userId : req.session.user!.id;
+
+      // Create absence request
+      const request = createAbsenceRequest({
+        userId,
+        type: data.type,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      });
+
+      // Log audit
+      logAudit(req.session.user!.id, 'create', 'absence_request', request.id, {
+        type: request.type,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        days: request.days,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: request,
+        message: 'Absence request created successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error creating absence request:', error);
+
+      // Handle specific errors
+      if (error instanceof Error) {
+        if (
+          error.message.includes('Insufficient') ||
+          error.message.includes('must span') ||
+          error.message.includes('Invalid')
+        ) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create absence request',
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/absences/:id
+ * Update absence request (only pending requests)
+ */
+router.put(
+  '/:id',
+  requireAuth,
+  validateAbsenceUpdate,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid absence request ID',
+        });
+        return;
+      }
+
+      // Get existing request
+      const existing = getAbsenceRequestById(id);
+
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          error: 'Absence request not found',
+        });
+        return;
+      }
+
+      // Check permission: Admin can edit all, Employee can only edit own
+      const isAdmin = req.session.user!.role === 'admin';
+      const isOwner = existing.userId === req.session.user!.id;
+
+      if (!isAdmin && !isOwner) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to update this absence request',
+        });
+        return;
+      }
+
+      // Update absence request
+      const request = updateAbsenceRequest(id, req.body);
+
+      // Log audit
+      logAudit(req.session.user!.id, 'update', 'absence_request', id, req.body);
+
+      res.json({
+        success: true,
+        data: request,
+        message: 'Absence request updated successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error updating absence request:', error);
+
+      // Handle specific errors
+      if (error instanceof Error) {
+        if (error.message === 'Absence request not found') {
+          res.status(404).json({
+            success: false,
+            error: 'Absence request not found',
+          });
+          return;
+        }
+
+        if (
+          error.message.includes('Cannot modify') ||
+          error.message.includes('Invalid')
+        ) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update absence request',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/absences/:id/approve
+ * Approve absence request (Admin only)
+ */
+router.post(
+  '/:id/approve',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid absence request ID',
+        });
+        return;
+      }
+
+      const { adminNote } = req.body;
+
+      // Approve request
+      const request = approveAbsenceRequest(
+        id,
+        req.session.user!.id,
+        adminNote
+      );
+
+      // Send notification
+      notifyAbsenceApproved(
+        request.userId,
+        request.type,
+        request.startDate,
+        request.endDate
+      );
+
+      // Log audit
+      logAudit(req.session.user!.id, 'update', 'absence_request', id, {
+        action: 'approve',
+        adminNote,
+      });
+
+      res.json({
+        success: true,
+        data: request,
+        message: 'Absence request approved successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error approving absence request:', error);
+
+      if (error instanceof Error) {
+        if (
+          error.message === 'Absence request not found' ||
+          error.message.includes('Only pending')
+        ) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to approve absence request',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/absences/:id/reject
+ * Reject absence request (Admin only)
+ */
+router.post(
+  '/:id/reject',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid absence request ID',
+        });
+        return;
+      }
+
+      const { adminNote } = req.body;
+
+      // Reject request
+      const request = rejectAbsenceRequest(
+        id,
+        req.session.user!.id,
+        adminNote
+      );
+
+      // Send notification
+      notifyAbsenceRejected(
+        request.userId,
+        request.type,
+        request.startDate,
+        request.endDate,
+        adminNote
+      );
+
+      // Log audit
+      logAudit(req.session.user!.id, 'update', 'absence_request', id, {
+        action: 'reject',
+        adminNote,
+      });
+
+      res.json({
+        success: true,
+        data: request,
+        message: 'Absence request rejected successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error rejecting absence request:', error);
+
+      if (error instanceof Error) {
+        if (
+          error.message === 'Absence request not found' ||
+          error.message.includes('Only pending')
+        ) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reject absence request',
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/absences/:id
+ * Delete absence request
+ */
+router.delete(
+  '/:id',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid absence request ID',
+        });
+        return;
+      }
+
+      // Get existing request
+      const existing = getAbsenceRequestById(id);
+
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          error: 'Absence request not found',
+        });
+        return;
+      }
+
+      // Check permission: Admin can delete all, Employee can only delete own pending requests
+      const isAdmin = req.session.user!.role === 'admin';
+      const isOwner = existing.userId === req.session.user!.id;
+
+      if (!isAdmin && !isOwner) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to delete this absence request',
+        });
+        return;
+      }
+
+      // Employee can only delete pending requests
+      if (!isAdmin && existing.status !== 'pending') {
+        res.status(403).json({
+          success: false,
+          error: 'Cannot delete approved or rejected absence request',
+        });
+        return;
+      }
+
+      // Delete request
+      deleteAbsenceRequest(id);
+
+      // Log audit
+      logAudit(req.session.user!.id, 'delete', 'absence_request', id);
+
+      res.json({
+        success: true,
+        message: 'Absence request deleted successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error deleting absence request:', error);
+
+      if (error instanceof Error && error.message === 'Absence request not found') {
+        res.status(404).json({
+          success: false,
+          error: 'Absence request not found',
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete absence request',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/absences/vacation-balance/:year
+ * Get vacation balance for a specific year
+ */
+router.get(
+  '/vacation-balance/:year',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const year = parseInt(req.params.year);
+
+      if (isNaN(year) || year < 2000 || year > 2100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid year',
+        });
+        return;
+      }
+
+      // Determine target user
+      const isAdmin = req.session.user!.role === 'admin';
+      const { userId } = req.query;
+      const targetUserId =
+        isAdmin && userId ? parseInt(userId as string) : req.session.user!.id;
+
+      if (isNaN(targetUserId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Get or initialize vacation balance
+      let balance = getVacationBalance(targetUserId, year);
+
+      if (!balance) {
+        balance = initializeVacationBalance(targetUserId, year);
+      }
+
+      res.json({
+        success: true,
+        data: balance,
+      });
+    } catch (error) {
+      console.error('❌ Error getting vacation balance:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get vacation balance',
+      });
+    }
+  }
+);
+
+export default router;

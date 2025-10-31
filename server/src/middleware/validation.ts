@@ -407,3 +407,122 @@ export function validateTimeEntryUpdate(
 
   next();
 }
+
+/**
+ * Validate absence request creation data
+ */
+export function validateAbsenceCreate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const data = req.body;
+
+  // Required fields
+  if (!data.type || !['vacation', 'sick', 'unpaid', 'overtime_comp'].includes(data.type)) {
+    res.status(400).json({
+      success: false,
+      error: 'Type must be "vacation", "sick", "unpaid", or "overtime_comp"',
+    });
+    return;
+  }
+
+  if (!data.startDate?.trim()) {
+    res.status(400).json({
+      success: false,
+      error: 'Start date is required',
+    });
+    return;
+  }
+
+  if (!data.endDate?.trim()) {
+    res.status(400).json({
+      success: false,
+      error: 'End date is required',
+    });
+    return;
+  }
+
+  // Date format validation (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(data.startDate)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid start date format (use YYYY-MM-DD)',
+    });
+    return;
+  }
+
+  if (!dateRegex.test(data.endDate)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid end date format (use YYYY-MM-DD)',
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Validate absence request update data
+ */
+export function validateAbsenceUpdate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const data = req.body;
+
+  // Date format validation (if provided)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (data.startDate !== undefined) {
+    if (!data.startDate.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'Start date cannot be empty',
+      });
+      return;
+    }
+
+    if (!dateRegex.test(data.startDate)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid start date format (use YYYY-MM-DD)',
+      });
+      return;
+    }
+  }
+
+  if (data.endDate !== undefined) {
+    if (!data.endDate.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'End date cannot be empty',
+      });
+      return;
+    }
+
+    if (!dateRegex.test(data.endDate)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid end date format (use YYYY-MM-DD)',
+      });
+      return;
+    }
+  }
+
+  // Status validation (if provided)
+  if (data.status !== undefined) {
+    if (!['pending', 'approved', 'rejected'].includes(data.status)) {
+      res.status(400).json({
+        success: false,
+        error: 'Status must be "pending", "approved", or "rejected"',
+      });
+      return;
+    }
+  }
+
+  next();
+}

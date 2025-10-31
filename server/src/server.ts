@@ -8,6 +8,8 @@ import usersRoutes from './routes/users.js';
 import departmentsRoutes from './routes/departments.js';
 import projectsRoutes from './routes/projects.js';
 import timeEntriesRoutes from './routes/timeEntries.js';
+import absencesRoutes from './routes/absences.js';
+import notificationsRoutes from './routes/notifications.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -64,6 +66,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/time-entries', timeEntriesRoutes);
+app.use('/api/absences', absencesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);

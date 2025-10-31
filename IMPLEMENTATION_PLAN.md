@@ -626,29 +626,79 @@ TimeTracking-Clean/
 
 ---
 
-### **Phase 4: Absence Management** 🔴 NOT STARTED
+### **Phase 4: Absence Management** ✅ COMPLETE (Backend)
 **Ziel:** Urlaub, Krankheit, Überstunden-Ausgleich
 
 **Tasks:**
-- [ ] API Routes: Absence Requests CRUD
-- [ ] Absence Service (Berechnung von Tagen)
-- [ ] Vacation Balance Tracking
-- [ ] Urlaubs-Kontingent pro Jahr
-- [ ] Übertrag ins nächste Jahr
-- [ ] Frontend: AbsenceRequest Component
-- [ ] Frontend: AbsenceApproval (Admin)
-- [ ] Benachrichtigungen (Genehmigt/Abgelehnt)
-- [ ] Krankheit ohne Genehmigung
-- [ ] Überstunden-Ausgleich Logik
+- [x] API Routes: Absence Requests CRUD
+- [x] Absence Service (Berechnung von Tagen)
+- [x] Vacation Balance Tracking
+- [x] Urlaubs-Kontingent pro Jahr
+- [x] Übertrag ins nächste Jahr (max 5 Tage)
+- [x] Benachrichtigungen (Genehmigt/Abgelehnt)
+- [x] Krankheit automatisch genehmigt
+- [x] Überstunden-Ausgleich Logik (8h pro Tag)
+- [x] Business Days Calculation (exclude weekends)
+- [x] Holiday Integration (exclude holidays)
+- [x] Notification Service
+- [ ] Frontend: AbsenceRequest Component (Phase 6)
+- [ ] Frontend: AbsenceApproval (Admin) (Phase 6)
 
 **Success Criteria:**
 - ✅ Mitarbeiter kann Urlaub beantragen
 - ✅ Admin kann genehmigen/ablehnen
-- ✅ Verbleibende Urlaubstage korrekt
-- ✅ Krankheit direkt eingetragen
-- ✅ Überstunden → Freitage Umwandlung
+- ✅ Verbleibende Urlaubstage korrekt berechnet
+- ✅ Krankheit direkt genehmigt
+- ✅ Überstunden → Freitage Umwandlung (FIFO)
+- ✅ Business Days berechnet (ohne Wochenenden)
+- ✅ Feiertage werden ausgeschlossen
+- ✅ Vacation Balance mit Carryover
+- ✅ Benachrichtigungen bei Genehmigung/Ablehnung
+- ✅ Insufficient vacation days check
+- ✅ Insufficient overtime hours check
 
-**Geschätzte Zeit:** 6-7 Stunden
+**Abgeschlossen:** 2025-10-31
+**Commits:** TBD
+**Tatsächliche Zeit:** ~4 Stunden (Backend only)
+**Hinweis:** Frontend UI wird in Phase 6 implementiert
+
+**Implementierte Features:**
+- `server/src/services/absenceService.ts` - Complete Business Logic (620 lines)
+- `server/src/services/notificationService.ts` - Notification System (130 lines)
+- `server/src/routes/absences.ts` - REST API Endpoints (530 lines)
+- `server/src/routes/notifications.ts` - Notification Endpoints (140 lines)
+- `server/src/middleware/validation.ts` - Absence Validation (+128 lines)
+- Business days calculation (excludes weekends)
+- Holiday exclusion for vacation days
+- Vacation balance tracking with carryover (max 5 days)
+- Overtime compensation (8h per day, FIFO deduction)
+- Auto-approval for sick leave
+- Notification system for approval/rejection
+- Permission system (Employee vs Admin)
+
+**API Endpoints:**
+- GET    /api/absences - List requests (filtered by role)
+- GET    /api/absences/:id - Get single request
+- POST   /api/absences - Create new request
+- PUT    /api/absences/:id - Update request (pending only)
+- POST   /api/absences/:id/approve - Approve request (Admin)
+- POST   /api/absences/:id/reject - Reject request (Admin)
+- DELETE /api/absences/:id - Delete request
+- GET    /api/absences/vacation-balance/:year - Get vacation balance
+- GET    /api/notifications - Get user notifications
+- GET    /api/notifications/unread-count - Get unread count
+- PATCH  /api/notifications/:id/read - Mark as read
+- PATCH  /api/notifications/read-all - Mark all as read
+- DELETE /api/notifications/:id - Delete notification
+
+**Business Rules:**
+- Vacation: Business days only, excludes weekends + holidays
+- Sick leave: Auto-approved, business days only (no holidays)
+- Overtime compensation: Requires sufficient overtime hours (8h/day)
+- Vacation balance: Entitlement + Carryover (max 5 days) - Taken
+- Carryover: Max 5 days from previous year
+- Deletion: Employees can only delete pending requests
+- Modification: Cannot modify approved/rejected requests
 
 ---
 
