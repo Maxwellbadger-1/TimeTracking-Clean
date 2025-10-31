@@ -6,6 +6,7 @@ import { EmployeeDashboard } from './components/dashboard/EmployeeDashboard';
 import { AdminDashboard } from './components/dashboard/AdminDashboard';
 import { CalendarPage } from './pages/CalendarPage';
 import { TimeEntriesPage } from './pages/TimeEntriesPage';
+import { UserManagementPage } from './pages/UserManagementPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -68,24 +69,7 @@ export default function App() {
             )}
             {currentView === 'calendar' && <CalendarPage />}
             {currentView === 'time-entries' && <TimeEntriesPage />}
-            {currentView === 'users' && user.role === 'admin' && (
-              <div className="p-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Mitarbeiterverwaltung
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Mitarbeiter anlegen, bearbeiten und verwalten
-                </p>
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                  <p className="text-yellow-800 dark:text-yellow-200">
-                    👥 <strong>Backend ist fertig!</strong> Das User Management UI kommt als nächstes.
-                  </p>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-                    Alle APIs funktionieren bereits (GET/POST/PUT/DELETE /api/users).
-                  </p>
-                </div>
-              </div>
-            )}
+            {currentView === 'users' && user.role === 'admin' && <UserManagementPage />}
             {currentView === 'reports' && user.role === 'admin' && (
               <div className="p-8">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
