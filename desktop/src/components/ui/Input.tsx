@@ -23,14 +23,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           className={`
-            block w-full px-3 py-2 rounded-lg
+            block w-full px-4 py-2.5 rounded-lg
             bg-white dark:bg-gray-800
             text-gray-900 dark:text-gray-100
             placeholder-gray-400 dark:placeholder-gray-500
-            border
+            border-2
             focus:outline-none focus:ring-2 focus:ring-offset-0
             disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors
+            transition-all duration-200
+            hover:border-gray-400 dark:hover:border-gray-500
             ${inputStyles}
             ${className}
           `}
