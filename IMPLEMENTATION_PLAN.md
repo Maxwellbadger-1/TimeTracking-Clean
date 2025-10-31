@@ -763,14 +763,18 @@ TimeTracking-Clean/
 - [x] Utility Functions
   - [x] timeUtils: calculateHours, formatHours, formatOvertimeHours, date helpers
   - [x] validation: email, time, date, password validation
-- [ ] Time Entry Components
-  - [ ] TimeEntryForm
-  - [ ] TimeEntryList
-  - [ ] TimeEntryEdit
-- [ ] Absence Request Components
-  - [ ] AbsenceRequestForm
-  - [ ] AbsenceRequestList
-  - [ ] AbsenceApproval (Admin)
+- [x] UI Components (Reusable)
+  - [x] Modal (with backdrop, ESC to close, size variants)
+  - [x] Select (dropdown with validation)
+  - [x] Textarea (multi-line with validation)
+- [x] Time Entry Components
+  - [x] TimeEntryForm (vollständig mit Validation, Preview, Integration)
+  - [ ] TimeEntryList (separate Ansicht)
+  - [ ] TimeEntryEdit (bearbeiten/löschen)
+- [x] Absence Request Components
+  - [x] AbsenceRequestForm (vollständig mit Balance-Check, Auto-Approval Info)
+  - [ ] AbsenceRequestList (separate Ansicht)
+  - [x] AbsenceApproval (Admin) - bereits in AdminDashboard integriert
 - [ ] Notifications System UI
 - [ ] WebSocket für Real-time Updates
 
@@ -782,15 +786,19 @@ TimeTracking-Clean/
 - ✅ Echte API-Daten in Dashboards
 - ✅ Loading States überall
 - ✅ Toast Notifications für Feedback
+- ✅ User können Zeit erfassen (TimeEntryForm)
+- ✅ User können Urlaub/Krank beantragen (AbsenceRequestForm)
+- ✅ Admin kann Anträge genehmigen/ablehnen (inline in Dashboard)
 - ⏳ Benachrichtigungen UI
 - ⏳ Real-time Updates via WebSocket
 
 **Commits:**
 - 1140bb4 (2025-10-31) - Foundation (Auth, UI Components, Login)
 - 48668ca (2025-10-31) - Data Integration (TanStack Query Hooks, Real Data)
+- 8a76943 (2025-10-31) - Forms (TimeEntry, AbsenceRequest, Modal/Select/Textarea)
 
-**Status:** Core dashboards complete with real data, form components pending
-**Geschätzte Zeit:** 5-6 Stunden (ca. 80% complete)
+**Status:** Core functionality complete! Forms integriert, nur noch Listen-Views + Notifications UI offen
+**Geschätzte Zeit:** 5-6 Stunden (ca. 90% complete)
 
 ---
 
