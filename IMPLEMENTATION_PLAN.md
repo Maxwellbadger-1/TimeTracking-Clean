@@ -607,7 +607,7 @@ TimeTracking-Clean/
 - ✅ Permission Checks (Employee: own, Admin: all)
 
 **Abgeschlossen:** 2025-10-31
-**Commits:** TBD (nach git commit)
+**Commits:** 9ec9b93
 **Tatsächliche Zeit:** ~3 Stunden (Backend only)
 **Hinweis:** Frontend UI wird in Phase 6 (Dashboard) implementiert
 
