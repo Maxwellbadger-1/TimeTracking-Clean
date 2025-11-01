@@ -85,8 +85,8 @@ export function YearCalendar({
   const [currentYear, setCurrentYear] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const { data: usersData } = useUsers();
-  const users = usersData?.data || [];
+  const { data: users } = useUsers();
+  const usersList = users || [];
 
   // Get all days of the year
   const yearStart = startOfYear(currentYear);
@@ -200,7 +200,7 @@ export function YearCalendar({
       {/* User Filter */}
       <div className="mb-4">
         <UserFilter
-          users={users}
+          users={usersList}
           selectedUserId={selectedUserId}
           onUserChange={setSelectedUserId}
         />

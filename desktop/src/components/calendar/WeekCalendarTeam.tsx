@@ -48,8 +48,8 @@ export function WeekCalendarTeam({
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const { data: usersData } = useUsers();
-  const users = usersData?.data || [];
+  const { data: users } = useUsers();
+  const usersList = users || [];
 
   // Get week days (Monday - Sunday)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -57,12 +57,12 @@ export function WeekCalendarTeam({
 
   // Filter users
   const displayUsers = useMemo(() => {
-    const activeUsers = users.filter(u => !u.deletedAt);
+    const activeUsers = usersList.filter(u => !u.deletedAt);
     if (selectedUserId) {
       return activeUsers.filter(u => u.id === selectedUserId);
     }
     return activeUsers;
-  }, [users, selectedUserId]);
+  }, [usersList, selectedUserId]);
 
   // Group time entries by user and day
   const entriesByUserAndDay = useMemo(() => {
@@ -159,7 +159,7 @@ export function WeekCalendarTeam({
       {/* User Filter */}
       <div className="mb-4">
         <UserFilter
-          users={users}
+          users={usersList}
           selectedUserId={selectedUserId}
           onUserChange={setSelectedUserId}
         />
