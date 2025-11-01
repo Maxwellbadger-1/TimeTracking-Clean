@@ -169,13 +169,13 @@ export function WeekCalendarColumns({
         />
       </div>
 
-      {/* Calendar Container */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-        {/* Sticky Header: Days + Users - STICKY TO VIEWPORT */}
-        <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          <div className="inline-block min-w-full">
-              {/* Week Days Row */}
-              <div className="flex">
+      {/* Calendar Container - SINGLE SCROLL CONTAINER */}
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-auto">
+        <div className="inline-block min-w-full">
+          {/* Sticky Header: Days + Users */}
+          <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            {/* Week Days Row */}
+            <div className="flex">
                 {/* Time Column Header - STICKY */}
                 <div className="sticky left-0 z-30 w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center">
                   Zeit
@@ -239,13 +239,11 @@ export function WeekCalendarColumns({
                   })}
                 </div>
               </div>
+            </div>
           </div>
-        </div>
 
-        {/* Timeline Grid - Scrollable Content */}
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-          <div className="inline-block min-w-full">
-            <div className="flex">
+          {/* Timeline Grid */}
+          <div className="flex">
               {/* Time Column (STICKY LEFT) */}
               <div className="sticky left-0 z-10 w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
                 {HOURS.map((hour) => (
@@ -349,13 +347,12 @@ export function WeekCalendarColumns({
               </div>
             </div>
 
-            {/* Empty State */}
-            {displayUsers.length === 0 && (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                Keine aktiven Mitarbeiter gefunden.
-              </div>
-            )}
-          </div>
+          {/* Empty State */}
+          {displayUsers.length === 0 && (
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              Keine aktiven Mitarbeiter gefunden.
+            </div>
+          )}
         </div>
       </div>
     </div>
