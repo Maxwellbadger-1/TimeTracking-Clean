@@ -63,6 +63,10 @@ export function WeekCalendarColumns({
     return activeUsers;
   }, [usersList, selectedUserId]);
 
+  // Calculate column width based on number of users
+  const columnWidthPerUser = 180; // pixels per user
+  const dayColumnWidth = Math.max(columnWidthPerUser * displayUsers.length, 200); // minimum 200px
+
   // Group time entries by user and day
   const entriesByUserAndDay = useMemo(() => {
     const grouped: Record<number, Record<string, TimeEntry[]>> = {};
@@ -164,29 +168,31 @@ export function WeekCalendarColumns({
         />
       </div>
 
-      {/* Scrollable Container */}
-      <div className="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
-        {/* Sticky Header: Days + Users */}
-        <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          {/* Week Days Row */}
-          <div className="flex">
-            {/* Time Column Header */}
-            <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center">
-              Zeit
-            </div>
+      {/* Outer Container: Handles ALL scrolling */}
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto h-full">
+          <div className="inline-block min-w-full">
+            {/* Sticky Header: Days + Users */}
+            <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              {/* Week Days Row */}
+              <div className="flex">
+                {/* Time Column Header */}
+                <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center">
+                  Zeit
+                </div>
 
-            {/* Day + User Grid */}
-            <div className="flex-1 overflow-x-auto">
-              <div className="flex min-w-max">
-                {weekDays.map((day) => {
-                  const dayIsToday = isToday(day);
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      className={`flex-1 min-w-[600px] border-r border-gray-200 dark:border-gray-700 last:border-r-0 ${
-                        dayIsToday ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-gray-50 dark:bg-gray-900/50'
-                      }`}
-                    >
+                {/* Day + User Grid */}
+                <div className="flex">
+                  {weekDays.map((day) => {
+                    const dayIsToday = isToday(day);
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={`border-r border-gray-200 dark:border-gray-700 last:border-r-0 ${
+                          dayIsToday ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-gray-50 dark:bg-gray-900/50'
+                        }`}
+                        style={{ width: `${dayColumnWidth}px` }}
+                      >
                       {/* Day Header */}
                       <div className="p-3 text-center border-b border-gray-200 dark:border-gray-700">
                         <div
@@ -205,62 +211,62 @@ export function WeekCalendarColumns({
                         </div>
                       </div>
 
-                      {/* User Columns for this Day */}
-                      <div className="flex">
-                        {displayUsers.map((user) => {
-                          const userColor = getUserColor(user.id);
-                          const initials = getInitials(user.firstName, user.lastName);
-                          return (
-                            <div
-                              key={user.id}
-                              className="flex-1 min-w-[150px] border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 p-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className={`w-6 h-6 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold flex-shrink-0`}>
-                                  {initials}
-                                </span>
-                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-                                  {user.firstName}
-                                </span>
+                        {/* User Columns for this Day */}
+                        <div className="flex">
+                          {displayUsers.map((user) => {
+                            const userColor = getUserColor(user.id);
+                            const initials = getInitials(user.firstName, user.lastName);
+                            return (
+                              <div
+                                key={user.id}
+                                className="border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 p-2"
+                                style={{ width: `${columnWidthPerUser}px` }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-6 h-6 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold flex-shrink-0`}>
+                                    {initials}
+                                  </span>
+                                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                                    {user.firstName}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Timeline Grid */}
-        <div className="flex">
-          {/* Time Column (scrolls with content) */}
-          <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="h-[60px] border-b border-gray-200 dark:border-gray-700 px-2 py-1 text-xs text-gray-600 dark:text-gray-400"
-              >
-                {String(hour).padStart(2, '0')}:00
-              </div>
-            ))}
-          </div>
-
-          {/* Day + User Grid */}
-          <div className="flex-1 overflow-x-auto">
-            <div className="flex min-w-max">
-              {weekDays.map((day) => {
-                const dateKey = format(day, 'yyyy-MM-dd');
-                const dayIsToday = isToday(day);
-
-                return (
+            {/* Timeline Grid */}
+            <div className="flex">
+              {/* Time Column (scrolls with content) */}
+              <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
+                {HOURS.map((hour) => (
                   <div
-                    key={day.toISOString()}
-                    className="flex-1 min-w-[600px] border-r border-gray-200 dark:border-gray-700 last:border-r-0"
+                    key={hour}
+                    className="h-[60px] border-b border-gray-200 dark:border-gray-700 px-2 py-1 text-xs text-gray-600 dark:text-gray-400"
                   >
+                    {String(hour).padStart(2, '0')}:00
+                  </div>
+                ))}
+              </div>
+
+              {/* Day + User Grid */}
+              <div className="flex">
+                {weekDays.map((day) => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayIsToday = isToday(day);
+
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className="border-r border-gray-200 dark:border-gray-700 last:border-r-0"
+                      style={{ width: `${dayColumnWidth}px` }}
+                    >
                     <div className="flex h-full">
                       {displayUsers.map((user) => {
                         const userColor = getUserColor(user.id);
@@ -272,7 +278,8 @@ export function WeekCalendarColumns({
                         return (
                           <div
                             key={user.id}
-                            className="flex-1 min-w-[150px] border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 relative"
+                            className="border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 relative"
+                            style={{ width: `${columnWidthPerUser}px` }}
                           >
                             {/* Hour Grid Lines */}
                             {HOURS.map((hour) => (
@@ -331,21 +338,22 @@ export function WeekCalendarColumns({
                             })}
                           </div>
                         );
-                      })}
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Empty State */}
+            {displayUsers.length === 0 && (
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                Keine aktiven Mitarbeiter gefunden.
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Empty State */}
-        {displayUsers.length === 0 && (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            Keine aktiven Mitarbeiter gefunden.
-          </div>
-        )}
       </div>
 
       {/* Legend */}
