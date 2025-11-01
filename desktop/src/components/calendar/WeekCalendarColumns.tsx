@@ -170,7 +170,7 @@ export function WeekCalendarColumns({
       </div>
 
       {/* Calendar Container */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
         {/* Sticky Header: Days + Users - STICKY TO VIEWPORT */}
         <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           <div className="inline-block min-w-full">
@@ -243,7 +243,7 @@ export function WeekCalendarColumns({
         </div>
 
         {/* Timeline Grid - Scrollable Content */}
-        <div className="overflow-x-auto overflow-y-auto flex-1">
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
           <div className="inline-block min-w-full">
             <div className="flex">
               {/* Time Column (STICKY LEFT) */}
