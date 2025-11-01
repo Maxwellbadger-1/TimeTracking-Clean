@@ -12,7 +12,7 @@
 
 import { useState } from 'react';
 import { addMonths, subMonths } from 'date-fns';
-import { CalendarHeader } from './CalendarHeader';
+import { DateNavigation } from './DateNavigation';
 import { CalendarLegend } from './CalendarLegend';
 import {
   getDaysInMonth,
@@ -81,13 +81,14 @@ export function MonthCalendar({
   return (
     <div>
       {/* Modern Header */}
-      <CalendarHeader
+      <DateNavigation
         currentDate={currentMonth}
+        onDateChange={setCurrentMonth}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToday={handleToday}
         viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
+        onViewModeChange={onViewModeChange || (() => {})}
       />
 
       {/* Legend */}
