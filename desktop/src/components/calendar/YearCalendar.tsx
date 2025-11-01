@@ -24,7 +24,7 @@ import {
   isToday,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { CalendarHeader } from './CalendarHeader';
+import { DateNavigation } from './DateNavigation';
 import { UserFilter } from './UserFilter';
 import { getFullName } from '../../utils/userColors';
 import { useUsers } from '../../hooks/useUsers';
@@ -188,8 +188,9 @@ export function YearCalendar({
 
   return (
     <div>
-      <CalendarHeader
+      <DateNavigation
         currentDate={currentYear}
+        onDateChange={setCurrentYear}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToday={handleToday}
