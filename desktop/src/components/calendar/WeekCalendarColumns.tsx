@@ -239,7 +239,6 @@ export function WeekCalendarColumns({
                   })}
                 </div>
               </div>
-            </div>
           </div>
 
           {/* Timeline Grid */}
