@@ -357,7 +357,6 @@ export function WeekCalendarColumns({
             )}
           </div>
         </div>
-        </div>
       </div>
 
       {/* Legend */}
