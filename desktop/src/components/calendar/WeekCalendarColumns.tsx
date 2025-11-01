@@ -243,8 +243,8 @@ export function WeekCalendarColumns({
 
             {/* Timeline Grid */}
             <div className="flex">
-              {/* Time Column (scrolls with content) */}
-              <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
+              {/* Time Column (STICKY LEFT) */}
+              <div className="sticky left-0 z-10 w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
                 {HOURS.map((hour) => (
                   <div
                     key={hour}
