@@ -149,7 +149,7 @@ export function WeekCalendarColumns({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 100px)' }}>
       <DateNavigation
         currentDate={currentWeek}
         onDateChange={setCurrentWeek}
