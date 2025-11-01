@@ -327,22 +327,6 @@ export function WeekCalendarTeam({
             Keine aktiven Mitarbeiter gefunden.
           </div>
         )}
-
-        {/* Time Labels (sticky left) */}
-        <div className="absolute left-0 top-[88px] z-5 pointer-events-none">
-          {HOURS.map((hour, idx) => (
-            <div
-              key={hour}
-              className="bg-gray-50/90 dark:bg-gray-900/90 px-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700"
-              style={{
-                height: `${HOUR_HEIGHT}px`,
-                lineHeight: `${HOUR_HEIGHT}px`,
-              }}
-            >
-              {String(hour).padStart(2, '0')}:00
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Legend */}

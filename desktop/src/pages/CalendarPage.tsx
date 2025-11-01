@@ -18,8 +18,13 @@ export function CalendarPage() {
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'year' | 'team'>('month');
 
   // Fetch data for calendar
-  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(user?.id);
-  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(user?.id);
+  // For admin: fetch ALL data (no user filter) for team views
+  // For employee: fetch only own data
+  const isAdmin = user?.role === 'admin';
+  const userIdFilter = isAdmin ? undefined : user?.id;
+
+  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(userIdFilter);
+  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter);
   const { data: holidays, isLoading: loadingHolidays } = useCurrentYearHolidays();
 
   if (!user) return null;
