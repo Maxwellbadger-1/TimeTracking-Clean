@@ -14,7 +14,8 @@ export function useHolidays(year?: number) {
     queryFn: async () => {
       const params = year ? `?year=${year}` : '';
       const response = await apiClient.get(`/holidays${params}`);
-      return response.data as Array<{ id: number; date: string; name: string; federal: number }>;
+      // Ensure we always return an array (never undefined)
+      return (response.data || []) as Array<{ id: number; date: string; name: string; federal: number }>;
     },
     retry: false,
     refetchOnWindowFocus: false,

@@ -25,7 +25,9 @@ import {
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
+import { UserFilter } from './UserFilter';
 import { getFullName } from '../../utils/userColors';
+import { useUsers } from '../../hooks/useUsers';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface YearCalendarProps {
@@ -81,37 +83,53 @@ export function YearCalendar({
   onViewModeChange,
 }: YearCalendarProps) {
   const [currentYear, setCurrentYear] = useState(new Date());
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  const { data: usersData } = useUsers();
+  const users = usersData?.data || [];
 
   // Get all days of the year
   const yearStart = startOfYear(currentYear);
   const yearEnd = endOfYear(currentYear);
   const allDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
 
+  // Filter time entries by selected user
+  const filteredTimeEntries = useMemo(() => {
+    if (!selectedUserId) return timeEntries;
+    return timeEntries.filter(e => e.userId === selectedUserId);
+  }, [timeEntries, selectedUserId]);
+
+  // Filter absences by selected user
+  const filteredAbsences = useMemo(() => {
+    if (!selectedUserId) return absences;
+    return absences.filter(a => a.userId === selectedUserId);
+  }, [absences, selectedUserId]);
+
   // Calculate hours worked per day (with user details)
   const hoursByDay = useMemo(() => {
     const map = new Map<string, number>();
-    timeEntries.forEach((entry) => {
+    filteredTimeEntries.forEach((entry) => {
       const dateKey = entry.date;
       map.set(dateKey, (map.get(dateKey) || 0) + (entry.hours || 0));
     });
     return map;
-  }, [timeEntries]);
+  }, [filteredTimeEntries]);
 
   // Get entries by day for tooltips
   const entriesByDay = useMemo(() => {
     const map = new Map<string, TimeEntry[]>();
-    timeEntries.forEach((entry) => {
+    filteredTimeEntries.forEach((entry) => {
       const dateKey = entry.date;
       const existing = map.get(dateKey) || [];
       map.set(dateKey, [...existing, entry]);
     });
     return map;
-  }, [timeEntries]);
+  }, [filteredTimeEntries]);
 
   // Calculate absences per day
   const absencesByDay = useMemo(() => {
     const map = new Map<string, AbsenceRequest[]>();
-    absences.forEach((absence) => {
+    filteredAbsences.forEach((absence) => {
       const start = parseISO(absence.startDate);
       const end = parseISO(absence.endDate);
       const days = eachDayOfInterval({ start, end });
@@ -122,7 +140,7 @@ export function YearCalendar({
       });
     });
     return map;
-  }, [absences]);
+  }, [filteredAbsences]);
 
   // Group days into weeks
   const weeks = useMemo(() => {
@@ -178,6 +196,15 @@ export function YearCalendar({
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
       />
+
+      {/* User Filter */}
+      <div className="mb-4">
+        <UserFilter
+          users={users}
+          selectedUserId={selectedUserId}
+          onUserChange={setSelectedUserId}
+        />
+      </div>
 
       {/* Stats Summary */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">

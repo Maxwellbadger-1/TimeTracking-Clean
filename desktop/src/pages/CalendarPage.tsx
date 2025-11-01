@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { MonthCalendar } from '../components/calendar/MonthCalendar';
-import { WeekCalendar } from '../components/calendar/WeekCalendar';
+import { WeekCalendarTeam } from '../components/calendar/WeekCalendarTeam';
 import { YearCalendar } from '../components/calendar/YearCalendar';
 import { TeamCalendar } from '../components/calendar/TeamCalendar';
 import { useTimeEntries, useAbsenceRequests, useCurrentYearHolidays } from '../hooks';
@@ -61,9 +61,9 @@ export function CalendarPage() {
               />
             )}
 
-            {/* Week Calendar */}
+            {/* Week Calendar - Team Timeline View */}
             {viewMode === 'week' && (
-              <WeekCalendar
+              <WeekCalendarTeam
                 timeEntries={timeEntries || []}
                 absences={absences || []}
                 viewMode={viewMode}
