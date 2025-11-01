@@ -320,7 +320,7 @@ export function WeekCalendarColumns({
                               return (
                                 <div
                                   key={entry.id}
-                                  className={`absolute left-1 right-1 ${userColor.bg} ${userColor.border} ${userColor.text} border-l-2 rounded px-1 py-1 text-[10px] font-medium shadow-sm hover:shadow-md transition-all cursor-pointer z-10 overflow-hidden`}
+                                  className={`absolute left-2 right-2 ${userColor.bg} ${userColor.border} ${userColor.text} border-l-2 rounded px-2 py-1 text-[10px] font-medium shadow-sm hover:shadow-md transition-all cursor-pointer z-10 overflow-hidden`}
                                   style={{
                                     top: `${style.top}px`,
                                     height: `${Math.max(style.height, 30)}px`,
