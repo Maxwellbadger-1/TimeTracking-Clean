@@ -177,8 +177,8 @@ export function WeekCalendarColumns({
             <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               {/* Week Days Row */}
               <div className="flex">
-                {/* Time Column Header */}
-                <div className="w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center">
+                {/* Time Column Header - STICKY */}
+                <div className="sticky left-0 z-30 w-16 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center">
                   Zeit
                 </div>
 
