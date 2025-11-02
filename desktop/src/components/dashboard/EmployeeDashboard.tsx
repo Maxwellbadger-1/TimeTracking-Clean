@@ -153,7 +153,7 @@ export function EmployeeDashboard() {
               </Button>
               <Button variant="secondary" fullWidth onClick={() => setShowAbsenceForm(true)}>
                 <Umbrella className="w-4 h-4 mr-2" />
-                Urlaub beantragen
+                Abwesenheit beantragen
               </Button>
             </div>
           </CardContent>

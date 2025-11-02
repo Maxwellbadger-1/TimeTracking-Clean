@@ -34,14 +34,23 @@ export function useOvertimeBalance(userId: number, month?: string) {
   return useQuery({
     queryKey: ['overtimeBalance', userId, targetMonth],
     queryFn: async () => {
+      console.log('🔥🔥🔥 useOvertimeBalance queryFn CALLED! 🔥🔥🔥');
+      console.log('📌 userId:', userId);
+      console.log('📌 targetMonth:', targetMonth);
+      console.log('🌐 API endpoint:', `/overtime/month/${userId}/${targetMonth}`);
+
       const response = await apiClient.get<OvertimeBalance>(
-        `/time-entries/stats/overtime?userId=${userId}&month=${targetMonth}`
+        `/overtime/month/${userId}/${targetMonth}`
       );
 
+      console.log('📡 API Response:', response);
+
       if (!response.success) {
+        console.error('❌ API Error:', response.error);
         throw new Error(response.error || 'Failed to fetch overtime balance');
       }
 
+      console.log('✅ Overtime data:', response.data);
       return response.data || { targetHours: 0, actualHours: 0, overtime: 0 };
     },
     enabled: !!userId,
@@ -50,9 +59,17 @@ export function useOvertimeBalance(userId: number, month?: string) {
 
 // Calculate total overtime hours
 export function useTotalOvertime(userId: number, month?: string) {
+  console.log('🔥🔥🔥 useTotalOvertime CALLED! 🔥🔥🔥');
+  console.log('📌 userId:', userId);
+  console.log('📌 month:', month);
+
   const { data: overtimeBalance, ...rest } = useOvertimeBalance(userId, month);
 
+  console.log('📊 Overtime balance from hook:', overtimeBalance);
+
   const totalHours = overtimeBalance?.overtime || 0;
+
+  console.log('✅ Total hours calculated:', totalHours);
 
   return {
     ...rest,

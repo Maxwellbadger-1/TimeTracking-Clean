@@ -26,6 +26,11 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(user?.id || 0);
   const { totalHours: overtimeHours, isLoading: loadingOvertime } = useTotalOvertime(user?.id || 0);
 
+  console.log('🔥🔥🔥 AbsenceRequestForm RENDERED! 🔥🔥🔥');
+  console.log('📌 User ID:', user?.id);
+  console.log('📊 Vacation Days:', vacationDays, 'Loading:', loadingVacation);
+  console.log('📊 Overtime Hours:', overtimeHours, 'Loading:', loadingOvertime);
+
   // Form state
   const [type, setType] = useState<'vacation' | 'sick' | 'unpaid' | 'overtime_comp'>('vacation');
   const [startDate, setStartDate] = useState(getTodayDate());
