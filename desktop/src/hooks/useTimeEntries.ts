@@ -85,8 +85,16 @@ export function useTodayTimeEntries(userId: number) {
 // Get current week's time entries
 export function useWeekTimeEntries(userId: number) {
   const now = new Date();
-  const firstDay = new Date(now.setDate(now.getDate() - now.getDay() + 1)); // Monday
-  const lastDay = new Date(now.setDate(now.getDate() - now.getDay() + 7)); // Sunday
+
+  // Calculate Monday (start of week)
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days
+  const firstDay = new Date(now);
+  firstDay.setDate(now.getDate() + daysToMonday);
+
+  // Calculate Sunday (end of week)
+  const lastDay = new Date(firstDay);
+  lastDay.setDate(firstDay.getDate() + 6);
 
   const startDate = firstDay.toISOString().split('T')[0];
   const endDate = lastDay.toISOString().split('T')[0];
