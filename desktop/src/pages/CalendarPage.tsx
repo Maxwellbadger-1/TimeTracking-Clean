@@ -61,6 +61,8 @@ export function CalendarPage() {
               <WeekCalendarColumns
                 timeEntries={timeEntries || []}
                 absences={absences || []}
+                currentUserId={user.id}
+                isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 onDayClick={(date) => {
@@ -75,6 +77,8 @@ export function CalendarPage() {
               <YearCalendar
                 timeEntries={timeEntries || []}
                 absences={absences || []}
+                currentUserId={user.id}
+                isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 onDayClick={(date) => {

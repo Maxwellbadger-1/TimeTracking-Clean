@@ -28,6 +28,8 @@ import type { TimeEntry, AbsenceRequest } from '../../types';
 interface WeekCalendarColumnsProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
+  currentUserId: number;
+  isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
@@ -39,6 +41,8 @@ const HOUR_HEIGHT = 60; // pixels per hour
 export function WeekCalendarColumns({
   timeEntries = [],
   absences = [],
+  currentUserId,
+  isAdmin,
   onDayClick,
   viewMode = 'week',
   onViewModeChange,
@@ -56,11 +60,18 @@ export function WeekCalendarColumns({
   // Filter users
   const displayUsers = useMemo(() => {
     const activeUsers = usersList.filter(u => !u.deletedAt);
+
+    // Employee: nur eigenen User anzeigen
+    if (!isAdmin) {
+      return activeUsers.filter(u => u.id === currentUserId);
+    }
+
+    // Admin: alle User, oder gefiltert falls selectedUserId gesetzt
     if (selectedUserId) {
       return activeUsers.filter(u => u.id === selectedUserId);
     }
     return activeUsers;
-  }, [usersList, selectedUserId]);
+  }, [usersList, selectedUserId, isAdmin, currentUserId]);
 
   // Calculate column width based on number of users
   const columnWidthPerUser = 180; // pixels per user
@@ -159,14 +170,16 @@ export function WeekCalendarColumns({
         onViewModeChange={onViewModeChange || (() => {})}
       />
 
-      {/* User Filter */}
-      <div className="mb-4">
-        <UserFilter
-          users={usersList}
-          selectedUserId={selectedUserId}
-          onUserChange={setSelectedUserId}
-        />
-      </div>
+      {/* User Filter - nur für Admins */}
+      {isAdmin && (
+        <div className="mb-4">
+          <UserFilter
+            users={usersList}
+            selectedUserId={selectedUserId}
+            onUserChange={setSelectedUserId}
+          />
+        </div>
+      )}
 
       {/* Calendar Container - SINGLE SCROLL CONTAINER */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-auto">

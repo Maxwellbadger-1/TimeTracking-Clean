@@ -31,6 +31,8 @@ import type { TimeEntry, AbsenceRequest } from '../../types';
 interface YearCalendarProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
+  currentUserId: number;
+  isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
@@ -76,6 +78,8 @@ const getIntensityColor = (hours: number, hasAbsence: boolean) => {
 export function YearCalendar({
   timeEntries = [],
   absences = [],
+  currentUserId,
+  isAdmin,
   onDayClick,
   viewMode = 'year',
   onViewModeChange,
@@ -93,11 +97,18 @@ export function YearCalendar({
   // Determine which users to display
   const displayUsers = useMemo(() => {
     const activeUsers = usersList.filter(u => !u.deletedAt);
+
+    // Employee: nur eigenen User anzeigen
+    if (!isAdmin) {
+      return activeUsers.filter(u => u.id === currentUserId);
+    }
+
+    // Admin: alle User, oder gefiltert falls selectedUserId gesetzt
     if (selectedUserId) {
       return activeUsers.filter(u => u.id === selectedUserId);
     }
     return activeUsers;
-  }, [usersList, selectedUserId]);
+  }, [usersList, selectedUserId, isAdmin, currentUserId]);
 
   // Helper function to calculate data for a specific user
   const calculateUserData = (userId: number) => {
@@ -336,14 +347,16 @@ export function YearCalendar({
         onViewModeChange={onViewModeChange || (() => {})}
       />
 
-      {/* User Filter */}
-      <div className="mb-4">
-        <UserFilter
-          users={usersList}
-          selectedUserId={selectedUserId}
-          onUserChange={setSelectedUserId}
-        />
-      </div>
+      {/* User Filter - nur für Admins */}
+      {isAdmin && (
+        <div className="mb-4">
+          <UserFilter
+            users={usersList}
+            selectedUserId={selectedUserId}
+            onUserChange={setSelectedUserId}
+          />
+        </div>
+      )}
 
       {/* Render all user heatmaps */}
       {displayUsers.map((user) => renderUserHeatmap(user))}
