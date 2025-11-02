@@ -32,6 +32,7 @@ interface YearCalendarProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
   currentUserId: number;
+  currentUser: { id: number; firstName: string; lastName: string };
   isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
@@ -53,12 +54,19 @@ const MONTHS = [
   'Dez',
 ];
 
-// Color intensity levels (based on hours worked)
-const getIntensityColor = (hours: number, hasAbsence: boolean) => {
-  if (hasAbsence) {
-    return 'bg-red-200 dark:bg-red-900/40 border-red-400 dark:border-red-600';
+// Color intensity levels (based on hours worked + absence status)
+const getIntensityColor = (hours: number, hasApprovedAbsence: boolean, hasPendingAbsence: boolean) => {
+  // Genehmigter Urlaub: Grün
+  if (hasApprovedAbsence) {
+    return 'bg-green-200 dark:bg-green-900/40 border-green-400 dark:border-green-600';
   }
 
+  // Beantragter Urlaub: Orange, gestrichelt
+  if (hasPendingAbsence) {
+    return 'bg-orange-200 dark:bg-orange-900/40 border-orange-400 dark:border-orange-600 border-dashed';
+  }
+
+  // Normale Arbeitstage: Blau (Intensität nach Stunden)
   if (hours === 0) {
     return 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   }
@@ -79,6 +87,7 @@ export function YearCalendar({
   timeEntries = [],
   absences = [],
   currentUserId,
+  currentUser,
   isAdmin,
   onDayClick,
   viewMode = 'year',
@@ -87,7 +96,9 @@ export function YearCalendar({
   const [currentYear, setCurrentYear] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const { data: users } = useUsers();
+  // Admin: useUsers() für alle Mitarbeiter
+  // Employee: Nicht laden (403 Error!)
+  const { data: users } = isAdmin ? useUsers() : { data: [] };
   const usersList = users || [];
 
   // Get year boundaries
@@ -96,19 +107,29 @@ export function YearCalendar({
 
   // Determine which users to display
   const displayUsers = useMemo(() => {
-    const activeUsers = usersList.filter(u => !u.deletedAt);
-
-    // Employee: nur eigenen User anzeigen
+    // Employee: Nutze currentUser aus authStore
     if (!isAdmin) {
-      return activeUsers.filter(u => u.id === currentUserId);
+      const employeeUser = [{
+        id: currentUser.id,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        email: '',
+        role: 'employee' as const,
+        deletedAt: null,
+        createdAt: '',
+        updatedAt: ''
+      }];
+
+      return employeeUser;
     }
 
-    // Admin: alle User, oder gefiltert falls selectedUserId gesetzt
+    // Admin: normale User-Liste von API
+    const activeUsers = usersList.filter(u => !u.deletedAt);
     if (selectedUserId) {
       return activeUsers.filter(u => u.id === selectedUserId);
     }
     return activeUsers;
-  }, [usersList, selectedUserId, isAdmin, currentUserId]);
+  }, [usersList, selectedUserId, isAdmin, currentUserId, timeEntries]);
 
   // Helper function to calculate data for a specific user
   const calculateUserData = (userId: number) => {
@@ -269,8 +290,14 @@ export function YearCalendar({
                     const hours = hoursByDay.get(dateKey) || 0;
                     const dayEntries = entriesByDay.get(dateKey) || [];
                     const dayAbsences = absencesByDay.get(dateKey) || [];
-                    const hasAbsence = dayAbsences.length > 0;
-                    const colorClass = getIntensityColor(hours, hasAbsence);
+
+                    // Filter: Nur genehmigte oder pending Absences anzeigen (rejected nicht)
+                    const visibleAbsences = dayAbsences.filter(a => a.status !== 'rejected');
+                    const hasApprovedAbsence = visibleAbsences.some(a => a.status === 'approved');
+                    const hasPendingAbsence = visibleAbsences.some(a => a.status === 'pending');
+                    const hasAbsence = visibleAbsences.length > 0;
+
+                    const colorClass = getIntensityColor(hours, hasApprovedAbsence, hasPendingAbsence);
                     const dayIsToday = isToday(day);
 
                     // Build tooltip
@@ -284,17 +311,10 @@ export function YearCalendar({
                       tooltipText += `\n${hours.toFixed(1)}h gearbeitet`;
                     }
                     if (hasAbsence) {
-                      tooltipText += `\n\n🏖️ Abwesenheiten:`;
-                      dayAbsences.forEach((absence) => {
-                        const typeLabel =
-                          absence.type === 'vacation'
-                            ? 'Urlaub'
-                            : absence.type === 'sick'
-                            ? 'Krank'
-                            : absence.type === 'overtime_comp'
-                            ? 'Ausgleich'
-                            : 'Unbezahlt';
-                        tooltipText += `\n• ${typeLabel}`;
+                      tooltipText += `\n\n🏖️ Urlaub:`;
+                      visibleAbsences.forEach((absence) => {
+                        const statusLabel = absence.status === 'approved' ? '✅ Genehmigt' : '⏳ Beantragt';
+                        tooltipText += `\n• ${statusLabel}`;
                       });
                     }
 
@@ -326,8 +346,12 @@ export function YearCalendar({
             </div>
             <span className="text-xs text-gray-600 dark:text-gray-400">Mehr</span>
             <div className="ml-4 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40 border border-red-400 dark:border-red-600" />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Abwesend</span>
+              <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900/40 border border-green-400 dark:border-green-600" />
+              <span className="text-xs text-gray-600 dark:text-gray-400">Urlaub (✅)</span>
+            </div>
+            <div className="ml-2 flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm bg-orange-200 dark:bg-orange-900/40 border border-orange-400 dark:border-orange-600 border-dashed" />
+              <span className="text-xs text-gray-600 dark:text-gray-400">Urlaub (⏳)</span>
             </div>
           </div>
         </div>
@@ -345,6 +369,7 @@ export function YearCalendar({
         onToday={handleToday}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange || (() => {})}
+        isAdmin={isAdmin}
       />
 
       {/* User Filter - nur für Admins */}

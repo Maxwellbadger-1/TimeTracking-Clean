@@ -47,6 +47,7 @@ export function CalendarPage() {
                 timeEntries={timeEntries || []}
                 absences={absences || []}
                 holidays={holidays || []}
+                isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 onDayClick={(date) => {
@@ -62,6 +63,7 @@ export function CalendarPage() {
                 timeEntries={timeEntries || []}
                 absences={absences || []}
                 currentUserId={user.id}
+                currentUser={user}
                 isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
@@ -78,6 +80,7 @@ export function CalendarPage() {
                 timeEntries={timeEntries || []}
                 absences={absences || []}
                 currentUserId={user.id}
+                currentUser={user}
                 isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}

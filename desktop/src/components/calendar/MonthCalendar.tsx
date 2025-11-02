@@ -31,6 +31,7 @@ interface MonthCalendarProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
   holidays?: Array<{ date: string; name: string }>;
+  isAdmin?: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
@@ -40,6 +41,7 @@ export function MonthCalendar({
   timeEntries = [],
   absences = [],
   holidays = [],
+  isAdmin = true,
   onDayClick,
   viewMode = 'month',
   onViewModeChange,
@@ -87,6 +89,7 @@ export function MonthCalendar({
         onToday={handleToday}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange || (() => {})}
+        isAdmin={isAdmin}
       />
 
       {/* Legend */}
@@ -176,34 +179,37 @@ export function MonthCalendar({
                     </div>
                   )}
 
-                  {/* Absences - with User Info */}
-                  {dayAbsences.slice(0, 2).map((absence, idx) => {
-                    const type = absence.type === 'vacation' ? 'vacation' :
-                                 absence.type === 'sick' ? 'sick' :
-                                 absence.type === 'overtime_comp' ? 'overtime_comp' : 'unpaid';
-                    const colors = getEventColor(type);
+                  {/* Absences - with User Info, only approved/pending */}
+                  {dayAbsences.filter(a => a.status !== 'rejected').slice(0, 2).map((absence, idx) => {
+                    const isApproved = absence.status === 'approved';
+                    const isPending = absence.status === 'pending';
+
+                    // Status-based colors (green for approved, orange for pending)
+                    const bgColor = isApproved
+                      ? 'bg-green-100 dark:bg-green-900/30'
+                      : 'bg-orange-100 dark:bg-orange-900/30';
+                    const textColor = isApproved
+                      ? 'text-green-800 dark:text-green-200'
+                      : 'text-orange-800 dark:text-orange-200';
+                    const statusIcon = isApproved ? '✅' : '⏳';
+
                     const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
                     const fullName = getFullName(absence.firstName, absence.lastName);
+                    const statusLabel = isApproved ? 'Genehmigt' : 'Beantragt';
 
                     return (
                       <div
                         key={idx}
                         className={`
                           px-2 py-1 rounded-md text-xs font-medium truncate flex items-center gap-1
-                          ${colors.bg} ${colors.text}
+                          ${bgColor} ${textColor}
                         `}
-                        title={`${fullName}: ${
-                          type === 'vacation' ? 'Urlaub' :
-                          type === 'sick' ? 'Krank' :
-                          type === 'overtime_comp' ? 'Überstunden-Ausgleich' : 'Unbezahlt'
-                        }`}
+                        title={`${fullName}: Urlaub (${statusLabel})`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
                           {initials}
                         </span>
-                        {type === 'vacation' ? '🏖️' :
-                         type === 'sick' ? '🤒' :
-                         type === 'overtime_comp' ? '⏰' : '📅'}
+                        {statusIcon} 🏖️ Urlaub
                       </div>
                     );
                   })}

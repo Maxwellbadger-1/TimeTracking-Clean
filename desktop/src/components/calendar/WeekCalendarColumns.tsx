@@ -29,6 +29,7 @@ interface WeekCalendarColumnsProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
   currentUserId: number;
+  currentUser: { id: number; firstName: string; lastName: string };
   isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
@@ -42,6 +43,7 @@ export function WeekCalendarColumns({
   timeEntries = [],
   absences = [],
   currentUserId,
+  currentUser,
   isAdmin,
   onDayClick,
   viewMode = 'week',
@@ -50,7 +52,9 @@ export function WeekCalendarColumns({
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const { data: users } = useUsers();
+  // Admin: useUsers() für alle Mitarbeiter
+  // Employee: Nicht laden (403 Error!)
+  const { data: users } = isAdmin ? useUsers() : { data: [] };
   const usersList = users || [];
 
   // Get week days (Monday - Sunday)
@@ -59,19 +63,29 @@ export function WeekCalendarColumns({
 
   // Filter users
   const displayUsers = useMemo(() => {
-    const activeUsers = usersList.filter(u => !u.deletedAt);
-
-    // Employee: nur eigenen User anzeigen
+    // Employee: Nutze currentUser aus authStore
     if (!isAdmin) {
-      return activeUsers.filter(u => u.id === currentUserId);
+      const employeeUser = [{
+        id: currentUser.id,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        email: '',
+        role: 'employee' as const,
+        deletedAt: null,
+        createdAt: '',
+        updatedAt: ''
+      }];
+
+      return employeeUser;
     }
 
-    // Admin: alle User, oder gefiltert falls selectedUserId gesetzt
+    // Admin: normale User-Liste von API
+    const activeUsers = usersList.filter(u => !u.deletedAt);
     if (selectedUserId) {
       return activeUsers.filter(u => u.id === selectedUserId);
     }
     return activeUsers;
-  }, [usersList, selectedUserId, isAdmin, currentUserId]);
+  }, [usersList, selectedUserId, isAdmin, currentUserId, timeEntries]);
 
   // Calculate column width based on number of users
   const columnWidthPerUser = 180; // pixels per user
@@ -168,6 +182,7 @@ export function WeekCalendarColumns({
         onToday={handleToday}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange || (() => {})}
+        isAdmin={isAdmin}
       />
 
       {/* User Filter - nur für Admins */}
@@ -314,15 +329,21 @@ export function WeekCalendarColumns({
                               </div>
                             )}
 
-                            {/* Absence Banner */}
-                            {dayAbsences.length > 0 && (
-                              <div className="absolute top-1 left-1 right-1 z-5 p-1 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded text-[10px] font-medium text-yellow-800 dark:text-yellow-200 text-center">
-                                {dayAbsences[0].type === 'vacation' && '🏖️'}
-                                {dayAbsences[0].type === 'sick' && '🤒'}
-                                {dayAbsences[0].type === 'unpaid' && '📅'}
-                                {dayAbsences[0].type === 'overtime_comp' && '⏰'}
-                              </div>
-                            )}
+                            {/* Absence Banner - nur approved/pending, nicht rejected */}
+                            {dayAbsences.filter(a => a.status !== 'rejected').map((absence, idx) => {
+                              const isApproved = absence.status === 'approved';
+                              const isPending = absence.status === 'pending';
+                              const bgColor = isApproved ? 'bg-green-100 dark:bg-green-900/30' : 'bg-orange-100 dark:bg-orange-900/30';
+                              const borderColor = isApproved ? 'border-green-400 dark:border-green-600' : 'border-orange-400 dark:border-orange-600';
+                              const textColor = isApproved ? 'text-green-800 dark:text-green-200' : 'text-orange-800 dark:text-orange-200';
+                              const statusIcon = isApproved ? '✅' : '⏳';
+
+                              return (
+                                <div key={idx} className={`absolute top-${1 + idx * 8} left-1 right-1 z-5 p-1 ${bgColor} border ${borderColor} rounded text-[10px] font-medium ${textColor} text-center`}>
+                                  {statusIcon} Urlaub
+                                </div>
+                              );
+                            })}
 
                             {/* Time Entry Blocks */}
                             {dayEntries.map((entry) => {
