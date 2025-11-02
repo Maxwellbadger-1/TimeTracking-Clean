@@ -103,11 +103,11 @@ async function startServer() {
   try {
     await seedDatabase();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log('✅ TimeTracking Server started');
-      console.log(`📡 Listening on http://localhost:${PORT}`);
-      console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
+      console.log(`📡 Listening on http://0.0.0.0:${PORT}`);
+      console.log(`🏥 Health check: http://0.0.0.0:${PORT}/api/health`);
+      console.log(`🔐 Auth endpoints: http://0.0.0.0:${PORT}/api/auth`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
