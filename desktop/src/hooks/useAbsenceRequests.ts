@@ -3,15 +3,15 @@ import { apiClient } from '../api/client';
 import type { AbsenceRequest } from '../types';
 import { toast } from 'sonner';
 
-interface AbsenceRequestFilters {
+export interface AbsenceRequestFilters {
   userId?: number;
   status?: 'pending' | 'approved' | 'rejected';
-  type?: 'vacation' | 'sick' | 'overtime_compensation';
+  type?: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
 }
 
 interface CreateAbsenceRequestData {
   userId: number;
-  type: 'vacation' | 'sick' | 'overtime_compensation';
+  type: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
   startDate: string;
   endDate: string;
   reason?: string;

@@ -4,7 +4,7 @@
  * Helper functions for calendar views (Month, Week, Year)
  */
 
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, startOfYear, endOfYear, addMonths, isWeekend as dateFnsIsWeekend } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, startOfYear, addMonths, isWeekend as dateFnsIsWeekend } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 /**

@@ -17,11 +17,9 @@ import { CalendarLegend } from './CalendarLegend';
 import {
   getDaysInMonth,
   formatDay,
-  formatWeekdayShort,
   isToday,
   isCurrentMonth,
   isWeekend,
-  isHoliday,
   getHoliday,
   formatCalendarDate,
   getEventColor,
@@ -117,7 +115,6 @@ export function MonthCalendar({
             const dayEntries = entriesByDate[dateStr] || [];
             const dayAbsences = absencesByDate[dateStr] || [];
             const holiday = getHoliday(day, holidays);
-            const totalHours = dayEntries.reduce((sum, e) => sum + (e.hours || 0), 0);
 
             const isCurrentMonthDay = isCurrentMonth(day, currentMonth);
             const isTodayDay = isToday(day);

@@ -41,6 +41,9 @@ export function TimeEntriesPage() {
   // Edit Modal State
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
+  // Delete Confirmation State
+  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
+
   if (!user) return null;
 
   // Filter & Sort
@@ -122,9 +125,36 @@ export function TimeEntriesPage() {
     link.click();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Zeiteintrag wirklich löschen?')) return;
-    await deleteEntry.mutateAsync(id);
+  const handleDeleteClick = (id: number) => {
+    console.log('🗑️ DELETE BUTTON CLICKED! Entry ID:', id);
+    console.log('🔍 Current user:', user);
+    console.log('🔍 Is admin?', user?.role === 'admin');
+    setDeletingEntryId(id);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingEntryId) return;
+
+    console.log('✅ DELETE CONFIRMED! Entry ID:', deletingEntryId);
+
+    try {
+      console.log('🚀 Starting deletion mutation for ID:', deletingEntryId);
+      const result = await deleteEntry.mutateAsync(deletingEntryId);
+      console.log('✅ Deletion successful! Result:', result);
+      setDeletingEntryId(null);
+    } catch (error) {
+      console.error('❌ DELETE ERROR:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      setDeletingEntryId(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    console.log('❌ DELETE CANCELLED! Entry ID:', deletingEntryId);
+    setDeletingEntryId(null);
   };
 
   const toggleSort = (field: 'date' | 'hours') => {
@@ -418,7 +448,7 @@ export function TimeEntriesPage() {
                             <Button
                               size="sm"
                               variant="danger"
-                              onClick={() => handleDelete(entry.id)}
+                              onClick={() => handleDeleteClick(entry.id)}
                               disabled={deleteEntry.isPending}
                             >
                               Löschen
@@ -463,6 +493,36 @@ export function TimeEntriesPage() {
           onClose={() => setEditingEntry(null)}
           entry={editingEntry}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingEntryId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Zeiteintrag löschen?
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Möchten Sie diesen Zeiteintrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="ghost"
+                onClick={handleDeleteCancel}
+                disabled={deleteEntry.isPending}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteConfirm}
+                disabled={deleteEntry.isPending}
+              >
+                {deleteEntry.isPending ? 'Lösche...' : 'Löschen'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

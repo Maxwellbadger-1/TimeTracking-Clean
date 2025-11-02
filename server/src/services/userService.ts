@@ -1,6 +1,6 @@
 import db from '../database/connection.js';
 import { hashPassword } from './authService.js';
-import type { User, UserPublic, UserCreateInput } from '../types/index.js';
+import type { UserPublic, UserCreateInput } from '../types/index.js';
 
 /**
  * User Service - Business Logic for User Management

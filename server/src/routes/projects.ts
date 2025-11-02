@@ -65,7 +65,7 @@ router.patch('/:id', requireAuth, requireAdmin, (req: Request, res: Response<Api
 
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Project;
 
-    logAudit(req.session.user!.id, 'update', 'project', id, { active: project.active });
+    logAudit(req.session.user!.id, 'update', 'project', id, { status: project.status });
 
     res.json({ success: true, data: project, message: 'Project updated' });
   } catch (error) {

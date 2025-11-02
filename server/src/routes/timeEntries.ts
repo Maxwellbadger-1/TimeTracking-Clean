@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import {
   validateTimeEntryCreate,
   validateTimeEntryUpdate,
@@ -192,9 +192,17 @@ router.put(
   validateTimeEntryUpdate,
   (req: Request, res: Response<ApiResponse<TimeEntry>>) => {
     try {
+      console.log('🔄 PUT /api/time-entries/:id CALLED');
+      console.log('📝 Request params:', req.params);
+      console.log('📝 Request body:', req.body);
+      console.log('👤 User:', req.session.user);
+
       const id = parseInt(req.params.id);
 
+      console.log('🔢 Parsed ID:', id);
+
       if (isNaN(id)) {
+        console.log('❌ Invalid ID - isNaN');
         res.status(400).json({
           success: false,
           error: 'Invalid time entry ID',
@@ -203,9 +211,13 @@ router.put(
       }
 
       // Get existing entry
+      console.log('🔍 Fetching existing entry with ID:', id);
       const existing = getTimeEntryById(id);
 
+      console.log('📦 Existing entry:', existing);
+
       if (!existing) {
+        console.log('❌ Time entry not found!');
         res.status(404).json({
           success: false,
           error: 'Time entry not found',
@@ -217,7 +229,10 @@ router.put(
       const isAdmin = req.session.user!.role === 'admin';
       const isOwner = existing.userId === req.session.user!.id;
 
+      console.log('🔐 Permission check:', { isAdmin, isOwner, existingUserId: existing.userId, currentUserId: req.session.user!.id });
+
       if (!isAdmin && !isOwner) {
+        console.log('❌ Permission denied!');
         res.status(403).json({
           success: false,
           error: 'You do not have permission to update this time entry',
@@ -226,7 +241,10 @@ router.put(
       }
 
       // Update time entry
+      console.log('💾 Calling updateTimeEntry...');
       const entry = updateTimeEntry(id, req.body);
+
+      console.log('✅ Time entry updated successfully:', entry);
 
       // Log audit
       logAudit(req.session.user!.id, 'update', 'time_entry', id, req.body);
@@ -238,6 +256,7 @@ router.put(
       });
     } catch (error) {
       console.error('❌ Error updating time entry:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
 
       // Handle specific errors
       if (error instanceof Error) {

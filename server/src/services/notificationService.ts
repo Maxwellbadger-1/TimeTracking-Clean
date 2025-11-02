@@ -157,6 +157,30 @@ export function notifyAbsenceRejected(
   createNotification(userId, 'absence_rejected', `${typeLabel} abgelehnt`, message);
 }
 
+export function notifyAbsenceCancelled(
+  userId: number,
+  absenceType: string,
+  startDate: string,
+  endDate: string,
+  reason?: string
+): void {
+  const typeLabel =
+    absenceType === 'vacation'
+      ? 'Urlaub'
+      : absenceType === 'sick'
+      ? 'Krankmeldung'
+      : absenceType === 'overtime_comp'
+      ? 'Überstundenausgleich'
+      : 'Abwesenheit';
+
+  let message = `Ihr genehmigter ${typeLabel} vom ${startDate} bis ${endDate} wurde vom Administrator storniert.`;
+  if (reason) {
+    message += ` Grund: ${reason}`;
+  }
+
+  createNotification(userId, 'absence_cancelled', `${typeLabel} storniert`, message);
+}
+
 export function notifyTimeEntryEdited(
   userId: number,
   date: string,

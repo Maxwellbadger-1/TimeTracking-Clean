@@ -45,17 +45,12 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
     // Set session
     req.session.user = result.user;
 
-    console.log('✅ User logged in:', result.user.username);
-
     res.json({
       success: true,
-      data: {
-        user: result.user,
-      },
+      data: result.user,
       message: 'Login successful',
     });
   } catch (error) {
-    console.error('❌ Login error:', error);
     res.status(500).json({
       success: false,
       error: 'Login failed',
@@ -68,19 +63,14 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
  * Logout current user
  */
 router.post('/logout', requireAuth, (req: Request, res: Response<ApiResponse>) => {
-  const username = req.session.user?.username;
-
   req.session.destroy((err) => {
     if (err) {
-      console.error('❌ Logout error:', err);
       res.status(500).json({
         success: false,
         error: 'Logout failed',
       });
       return;
     }
-
-    console.log('✅ User logged out:', username);
 
     res.json({
       success: true,

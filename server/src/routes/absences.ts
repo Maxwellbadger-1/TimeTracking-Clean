@@ -19,6 +19,7 @@ import {
 import {
   notifyAbsenceApproved,
   notifyAbsenceRejected,
+  notifyAbsenceCancelled,
 } from '../services/notificationService.js';
 import { logAudit } from '../services/auditService.js';
 import type { ApiResponse, AbsenceRequest } from '../types/index.js';
@@ -65,7 +66,6 @@ router.get(
         data: requests,
       });
     } catch (error) {
-      console.error('❌ Error getting absence requests:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get absence requests',
@@ -120,7 +120,6 @@ router.get(
         data: request,
       });
     } catch (error) {
-      console.error('❌ Error getting absence request:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get absence request',
@@ -168,8 +167,6 @@ router.post(
         message: 'Absence request created successfully',
       });
     } catch (error) {
-      console.error('❌ Error creating absence request:', error);
-
       // Handle specific errors
       if (error instanceof Error) {
         if (
@@ -248,8 +245,6 @@ router.put(
         message: 'Absence request updated successfully',
       });
     } catch (error) {
-      console.error('❌ Error updating absence request:', error);
-
       // Handle specific errors
       if (error instanceof Error) {
         if (error.message === 'Absence request not found') {
@@ -329,8 +324,6 @@ router.post(
         message: 'Absence request approved successfully',
       });
     } catch (error) {
-      console.error('❌ Error approving absence request:', error);
-
       if (error instanceof Error) {
         if (
           error.message === 'Absence request not found' ||
@@ -402,8 +395,6 @@ router.post(
         message: 'Absence request rejected successfully',
       });
     } catch (error) {
-      console.error('❌ Error rejecting absence request:', error);
-
       if (error instanceof Error) {
         if (
           error.message === 'Absence request not found' ||
@@ -428,6 +419,8 @@ router.post(
 /**
  * DELETE /api/absences/:id
  * Delete absence request
+ * - Admin: Can delete ANY absence (pending/approved/rejected)
+ * - Employee: Can only delete OWN pending absences
  */
 router.delete(
   '/:id',
@@ -455,10 +448,10 @@ router.delete(
         return;
       }
 
-      // Check permission: Admin can delete all, Employee can only delete own pending requests
       const isAdmin = req.session.user!.role === 'admin';
       const isOwner = existing.userId === req.session.user!.id;
 
+      // Permission check
       if (!isAdmin && !isOwner) {
         res.status(403).json({
           success: false,
@@ -471,24 +464,44 @@ router.delete(
       if (!isAdmin && existing.status !== 'pending') {
         res.status(403).json({
           success: false,
-          error: 'Cannot delete approved or rejected absence request',
+          error: 'You can only delete pending absence requests',
         });
         return;
+      }
+
+      // Admin can delete approved absences - notify user
+      if (isAdmin && existing.status === 'approved') {
+        const { reason } = req.body;
+
+        // Send notification to user
+        notifyAbsenceCancelled(
+          existing.userId,
+          existing.type,
+          existing.startDate,
+          existing.endDate,
+          reason || 'No reason provided'
+        );
       }
 
       // Delete request
       deleteAbsenceRequest(id);
 
-      // Log audit
-      logAudit(req.session.user!.id, 'delete', 'absence_request', id);
+      // Enhanced audit log for admin deletions
+      logAudit(req.session.user!.id, 'delete', 'absence_request', id, {
+        status: existing.status,
+        type: existing.type,
+        startDate: existing.startDate,
+        endDate: existing.endDate,
+        days: existing.days,
+        deletedByAdmin: isAdmin,
+        reason: req.body.reason || null,
+      });
 
       res.json({
         success: true,
         message: 'Absence request deleted successfully',
       });
     } catch (error) {
-      console.error('❌ Error deleting absence request:', error);
-
       if (error instanceof Error && error.message === 'Absence request not found') {
         res.status(404).json({
           success: false,
@@ -550,7 +563,6 @@ router.get(
         data: balance,
       });
     } catch (error) {
-      console.error('❌ Error getting vacation balance:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get vacation balance',

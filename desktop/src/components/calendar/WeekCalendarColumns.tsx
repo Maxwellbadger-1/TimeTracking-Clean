@@ -15,16 +15,15 @@ import {
   format,
   startOfWeek,
   addDays,
-  isSameDay,
   isToday,
   parseISO,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { DateNavigation } from './DateNavigation';
 import { UserFilter } from './UserFilter';
-import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
+import { getUserColor, getInitials } from '../../utils/userColors';
 import { useUsers } from '../../hooks/useUsers';
-import type { TimeEntry, AbsenceRequest, User } from '../../types';
+import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface WeekCalendarColumnsProps {
   timeEntries?: TimeEntry[];
@@ -157,7 +156,7 @@ export function WeekCalendarColumns({
         onNext={handleNext}
         onToday={handleToday}
         viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
+        onViewModeChange={onViewModeChange || (() => {})}
       />
 
       {/* User Filter */}

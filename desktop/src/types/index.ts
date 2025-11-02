@@ -14,6 +14,7 @@ export interface User {
   isActive: boolean;
   status?: 'active' | 'inactive';
   createdAt: string;
+  deletedAt?: string | null;
 }
 
 export interface TimeEntry {
@@ -28,6 +29,7 @@ export interface TimeEntry {
   project: string | null;
   location: 'office' | 'homeoffice' | 'field';
   notes: string | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string | null;
   // User information (from JOIN)

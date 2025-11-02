@@ -14,7 +14,7 @@ import { TeamCalendar } from '../components/calendar/TeamCalendar';
 import { useTimeEntries, useAbsenceRequests, useCurrentYearHolidays } from '../hooks';
 
 export function CalendarPage() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'year' | 'team'>('month');
 
   // Fetch data for calendar
@@ -23,8 +23,8 @@ export function CalendarPage() {
   const isAdmin = user?.role === 'admin';
   const userIdFilter = isAdmin ? undefined : user?.id;
 
-  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(userIdFilter);
-  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter);
+  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(userIdFilter ? { userId: userIdFilter } : undefined);
+  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter ? { userId: userIdFilter } : undefined);
   const { data: holidays, isLoading: loadingHolidays } = useCurrentYearHolidays();
 
   if (!user) return null;

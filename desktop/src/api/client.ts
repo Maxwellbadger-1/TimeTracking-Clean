@@ -2,7 +2,11 @@
 import { universalFetch } from '../lib/tauriHttpClient';
 import { debugLog } from '../components/DebugPanel';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+// DEVELOPMENT: Use localhost
+// PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -34,17 +38,50 @@ class ApiClient {
         message: `📤 API Request: ${method} ${endpoint}`,
       });
 
-      // Use universalFetch (Tauri HTTP in Tauri, browser fetch in browser)
+      console.log('🚀🚀🚀 MAKING FETCH REQUEST 🚀🚀🚀');
+      console.log('🌐 URL:', url);
+      console.log('🔧 Method:', method);
+      console.log('📦 Body:', options?.body);
+      console.log('📋 Headers:', options?.headers);
+      console.log('🍪 Credentials:', 'include');
+      console.log('🌍 Current Origin:', typeof window !== 'undefined' ? window.location.origin : 'server');
+      console.log('🎯 Target Origin:', new URL(url).origin);
+      console.log('🔀 Cross-Origin?', typeof window !== 'undefined' ? window.location.origin !== new URL(url).origin : false);
+
+      // CRITICAL: Use universalFetch (Tauri HTTP in Tauri, browser fetch in browser)
+      // credentials: 'include' is ESSENTIAL for session cookies to work cross-origin
       const response = await universalFetch(url, {
         ...options,
-        credentials: 'include', // Important for session cookies
+        credentials: 'include', // CRITICAL: Required for cookies on cross-origin (localhost:1420 -> localhost:3000)
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
         },
       });
 
-      const data: ApiResponse<T> = await response.json();
+      console.log('📥📥📥 RESPONSE RECEIVED 📥📥📥');
+      console.log('📊 Status:', response.status);
+      console.log('📊 Status Text:', response.statusText);
+      console.log('📊 OK?', response.ok);
+      console.log('📋 Response Headers:', response.headers);
+
+      // Get raw response text FIRST before parsing
+      const rawText = await response.clone().text();
+      console.log('📄 RAW RESPONSE TEXT:', rawText);
+      console.log('📏 Response length:', rawText.length);
+
+      let data: ApiResponse<T>;
+      try {
+        data = await response.json();
+        console.log('✅ JSON parsed successfully:', data);
+      } catch (jsonError) {
+        console.error('💥💥💥 JSON PARSE ERROR 💥💥💥');
+        console.error('❌ Error:', jsonError);
+        console.error('📄 Raw text that failed to parse:', rawText);
+        console.error('📄 First 500 chars:', rawText.substring(0, 500));
+        console.error('📄 Last 500 chars:', rawText.substring(Math.max(0, rawText.length - 500)));
+        throw new Error(`JSON Parse Error: ${jsonError instanceof Error ? jsonError.message : 'Unknown'}`);
+      }
 
       debugLog({
         type: 'response',
@@ -104,10 +141,19 @@ class ApiClient {
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+    console.log('🔥🔥🔥 PUT METHOD CALLED! 🔥🔥🔥');
+    console.log('📍 Endpoint:', endpoint);
+    console.log('📦 Data to send:', data);
+    console.log('📄 Stringified body:', data ? JSON.stringify(data) : 'NO BODY');
+    console.log('🌐 Full URL:', `${this.baseUrl}${endpoint}`);
+
+    const result = await this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     });
+
+    console.log('✅ PUT request completed. Result:', result);
+    return result;
   }
 
   async patch<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
@@ -117,10 +163,19 @@ class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async delete<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    console.log('🔥🔥🔥 DELETE METHOD CALLED! 🔥🔥🔥');
+    console.log('📍 Endpoint:', endpoint);
+    console.log('📦 Data:', data);
+    console.log('🌐 Full URL:', `${this.baseUrl}${endpoint}`);
+
+    const result = await this.request<T>(endpoint, {
       method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
     });
+
+    console.log('✅ DELETE request completed. Result:', result);
+    return result;
   }
 }
 

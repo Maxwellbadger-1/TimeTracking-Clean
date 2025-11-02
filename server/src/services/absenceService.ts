@@ -607,7 +607,6 @@ function deductOvertimeHours(userId: number, hours: number): void {
     if (remainingHours <= 0) break;
 
     const toDeduct = Math.min(remainingHours, balance.overtime);
-    const newActualHours = balance.overtime - toDeduct; // This will be recalculated by updateOvertimeBalance
 
     // We need to reduce actualHours in the overtime_balance table
     // Since overtime is a VIRTUAL column (actualHours - targetHours),

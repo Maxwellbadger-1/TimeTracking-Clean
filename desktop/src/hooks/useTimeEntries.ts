@@ -130,22 +130,40 @@ export function useUpdateTimeEntry() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: UpdateTimeEntryData }) => {
+      console.log('🔥 UPDATE MUTATION FUNCTION CALLED! ID:', id);
+      console.log('📝 Update data:', data);
+      console.log('📡 Calling API put endpoint: /time-entries/' + id);
+
       const response = await apiClient.put<TimeEntry>(`/time-entries/${id}`, data);
 
+      console.log('📥 API Response received:', response);
+      console.log('✅ Response success?', response.success);
+      console.log('📦 Response data:', response.data);
+      console.log('❌ Response error?', response.error);
+
       if (!response.success) {
+        console.error('💥 UPDATE MUTATION FAILED! Error:', response.error);
         throw new Error(response.error || 'Failed to update time entry');
       }
 
+      console.log('✅ UPDATE MUTATION SUCCESS! Returning data:', response.data);
       return response.data;
     },
     onSuccess: (_data: TimeEntry | undefined, variables: { id: number; data: UpdateTimeEntryData }) => {
+      console.log('🎉 UPDATE onSuccess callback triggered! Data:', _data);
+      console.log('🔄 Invalidating queries...');
       // Invalidate specific entry and list
       queryClient.invalidateQueries({ queryKey: ['timeEntry', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag aktualisiert');
     },
     onError: (error: Error) => {
+      console.error('💥 UPDATE onError callback triggered!');
+      console.error('❌ Error object:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -157,20 +175,37 @@ export function useDeleteTimeEntry() {
 
   return useMutation({
     mutationFn: async (id: number) => {
+      console.log('🔥 MUTATION FUNCTION CALLED! ID:', id);
+      console.log('📡 Calling API delete endpoint: /time-entries/' + id);
+
       const response = await apiClient.delete(`/time-entries/${id}`);
 
+      console.log('📥 API Response received:', response);
+      console.log('✅ Response success?', response.success);
+      console.log('📦 Response data:', response.data);
+      console.log('❌ Response error?', response.error);
+
       if (!response.success) {
+        console.error('💥 MUTATION FAILED! Error:', response.error);
         throw new Error(response.error || 'Failed to delete time entry');
       }
 
+      console.log('✅ MUTATION SUCCESS! Returning data:', response.data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('🎉 onSuccess callback triggered! Data:', data);
+      console.log('🔄 Invalidating queries...');
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag gelöscht');
     },
     onError: (error: Error) => {
+      console.error('💥 onError callback triggered!');
+      console.error('❌ Error object:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       toast.error(`Fehler: ${error.message}`);
     },
   });

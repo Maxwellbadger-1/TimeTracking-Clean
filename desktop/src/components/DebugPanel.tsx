@@ -19,7 +19,11 @@ export default function DebugPanel() {
   useEffect(() => {
     // Listen for custom debug events
     const handleDebugLog = (event: CustomEvent) => {
-      setLogs((prev) => [...prev, event.detail]);
+      const logEntry = { ...event.detail, timestamp: new Date().toISOString() };
+      setLogs((prev) => [...prev, logEntry]);
+
+      // Write to console for automated reading
+      console.log('[DEBUG-LOG]', JSON.stringify(logEntry));
     };
 
     window.addEventListener('debug-log' as any, handleDebugLog);

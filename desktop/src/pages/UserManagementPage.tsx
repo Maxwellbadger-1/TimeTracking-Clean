@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Users, UserPlus, Search, Filter, Shield, UserCheck, UserX } from 'lucide-react';
 import { useUsers, useDeleteUser } from '../hooks';
 import type { User } from '../types';
@@ -32,6 +33,7 @@ export function UserManagementPage() {
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ userId: number; userName: string } | null>(null);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,15 +116,37 @@ export function UserManagementPage() {
     };
   }, [users]);
 
-  const handleDelete = async (userId: number, userName: string) => {
+  const handleDeleteClick = (userId: number, userName: string) => {
+    console.log('🔥🔥🔥 HANDLE DELETE CLICKED 🔥🔥🔥');
+    console.log('👤 User to delete:', userName);
+    console.log('🆔 User ID:', userId);
+    console.log('🔒 Current user ID:', currentUser.id);
+
     if (userId === currentUser.id) {
-      alert('Sie können sich nicht selbst löschen!');
+      console.warn('⚠️ Cannot delete yourself!');
+      // TODO: Show error dialog instead of alert
       return;
     }
 
-    if (!confirm(`Benutzer "${userName}" wirklich löschen?`)) return;
+    console.log('❓ Showing confirmation dialog...');
+    setDeleteConfirm({ userId, userName });
+  };
 
-    await deleteUser.mutateAsync(userId);
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+
+    const { userId, userName } = deleteConfirm;
+    console.log('✅ User confirmed deletion');
+    console.log('🚀 Calling deleteUser.mutateAsync(' + userId + ')...');
+
+    try {
+      const result = await deleteUser.mutateAsync(userId);
+      console.log('✅ Delete mutation completed successfully');
+      console.log('📊 Result:', result);
+    } catch (error) {
+      console.error('💥 Delete mutation failed with error:');
+      console.error(error);
+    }
   };
 
   const clearFilters = () => {
@@ -407,7 +431,7 @@ export function UserManagementPage() {
                               <Button
                                 size="sm"
                                 variant="danger"
-                                onClick={() => handleDelete(user.id, `${user.firstName} ${user.lastName}`)}
+                                onClick={() => handleDeleteClick(user.id, `${user.firstName} ${user.lastName}`)}
                                 disabled={deleteUser.isPending}
                               >
                                 Löschen
@@ -455,6 +479,18 @@ export function UserManagementPage() {
           user={editingUser}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Benutzer löschen"
+        message={`Möchten Sie den Benutzer "${deleteConfirm?.userName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+        variant="danger"
+      />
     </div>
   );
 }

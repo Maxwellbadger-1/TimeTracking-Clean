@@ -22,5 +22,10 @@
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
+  },
+  "optionalDependencies": {
+    "@tauri-apps/cli-darwin-arm64": "^2.9.2",
+    "@tauri-apps/cli-darwin-universal": "npm:null@*",
+    "@tauri-apps/cli-darwin-x64": "^2.9.2"
   }
 }

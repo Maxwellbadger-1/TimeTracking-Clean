@@ -24,11 +24,9 @@ import {
   Clock,
   Umbrella,
   TrendingUp,
-  Users,
   BarChart3,
 } from 'lucide-react';
 import { useTimeEntries, useAbsenceRequests, useUsers } from '../hooks';
-import { formatDateDE } from '../utils';
 
 export function ReportsPage() {
   const { user: currentUser } = useAuthStore();
@@ -88,7 +86,7 @@ export function ReportsPage() {
     const vacationDays = filteredAbsences.filter((r) => r.type === 'vacation').length;
     const sickDays = filteredAbsences.filter((r) => r.type === 'sick').length;
     const overtimeCompDays = filteredAbsences.filter(
-      (r) => r.type === 'overtime_compensation'
+      (r) => r.type === 'overtime_comp'
     ).length;
 
     // By User (if admin viewing all)
@@ -211,7 +209,7 @@ export function ReportsPage() {
             </div>
           </div>
 
-          <Button onClick={handleExportCSV} variant="outline">
+          <Button onClick={handleExportCSV} variant="secondary">
             <Download className="w-4 h-4 mr-2" />
             CSV Export
           </Button>

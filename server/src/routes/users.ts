@@ -34,7 +34,6 @@ router.get(
         data: users,
       });
     } catch (error) {
-      console.error('❌ Error getting users:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get users',
@@ -78,7 +77,6 @@ router.get(
         data: user,
       });
     } catch (error) {
-      console.error('❌ Error getting user:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get user',
@@ -134,7 +132,6 @@ router.post(
         message: 'User created successfully',
       });
     } catch (error) {
-      console.error('❌ Error creating user:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to create user',
@@ -196,8 +193,6 @@ router.put(
         message: 'User updated successfully',
       });
     } catch (error) {
-      console.error('❌ Error updating user:', error);
-
       if (error instanceof Error && error.message === 'User not found') {
         res.status(404).json({
           success: false,
@@ -253,8 +248,6 @@ router.delete(
         message: 'User deleted successfully',
       });
     } catch (error) {
-      console.error('❌ Error deleting user:', error);
-
       if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json({
           success: false,
@@ -311,8 +304,6 @@ router.patch(
         message: 'User status updated successfully',
       });
     } catch (error) {
-      console.error('❌ Error updating user status:', error);
-
       if (error instanceof Error && error.message === 'User not found') {
         res.status(404).json({
           success: false,

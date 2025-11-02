@@ -59,7 +59,7 @@ export function requireAdmin(
  * Optional auth - attaches user if logged in, but doesn't require it
  */
 export function optionalAuth(
-  req: Request,
+  _req: Request,
   _res: Response,
   next: NextFunction
 ): void {

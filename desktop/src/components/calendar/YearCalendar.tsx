@@ -333,7 +333,7 @@ export function YearCalendar({
         onNext={handleNext}
         onToday={handleToday}
         viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
+        onViewModeChange={onViewModeChange || (() => {})}
       />
 
       {/* User Filter */}

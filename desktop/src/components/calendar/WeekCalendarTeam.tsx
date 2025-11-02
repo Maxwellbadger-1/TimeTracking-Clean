@@ -15,7 +15,6 @@ import {
   format,
   startOfWeek,
   addDays,
-  isSameDay,
   isToday,
   parseISO,
 } from 'date-fns';
@@ -24,7 +23,7 @@ import { CalendarHeader } from './CalendarHeader';
 import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
 import { useUsers } from '../../hooks/useUsers';
-import type { TimeEntry, AbsenceRequest, User } from '../../types';
+import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface WeekCalendarTeamProps {
   timeEntries?: TimeEntry[];

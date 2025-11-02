@@ -99,6 +99,16 @@ export function EditTimeEntryModal({ isOpen, onClose, entry }: EditTimeEntryModa
     }
 
     try {
+      console.log('🔄 UPDATE BUTTON CLICKED! Entry ID:', entry.id);
+      console.log('📝 Update data:', {
+        date,
+        startTime,
+        endTime,
+        breakMinutes: parseInt(breakMinutes) || 0,
+        location,
+        notes: description || null,
+      });
+
       await updateEntry.mutateAsync({
         id: entry.id,
         data: {
@@ -110,6 +120,8 @@ export function EditTimeEntryModal({ isOpen, onClose, entry }: EditTimeEntryModa
           notes: description || null,
         },
       });
+
+      console.log('✅ Update successful!');
 
       // Close modal and reset form
       onClose();

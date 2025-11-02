@@ -18,13 +18,32 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
 
 // Middleware
+// CRITICAL: CORS configuration for Tauri app + Vite dev server + Remote connections
+// Different ports = cross-origin = cookies need explicit configuration
 app.use(cors({
-  origin: ['tauri://localhost', 'https://tauri.localhost', 'http://localhost:5173', 'http://localhost:1420'],
-  credentials: true,
+  origin: process.env.NODE_ENV === 'production'
+    ? true  // Production: Allow all origins (Desktop apps can come from anywhere)
+    : [
+        // Development: Strict origin list
+        'tauri://localhost',
+        'https://tauri.localhost',
+        'http://localhost:5173',  // Vite default
+        'http://localhost:1420',  // Vite dev server (actual)
+        'http://127.0.0.1:1420',  // Alternative IP
+      ],
+  credentials: true, // MUST be true for cookies to work
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
 }));
 app.use(express.json());
 
 // Session middleware
+// CRITICAL: Cookie configuration for cross-origin (localhost:3000 <-> localhost:1420)
+// IMPORTANT: Different ports on localhost are SAME-SITE but still CROSS-ORIGIN
+// SameSite=Lax BLOCKS cookies on POST cross-origin requests!
+// Solution: SameSite=None (but requires Secure=true which needs HTTPS)
+// Workaround for dev: Set sameSite=none + secure=false (works in some browsers for localhost)
 app.use(
   session({
     secret: SESSION_SECRET,
@@ -32,10 +51,12 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false, // Must be false for localhost and tauri://localhost
-      sameSite: 'lax',
+      secure: false, // MUST be false for http://localhost (dev mode)
+      sameSite: 'none', // CRITICAL: 'none' allows cookies on POST cross-origin
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/', // Available on all paths
     },
+    name: 'connect.sid', // Default name (explicit for clarity)
   })
 );
 

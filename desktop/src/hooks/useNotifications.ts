@@ -50,7 +50,7 @@ export function useMarkNotificationRead() {
 
       return response.data;
     },
-    onSuccess: (_, notificationId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (error: Error) => {

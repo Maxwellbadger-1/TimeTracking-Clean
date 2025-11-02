@@ -1,4 +1,4 @@
-import { fetch as tauriFetch, Response as TauriResponse } from '@tauri-apps/plugin-http';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { debugLog } from '../components/DebugPanel';
 
 /**
@@ -21,6 +21,13 @@ async function tauriHttpFetch(
 ): Promise<Response> {
   const urlString = url.toString();
 
+  console.log('🔥🔥🔥 TAURI HTTP PLUGIN FETCH 🔥🔥🔥');
+  console.log('📍 URL:', urlString);
+  console.log('🔧 Method:', options.method || 'GET');
+  console.log('📋 Headers:', JSON.stringify(options.headers, null, 2));
+  console.log('📦 Body:', options.body);
+  console.log('🍪 Credentials:', options.credentials);
+
   // Log request
   debugLog({
     type: 'request',
@@ -31,15 +38,23 @@ async function tauriHttpFetch(
   });
 
   try {
-    // Use Tauri's HTTP plugin for all HTTP(S) requests
+    // CRITICAL: Use Tauri's HTTP plugin for all HTTP(S) requests
+    // This handles cookies correctly (unlike browser fetch in Tauri)
     const response = await tauriFetch(urlString, {
       method: options.method || 'GET',
       headers: options.headers as Record<string, string>,
       body: options.body instanceof FormData ? options.body : (options.body as any),
     });
 
+    console.log('📥 TAURI HTTP RESPONSE RECEIVED 📥');
+    console.log('📊 Status:', response.status);
+    console.log('📊 Status Text:', response.statusText);
+    console.log('📋 Response Headers:', JSON.stringify([...response.headers.entries()], null, 2));
+
     // Read response body
     const text = await response.text();
+    console.log('📄 Response Body:', text.substring(0, 500));
+
     let data: any;
 
     try {
@@ -98,6 +113,8 @@ function isTauri(): boolean {
   if (typeof window === 'undefined') return false;
 
   // Check multiple Tauri indicators
+  // IMPORTANT: In dev mode (Vite), we're still in Tauri even though protocol is http://
+  // Check for __TAURI__ global first (most reliable)
   return (
     '__TAURI__' in window ||
     '__TAURI_INTERNALS__' in window ||

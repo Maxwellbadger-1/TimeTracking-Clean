@@ -130,19 +130,44 @@ export function useDeleteUser() {
 
   return useMutation({
     mutationFn: async (id: number) => {
+      console.log('🔥🔥🔥 DELETE USER MUTATION TRIGGERED 🔥🔥🔥');
+      console.log('📍 User ID to delete:', id);
+      console.log('🌐 Calling API endpoint: DELETE /users/' + id);
+
       const response = await apiClient.delete(`/users/${id}`);
 
+      console.log('📥 DELETE USER RESPONSE:', response);
+      console.log('✅ Success?', response.success);
+      console.log('📦 Data:', response.data);
+      console.log('❌ Error?', response.error);
+
       if (!response.success) {
+        console.error('💥💥💥 DELETE FAILED 💥💥💥');
+        console.error('Error message:', response.error);
         throw new Error(response.error || 'Failed to delete user');
       }
 
+      console.log('✅✅✅ DELETE SUCCESSFUL ✅✅✅');
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('🎉 DELETE SUCCESS CALLBACK TRIGGERED');
+      console.log('📦 Deleted user ID:', variables);
+      console.log('📊 Response data:', data);
+      console.log('🔄 Invalidating users query...');
+
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('Benutzer gelöscht');
+
+      console.log('✅ Query invalidated, UI should refresh');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      console.error('💥💥💥 DELETE ERROR CALLBACK TRIGGERED 💥💥💥');
+      console.error('❌ Error:', error);
+      console.error('❌ User ID that failed:', variables);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+
       toast.error(`Fehler: ${error.message}`);
     },
   });

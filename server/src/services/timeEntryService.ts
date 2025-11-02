@@ -302,11 +302,20 @@ export function updateTimeEntry(
   id: number,
   data: TimeEntryUpdateInput
 ): TimeEntry {
+  console.log('🔥🔥🔥 UPDATE TIME ENTRY SERVICE CALLED 🔥🔥🔥');
+  console.log('📍 ID:', id);
+  console.log('📦 Input data:', data);
+
   // Get existing entry
+  console.log('🔍 Fetching existing entry with ID:', id);
   const existing = getTimeEntryById(id);
+
   if (!existing) {
+    console.error('❌ ENTRY NOT FOUND! ID:', id);
     throw new Error('Time entry not found');
   }
+
+  console.log('✅ Existing entry found:', existing);
 
   // Merge data
   const merged = {
@@ -316,13 +325,21 @@ export function updateTimeEntry(
     breakMinutes: data.breakMinutes ?? existing.breakMinutes,
   };
 
+  console.log('🔄 Merged data:', merged);
+
   // Validate merged data
+  console.log('🔍 Validating merged data...');
   const validation = validateTimeEntryData(merged);
+
   if (!validation.valid) {
+    console.error('❌ VALIDATION FAILED!', validation.error);
     throw new Error(validation.error);
   }
 
+  console.log('✅ Validation passed!');
+
   // Check for overlaps (excluding this entry)
+  console.log('🔍 Checking for overlaps...');
   const hasOverlap = checkOverlap(
     existing.userId,
     merged.date,
@@ -330,18 +347,25 @@ export function updateTimeEntry(
     merged.endTime,
     id
   );
+
   if (hasOverlap) {
+    console.error('❌ OVERLAP DETECTED!');
     throw new Error('Time entry overlaps with existing entry on this date');
   }
 
+  console.log('✅ No overlap found!');
+
   // Calculate new hours
+  console.log('🔢 Calculating hours...');
   const hours = calculateHours(
     merged.startTime,
     merged.endTime,
     merged.breakMinutes
   );
+  console.log('✅ Hours calculated:', hours);
 
   // Build update query
+  console.log('🏗️ Building update query...');
   const fields: string[] = [];
   const values: unknown[] = [];
 
@@ -381,7 +405,7 @@ export function updateTimeEntry(
   // Always update hours and updatedAt
   fields.push('hours = ?');
   values.push(hours);
-  fields.push('updatedAt = datetime("now")');
+  fields.push('updatedAt = datetime(\'now\')');
 
   // Add ID to params
   values.push(id);
@@ -392,22 +416,42 @@ export function updateTimeEntry(
     WHERE id = ?
   `;
 
-  db.prepare(query).run(...values);
+  console.log('📝 Final SQL query:', query);
+  console.log('📦 Query values:', values);
+
+  console.log('💾 Executing UPDATE query...');
+  const result = db.prepare(query).run(...values);
+  console.log('✅ Query executed! Result:', result);
 
   // Update overtime balance for old and new month (if date changed)
+  console.log('🔄 Updating overtime balances...');
   const oldMonth = existing.date.substring(0, 7);
   const newMonth = merged.date.substring(0, 7);
-  updateOvertimeBalance(existing.userId, oldMonth);
-  if (oldMonth !== newMonth) {
-    updateOvertimeBalance(existing.userId, newMonth);
+  console.log('📅 Old month:', oldMonth, '| New month:', newMonth);
+
+  try {
+    updateOvertimeBalance(existing.userId, oldMonth);
+    console.log('✅ Old month balance updated');
+
+    if (oldMonth !== newMonth) {
+      updateOvertimeBalance(existing.userId, newMonth);
+      console.log('✅ New month balance updated');
+    }
+  } catch (balanceError) {
+    console.error('⚠️ Error updating balance (non-critical):', balanceError);
+    // Continue anyway - balance update is not critical
   }
 
   // Return updated entry
+  console.log('🔍 Fetching updated entry...');
   const entry = getTimeEntryById(id);
+
   if (!entry) {
+    console.error('❌ FAILED TO RETRIEVE UPDATED ENTRY!');
     throw new Error('Failed to update time entry');
   }
 
+  console.log('✅✅✅ UPDATE SUCCESSFUL! Returning entry:', entry);
   return entry;
 }
 
@@ -420,63 +464,102 @@ export function deleteTimeEntry(id: number): void {
     throw new Error('Time entry not found');
   }
 
+  console.log('🗑️ Deleting time entry:', {
+    id,
+    userId: entry.userId,
+    date: entry.date,
+  });
+
   // Delete entry
   const query = 'DELETE FROM time_entries WHERE id = ?';
   db.prepare(query).run(id);
 
+  console.log('✅ Time entry deleted from database');
+
   // Update overtime balance for this month
   const month = entry.date.substring(0, 7);
-  updateOvertimeBalance(entry.userId, month);
+
+  try {
+    console.log('🔄 Updating overtime balance for:', { userId: entry.userId, month });
+    updateOvertimeBalance(entry.userId, month);
+    console.log('✅ Overtime balance updated successfully');
+  } catch (error) {
+    console.error('❌ Error updating overtime balance:', error);
+    // Don't throw - deletion was successful, just log the overtime update error
+  }
 }
 
 /**
  * Update overtime balance for a user and month
  */
 export function updateOvertimeBalance(userId: number, month: string): void {
-  // Get user's weekly hours
-  const user = db
-    .prepare('SELECT weeklyHours FROM users WHERE id = ?')
-    .get(userId) as { weeklyHours: number } | undefined;
+  try {
+    // Get user's weekly hours
+    const user = db
+      .prepare('SELECT weeklyHours FROM users WHERE id = ?')
+      .get(userId) as { weeklyHours: number } | undefined;
 
-  if (!user) {
-    throw new Error('User not found');
-  }
+    if (!user) {
+      throw new Error(`User not found: ${userId}`);
+    }
 
-  // Calculate target hours for the month
-  // Method: (weeklyHours / 7) * days in month
-  const [year, monthNum] = month.split('-').map(Number);
-  const daysInMonth = new Date(year, monthNum, 0).getDate();
-  const targetHours = Math.round(((user.weeklyHours / 7) * daysInMonth) * 100) / 100;
+    console.log('👤 User weeklyHours:', user.weeklyHours);
 
-  // Calculate actual hours for the month
-  const actualHoursResult = db
-    .prepare(
+    // Calculate target hours for the month
+    // Method: (weeklyHours / 7) * days in month
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const targetHours = Math.round(((user.weeklyHours / 7) * daysInMonth) * 100) / 100;
+
+    console.log('📊 Target hours calculation:', {
+      year,
+      monthNum,
+      daysInMonth,
+      targetHours,
+    });
+
+    // Calculate actual hours for the month
+    const actualHoursResult = db
+      .prepare(
+        `
+        SELECT COALESCE(SUM(hours), 0) as total
+        FROM time_entries
+        WHERE userId = ? AND date LIKE ?
       `
-      SELECT COALESCE(SUM(hours), 0) as total
-      FROM time_entries
-      WHERE userId = ? AND date LIKE ?
-    `
-    )
-    .get(userId, `${month}%`) as { total: number };
+      )
+      .get(userId, `${month}%`) as { total: number };
 
-  const actualHours = actualHoursResult.total;
+    const actualHours = actualHoursResult.total;
 
-  // Upsert overtime_balance
-  const upsertQuery = `
-    INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(userId, month)
-    DO UPDATE SET targetHours = ?, actualHours = ?
-  `;
+    console.log('📊 Actual hours:', actualHours);
 
-  db.prepare(upsertQuery).run(
-    userId,
-    month,
-    targetHours,
-    actualHours,
-    targetHours,
-    actualHours
-  );
+    // Upsert overtime_balance
+    const upsertQuery = `
+      INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(userId, month)
+      DO UPDATE SET targetHours = ?, actualHours = ?
+    `;
+
+    db.prepare(upsertQuery).run(
+      userId,
+      month,
+      targetHours,
+      actualHours,
+      targetHours,
+      actualHours
+    );
+
+    console.log('✅ Overtime balance upserted successfully');
+  } catch (error) {
+    console.error('❌ updateOvertimeBalance error:', {
+      userId,
+      month,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw error;
+  }
 }
 
 /**

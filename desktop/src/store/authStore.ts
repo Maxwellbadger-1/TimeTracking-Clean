@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { apiClient } from '../api/client';
-import type { User, ApiResponse } from '../types';
+import type { User } from '../types';
 
 interface AuthState {
   user: User | null;
@@ -25,7 +25,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await apiClient.post<{ user: User }>('/auth/login', {
+      // Backend returns: { success: true, data: User, message: "..." }
+      // NOT: { success: true, data: { user: User } }
+      const response = await apiClient.post<User>('/auth/login', {
         username,
         password,
       });
@@ -33,9 +35,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.log('🔐 Login response:', response);
 
       if (response.success && response.data) {
-        console.log('✅ Login successful, setting user:', response.data.user);
+        console.log('✅ Login successful, setting user:', response.data);
         set({
-          user: response.data.user,
+          user: response.data, // Direct access, not response.data.user!
           isAuthenticated: true,
           isLoading: false,
           error: null,
@@ -67,23 +69,44 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
 
     try {
+      // 1. Call logout endpoint to destroy session on server
       await apiClient.post('/auth/logout');
 
+      // 2. Clear local state IMMEDIATELY
+      // This ensures UI updates even if server call fails
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
       });
+
+      // 3. Force reload to clear any cached cookies in Tauri HTTP Plugin
+      // IMPORTANT: Tauri HTTP Plugin caches cookies, window reload clears them
+      // This prevents stale cookie issues on re-login
+      if (typeof window !== 'undefined') {
+        // Small delay to ensure state is updated before reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
     } catch (error) {
       console.error('Logout error:', error);
-      // Clear state anyway
+
+      // Clear state anyway (network errors shouldn't prevent logout)
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
       });
+
+      // Force reload even on error to clear cookies
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
     }
   },
 

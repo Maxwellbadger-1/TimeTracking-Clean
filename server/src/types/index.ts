@@ -98,3 +98,20 @@ export interface AbsenceRequest {
   approvedAt: string | null;
   createdAt: string;
 }
+
+// Department Types
+export interface Department {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+}
+
+// Project Types
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  status: 'active' | 'inactive';
+  createdAt: string;
+}

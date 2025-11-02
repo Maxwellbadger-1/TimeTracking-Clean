@@ -16,7 +16,6 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameDay,
   isToday,
   parseISO,
   addMonths,
@@ -47,8 +46,8 @@ export function TeamCalendar({
 
   // Fetch data
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
-  const { data: allTimeEntries, isLoading: loadingEntries } = useTimeEntries(0); // All entries
-  const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(0); // All absences
+  const { data: allTimeEntries, isLoading: loadingEntries } = useTimeEntries(); // All entries
+  const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(); // All absences
 
   // Get all days of current month including buffer for full weeks
   const monthStart = startOfMonth(currentMonth);
@@ -273,7 +272,7 @@ export function TeamCalendar({
                         </div>
                       );
                     } else if (entries.length > 0) {
-                      const totalHours = entries.reduce((sum, e) => sum + (e.hours || 0), 0);
+                      const totalHours = entries.reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
                       const colors = getEventColor('work');
                       colorClass = `${colors.bg} ${colors.text}`;
                       cellContent = (
