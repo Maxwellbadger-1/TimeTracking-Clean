@@ -14,7 +14,7 @@ import holidaysRoutes from './routes/holidays.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
 
 // Middleware
