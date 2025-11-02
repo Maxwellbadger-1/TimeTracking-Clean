@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Umbrella, CheckCircle, XCircle, Clock, AlertCircle, Trash2 } from 'lucide-react';
+import { Umbrella, CheckCircle, XCircle, Clock, AlertCircle, Trash2, Ban } from 'lucide-react';
 import {
   useAbsenceRequests,
   useApproveAbsenceRequest,
@@ -129,6 +129,19 @@ export function AbsencesPage() {
     if (!confirm('Antrag wirklich löschen?')) return;
 
     await deleteRequest.mutateAsync(requestId);
+  };
+
+  const handleCancel = async (requestId: number) => {
+    const reason = prompt('Grund für Stornierung (wird dem Mitarbeiter mitgeteilt):');
+    if (!reason?.trim()) return;
+
+    if (!confirm('Genehmigten Urlaub wirklich stornieren? Der Mitarbeiter wird benachrichtigt.')) return;
+
+    try {
+      await deleteRequest.mutateAsync({ id: requestId, data: { reason } });
+    } catch (error) {
+      console.error('Failed to cancel absence:', error);
+    }
   };
 
   const getUserName = (userId: number): string => {
@@ -411,6 +424,18 @@ export function AbsencesPage() {
                               Ablehnen
                             </Button>
                           </>
+                        )}
+
+                        {currentUser.role === 'admin' && request.status === 'approved' && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleCancel(request.id)}
+                            disabled={deleteRequest.isPending}
+                          >
+                            <Ban className="w-4 h-4 mr-1" />
+                            Stornieren
+                          </Button>
                         )}
 
                         {currentUser.role === 'employee' && request.status === 'pending' && (

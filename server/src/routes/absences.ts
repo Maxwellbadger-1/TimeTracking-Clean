@@ -20,6 +20,7 @@ import {
   notifyAbsenceApproved,
   notifyAbsenceRejected,
   notifyAbsenceCancelled,
+  notifyAbsenceRequested,
 } from '../services/notificationService.js';
 import { logAudit } from '../services/auditService.js';
 import type { ApiResponse, AbsenceRequest } from '../types/index.js';
@@ -152,6 +153,18 @@ router.post(
         endDate: data.endDate,
         reason: data.reason,
       });
+
+      // Notify admins about new absence request (only if employee created it)
+      if (!isAdmin || (isAdmin && data.userId && data.userId !== req.session.user!.id)) {
+        const employeeName = `${req.session.user!.firstName} ${req.session.user!.lastName}`;
+        notifyAbsenceRequested(
+          employeeName,
+          request.type,
+          request.startDate,
+          request.endDate,
+          request.daysRequired
+        );
+      }
 
       // Log audit
       logAudit(req.session.user!.id, 'create', 'absence_request', request.id, {

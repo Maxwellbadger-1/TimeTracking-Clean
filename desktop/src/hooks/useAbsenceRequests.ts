@@ -164,8 +164,11 @@ export function useDeleteAbsenceRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiClient.delete(`/absences/${id}`);
+    mutationFn: async (params: number | { id: number; data?: { reason?: string } }) => {
+      const id = typeof params === 'number' ? params : params.id;
+      const data = typeof params === 'object' ? params.data : undefined;
+
+      const response = await apiClient.delete(`/absences/${id}`, data);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete absence request');

@@ -193,3 +193,35 @@ export function notifyTimeEntryEdited(
     `Ihre Zeiterfassung für ${date} wurde von ${editedBy} bearbeitet.`
   );
 }
+
+export function notifyAbsenceRequested(
+  employeeName: string,
+  absenceType: string,
+  startDate: string,
+  endDate: string,
+  days: number
+): void {
+  const typeLabel =
+    absenceType === 'vacation'
+      ? 'Urlaub'
+      : absenceType === 'sick'
+      ? 'Krankmeldung'
+      : absenceType === 'overtime_comp'
+      ? 'Überstundenausgleich'
+      : 'Abwesenheit';
+
+  // Get all admin users
+  const admins = db
+    .prepare('SELECT id FROM users WHERE role = ? AND deletedAt IS NULL')
+    .all('admin') as Array<{ id: number }>;
+
+  // Send notification to each admin
+  admins.forEach((admin) => {
+    createNotification(
+      admin.id,
+      'absence_requested',
+      `Neuer ${typeLabel}-Antrag`,
+      `${employeeName} hat einen ${typeLabel} vom ${startDate} bis ${endDate} (${days} Tage) beantragt.`
+    );
+  });
+}
