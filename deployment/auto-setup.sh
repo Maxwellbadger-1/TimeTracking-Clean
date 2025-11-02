@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_NAME="TimeTracking-Clean"
-GITHUB_REPO="YOUR-GITHUB-USERNAME/TimeTracking-Clean"  # CHANGE THIS!
+GITHUB_REPO="Maxwellbadger-1/TimeTracking-Clean"
 INSTALL_DIR="$HOME/$PROJECT_NAME"
 LOG_DIR="$HOME/logs"
 BACKUP_DIR="$HOME/backups"
