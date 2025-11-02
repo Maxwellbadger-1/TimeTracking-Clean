@@ -11,6 +11,7 @@ import timeEntriesRoutes from './routes/timeEntries.js';
 import absencesRoutes from './routes/absences.js';
 import notificationsRoutes from './routes/notifications.js';
 import holidaysRoutes from './routes/holidays.js';
+import overtimeRoutes from './routes/overtime.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -91,6 +92,7 @@ app.use('/api/time-entries', timeEntriesRoutes);
 app.use('/api/absences', absencesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/holidays', holidaysRoutes);
+app.use('/api/overtime', overtimeRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);

@@ -25,6 +25,7 @@ import {
   useUsers,
 } from '../hooks';
 import { formatDateDE } from '../utils';
+import { CancelAbsenceModal } from '../components/absences/CancelAbsenceModal';
 
 export function AbsencesPage() {
   const { user: currentUser } = useAuthStore();
@@ -47,6 +48,10 @@ export function AbsencesPage() {
 
   // Action States
   const [processingId, setProcessingId] = useState<number | null>(null);
+
+  // Cancel Modal State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [selectedAbsenceForCancel, setSelectedAbsenceForCancel] = useState<any>(null);
 
   if (!currentUser) return null;
 
@@ -131,38 +136,29 @@ export function AbsencesPage() {
     await deleteRequest.mutateAsync(requestId);
   };
 
-  const handleCancel = async (requestId: number) => {
-    console.log('🚨🚨🚨 CANCEL BUTTON CLICKED! 🚨🚨🚨');
-    console.log('📌 Request ID:', requestId);
+  const handleCancelClick = (request: any) => {
+    console.log('🚨 Cancel button clicked for request:', request.id);
+    setSelectedAbsenceForCancel(request);
+    setCancelModalOpen(true);
+  };
 
-    const reason = prompt('Grund für Stornierung (wird dem Mitarbeiter mitgeteilt):');
-    console.log('📝 User entered reason:', reason);
+  const handleCancelConfirm = async (reason: string) => {
+    if (!selectedAbsenceForCancel) return;
 
-    if (!reason?.trim()) {
-      console.log('❌ No reason entered, aborting');
-      return;
-    }
-
-    const confirmed = confirm('Genehmigten Urlaub wirklich stornieren? Der Mitarbeiter wird benachrichtigt.');
-    console.log('✅ User confirmed:', confirmed);
-
-    if (!confirmed) {
-      console.log('❌ User cancelled confirmation');
-      return;
-    }
-
-    console.log('🔥 CALLING deleteRequest.mutateAsync with:', { id: requestId, data: { reason } });
+    console.log('🔥 Confirming cancellation with reason:', reason);
 
     try {
-      const result = await deleteRequest.mutateAsync({ id: requestId, data: { reason } });
-      console.log('✅ Delete request successful:', result);
+      await deleteRequest.mutateAsync({
+        id: selectedAbsenceForCancel.id,
+        data: { reason }
+      });
+      console.log('✅ Cancellation successful');
+
+      // Close modal
+      setCancelModalOpen(false);
+      setSelectedAbsenceForCancel(null);
     } catch (error) {
       console.error('💥 Failed to cancel absence:', error);
-      console.error('💥 Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown',
-        stack: error instanceof Error ? error.stack : 'No stack',
-        error
-      });
     }
   };
 
@@ -462,7 +458,7 @@ export function AbsencesPage() {
                           <Button
                             size="sm"
                             variant="danger"
-                            onClick={() => handleCancel(request.id)}
+                            onClick={() => handleCancelClick(request)}
                             disabled={deleteRequest.isPending}
                           >
                             <Ban className="w-4 h-4 mr-1" />
@@ -508,6 +504,25 @@ export function AbsencesPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Cancel Absence Modal */}
+      {selectedAbsenceForCancel && (
+        <CancelAbsenceModal
+          isOpen={cancelModalOpen}
+          onClose={() => {
+            setCancelModalOpen(false);
+            setSelectedAbsenceForCancel(null);
+          }}
+          onConfirm={handleCancelConfirm}
+          absenceInfo={{
+            userName: getUserName(selectedAbsenceForCancel.userId),
+            type: getTypeLabel(selectedAbsenceForCancel.type),
+            startDate: formatDateDE(selectedAbsenceForCancel.startDate),
+            endDate: formatDateDE(selectedAbsenceForCancel.endDate),
+          }}
+          isLoading={deleteRequest.isPending}
+        />
+      )}
     </div>
   );
 }
