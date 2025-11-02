@@ -132,15 +132,37 @@ export function AbsencesPage() {
   };
 
   const handleCancel = async (requestId: number) => {
-    const reason = prompt('Grund für Stornierung (wird dem Mitarbeiter mitgeteilt):');
-    if (!reason?.trim()) return;
+    console.log('🚨🚨🚨 CANCEL BUTTON CLICKED! 🚨🚨🚨');
+    console.log('📌 Request ID:', requestId);
 
-    if (!confirm('Genehmigten Urlaub wirklich stornieren? Der Mitarbeiter wird benachrichtigt.')) return;
+    const reason = prompt('Grund für Stornierung (wird dem Mitarbeiter mitgeteilt):');
+    console.log('📝 User entered reason:', reason);
+
+    if (!reason?.trim()) {
+      console.log('❌ No reason entered, aborting');
+      return;
+    }
+
+    const confirmed = confirm('Genehmigten Urlaub wirklich stornieren? Der Mitarbeiter wird benachrichtigt.');
+    console.log('✅ User confirmed:', confirmed);
+
+    if (!confirmed) {
+      console.log('❌ User cancelled confirmation');
+      return;
+    }
+
+    console.log('🔥 CALLING deleteRequest.mutateAsync with:', { id: requestId, data: { reason } });
 
     try {
-      await deleteRequest.mutateAsync({ id: requestId, data: { reason } });
+      const result = await deleteRequest.mutateAsync({ id: requestId, data: { reason } });
+      console.log('✅ Delete request successful:', result);
     } catch (error) {
-      console.error('Failed to cancel absence:', error);
+      console.error('💥 Failed to cancel absence:', error);
+      console.error('💥 Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown',
+        stack: error instanceof Error ? error.stack : 'No stack',
+        error
+      });
     }
   };
 
@@ -350,19 +372,29 @@ export function AbsencesPage() {
               </div>
             ) : filteredRequests.length > 0 ? (
               <div className="space-y-4">
-                {filteredRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          {currentUser.role === 'admin' && (
-                            <span className="font-semibold text-gray-900 dark:text-gray-100">
-                              {getUserName(request.userId)}
-                            </span>
-                          )}
+                {filteredRequests.map((request) => {
+                  console.log(`🔍 Rendering request ${request.id}:`, {
+                    requestId: request.id,
+                    status: request.status,
+                    currentUserRole: currentUser.role,
+                    isAdminCheck: currentUser.role === 'admin',
+                    isStatusApproved: request.status === 'approved',
+                    shouldShowCancelButton: currentUser.role === 'admin' && request.status === 'approved'
+                  });
+
+                  return (
+                    <div
+                      key={request.id}
+                      className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            {currentUser.role === 'admin' && (
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                {getUserName(request.userId)}
+                              </span>
+                            )}
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             request.type === 'vacation'
                               ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
@@ -452,7 +484,8 @@ export function AbsencesPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
             ) : (
               <div className="text-center py-12">

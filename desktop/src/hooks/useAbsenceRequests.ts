@@ -165,23 +165,37 @@ export function useDeleteAbsenceRequest() {
 
   return useMutation({
     mutationFn: async (params: number | { id: number; data?: { reason?: string } }) => {
+      console.log('🔥🔥🔥 useDeleteAbsenceRequest mutationFn CALLED! 🔥🔥🔥');
+      console.log('📦 Received params:', params);
+      console.log('📦 Params type:', typeof params);
+
       const id = typeof params === 'number' ? params : params.id;
       const data = typeof params === 'object' ? params.data : undefined;
 
+      console.log('✅ Extracted id:', id);
+      console.log('✅ Extracted data:', data);
+      console.log('🌐 About to call apiClient.delete with:', { endpoint: `/absences/${id}`, data });
+
       const response = await apiClient.delete(`/absences/${id}`, data);
 
+      console.log('📡 API Response:', response);
+
       if (!response.success) {
+        console.error('❌ API returned error:', response.error);
         throw new Error(response.error || 'Failed to delete absence request');
       }
 
+      console.log('✅ Delete successful, returning data:', response.data);
       return response.data;
     },
     onSuccess: () => {
+      console.log('✅✅✅ useDeleteAbsenceRequest onSuccess called!');
       queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
       toast.success('Abwesenheitsantrag gelöscht');
     },
     onError: (error: Error) => {
+      console.error('💥💥💥 useDeleteAbsenceRequest onError called!', error);
       toast.error(`Fehler: ${error.message}`);
     },
   });
