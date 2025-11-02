@@ -7,6 +7,9 @@
     "core:default",
     "opener:default",
     "http:default",
+    "http:allow-fetch",
+    "http:allow-fetch-send",
+    "http:allow-fetch-read-body",
     "notification:default",
     "notification:allow-is-permission-granted",
     {
@@ -17,6 +20,12 @@
         },
         {
           "url": "http://127.0.0.1:3000/*"
+        },
+        {
+          "url": "http://129.159.8.19:3000/*"
+        },
+        {
+          "url": "http://*:3000/*"
         }
       ]
     }
