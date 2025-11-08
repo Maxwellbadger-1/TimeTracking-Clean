@@ -11,6 +11,7 @@ import {
   isValidTimeRange,
   getTimeRangeError,
   calculateHours,
+  formatHours,
 } from '../../utils';
 import type { TimeEntry } from '../../types';
 
@@ -229,7 +230,7 @@ export function EditTimeEntryModal({ isOpen, onClose, entry }: EditTimeEntryModa
                 Arbeitsstunden:
               </span>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {hoursPreview.toFixed(2)}h
+                {formatHours(hoursPreview)}
               </span>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useCreateAbsenceRequest, useRemainingVacationDays, useTotalOvertime } from '../../hooks';
+import { useCreateAbsenceRequest, useRemainingVacationDays, useCurrentOvertimeStats, useUsers } from '../../hooks';
 import { useAuthStore } from '../../store/authStore';
 import {
   getTodayDate,
@@ -13,6 +13,7 @@ import {
   isValidDateRange,
   getDateRangeError,
   calculateExpectedHours,
+  formatOvertimeHours,
 } from '../../utils';
 
 interface AbsenceRequestFormProps {
@@ -22,20 +23,22 @@ interface AbsenceRequestFormProps {
 
 export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps) {
   const { user } = useAuthStore();
+  const { data: users } = useUsers();
   const createRequest = useCreateAbsenceRequest();
-  const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(user?.id || 0);
-  const { totalHours: overtimeHours, isLoading: loadingOvertime } = useTotalOvertime(user?.id || 0);
-
-  console.log('🔥🔥🔥 AbsenceRequestForm RENDERED! 🔥🔥🔥');
-  console.log('📌 User ID:', user?.id);
-  console.log('📊 Vacation Days:', vacationDays, 'Loading:', loadingVacation);
-  console.log('📊 Overtime Hours:', overtimeHours, 'Loading:', loadingOvertime);
 
   // Form state
+  const [selectedUserId, setSelectedUserId] = useState<number>(user?.id || 0);
   const [type, setType] = useState<'vacation' | 'sick' | 'unpaid' | 'overtime_comp'>('vacation');
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [reason, setReason] = useState('');
+
+  // Fetch balances for selected user (not current user if admin)
+  const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(selectedUserId);
+  const { data: overtimeStats, isLoading: loadingOvertime } = useCurrentOvertimeStats(selectedUserId);
+
+  // Get total yearly overtime hours
+  const overtimeHours = overtimeStats?.totalYear || 0;
 
   // Error state
   const [startDateError, setStartDateError] = useState('');
@@ -93,7 +96,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     if (type === 'overtime_comp') {
       const requiredHours = requiredDays * 8;
       if (requiredHours > overtimeHours) {
-        setEndDateError(`Du hast nur ${overtimeHours.toFixed(2)}h Überstunden verfügbar`);
+        setEndDateError(`Du hast nur ${formatOvertimeHours(overtimeHours)} Überstunden verfügbar`);
         isValid = false;
       }
     }
@@ -118,7 +121,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
     try {
       await createRequest.mutateAsync({
-        userId: user.id,
+        userId: selectedUserId, // Use selected user (admin can create for others)
         type,
         startDate,
         endDate,
@@ -135,6 +138,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
   const handleClose = () => {
     // Reset form
+    setSelectedUserId(user?.id || 0);
     setType('vacation');
     setStartDate(getTodayDate());
     setEndDate(getTodayDate());
@@ -173,7 +177,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
       return (
         <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
           <p className="text-sm text-orange-900 dark:text-orange-200">
-            <strong>Verfügbar:</strong> {loadingOvertime ? '...' : `${overtimeHours.toFixed(2)}h Überstunden`}
+            <strong>Verfügbar:</strong> {loadingOvertime ? '...' : `${formatOvertimeHours(overtimeHours)} Überstunden`}
           </p>
         </div>
       );
@@ -185,6 +189,22 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Abwesenheit beantragen" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* User Picker (Admin only) */}
+        {user?.role === 'admin' && (
+          <Select
+            label="Mitarbeiter"
+            value={String(selectedUserId)}
+            onChange={(e) => setSelectedUserId(Number(e.target.value))}
+            options={
+              users?.map((u) => ({
+                value: String(u.id),
+                label: `${u.firstName} ${u.lastName}`,
+              })) || []
+            }
+            required
+          />
+        )}
+
         {/* Type */}
         <Select
           label="Art der Abwesenheit"

@@ -27,10 +27,32 @@ export {
   useOvertimeBalance,
   useTotalOvertime,
   useRemainingVacationDays,
+  useCurrentOvertimeStats,
+  useDailyOvertime,
+  useWeeklyOvertime,
+  useOvertimeSummary,
 } from './useBalances';
+
+// Vacation Balance Admin
+export {
+  useVacationBalances,
+  useVacationBalanceSummary,
+  useUpsertVacationBalance,
+  useUpdateVacationBalance,
+  useDeleteVacationBalance,
+  useBulkInitializeVacationBalances,
+} from './useVacationBalanceAdmin';
+export type { VacationBalanceSummary, VacationBalanceCreateInput, VacationBalanceUpdateInput } from './useVacationBalanceAdmin';
+
+// Overtime Admin
+export {
+  useAllUsersOvertime,
+} from './useOvertimeAdmin';
+export type { OvertimeSummary } from './useOvertimeAdmin';
 
 // Users
 export {
+  useCurrentUser,
   useUsers,
   useUser,
   useActiveEmployees,
@@ -52,6 +74,7 @@ export {
 export {
   useHolidays,
   useCurrentYearHolidays,
+  useMultiYearHolidays,
 } from './useHolidays';
 
 // Keyboard Shortcuts

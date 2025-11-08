@@ -23,8 +23,11 @@ import {
   getHoliday,
   formatCalendarDate,
   getEventColor,
+  getAbsenceTypeLabel,
+  getAbsenceStatusLabel,
 } from '../../utils/calendarUtils';
 import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
+import { formatHours } from '../../utils/timeUtils';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface MonthCalendarProps {
@@ -182,7 +185,6 @@ export function MonthCalendar({
                   {/* Absences - with User Info, only approved/pending */}
                   {dayAbsences.filter(a => a.status !== 'rejected').slice(0, 2).map((absence, idx) => {
                     const isApproved = absence.status === 'approved';
-                    const isPending = absence.status === 'pending';
 
                     // Status-based colors (green for approved, orange for pending)
                     const bgColor = isApproved
@@ -195,7 +197,15 @@ export function MonthCalendar({
 
                     const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
                     const fullName = getFullName(absence.firstName, absence.lastName);
-                    const statusLabel = isApproved ? 'Genehmigt' : 'Beantragt';
+                    const statusLabel = getAbsenceStatusLabel(absence.status as any);
+                    const typeLabel = getAbsenceTypeLabel(absence.type as any);
+
+                    // Get emoji based on type
+                    const typeEmoji =
+                      absence.type === 'vacation' ? '🏖️' :
+                      absence.type === 'sick' ? '🤒' :
+                      absence.type === 'overtime_comp' ? '⏰' :
+                      absence.type === 'unpaid' ? '📅' : '📋';
 
                     return (
                       <div
@@ -204,12 +214,12 @@ export function MonthCalendar({
                           px-2 py-1 rounded-md text-xs font-medium truncate flex items-center gap-1
                           ${bgColor} ${textColor}
                         `}
-                        title={`${fullName}: Urlaub (${statusLabel})`}
+                        title={`${fullName}: ${typeLabel} (${statusLabel})`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
                           {initials}
                         </span>
-                        {statusIcon} 🏖️ Urlaub
+                        {statusIcon} {typeEmoji} {typeLabel}
                       </div>
                     );
                   })}
@@ -227,12 +237,12 @@ export function MonthCalendar({
                           px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1
                           ${userColor.bg} ${userColor.text}
                         `}
-                        title={`${fullName}: ${entry.hours.toFixed(1)}h (${entry.startTime} - ${entry.endTime})`}
+                        title={`${fullName}: ${formatHours(entry.hours)} (${entry.startTime} - ${entry.endTime})`}
                       >
                         <span className={`w-4 h-4 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold`}>
                           {initials}
                         </span>
-                        <span>{entry.hours.toFixed(1)}h</span>
+                        <span>{formatHours(entry.hours)}</span>
                       </div>
                     );
                   })}

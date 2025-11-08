@@ -1,12 +1,13 @@
 import db from './connection.js';
 import { hashPassword } from '../services/authService.js';
+import logger from '../utils/logger.js';
 
 /**
  * Seed database with initial data
  */
 
 export async function seedDatabase(): Promise<void> {
-  console.log('🌱 Seeding database...');
+  logger.info('🌱 Seeding database...');
 
   // Check if admin already exists
   const adminExists = db
@@ -14,7 +15,7 @@ export async function seedDatabase(): Promise<void> {
     .get('admin');
 
   if (adminExists) {
-    console.log('✅ Admin user already exists, skipping seed');
+    logger.info('✅ Admin user already exists, skipping seed');
     return;
   }
 
@@ -49,10 +50,10 @@ export async function seedDatabase(): Promise<void> {
     'active'
   );
 
-  console.log('✅ Admin user created (ID:', result.lastInsertRowid, ')');
-  console.log('   Username: admin');
-  console.log('   Password: admin123');
-  console.log('   ⚠️  IMPORTANT: Change password after first login!');
+  logger.info({ userId: result.lastInsertRowid }, '✅ Admin user created');
+  logger.info('   Username: admin');
+  logger.info('   Password: admin123');
+  logger.warn('   ⚠️  IMPORTANT: Change password after first login!');
 
   // Seed some default departments
   const departments = ['IT', 'HR', 'Sales', 'Administration', 'Operations'];
@@ -63,7 +64,7 @@ export async function seedDatabase(): Promise<void> {
     deptStmt.run(dept);
   }
 
-  console.log('✅ Default departments created:', departments.join(', '));
+  logger.info({ departments }, '✅ Default departments created');
 
   // Seed some default projects
   const projects = ['Internal', 'Customer Support', 'Development', 'Administration'];
@@ -74,7 +75,7 @@ export async function seedDatabase(): Promise<void> {
     projStmt.run(project, 1);
   }
 
-  console.log('✅ Default projects created:', projects.join(', '));
+  logger.info({ projects }, '✅ Default projects created');
 
   // Seed some default activities
   const activities = ['Meeting', 'Development', 'Documentation', 'Support', 'Planning'];
@@ -85,7 +86,7 @@ export async function seedDatabase(): Promise<void> {
     actStmt.run(activity, 1);
   }
 
-  console.log('✅ Default activities created:', activities.join(', '));
+  logger.info({ activities }, '✅ Default activities created');
 
-  console.log('✅ Database seeding completed');
+  logger.info('✅ Database seeding completed');
 }

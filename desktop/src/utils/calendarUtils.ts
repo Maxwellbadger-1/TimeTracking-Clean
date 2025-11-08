@@ -187,6 +187,33 @@ export function getEventColor(type: 'work' | 'vacation' | 'sick' | 'overtime_com
 }
 
 /**
+ * Get human-readable label for absence type
+ */
+export function getAbsenceTypeLabel(type: 'vacation' | 'sick' | 'overtime_comp' | 'unpaid'): string {
+  const labels = {
+    vacation: 'Urlaub',
+    sick: 'Krankmeldung',
+    overtime_comp: 'Überstundenausgleich',
+    unpaid: 'Unbezahlter Urlaub',
+  };
+
+  return labels[type] || type;
+}
+
+/**
+ * Get human-readable label for absence status
+ */
+export function getAbsenceStatusLabel(status: 'pending' | 'approved' | 'rejected'): string {
+  const labels = {
+    pending: 'Beantragt',
+    approved: 'Genehmigt',
+    rejected: 'Abgelehnt',
+  };
+
+  return labels[status] || status;
+}
+
+/**
  * Get hours in a week (for WeekCalendar timeline)
  */
 export function getHoursArray(): number[] {

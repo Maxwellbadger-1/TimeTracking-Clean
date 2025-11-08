@@ -22,6 +22,8 @@ import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
 import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
+import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
+import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
@@ -271,16 +273,23 @@ export function WeekCalendarTeam({
                       )}
 
                       {/* Absence Banner (if any) */}
-                      {dayAbsences.length > 0 && (
-                        <div className="absolute top-0 left-0 right-0 z-5 p-2 bg-yellow-100 dark:bg-yellow-900/30 border-b-2 border-yellow-400 dark:border-yellow-600">
-                          <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 truncate">
-                            {dayAbsences[0].type === 'vacation' && '🏖️ Urlaub'}
-                            {dayAbsences[0].type === 'sick' && '🤒 Krank'}
-                            {dayAbsences[0].type === 'unpaid' && '📅 Unbezahlt'}
-                            {dayAbsences[0].type === 'overtime_comp' && '⏰ Ausgleich'}
+                      {dayAbsences.length > 0 && (() => {
+                        const absence = dayAbsences[0];
+                        const typeEmoji =
+                          absence.type === 'vacation' ? '🏖️' :
+                          absence.type === 'sick' ? '🤒' :
+                          absence.type === 'overtime_comp' ? '⏰' :
+                          absence.type === 'unpaid' ? '📅' : '📋';
+                        const typeLabel = getAbsenceTypeLabel(absence.type as any);
+
+                        return (
+                          <div className="absolute top-0 left-0 right-0 z-5 p-2 bg-yellow-100 dark:bg-yellow-900/30 border-b-2 border-yellow-400 dark:border-yellow-600">
+                            <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 truncate">
+                              {typeEmoji} {typeLabel}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Time Entry Blocks */}
                       {dayEntries.map((entry) => {
@@ -295,13 +304,13 @@ export function WeekCalendarTeam({
                               top: `${style.top}px`,
                               height: `${Math.max(style.height, 40)}px`, // Minimum height for readability
                             }}
-                            title={`${entry.startTime} - ${entry.endTime} (${entry.hours}h)${entry.breakMinutes ? `\nPause: ${entry.breakMinutes}min` : ''}${entry.description ? `\n${entry.description}` : ''}`}
+                            title={`${entry.startTime} - ${entry.endTime} (${formatHours(entry.hours)})${entry.breakMinutes ? `\nPause: ${entry.breakMinutes}min` : ''}${entry.description ? `\n${entry.description}` : ''}`}
                           >
                             <div className="font-semibold truncate">
                               {entry.startTime} - {entry.endTime}
                             </div>
                             <div className="opacity-80 truncate">
-                              {entry.hours}h
+                              {formatHours(entry.hours)}
                               {entry.breakMinutes ? ` (${entry.breakMinutes}min)` : ''}
                             </div>
                             {entry.description && style.height > 60 && (

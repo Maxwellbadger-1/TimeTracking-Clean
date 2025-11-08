@@ -164,7 +164,9 @@ router.post(
         if (
           error.message.includes('overlap') ||
           error.message.includes('Invalid') ||
-          error.message.includes('Cannot create')
+          error.message.includes('Cannot create') ||
+          error.message.includes('Arbeitszeitgesetz') || // ArbZG violations
+          error.message.includes('An diesem Tag hast du') // Absence conflicts
         ) {
           res.status(400).json({
             success: false,
@@ -271,7 +273,9 @@ router.put(
         if (
           error.message.includes('overlap') ||
           error.message.includes('Invalid') ||
-          error.message.includes('Cannot')
+          error.message.includes('Cannot') ||
+          error.message.includes('Arbeitszeitgesetz') || // ArbZG violations
+          error.message.includes('An diesem Tag hast du') // Absence conflicts
         ) {
           res.status(400).json({
             success: false,

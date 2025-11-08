@@ -162,7 +162,7 @@ router.post(
           request.type,
           request.startDate,
           request.endDate,
-          request.daysRequired
+          request.days
         );
       }
 
@@ -185,7 +185,9 @@ router.post(
         if (
           error.message.includes('Insufficient') ||
           error.message.includes('must span') ||
-          error.message.includes('Invalid')
+          error.message.includes('Invalid') ||
+          error.message.includes('Überschneidung') ||
+          error.message.includes('existieren bereits Zeiterfassungen')
         ) {
           res.status(400).json({
             success: false,

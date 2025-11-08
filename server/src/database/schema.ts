@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import logger from '../utils/logger.js';
 
 /**
  * Database Schema Definition
@@ -12,7 +13,7 @@ export function initializeDatabase(db: Database.Database): void {
   // Enable WAL mode for multi-user support
   db.pragma('journal_mode = WAL');
 
-  console.log('📊 Initializing database schema...');
+  logger.info('📊 Initializing database schema...');
 
   // 1. users table
   db.exec(`
@@ -27,11 +28,24 @@ export function initializeDatabase(db: Database.Database): void {
       department TEXT,
       weeklyHours REAL NOT NULL DEFAULT 40,
       vacationDaysPerYear INTEGER DEFAULT 30,
+      hireDate TEXT NOT NULL DEFAULT (date('now')),
+      endDate TEXT,
       status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+      privacyConsentAt TEXT,
       createdAt TEXT DEFAULT (datetime('now')),
       deletedAt TEXT
     );
   `);
+
+  // Migration: Add privacyConsentAt column if it doesn't exist
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN privacyConsentAt TEXT;
+    `);
+    logger.info('✅ Added privacyConsentAt column to users table');
+  } catch (error) {
+    // Column already exists - ignore error
+  }
 
   // 2. time_entries table
   db.exec(`
@@ -88,7 +102,7 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
-  // 5. overtime_balance table
+  // 5. overtime_balance table (MONTHLY overtime)
   db.exec(`
     CREATE TABLE IF NOT EXISTS overtime_balance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,6 +113,34 @@ export function initializeDatabase(db: Database.Database): void {
       overtime REAL GENERATED ALWAYS AS (actualHours - targetHours) VIRTUAL,
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(userId, month)
+    );
+  `);
+
+  // 5a. overtime_daily table (DAILY overtime tracking)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS overtime_daily (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      targetHours REAL NOT NULL,
+      actualHours REAL DEFAULT 0,
+      overtime REAL GENERATED ALWAYS AS (actualHours - targetHours) VIRTUAL,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(userId, date)
+    );
+  `);
+
+  // 5b. overtime_weekly table (WEEKLY overtime tracking)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS overtime_weekly (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      week TEXT NOT NULL,
+      targetHours REAL NOT NULL,
+      actualHours REAL DEFAULT 0,
+      overtime REAL GENERATED ALWAYS AS (actualHours - targetHours) VIRTUAL,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(userId, week)
     );
   `);
 
@@ -181,9 +223,9 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity, entityId);
   `);
 
-  console.log('✅ Database schema initialized successfully');
-  console.log('✅ WAL mode enabled for multi-user support');
-  console.log('✅ Foreign keys enabled');
-  console.log('✅ All 11 tables created');
-  console.log('✅ Indexes created for performance');
+  logger.info('✅ Database schema initialized successfully');
+  logger.info('✅ WAL mode enabled for multi-user support');
+  logger.info('✅ Foreign keys enabled');
+  logger.info('✅ All 11 tables created');
+  logger.info('✅ Indexes created for performance');
 }

@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 
-type ViewType = 'dashboard' | 'calendar' | 'users' | 'reports' | 'time-entries' | 'absences';
+type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings';
 
 interface UIStore {
   currentView: ViewType;

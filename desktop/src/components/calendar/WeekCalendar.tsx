@@ -23,8 +23,9 @@ import {
 import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarLegend } from './CalendarLegend';
-import { getEventColor } from '../../utils/calendarUtils';
+import { getEventColor, getAbsenceTypeLabel } from '../../utils/calendarUtils';
 import { getUserColor, getInitials, getFullName } from '../../utils/userColors';
+import { formatHours } from '../../utils/timeUtils';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface WeekCalendarProps {
@@ -45,6 +46,11 @@ export function WeekCalendar({
   viewMode = 'week',
   onViewModeChange,
 }: WeekCalendarProps) {
+  console.log('🚀🚀🚀 WEEK CALENDAR COMPONENT RENDERED 🚀🚀🚀');
+  console.log('📊 Total absences received:', absences?.length || 0);
+  console.log('📊 Absences data:', absences);
+  console.log('🚀🚀🚀 END WEEK CALENDAR INIT DEBUG 🚀🚀🚀');
+
   const [currentWeek, setCurrentWeek] = useState(new Date());
 
   // Get week days (Monday - Sunday)
@@ -218,30 +224,37 @@ export function WeekCalendar({
                 {dayAbsences.length > 0 && (
                   <div className="absolute top-2 left-2 right-2 z-10">
                     {dayAbsences.map((absence) => {
+                      console.log('🔥🔥🔥 WEEK CALENDAR ABSENCE DEBUG 🔥🔥🔥');
+                      console.log('📌 Absence ID:', absence.id);
+                      console.log('📌 Absence Type (RAW):', absence.type);
+                      console.log('📌 Absence Type (typeof):', typeof absence.type);
+
                       const type = absence.type === 'vacation' ? 'vacation' :
                                    absence.type === 'sick' ? 'sick' :
                                    absence.type === 'overtime_comp' ? 'overtime_comp' : 'unpaid';
                       const colors = getEventColor(type);
                       const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
                       const fullName = getFullName(absence.firstName, absence.lastName);
+                      const typeLabel = getAbsenceTypeLabel(absence.type as any);
+
+                      console.log('📊 Computed type:', type);
+                      console.log('📊 Type Label from getAbsenceTypeLabel():', typeLabel);
+                      console.log('🔥🔥🔥 END WEEK CALENDAR ABSENCE DEBUG 🔥🔥🔥');
 
                       return (
                         <div
                           key={absence.id}
                           className={`${colors.bg} ${colors.border} ${colors.text} border-l-4 px-2 py-1 rounded text-xs font-medium mb-1 shadow-sm flex items-center gap-1`}
-                          title={`${fullName}: ${
-                            type === 'vacation' ? 'Urlaub' :
-                            type === 'sick' ? 'Krank' :
-                            type === 'overtime_comp' ? 'Überstunden-Ausgleich' : 'Unbezahlt'
-                          }`}
+                          title={`${fullName}: ${typeLabel}`}
                         >
                           <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
                             {initials}
                           </span>
-                          {absence.type === 'vacation' && '🏖️ Urlaub'}
-                          {absence.type === 'sick' && '🤒 Krank'}
-                          {absence.type === 'unpaid' && '📅 Unbezahlt'}
-                          {absence.type === 'overtime_comp' && '⏰ Ausgleich'}
+                          {absence.type === 'vacation' && '🏖️ '}
+                          {absence.type === 'sick' && '🤒 '}
+                          {absence.type === 'unpaid' && '📅 '}
+                          {absence.type === 'overtime_comp' && '⏰ '}
+                          {typeLabel}
                         </div>
                       );
                     })}
@@ -265,7 +278,7 @@ export function WeekCalendar({
                         top: `${style.top}px`,
                         height: `${style.height}px`,
                       }}
-                      title={`${fullName}\n${entry.startTime} - ${entry.endTime} (${entry.hours}h)${entry.breakMinutes ? `\nPause: ${entry.breakMinutes}min` : ''}`}
+                      title={`${fullName}\n${entry.startTime} - ${entry.endTime} (${formatHours(entry.hours)})${entry.breakMinutes ? `\nPause: ${entry.breakMinutes}min` : ''}`}
                     >
                       <div className="flex items-center gap-1 mb-1">
                         <span className={`w-4 h-4 rounded-full ${userColor.badge} text-white text-[10px] flex items-center justify-center font-bold`}>
@@ -277,7 +290,7 @@ export function WeekCalendar({
                         {entry.startTime} - {entry.endTime}
                       </div>
                       <div className="text-xs opacity-80 truncate">
-                        {entry.hours}h
+                        {formatHours(entry.hours)}
                         {entry.breakMinutes ? ` (${entry.breakMinutes}min Pause)` : ''}
                       </div>
                     </div>

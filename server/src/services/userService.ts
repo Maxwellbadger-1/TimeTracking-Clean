@@ -1,6 +1,10 @@
 import db from '../database/connection.js';
 import { hashPassword } from './authService.js';
-import type { UserPublic, UserCreateInput } from '../types/index.js';
+import type { UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
+import { getVacationBalance } from './absenceService.js';
+import { getCurrentOvertimeStats } from './overtimeService.js';
+import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
+import logger from '../utils/logger.js';
 
 /**
  * User Service - Business Logic for User Management
@@ -13,7 +17,7 @@ export function getAllUsers(): UserPublic[] {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, status, createdAt,
+             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
              CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE deletedAt IS NULL
@@ -22,7 +26,7 @@ export function getAllUsers(): UserPublic[] {
 
     return stmt.all() as UserPublic[];
   } catch (error) {
-    console.error('❌ Error getting all users:', error);
+    logger.error({ err: error }, '❌ Error getting all users');
     throw error;
   }
 }
@@ -34,7 +38,7 @@ export function getUserById(id: number): UserPublic | undefined {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, status, createdAt,
+             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
              CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE id = ? AND deletedAt IS NULL
@@ -42,7 +46,7 @@ export function getUserById(id: number): UserPublic | undefined {
 
     return stmt.get(id) as UserPublic | undefined;
   } catch (error) {
-    console.error('❌ Error getting user by ID:', error);
+    logger.error({ err: error, userId: id }, '❌ Error getting user by ID');
     throw error;
   }
 }
@@ -59,8 +63,8 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
     const stmt = db.prepare(`
       INSERT INTO users (
         username, email, password, firstName, lastName, role,
-        department, weeklyHours, vacationDaysPerYear, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -73,12 +77,14 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
       data.department || null,
       data.weeklyHours || 40,
       data.vacationDaysPerYear || 30,
+      data.hireDate || null,
+      data.endDate || null,
       'active'
     );
 
     const userId = result.lastInsertRowid as number;
 
-    console.log('✅ User created:', data.username, '(ID:', userId, ')');
+    logger.info({ username: data.username, userId }, '✅ User created');
 
     // Return created user (without password)
     const user = getUserById(userId);
@@ -88,7 +94,7 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
 
     return user;
   } catch (error) {
-    console.error('❌ Error creating user:', error);
+    logger.error({ err: error, username: data.username }, '❌ Error creating user');
     throw error;
   }
 }
@@ -101,11 +107,16 @@ export async function updateUser(
   data: Partial<UserCreateInput>
 ): Promise<UserPublic> {
   try {
+    logger.debug('🔥🔥🔥 UPDATE USER - BACKEND DEBUG 🔥🔥🔥');
+    logger.debug({ userId: id, data }, 'Update user parameters');
+
     // Check if user exists
     const existingUser = getUserById(id);
     if (!existingUser) {
       throw new Error('User not found');
     }
+
+    logger.debug({ hireDate: existingUser.hireDate, endDate: existingUser.endDate }, 'Existing user dates');
 
     // Build dynamic UPDATE query
     const updates: string[] = [];
@@ -143,6 +154,19 @@ export async function updateUser(
       updates.push('vacationDaysPerYear = ?');
       values.push(data.vacationDaysPerYear);
     }
+    if (data.hireDate !== undefined) {
+      updates.push('hireDate = ?');
+      values.push(data.hireDate);
+    }
+    if (data.endDate !== undefined) {
+      updates.push('endDate = ?');
+      values.push(data.endDate);
+    }
+    if (data.isActive !== undefined) {
+      // isActive is stored as status field ('active' or 'inactive')
+      updates.push('status = ?');
+      values.push(data.isActive ? 'active' : 'inactive');
+    }
     if (data.password !== undefined) {
       updates.push('password = ?');
       values.push(await hashPassword(data.password));
@@ -154,15 +178,18 @@ export async function updateUser(
 
     values.push(id); // For WHERE clause
 
-    const stmt = db.prepare(`
+    const sqlQuery = `
       UPDATE users
       SET ${updates.join(', ')}
       WHERE id = ? AND deletedAt IS NULL
-    `);
+    `;
 
-    stmt.run(...values);
+    logger.debug({ sqlQuery, values, updates }, '📝 SQL details');
 
-    console.log('✅ User updated:', id);
+    const stmt = db.prepare(sqlQuery);
+    const result = stmt.run(...values);
+
+    logger.info({ userId: id, changes: result.changes }, '✅ User updated');
 
     // Return updated user
     const updatedUser = getUserById(id);
@@ -170,11 +197,113 @@ export async function updateUser(
       throw new Error('Failed to retrieve updated user');
     }
 
+    logger.debug({ hireDate: updatedUser.hireDate, endDate: updatedUser.endDate }, '📤 Updated user dates');
+
+    // CRITICAL: Handle side effects of changes
+
+    // If weeklyHours changed, recalculate all overtime_balance entries
+    if (data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours) {
+      logger.info({ oldHours: existingUser.weeklyHours, newHours: data.weeklyHours }, '🔄 weeklyHours changed, recalculating overtime');
+      try {
+        recalculateOvertimeForUser(id);
+        logger.info('✅ Overtime recalculated');
+      } catch (error) {
+        logger.error({ err: error }, '❌ Failed to recalculate overtime');
+        // Don't fail the update, but log the error
+      }
+    }
+
+    // If vacationDaysPerYear changed, update vacation_balance entitlement for all years
+    if (data.vacationDaysPerYear !== undefined && data.vacationDaysPerYear !== existingUser.vacationDaysPerYear) {
+      logger.info({ oldDays: existingUser.vacationDaysPerYear, newDays: data.vacationDaysPerYear }, '🔄 vacationDaysPerYear changed, updating entitlement');
+      try {
+        updateVacationEntitlementForUser(id, data.vacationDaysPerYear);
+        logger.info('✅ Vacation entitlement updated');
+      } catch (error) {
+        logger.error({ err: error }, '❌ Failed to update vacation entitlement');
+        // Don't fail the update, but log the error
+      }
+    }
+
+    logger.debug('🔥🔥🔥 END UPDATE USER DEBUG 🔥🔥🔥');
+
     return updatedUser;
   } catch (error) {
-    console.error('❌ Error updating user:', error);
+    logger.error({ err: error, userId: id }, '❌ Error updating user');
     throw error;
   }
+}
+
+/**
+ * Recalculate all overtime_balance entries for a user
+ * Called when weeklyHours changes
+ */
+function recalculateOvertimeForUser(userId: number): void {
+  logger.debug({ userId }, '🔄 Recalculating overtime for user');
+
+  // Get user's new weeklyHours
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Get all existing overtime_balance entries
+  const entries = db.prepare(`
+    SELECT month, actualHours
+    FROM overtime_balance
+    WHERE userId = ?
+    ORDER BY month
+  `).all(userId) as Array<{ month: string; actualHours: number }>;
+
+  logger.debug({ count: entries.length }, `📊 Found overtime_balance entries to recalculate`);
+
+  // Recalculate targetHours for each month
+  for (const entry of entries) {
+    const [year, monthNum] = entry.month.split('-').map(Number);
+    const newTargetHours = calculateMonthlyTargetHours(user.weeklyHours, year, monthNum);
+
+    // Update the entry with new targetHours (overtime is auto-calculated by VIRTUAL column)
+    db.prepare(`
+      UPDATE overtime_balance
+      SET targetHours = ?
+      WHERE userId = ? AND month = ?
+    `).run(newTargetHours, userId, entry.month);
+
+    logger.debug({ month: entry.month, newTargetHours }, `  ✅ targetHours updated`);
+  }
+
+  logger.info('✅ All overtime_balance entries recalculated');
+}
+
+/**
+ * Update vacation_balance entitlement for all years for a user
+ * Called when vacationDaysPerYear changes
+ */
+function updateVacationEntitlementForUser(userId: number, newEntitlement: number): void {
+  logger.debug({ userId, newEntitlement }, '🔄 Updating vacation entitlement for user');
+
+  // Get all existing vacation_balance entries
+  const entries = db.prepare(`
+    SELECT year, entitlement, carryover, taken
+    FROM vacation_balance
+    WHERE userId = ?
+  `).all(userId) as Array<{ year: number; entitlement: number; carryover: number; taken: number }>;
+
+  logger.debug({ count: entries.length }, `📊 Found vacation_balance entries to update`);
+
+  // Update entitlement for each year
+  for (const entry of entries) {
+    db.prepare(`
+      UPDATE vacation_balance
+      SET entitlement = ?
+      WHERE userId = ? AND year = ?
+    `).run(newEntitlement, userId, entry.year);
+
+    const newRemaining = newEntitlement + entry.carryover - entry.taken;
+    logger.debug({ year: entry.year, oldEntitlement: entry.entitlement, newEntitlement, newRemaining }, `  ✅ Updated entitlement`);
+  }
+
+  logger.info('✅ All vacation_balance entries updated');
 }
 
 /**
@@ -194,9 +323,9 @@ export function deleteUser(id: number): void {
       throw new Error('User not found or already deleted');
     }
 
-    console.log('✅ User soft-deleted:', id);
+    logger.info({ userId: id }, '✅ User soft-deleted');
   } catch (error) {
-    console.error('❌ Error deleting user:', error);
+    logger.error({ err: error, userId: id }, '❌ Error deleting user');
     throw error;
   }
 }
@@ -221,7 +350,7 @@ export function updateUserStatus(
       throw new Error('User not found');
     }
 
-    console.log('✅ User status updated:', id, '→', status);
+    logger.info({ userId: id, status }, '✅ User status updated');
 
     const user = getUserById(id);
     if (!user) {
@@ -230,7 +359,7 @@ export function updateUserStatus(
 
     return user;
   } catch (error) {
-    console.error('❌ Error updating user status:', error);
+    logger.error({ err: error, userId: id, status }, '❌ Error updating user status');
     throw error;
   }
 }
@@ -259,7 +388,7 @@ export function usernameExists(username: string, excludeId?: number): boolean {
       return result.count > 0;
     }
   } catch (error) {
-    console.error('❌ Error checking username:', error);
+    logger.error({ err: error, username }, '❌ Error checking username');
     throw error;
   }
 }
@@ -288,7 +417,113 @@ export function emailExists(email: string, excludeId?: number): boolean {
       return result.count > 0;
     }
   } catch (error) {
-    console.error('❌ Error checking email:', error);
+    logger.error({ err: error, email }, '❌ Error checking email');
+    throw error;
+  }
+}
+
+/**
+ * Update Privacy Consent (DSGVO)
+ * Set privacy consent timestamp for user
+ */
+export function updatePrivacyConsent(userId: number): UserPublic {
+  try {
+    const stmt = db.prepare(`
+      UPDATE users
+      SET privacyConsentAt = datetime('now')
+      WHERE id = ? AND deletedAt IS NULL
+    `);
+
+    const result = stmt.run(userId);
+
+    if (result.changes === 0) {
+      throw new Error('User not found');
+    }
+
+    logger.info({ userId }, '✅ Privacy consent updated for user');
+
+    const user = getUserById(userId);
+    if (!user) {
+      throw new Error('Failed to retrieve updated user');
+    }
+
+    return user;
+  } catch (error) {
+    logger.error({ err: error, userId }, '❌ Error updating privacy consent');
+    throw error;
+  }
+}
+
+/**
+ * GDPR Data Export (DSGVO Art. 15)
+ * Export all user data for GDPR compliance
+ */
+export function exportUserData(userId: number): GDPRDataExport {
+  try {
+    logger.info({ userId }, '📊 Exporting user data for GDPR compliance');
+
+    // 1. Get user data
+    const user = getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // 2. Get all time entries
+    const timeEntriesStmt = db.prepare(`
+      SELECT id, userId, date, startTime, endTime, breakMinutes, hours,
+             activity, project, location, notes, createdAt, updatedAt
+      FROM time_entries
+      WHERE userId = ?
+      ORDER BY date DESC
+    `);
+    const timeEntries = timeEntriesStmt.all(userId) as TimeEntry[];
+
+    // 3. Get all absence requests
+    const absencesStmt = db.prepare(`
+      SELECT id, userId, type, startDate, endDate, days, status,
+             reason, adminNote, approvedBy, approvedAt, createdAt
+      FROM absence_requests
+      WHERE userId = ?
+      ORDER BY startDate DESC
+    `);
+    const absenceRequests = absencesStmt.all(userId) as AbsenceRequest[];
+
+    // 4. Get overtime balance (current year)
+    const currentYear = new Date().getFullYear();
+    const overtimeStats = getCurrentOvertimeStats(userId);
+
+    // 5. Get vacation balance (current year)
+    const vacationBalance = getVacationBalance(userId, currentYear);
+
+    // 6. Build export data
+    const exportData: GDPRDataExport = {
+      exportDate: new Date().toISOString(),
+      user,
+      timeEntries,
+      absenceRequests,
+      overtimeBalance: {
+        totalHours: overtimeStats?.totalYear || 0,
+        lastUpdated: new Date().toISOString(),
+      },
+      vacationBalance: {
+        availableDays: vacationBalance?.remaining || 0,
+        usedDays: vacationBalance?.taken || 0,
+        totalDays: vacationBalance?.entitlement || 0,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+
+    logger.info({
+      timeEntriesCount: timeEntries.length,
+      absenceRequestsCount: absenceRequests.length,
+      overtimeHours: overtimeStats?.totalYear || 0,
+      vacationRemaining: vacationBalance?.remaining || 0,
+      vacationTotal: vacationBalance?.entitlement || 0
+    }, '✅ User data exported successfully');
+
+    return exportData;
+  } catch (error) {
+    logger.error({ err: error, userId }, '❌ Error exporting user data');
     throw error;
   }
 }

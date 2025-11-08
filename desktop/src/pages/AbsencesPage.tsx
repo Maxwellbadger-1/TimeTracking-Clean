@@ -26,6 +26,8 @@ import {
 } from '../hooks';
 import { formatDateDE } from '../utils';
 import { CancelAbsenceModal } from '../components/absences/CancelAbsenceModal';
+import { DeleteConfirmModal } from '../components/absences/DeleteConfirmModal';
+import { AbsenceRequestForm } from '../components/absences/AbsenceRequestForm';
 
 export function AbsencesPage() {
   const { user: currentUser } = useAuthStore();
@@ -43,15 +45,22 @@ export function AbsencesPage() {
 
   // Filter States
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'vacation' | 'sick' | 'overtime_compensation'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'vacation' | 'sick' | 'overtime_comp' | 'unpaid'>('all');
   const [userFilter, setUserFilter] = useState<number | 'all'>('all');
 
   // Action States
   const [processingId, setProcessingId] = useState<number | null>(null);
 
-  // Cancel Modal State
+  // Create Absence Modal State
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Cancel Modal State (Admin)
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [selectedAbsenceForCancel, setSelectedAbsenceForCancel] = useState<any>(null);
+
+  // Delete Modal State (Employee)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedAbsenceForDelete, setSelectedAbsenceForDelete] = useState<any>(null);
 
   if (!currentUser) return null;
 
@@ -130,10 +139,27 @@ export function AbsencesPage() {
     }
   };
 
-  const handleDelete = async (requestId: number) => {
-    if (!confirm('Antrag wirklich löschen?')) return;
+  const handleDeleteClick = (request: any) => {
+    console.log('🗑️ Delete button clicked for request:', request.id);
+    setSelectedAbsenceForDelete(request);
+    setDeleteModalOpen(true);
+  };
 
-    await deleteRequest.mutateAsync(requestId);
+  const handleDeleteConfirm = async () => {
+    if (!selectedAbsenceForDelete) return;
+
+    console.log('🔥 Confirming deletion for request:', selectedAbsenceForDelete.id);
+
+    try {
+      await deleteRequest.mutateAsync(selectedAbsenceForDelete.id);
+      console.log('✅ Request deleted successfully');
+
+      // Close modal
+      setDeleteModalOpen(false);
+      setSelectedAbsenceForDelete(null);
+    } catch (error) {
+      console.error('💥 Failed to delete absence:', error);
+    }
   };
 
   const handleCancelClick = (request: any) => {
@@ -171,7 +197,8 @@ export function AbsencesPage() {
     switch (type) {
       case 'vacation': return 'Urlaub';
       case 'sick': return 'Krankmeldung';
-      case 'overtime_compensation': return 'Überstundenausgleich';
+      case 'overtime_comp': return 'Überstundenausgleich';
+      case 'unpaid': return 'Unbezahlter Urlaub';
       default: return type;
     }
   };
@@ -214,15 +241,23 @@ export function AbsencesPage() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {currentUser.role === 'admin' ? 'Abwesenheiten (Alle Mitarbeiter)' : 'Meine Abwesenheiten'}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {currentUser.role === 'admin'
-              ? 'Übersicht aller Abwesenheitsanträge'
-              : 'Übersicht aller eigenen Urlaubs- und Krankmeldungen'}
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              {currentUser.role === 'admin' ? 'Abwesenheiten (Alle Mitarbeiter)' : 'Meine Abwesenheiten'}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {currentUser.role === 'admin'
+                ? 'Übersicht aller Abwesenheitsanträge'
+                : 'Übersicht aller eigenen Urlaubs- und Krankmeldungen'}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => setCreateModalOpen(true)}
+          >
+            + Neuer Antrag
+          </Button>
         </div>
 
         {/* Statistics Cards */}
@@ -327,7 +362,8 @@ export function AbsencesPage() {
                   { value: 'all', label: 'Alle Arten' },
                   { value: 'vacation', label: 'Nur Urlaub' },
                   { value: 'sick', label: 'Nur Krankheit' },
-                  { value: 'overtime_compensation', label: 'Nur Überstundenausgleich' },
+                  { value: 'overtime_comp', label: 'Nur Überstundenausgleich' },
+                  { value: 'unpaid', label: 'Nur unbezahlter Urlaub' },
                 ]}
               />
 
@@ -466,17 +502,36 @@ export function AbsencesPage() {
                           </Button>
                         )}
 
-                        {currentUser.role === 'employee' && request.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDelete(request.id)}
-                            disabled={deleteRequest.isPending}
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Löschen
-                          </Button>
-                        )}
+                        {/* 🔥🔥🔥 MASSIV DEBUG FÜR EMPLOYEE LÖSCHEN-BUTTON 🔥🔥🔥 */}
+                        {(() => {
+                          const isEmployee = currentUser.role === 'employee';
+                          const isPending = request.status === 'pending';
+                          const shouldShowButton = isEmployee && isPending;
+
+                          console.log(`🔥 REQUEST ${request.id} DELETE BUTTON DEBUG:`, {
+                            requestId: request.id,
+                            requestType: request.type,
+                            requestStatus: request.status,
+                            currentUserRole: currentUser.role,
+                            currentUserId: currentUser.id,
+                            requestUserId: request.userId,
+                            isEmployee,
+                            isPending,
+                            shouldShowButton,
+                          });
+
+                          return shouldShowButton ? (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleDeleteClick(request)}
+                              disabled={deleteRequest.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Löschen
+                            </Button>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -505,7 +560,7 @@ export function AbsencesPage() {
         </Card>
       </main>
 
-      {/* Cancel Absence Modal */}
+      {/* Cancel Absence Modal (Admin) */}
       {selectedAbsenceForCancel && (
         <CancelAbsenceModal
           isOpen={cancelModalOpen}
@@ -523,6 +578,30 @@ export function AbsencesPage() {
           isLoading={deleteRequest.isPending}
         />
       )}
+
+      {/* Delete Absence Modal (Employee) */}
+      {selectedAbsenceForDelete && (
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setSelectedAbsenceForDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          absenceInfo={{
+            type: getTypeLabel(selectedAbsenceForDelete.type),
+            startDate: formatDateDE(selectedAbsenceForDelete.startDate),
+            endDate: formatDateDE(selectedAbsenceForDelete.endDate),
+          }}
+          isLoading={deleteRequest.isPending}
+        />
+      )}
+
+      {/* Create Absence Request Modal */}
+      <AbsenceRequestForm
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
     </div>
   );
 }

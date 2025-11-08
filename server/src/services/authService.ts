@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import db from '../database/connection.js';
+import logger from '../utils/logger.js';
 import type { User, UserPublic, SessionUser } from '../types/index.js';
 
 const SALT_ROUNDS = 10;
@@ -33,7 +34,7 @@ export function findUserByUsername(username: string): User | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE username = ? AND deletedAt IS NULL');
     return stmt.get(username) as User | undefined;
   } catch (error) {
-    console.error('❌ Error finding user by username:', error);
+    logger.error({ err: error, username }, '❌ Error finding user by username');
     throw error;
   }
 }
@@ -46,7 +47,7 @@ export function findUserByEmail(email: string): User | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE email = ? AND deletedAt IS NULL');
     return stmt.get(email) as User | undefined;
   } catch (error) {
-    console.error('❌ Error finding user by email:', error);
+    logger.error({ err: error, email }, '❌ Error finding user by email');
     throw error;
   }
 }
@@ -59,7 +60,7 @@ export function findUserById(id: number): User | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL');
     return stmt.get(id) as User | undefined;
   } catch (error) {
-    console.error('❌ Error finding user by ID:', error);
+    logger.error({ err: error, userId: id }, '❌ Error finding user by ID');
     throw error;
   }
 }
@@ -83,6 +84,10 @@ export function userToSession(user: User): SessionUser {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    weeklyHours: user.weeklyHours,
+    vacationDaysPerYear: user.vacationDaysPerYear,
+    hireDate: user.hireDate,
+    privacyConsentAt: user.privacyConsentAt, // GDPR: Include privacy consent status in session
   };
 }
 
@@ -119,7 +124,7 @@ export async function authenticateUser(
       user: userToSession(user),
     };
   } catch (error) {
-    console.error('❌ Error authenticating user:', error);
+    logger.error({ err: error, username }, '❌ Error authenticating user');
     return { success: false, error: 'Authentication failed' };
   }
 }

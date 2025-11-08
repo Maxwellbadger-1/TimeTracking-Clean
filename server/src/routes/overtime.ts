@@ -4,8 +4,12 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import {
   getOvertimeBalance,
   getOvertimeByMonth,
-  getAllUsersOvertime,
+  getAllUsersOvertimeSummary,
   getOvertimeStats,
+  getDailyOvertime,
+  getWeeklyOvertime,
+  getCurrentOvertimeStats,
+  getOvertimeSummary,
 } from '../services/overtimeService.js';
 import type { ApiResponse } from '../types/index.js';
 
@@ -167,7 +171,7 @@ router.get(
         return;
       }
 
-      const allOvertime = getAllUsersOvertime(year);
+      const allOvertime = getAllUsersOvertimeSummary(year);
 
       res.json({
         success: true,
@@ -185,7 +189,7 @@ router.get(
 
 /**
  * GET /api/overtime/stats
- * Get overtime statistics for current user
+ * Get overtime statistics for current user (LEGACY - use /current)
  * Returns: total, currentMonth, lastMonth, trend
  */
 router.get(
@@ -205,6 +209,254 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get overtime stats',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/current
+ * Get current overtime stats for all 4 levels (today, thisWeek, thisMonth, totalYear)
+ * Returns: { today: 2.5, thisWeek: 5.0, thisMonth: 8.57, totalYear: 48.57 }
+ */
+router.get(
+  '/current',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+      const userId = req.query.userId
+        ? parseInt(req.query.userId as string)
+        : req.session.user!.id;
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Permission check: Admin can see all, Employee only own
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      const stats = getCurrentOvertimeStats(userId);
+
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      console.error('Error getting current overtime stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get current overtime stats',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/daily/:userId/:date
+ * Get daily overtime for a specific date
+ * Params:
+ *   - userId: User ID
+ *   - date: Date in format "YYYY-MM-DD"
+ */
+router.get(
+  '/daily/:userId/:date',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const date = req.params.date;
+      const isAdmin = req.session.user!.role === 'admin';
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid date format. Use YYYY-MM-DD',
+        });
+        return;
+      }
+
+      // Permission check
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      const overtimeData = getDailyOvertime(userId, date);
+
+      if (!overtimeData) {
+        res.json({
+          success: true,
+          data: {
+            date,
+            targetHours: 0,
+            actualHours: 0,
+            overtime: 0,
+          },
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: overtimeData,
+      });
+    } catch (error) {
+      console.error('Error getting daily overtime:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get daily overtime',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/weekly/:userId/:week
+ * Get weekly overtime for a specific week
+ * Params:
+ *   - userId: User ID
+ *   - week: Week in ISO format "YYYY-WXX" (e.g., "2025-W45")
+ */
+router.get(
+  '/weekly/:userId/:week',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const week = req.params.week;
+      const isAdmin = req.session.user!.role === 'admin';
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Validate week format (YYYY-WXX)
+      if (!/^\d{4}-W\d{2}$/.test(week)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid week format. Use YYYY-WXX',
+        });
+        return;
+      }
+
+      // Permission check
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      const overtimeData = getWeeklyOvertime(userId, week);
+
+      if (!overtimeData) {
+        res.json({
+          success: true,
+          data: {
+            week,
+            targetHours: 0,
+            actualHours: 0,
+            overtime: 0,
+          },
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: overtimeData,
+      });
+    } catch (error) {
+      console.error('Error getting weekly overtime:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get weekly overtime',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/summary/:userId/:year
+ * Get complete overtime summary for a user and year
+ * Returns: { daily: [], weekly: [], monthly: [], totalOvertime: 48.57 }
+ * Params:
+ *   - userId: User ID
+ *   - year: Year (e.g., 2025)
+ */
+router.get(
+  '/summary/:userId/:year',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const year = parseInt(req.params.year);
+      const isAdmin = req.session.user!.role === 'admin';
+
+      if (isNaN(userId) || isNaN(year)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID or year',
+        });
+        return;
+      }
+
+      if (year < 2000 || year > 2100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid year',
+        });
+        return;
+      }
+
+      // Permission check
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      const summary = getOvertimeSummary(userId, year);
+
+      res.json({
+        success: true,
+        data: summary,
+      });
+    } catch (error) {
+      console.error('Error getting overtime summary:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get overtime summary',
       });
     }
   }

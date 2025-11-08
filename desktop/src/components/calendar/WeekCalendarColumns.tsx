@@ -22,6 +22,8 @@ import { de } from 'date-fns/locale';
 import { DateNavigation } from './DateNavigation';
 import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials } from '../../utils/userColors';
+import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
+import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
@@ -49,6 +51,11 @@ export function WeekCalendarColumns({
   viewMode = 'week',
   onViewModeChange,
 }: WeekCalendarColumnsProps) {
+  console.log('🚀🚀🚀 WEEK CALENDAR COLUMNS COMPONENT RENDERED 🚀🚀🚀');
+  console.log('📊 Total absences received:', absences?.length || 0);
+  console.log('📊 Absences data:', absences);
+  console.log('🚀🚀🚀 END WEEK CALENDAR COLUMNS INIT DEBUG 🚀🚀🚀');
+
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
@@ -331,16 +338,31 @@ export function WeekCalendarColumns({
 
                             {/* Absence Banner - nur approved/pending, nicht rejected */}
                             {dayAbsences.filter(a => a.status !== 'rejected').map((absence, idx) => {
+                              console.log('🔥🔥🔥 WEEK CALENDAR COLUMNS ABSENCE DEBUG 🔥🔥🔥');
+                              console.log('📌 Absence ID:', absence.id);
+                              console.log('📌 Absence Type (RAW):', absence.type);
+                              console.log('📌 Absence Type (typeof):', typeof absence.type);
+
                               const isApproved = absence.status === 'approved';
-                              const isPending = absence.status === 'pending';
                               const bgColor = isApproved ? 'bg-green-100 dark:bg-green-900/30' : 'bg-orange-100 dark:bg-orange-900/30';
                               const borderColor = isApproved ? 'border-green-400 dark:border-green-600' : 'border-orange-400 dark:border-orange-600';
                               const textColor = isApproved ? 'text-green-800 dark:text-green-200' : 'text-orange-800 dark:text-orange-200';
                               const statusIcon = isApproved ? '✅' : '⏳';
+                              const typeLabel = getAbsenceTypeLabel(absence.type as any);
+
+                              console.log('📊 Type Label from getAbsenceTypeLabel():', typeLabel);
+                              console.log('🔥🔥🔥 END WEEK CALENDAR COLUMNS ABSENCE DEBUG 🔥🔥🔥');
+
+                              // Get emoji based on type
+                              const typeEmoji =
+                                absence.type === 'vacation' ? '🏖️' :
+                                absence.type === 'sick' ? '🤒' :
+                                absence.type === 'overtime_comp' ? '⏰' :
+                                absence.type === 'unpaid' ? '📅' : '📋';
 
                               return (
                                 <div key={idx} className={`absolute top-${1 + idx * 8} left-1 right-1 z-5 p-1 ${bgColor} border ${borderColor} rounded text-[10px] font-medium ${textColor} text-center`}>
-                                  {statusIcon} Urlaub
+                                  {statusIcon} {typeEmoji} {typeLabel}
                                 </div>
                               );
                             })}
@@ -358,13 +380,13 @@ export function WeekCalendarColumns({
                                     top: `${style.top}px`,
                                     height: `${Math.max(style.height, 30)}px`,
                                   }}
-                                  title={`${entry.startTime} - ${entry.endTime}\n${entry.hours}h${entry.breakMinutes ? ` (${entry.breakMinutes}min Pause)` : ''}${entry.description ? `\n${entry.description}` : ''}`}
+                                  title={`${entry.startTime} - ${entry.endTime}\n${formatHours(entry.hours)}${entry.breakMinutes ? ` (${entry.breakMinutes}min Pause)` : ''}${entry.description ? `\n${entry.description}` : ''}`}
                                 >
                                   <div className="font-semibold truncate">
                                     {entry.startTime}-{entry.endTime}
                                   </div>
                                   <div className="opacity-80 truncate">
-                                    {entry.hours}h
+                                    {formatHours(entry.hours)}
                                   </div>
                                 </div>
                               );

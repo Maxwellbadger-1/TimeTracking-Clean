@@ -14,6 +14,7 @@ interface CreateUserData {
   vacationDaysPerYear?: number;
   department?: string;
   position?: string;
+  hireDate?: string;
 }
 
 interface UpdateUserData {
@@ -25,7 +26,26 @@ interface UpdateUserData {
   vacationDaysPerYear?: number;
   department?: string;
   position?: string;
+  hireDate?: string;
   isActive?: boolean;
+}
+
+// Get current logged-in user
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const response = await apiClient.get<{ user: User }>('/auth/me');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch current user');
+      }
+
+      return response.data?.user || null;
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 }
 
 // Get all users (Admin only)
@@ -113,13 +133,135 @@ export function useUpdateUser() {
 
       return response.data;
     },
-    onSuccess: (_, variables) => {
+    onMutate: async ({ id, data }) => {
+      console.log('🚀 Optimistic update starting for user:', id);
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['user', id] });
+      await queryClient.cancelQueries({ queryKey: ['users'] });
+
+      // Snapshot previous values
+      const previousUser = queryClient.getQueryData<User>(['user', id]);
+      const previousUsers = queryClient.getQueryData<User[]>(['users']);
+
+      // Optimistically update user
+      if (previousUser) {
+        const optimisticUser = { ...previousUser, ...data };
+        queryClient.setQueryData(['user', id], optimisticUser);
+        console.log('✨ Optimistically updated user:', optimisticUser);
+      }
+
+      // Optimistically update users list
+      if (previousUsers) {
+        const optimisticUsers = previousUsers.map(u =>
+          u.id === id ? { ...u, ...data } : u
+        );
+        queryClient.setQueryData(['users'], optimisticUsers);
+        console.log('✨ Optimistically updated users list');
+      }
+
+      // Return context for rollback
+      return { previousUser, previousUsers, data };
+    },
+    onError: (error: Error, variables, context) => {
+      console.error('❌ Update failed, rolling back optimistic update');
+
+      // Rollback on error
+      if (context?.previousUser) {
+        queryClient.setQueryData(['user', variables.id], context.previousUser);
+      }
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users'], context.previousUsers);
+      }
+
+      toast.error(`Fehler: ${error.message}`);
+    },
+    onSuccess: async (_, variables, context) => {
+      console.log('🔥🔥🔥 USER UPDATE SUCCESS - DEBUG 🔥🔥🔥');
+      console.log('📌 User ID:', variables.id);
+      console.log('📌 Data changed:', context?.data);
+
+      // Get all active queries to debug
+      const allQueries = queryClient.getQueryCache().getAll();
+      console.log('📊 All active queries:', allQueries.map(q => ({
+        queryKey: q.queryKey,
+        state: q.state.status,
+        dataUpdatedAt: q.state.dataUpdatedAt
+      })));
+
+      // Invalidate user queries (to get fresh data from server)
+      console.log('🔄 Invalidating user queries...');
       queryClient.invalidateQueries({ queryKey: ['user', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
+
+      // Check if vacation/overtime related fields were changed
+      const dataChanged = context?.data;
+      const needsVacationRefetch = dataChanged?.vacationDaysPerYear !== undefined || dataChanged?.hireDate !== undefined;
+      const needsOvertimeRefetch = dataChanged?.weeklyHours !== undefined || dataChanged?.hireDate !== undefined;
+
+      console.log('🔍 needsVacationRefetch:', needsVacationRefetch);
+      console.log('🔍 needsOvertimeRefetch:', needsOvertimeRefetch);
+
+      if (needsVacationRefetch) {
+        console.log('🔄🔄🔄 VACATION REFETCH TRIGGERED 🔄🔄🔄');
+        console.log('📌 Invalidating ALL vacation balance queries (not just active ones)');
+
+        // Check which vacation balance queries exist
+        const vacationQueries = queryClient.getQueryCache().findAll({
+          predicate: (query) => query.queryKey[0] === 'vacationBalance'
+        });
+        console.log('📊 Found vacation balance queries:', vacationQueries.map(q => ({
+          queryKey: q.queryKey,
+          state: q.state.status
+        })));
+
+        // Invalidate ALL vacation balance queries (not just active)
+        // This marks them as stale, so they will refetch when next accessed/mounted
+        await queryClient.invalidateQueries({
+          queryKey: ['vacationBalance'],
+          refetchType: 'all' // Refetch both active and inactive queries
+        });
+
+        console.log('✅ Vacation queries invalidated and refetched');
+
+        // Check state after invalidation
+        const vacationQueriesAfter = queryClient.getQueryCache().findAll({
+          predicate: (query) => query.queryKey[0] === 'vacationBalance'
+        });
+        console.log('📊 Vacation queries AFTER invalidation:', vacationQueriesAfter.map(q => ({
+          queryKey: q.queryKey,
+          state: q.state.status,
+          dataUpdatedAt: q.state.dataUpdatedAt
+        })));
+      }
+
+      if (needsOvertimeRefetch) {
+        console.log('🔄 Overtime-related fields changed, forcing refetch...');
+        // Force immediate refetch of overtime queries (backend has already updated the data)
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['overtimeBalance', variables.id], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['overtimeSummary', variables.id], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['currentOvertimeStats', variables.id], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['totalOvertime', variables.id], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['overtime'], type: 'active' })
+        ]);
+        console.log('✅ Overtime refetch completed');
+      }
+
+      // General invalidation (for queries not actively mounted)
+      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] }); // For useVacationBalance
+      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] }); // For useVacationBalanceSummary (ADMIN PAGE!)
+      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+
+      console.log('✅ All relevant caches invalidated');
+      console.log('🔥🔥🔥 END USER UPDATE SUCCESS DEBUG 🔥🔥🔥');
       toast.success('Benutzer aktualisiert');
     },
-    onError: (error: Error) => {
-      toast.error(`Fehler: ${error.message}`);
+    onSettled: () => {
+      console.log('✅ Mutation settled');
     },
   });
 }

@@ -48,6 +48,18 @@
     "copyright": "Copyright © 2025 Stiftung der DPolG. All rights reserved.",
     "category": "Productivity",
     "shortDescription": "Professional time tracking for organizations",
-    "longDescription": "Stiftung der DPolG TimeTracker is a professional desktop application for tracking work hours, managing absences, and monitoring overtime. Built for organizations that need reliable, local-first time management."
+    "longDescription": "Stiftung der DPolG TimeTracker is a professional desktop application for tracking work hours, managing absences, and monitoring overtime. Built for organizations that need reliable, local-first time management.",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBRTQ4RUE3OUZBMkUxNjgKUldSbzRhS2ZwNDdrbXZBUHYzOGRKVmNPTHd0ZnY5UFc5S1FWWWs5NHlzY2F2Y2hqbUVoTkVPQW4K",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

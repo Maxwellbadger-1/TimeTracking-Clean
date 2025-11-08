@@ -21,7 +21,7 @@ const router = express.Router();
       const params: any[] = [];
 
       if (year) {
-        query += ' WHERE strftime("%Y", date) = ?';
+        query += " WHERE strftime('%Y', date) = ?";
         params.push(String(year));
       }
 

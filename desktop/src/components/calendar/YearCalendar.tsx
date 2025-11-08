@@ -25,6 +25,8 @@ import {
 import { de } from 'date-fns/locale';
 import { DateNavigation } from './DateNavigation';
 import { UserFilter } from './UserFilter';
+import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
+import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
@@ -54,33 +56,55 @@ const MONTHS = [
   'Dez',
 ];
 
-// Color intensity levels (based on hours worked + absence status)
-const getIntensityColor = (hours: number, hasApprovedAbsence: boolean, hasPendingAbsence: boolean) => {
-  // Genehmigter Urlaub: Grün
-  if (hasApprovedAbsence) {
-    return 'bg-green-200 dark:bg-green-900/40 border-green-400 dark:border-green-600';
-  }
+// Color intensity levels (based on hours worked + absence type & status)
+const getIntensityColor = (hours: number, absences: AbsenceRequest[]) => {
+  // Check if there are any approved or pending absences
+  const approvedAbsence = absences.find(a => a.status === 'approved');
+  const pendingAbsence = absences.find(a => a.status === 'pending');
 
-  // Beantragter Urlaub: Orange, gestrichelt
-  if (hasPendingAbsence) {
-    return 'bg-orange-200 dark:bg-orange-900/40 border-orange-400 dark:border-orange-600 border-dashed';
+  // Priority: Approved > Pending
+  const primaryAbsence = approvedAbsence || pendingAbsence;
+
+  if (primaryAbsence) {
+    const isApproved = primaryAbsence.status === 'approved';
+    const borderStyle = isApproved ? 'border-2' : 'border-2 border-dashed';
+
+    // Urlaub (vacation) - Emerald
+    if (primaryAbsence.type === 'vacation') {
+      return `bg-emerald-200 dark:bg-emerald-900/40 ${borderStyle} border-emerald-${isApproved ? '500' : '400'} dark:border-emerald-${isApproved ? '500' : '600'}`;
+    }
+
+    // Krankmeldung (sick) - Red
+    if (primaryAbsence.type === 'sick') {
+      return `bg-red-200 dark:bg-red-900/40 ${borderStyle} border-red-${isApproved ? '500' : '400'} dark:border-red-${isApproved ? '500' : '600'}`;
+    }
+
+    // Überstundenausgleich (overtime_comp) - Violet
+    if (primaryAbsence.type === 'overtime_comp') {
+      return `bg-violet-200 dark:bg-violet-900/40 ${borderStyle} border-violet-${isApproved ? '500' : '400'} dark:border-violet-${isApproved ? '500' : '600'}`;
+    }
+
+    // Unbezahlter Urlaub (unpaid) - Gray
+    if (primaryAbsence.type === 'unpaid') {
+      return `bg-gray-300 dark:bg-gray-700/40 ${borderStyle} border-gray-${isApproved ? '500' : '400'} dark:border-gray-${isApproved ? '500' : '600'}`;
+    }
   }
 
   // Normale Arbeitstage: Blau (Intensität nach Stunden)
   if (hours === 0) {
-    return 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+    return 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700';
   }
   if (hours < 4) {
-    return 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
+    return 'bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800';
   }
   if (hours < 6) {
-    return 'bg-blue-300 dark:bg-blue-900/50 border-blue-400 dark:border-blue-700';
+    return 'bg-blue-300 dark:bg-blue-900/50 border border-blue-400 dark:border-blue-700';
   }
   if (hours < 8) {
-    return 'bg-blue-500 dark:bg-blue-900/70 border-blue-600 dark:border-blue-600';
+    return 'bg-blue-500 dark:bg-blue-900/70 border border-blue-600 dark:border-blue-600';
   }
   // 8+ hours
-  return 'bg-blue-600 dark:bg-blue-800 border-blue-700 dark:border-blue-500';
+  return 'bg-blue-600 dark:bg-blue-800 border border-blue-700 dark:border-blue-500';
 };
 
 export function YearCalendar({
@@ -211,7 +235,7 @@ export function YearCalendar({
     const { hoursByDay, entriesByDay, absencesByDay } = calculateUserData(user.id);
     const totalHours = Array.from(hoursByDay.values()).reduce((sum, h) => sum + h, 0);
     const totalDays = hoursByDay.size;
-    const avgHoursPerDay = totalDays > 0 ? (totalHours / totalDays).toFixed(1) : '0';
+    const avgHoursPerDay = totalDays > 0 ? formatHours(totalHours / totalDays) : '0h';
 
     return (
       <div key={user.id} className="mb-8 last:mb-0">
@@ -229,7 +253,7 @@ export function YearCalendar({
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
             <p className="text-sm text-gray-600 dark:text-gray-400">Gesamt gearbeitet</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-              {totalHours.toFixed(1)}h
+              {formatHours(totalHours)}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
@@ -293,28 +317,42 @@ export function YearCalendar({
 
                     // Filter: Nur genehmigte oder pending Absences anzeigen (rejected nicht)
                     const visibleAbsences = dayAbsences.filter(a => a.status !== 'rejected');
-                    const hasApprovedAbsence = visibleAbsences.some(a => a.status === 'approved');
-                    const hasPendingAbsence = visibleAbsences.some(a => a.status === 'pending');
                     const hasAbsence = visibleAbsences.length > 0;
 
-                    const colorClass = getIntensityColor(hours, hasApprovedAbsence, hasPendingAbsence);
+                    const colorClass = getIntensityColor(hours, visibleAbsences);
                     const dayIsToday = isToday(day);
 
                     // Build tooltip
                     let tooltipText = `${format(day, 'd. MMM yyyy', { locale: de })}`;
                     if (dayEntries.length > 0) {
-                      tooltipText += `\n\n📊 ${hours.toFixed(1)}h gearbeitet`;
+                      tooltipText += `\n\n📊 ${formatHours(hours)} gearbeitet`;
                       dayEntries.forEach((entry) => {
-                        tooltipText += `\n• ${entry.hours}h (${entry.startTime}-${entry.endTime})`;
+                        tooltipText += `\n• ${formatHours(entry.hours)} (${entry.startTime}-${entry.endTime})`;
                       });
                     } else {
-                      tooltipText += `\n${hours.toFixed(1)}h gearbeitet`;
+                      tooltipText += `\n${formatHours(hours)} gearbeitet`;
                     }
                     if (hasAbsence) {
-                      tooltipText += `\n\n🏖️ Urlaub:`;
-                      visibleAbsences.forEach((absence) => {
-                        const statusLabel = absence.status === 'approved' ? '✅ Genehmigt' : '⏳ Beantragt';
-                        tooltipText += `\n• ${statusLabel}`;
+                      // Group absences by type
+                      const absencesByType = visibleAbsences.reduce((acc, absence) => {
+                        if (!acc[absence.type]) acc[absence.type] = [];
+                        acc[absence.type].push(absence);
+                        return acc;
+                      }, {} as Record<string, typeof visibleAbsences>);
+
+                      Object.entries(absencesByType).forEach(([type, absences]) => {
+                        const typeEmoji =
+                          type === 'vacation' ? '🏖️' :
+                          type === 'sick' ? '🤒' :
+                          type === 'overtime_comp' ? '⏰' :
+                          type === 'unpaid' ? '📅' : '📋';
+                        const typeLabel = getAbsenceTypeLabel(type as any);
+
+                        tooltipText += `\n\n${typeEmoji} ${typeLabel}:`;
+                        absences.forEach((absence) => {
+                          const statusLabel = absence.status === 'approved' ? '✅ Genehmigt' : '⏳ Beantragt';
+                          tooltipText += `\n• ${statusLabel}`;
+                        });
                       });
                     }
 
@@ -335,23 +373,65 @@ export function YearCalendar({
           </div>
 
           {/* Legend */}
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Weniger</span>
-            <div className="flex gap-1">
-              <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" />
-              <div className="w-3 h-3 rounded-sm bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800" />
-              <div className="w-3 h-3 rounded-sm bg-blue-300 dark:bg-blue-900/50 border border-blue-400 dark:border-blue-700" />
-              <div className="w-3 h-3 rounded-sm bg-blue-500 dark:bg-blue-900/70 border border-blue-600 dark:border-blue-600" />
-              <div className="w-3 h-3 rounded-sm bg-blue-600 dark:bg-blue-800 border border-blue-700 dark:border-blue-500" />
+          <div className="mt-6 space-y-2">
+            {/* Zeiterfassung Intensität */}
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Weniger</span>
+              <div className="flex gap-1">
+                <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" />
+                <div className="w-3 h-3 rounded-sm bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800" />
+                <div className="w-3 h-3 rounded-sm bg-blue-300 dark:bg-blue-900/50 border border-blue-400 dark:border-blue-700" />
+                <div className="w-3 h-3 rounded-sm bg-blue-500 dark:bg-blue-900/70 border border-blue-600 dark:border-blue-600" />
+                <div className="w-3 h-3 rounded-sm bg-blue-600 dark:bg-blue-800 border border-blue-700 dark:border-blue-500" />
+              </div>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Mehr</span>
             </div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Mehr</span>
-            <div className="ml-4 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900/40 border border-green-400 dark:border-green-600" />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Urlaub (✅)</span>
-            </div>
-            <div className="ml-2 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm bg-orange-200 dark:bg-orange-900/40 border border-orange-400 dark:border-orange-600 border-dashed" />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Urlaub (⏳)</span>
+
+            {/* Abwesenheiten */}
+            <div className="flex items-center justify-end gap-3 flex-wrap">
+              <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Abwesenheiten:</span>
+
+              {/* Urlaub Genehmigt - Emerald solid */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/40 border-2 border-emerald-500 dark:border-emerald-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">🏖️ Urlaub</span>
+              </div>
+
+              {/* Urlaub Beantragt - Emerald dashed */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/40 border-2 border-dashed border-emerald-500 dark:border-emerald-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">🏖️ Urlaub (⏳)</span>
+              </div>
+
+              {/* Krankmeldung - Red (immer genehmigt) */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40 border-2 border-red-500 dark:border-red-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">🤒 Krankmeldung</span>
+              </div>
+
+              {/* Überstundenausgleich Genehmigt - Violet solid */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-violet-200 dark:bg-violet-900/40 border-2 border-violet-500 dark:border-violet-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">⏰ Überstunden-Ausgleich</span>
+              </div>
+
+              {/* Überstundenausgleich Beantragt - Violet dashed */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-violet-200 dark:bg-violet-900/40 border-2 border-dashed border-violet-500 dark:border-violet-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">⏰ Überstunden-Ausgleich (⏳)</span>
+              </div>
+
+              {/* Unbezahlter Urlaub Genehmigt - Gray solid */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-gray-300 dark:bg-gray-700/40 border-2 border-gray-500 dark:border-gray-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">📅 Unbezahlt</span>
+              </div>
+
+              {/* Unbezahlter Urlaub Beantragt - Gray dashed */}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-gray-300 dark:bg-gray-700/40 border-2 border-dashed border-gray-500 dark:border-gray-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">📅 Unbezahlt (⏳)</span>
+              </div>
             </div>
           </div>
         </div>

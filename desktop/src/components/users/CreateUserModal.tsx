@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useCreateUser } from '../../hooks';
-import { isValidEmail } from '../../utils';
+import { isValidEmail, getTodayDate } from '../../utils';
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
   const [vacationDays, setVacationDays] = useState('30');
   const [department, setDepartment] = useState('');
   const [position, setPosition] = useState('');
+  const [hireDate, setHireDate] = useState(getTodayDate());
 
   // Error state
   const [usernameError, setUsernameError] = useState('');
@@ -92,6 +93,15 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
       isValid = false;
     }
 
+    // Validate hireDate: cannot be in the future
+    if (hireDate) {
+      const today = getTodayDate();
+      if (hireDate > today) {
+        alert('Eintrittsdatum kann nicht in der Zukunft liegen');
+        isValid = false;
+      }
+    }
+
     return isValid;
   };
 
@@ -114,6 +124,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
         vacationDaysPerYear: parseInt(vacationDays) || 30,
         department: department.trim() || undefined,
         position: position.trim() || undefined,
+        hireDate,
       });
 
       // Reset form and close
@@ -136,6 +147,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     setVacationDays('30');
     setDepartment('');
     setPosition('');
+    setHireDate(getTodayDate());
 
     // Reset errors
     setUsernameError('');
@@ -274,6 +286,15 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
               required
             />
           </div>
+
+          <Input
+            label="Eintrittsdatum"
+            type="date"
+            value={hireDate}
+            onChange={(e) => setHireDate(e.target.value)}
+            required
+            helperText="Ab diesem Datum werden Arbeitsstunden erfasst"
+          />
         </div>
 
         {/* Actions */}

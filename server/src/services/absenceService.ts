@@ -1,5 +1,6 @@
 import { db } from '../database/connection.js';
 import type { AbsenceRequest } from '../types/index.js';
+import logger from '../utils/logger.js';
 
 /**
  * Absence Service
@@ -36,21 +37,41 @@ interface VacationBalance {
  * Calculate number of business days between two dates (excluding weekends)
  */
 export function calculateBusinessDays(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  logger.debug('🔥🔥🔥 CALCULATE BUSINESS DAYS DEBUG 🔥🔥🔥');
+  logger.debug({ startDate, endDate }, '📥 Input dates');
+
+  // Parse dates in local timezone (YYYY-MM-DD → local Date object)
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+
+  logger.debug({ startYear, startMonth, startDay }, '📊 Parsed Start');
+  logger.debug({ endYear, endMonth, endDay }, '📊 Parsed End');
+
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+
+  logger.debug({ startDate: start.toString() }, '📅 Start Date Object');
+  logger.debug({ endDate: end.toString() }, '📅 End Date Object');
+  logger.debug('📅 Start Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][start.getDay()]);
+  logger.debug('📅 End Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][end.getDay()]);
 
   let count = 0;
   const current = new Date(start);
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
+    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
+    logger.debug(`  📆 ${current.toISOString().split('T')[0]} = ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]} → ${isWeekday ? '✅ COUNT' : '❌ SKIP (weekend)'}`);
+
     // 0 = Sunday, 6 = Saturday
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    if (isWeekday) {
       count++;
     }
     current.setDate(current.getDate() + 1);
   }
 
+  logger.debug({ count }, '📊 TOTAL BUSINESS DAYS');
+  logger.debug('🔥🔥🔥 END CALCULATE BUSINESS DAYS 🔥🔥🔥');
   return count;
 }
 
@@ -67,24 +88,51 @@ export function isHoliday(date: string): boolean {
  * Calculate vacation days (business days - holidays)
  */
 export function calculateVacationDays(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  logger.debug('🔥🔥🔥 CALCULATE VACATION DAYS DEBUG 🔥🔥🔥');
+  logger.debug({ startDate, endDate }, '📥 Input dates');
+
+  // Parse dates in local timezone (YYYY-MM-DD → local Date object)
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+
+  logger.debug({ startYear, startMonth, startDay }, '📊 Parsed Start');
+  logger.debug({ endYear, endMonth, endDay }, '📊 Parsed End');
+
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+
+  logger.debug({ startDate: start.toString() }, '📅 Start Date Object');
+  logger.debug({ endDate: end.toString() }, '📅 End Date Object');
+  logger.debug('📅 Start Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][start.getDay()]);
+  logger.debug('📅 End Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][end.getDay()]);
 
   let count = 0;
   const current = new Date(start);
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    const dateStr = current.toISOString().split('T')[0];
+    // Format back to YYYY-MM-DD for holiday check
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isHol = isHoliday(dateStr);
+    const shouldCount = !isWeekend && !isHol;
+
+    logger.debug(`  📆 ${dateStr} = ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]} → ${isWeekend ? '❌ SKIP (weekend)' : isHol ? '❌ SKIP (holiday)' : '✅ COUNT'}`);
 
     // Only count weekdays that are not holidays
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday(dateStr)) {
+    if (shouldCount) {
       count++;
     }
 
     current.setDate(current.getDate() + 1);
   }
 
+  logger.debug({ count }, '📊 TOTAL VACATION DAYS');
+  logger.debug('🔥🔥🔥 END CALCULATE VACATION DAYS 🔥🔥🔥');
   return count;
 }
 
@@ -117,6 +165,72 @@ export function validateAbsenceDates(data: {
 }
 
 /**
+ * Check if there are any overlapping absences for this user
+ * Returns conflicting absence if found, null otherwise
+ */
+export function checkOverlappingAbsence(
+  userId: number,
+  startDate: string,
+  endDate: string,
+  excludeId?: number
+): AbsenceRequest | null {
+  const query = `
+    SELECT *
+    FROM absence_requests
+    WHERE userId = ?
+      AND id != ?
+      AND status IN ('approved', 'pending')
+      AND (
+        (date(startDate) <= date(?) AND date(endDate) >= date(?))
+        OR (date(startDate) <= date(?) AND date(endDate) >= date(?))
+        OR (date(startDate) >= date(?) AND date(endDate) <= date(?))
+      )
+  `;
+
+  const absence = db.prepare(query).get(
+    userId,
+    excludeId || 0,
+    startDate, startDate,
+    endDate, endDate,
+    startDate, endDate
+  ) as AbsenceRequest | undefined;
+
+  return absence || null;
+}
+
+/**
+ * Check if there are any time entries in the absence period
+ * Returns { hasEntries: boolean, totalHours: number, dates: string[] }
+ */
+export function checkTimeEntriesInPeriod(
+  userId: number,
+  startDate: string,
+  endDate: string
+): { hasEntries: boolean; totalHours: number; dates: string[] } {
+  const query = `
+    SELECT date, SUM(hours) as hours
+    FROM time_entries
+    WHERE userId = ?
+      AND date(date) BETWEEN date(?) AND date(?)
+    GROUP BY date
+  `;
+
+  const entries = db.prepare(query).all(userId, startDate, endDate) as Array<{
+    date: string;
+    hours: number;
+  }>;
+
+  if (entries.length === 0) {
+    return { hasEntries: false, totalHours: 0, dates: [] };
+  }
+
+  const totalHours = entries.reduce((sum, entry) => sum + entry.hours, 0);
+  const dates = entries.map(e => e.date);
+
+  return { hasEntries: true, totalHours, dates };
+}
+
+/**
  * Check if user has enough vacation days
  */
 export function hasEnoughVacationDays(
@@ -124,10 +238,27 @@ export function hasEnoughVacationDays(
   year: number,
   requestedDays: number
 ): boolean {
-  const balance = getVacationBalance(userId, year);
+  logger.debug('🔥🔥🔥 hasEnoughVacationDays DEBUG 🔥🔥🔥');
+  logger.debug({ userId, year, requestedDays }, '📌 Input parameters');
+
+  let balance = getVacationBalance(userId, year);
+  logger.debug({ balance }, '📊 balance from DB');
+
+  // Auto-initialize if not exists
   if (!balance) {
-    return false;
+    logger.warn('⚠️ NO VACATION BALANCE FOUND - Auto-initializing...');
+    try {
+      balance = initializeVacationBalance(userId, year);
+      logger.info({ balance }, '✅ Vacation balance initialized');
+    } catch (error) {
+      logger.error({ err: error }, '❌ Failed to initialize vacation balance');
+      return false;
+    }
   }
+
+  logger.debug({ remaining: balance.remaining, requestedDays, hasEnough: balance.remaining >= requestedDays }, '📊 Comparison');
+  logger.debug('🔥🔥🔥 END hasEnoughVacationDays DEBUG 🔥🔥🔥');
+
   return balance.remaining >= requestedDays;
 }
 
@@ -188,6 +319,9 @@ export function getAbsenceRequestById(id: number): AbsenceRequest | null {
 export function createAbsenceRequest(
   data: AbsenceRequestCreateInput
 ): AbsenceRequest {
+  logger.debug('🚀🚀🚀 CREATE ABSENCE REQUEST DEBUG 🚀🚀🚀');
+  logger.debug({ data }, '📥 Input data');
+
   // Validate dates
   const validation = validateAbsenceDates(data);
   if (!validation.valid) {
@@ -197,15 +331,56 @@ export function createAbsenceRequest(
   // Calculate days
   let days: number;
   if (data.type === 'vacation' || data.type === 'overtime_comp') {
+    logger.debug('📊 Calculating VACATION days (excludes weekends + holidays)...');
     // Exclude weekends and holidays
     days = calculateVacationDays(data.startDate, data.endDate);
   } else {
+    logger.debug('📊 Calculating BUSINESS days (excludes weekends only)...');
     // Sick leave and unpaid: count business days only (exclude weekends)
     days = calculateBusinessDays(data.startDate, data.endDate);
   }
 
+  logger.debug({ days }, '📊 CALCULATED DAYS');
+
   if (days <= 0) {
+    logger.error('❌ DAYS <= 0! Throwing error...');
     throw new Error('Absence request must span at least one business day');
+  }
+
+  // Check for overlapping absences
+  logger.debug('🔍 Checking for overlapping absences...');
+  const overlappingAbsence = checkOverlappingAbsence(data.userId, data.startDate, data.endDate);
+  logger.debug({ hasOverlap: !!overlappingAbsence }, '📊 Overlapping absence check');
+  if (overlappingAbsence) {
+    const typeLabels: Record<string, string> = {
+      vacation: 'Urlaub',
+      sick: 'Krankmeldung',
+      overtime_comp: 'Überstundenausgleich',
+      unpaid: 'Unbezahlter Urlaub'
+    };
+    const typeLabel = typeLabels[overlappingAbsence.type] || overlappingAbsence.type;
+    const statusLabel = overlappingAbsence.status === 'approved' ? 'genehmigter' : 'beantragter';
+    throw new Error(
+      `Überschneidung mit ${statusLabel} ${typeLabel} (${overlappingAbsence.startDate} - ${overlappingAbsence.endDate}). Bitte anderen Zeitraum wählen.`
+    );
+  }
+
+  // Check for existing time entries in this period
+  const timeEntriesCheck = checkTimeEntriesInPeriod(data.userId, data.startDate, data.endDate);
+  if (timeEntriesCheck.hasEntries) {
+    logger.error({ totalHours: timeEntriesCheck.totalHours, dates: timeEntriesCheck.dates }, `❌ User has time entries in absence period`);
+
+    // Format dates for display
+    const formattedDates = timeEntriesCheck.dates
+      .map(d => {
+        const [year, month, day] = d.split('-');
+        return `${day}.${month}.${year}`;
+      })
+      .join(', ');
+
+    throw new Error(
+      `In diesem Zeitraum existieren bereits Zeiterfassungen (${timeEntriesCheck.totalHours}h an folgenden Tagen: ${formattedDates}). Bitte zuerst die Zeiterfassungen löschen.`
+    );
   }
 
   // For vacation: check if user has enough days
@@ -218,8 +393,15 @@ export function createAbsenceRequest(
 
   // For overtime compensation: check if user has enough overtime
   if (data.type === 'overtime_comp') {
+    logger.debug('🔥🔥🔥 OVERTIME COMP VALIDATION DEBUG 🔥🔥🔥');
+    logger.debug({ userId: data.userId, days }, '📌 Parameters');
+
     const overtimeHours = getTotalOvertimeHours(data.userId);
+    logger.debug({ overtimeHours }, '📊 overtimeHours from getTotalOvertimeHours()');
+
     const requiredHours = days * 8; // Assume 8h per day
+    logger.debug({ overtimeHours, requiredHours, hasEnough: overtimeHours >= requiredHours }, '📊 Comparison');
+    logger.debug('🔥🔥🔥 END OVERTIME COMP VALIDATION 🔥🔥🔥');
 
     if (overtimeHours < requiredHours) {
       throw new Error(
@@ -570,16 +752,32 @@ function updateVacationTaken(userId: number, year: number, days: number): void {
 }
 
 /**
- * Get total overtime hours for a user
+ * Get total overtime hours for a user (with hireDate filtering)
  */
 function getTotalOvertimeHours(userId: number): number {
+  logger.debug('🔍 getTotalOvertimeHours - START');
+  logger.debug({ userId }, 'userId');
+
+  // Get user's hireDate
+  const user = db
+    .prepare('SELECT hireDate FROM users WHERE id = ?')
+    .get(userId) as { hireDate: string } | undefined;
+
+  const hireDate = user?.hireDate || '1900-01-01';
+  logger.debug({ hireDate }, 'hireDate');
+
   const query = `
     SELECT COALESCE(SUM(overtime), 0) as total
     FROM overtime_balance
-    WHERE userId = ?
+    WHERE userId = ? AND month >= strftime('%Y-%m', ?)
   `;
 
-  const result = db.prepare(query).get(userId) as { total: number };
+  logger.debug({ query, params: [userId, hireDate] }, 'SQL');
+
+  const result = db.prepare(query).get(userId, hireDate) as { total: number };
+  logger.debug({ result }, 'Result');
+  logger.debug({ total: result.total }, '🔍 getTotalOvertimeHours - END, returning');
+
   return result.total;
 }
 

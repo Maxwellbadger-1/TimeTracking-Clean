@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useCreateTimeEntry } from '../../hooks';
+import { useCreateTimeEntry, useUsers } from '../../hooks';
 import { useAuthStore } from '../../store/authStore';
 import {
   getTodayDate,
@@ -13,6 +13,7 @@ import {
   isValidTimeRange,
   getTimeRangeError,
   calculateHours,
+  formatHours,
 } from '../../utils';
 
 interface TimeEntryFormProps {
@@ -22,9 +23,11 @@ interface TimeEntryFormProps {
 
 export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
   const { user } = useAuthStore();
+  const { data: users } = useUsers();
   const createEntry = useCreateTimeEntry();
 
   // Form state
+  const [selectedUserId, setSelectedUserId] = useState<number>(user?.id || 0);
   const [date, setDate] = useState(getTodayDate());
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('17:00');
@@ -93,7 +96,7 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
 
     try {
       await createEntry.mutateAsync({
-        userId: user.id,
+        userId: selectedUserId, // Use selected user (admin can create for others)
         date,
         startTime,
         endTime,
@@ -112,6 +115,7 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
 
   const handleClose = () => {
     // Reset form
+    setSelectedUserId(user?.id || 0);
     setDate(getTodayDate());
     setStartTime('08:00');
     setEndTime('17:00');
@@ -133,6 +137,22 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Zeit erfassen" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* User Picker (Admin only) */}
+        {user?.role === 'admin' && (
+          <Select
+            label="Mitarbeiter"
+            value={String(selectedUserId)}
+            onChange={(e) => setSelectedUserId(Number(e.target.value))}
+            options={
+              users?.map((u) => ({
+                value: String(u.id),
+                label: `${u.firstName} ${u.lastName}`,
+              })) || []
+            }
+            required
+          />
+        )}
+
         {/* Date */}
         <Input
           type="date"
@@ -202,7 +222,7 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
         {previewHours > 0 && (
           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <p className="text-sm text-blue-900 dark:text-blue-200">
-              <strong>Arbeitszeit:</strong> {previewHours.toFixed(2)} Stunden
+              <strong>Arbeitszeit:</strong> {formatHours(previewHours)}
             </p>
           </div>
         )}

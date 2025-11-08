@@ -3,27 +3,30 @@ import { useAuthStore } from '../../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { Clock, Calendar, Umbrella, TrendingUp } from 'lucide-react';
+import { Clock, Calendar, Umbrella, TrendingUp, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useTodayTimeEntries,
   useWeekTimeEntries,
-  useTotalOvertime,
+  useCurrentOvertimeStats,
   useRemainingVacationDays,
 } from '../../hooks';
 import { calculateTotalHours, formatHours, formatOvertimeHours, formatDateDE } from '../../utils';
-import type { TimeEntry } from '../../types';
+import type { TimeEntry, GDPRDataExport } from '../../types';
 import { TimeEntryForm } from '../timeEntries/TimeEntryForm';
 import { AbsenceRequestForm } from '../absences/AbsenceRequestForm';
+import { apiClient } from '../../api/client';
 
 export function EmployeeDashboard() {
   const { user } = useAuthStore();
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showAbsenceForm, setShowAbsenceForm] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   // Fetch data
   const { data: todayEntries, isLoading: loadingToday } = useTodayTimeEntries(user?.id || 0);
   const { data: weekEntries, isLoading: loadingWeek } = useWeekTimeEntries(user?.id || 0);
-  const { totalHours: overtimeHours, isLoading: loadingOvertime } = useTotalOvertime(user?.id || 0);
+  const { data: overtimeStats, isLoading: loadingOvertime } = useCurrentOvertimeStats(user?.id);
   const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(user?.id || 0);
 
   if (!user) return null;
@@ -31,6 +34,47 @@ export function EmployeeDashboard() {
   // Calculate totals
   const todayHours = todayEntries ? calculateTotalHours(todayEntries) : 0;
   const weekHours = weekEntries ? calculateTotalHours(weekEntries) : 0;
+
+  // GDPR Data Export (DSGVO Art. 15)
+  const handleDataExport = async () => {
+    try {
+      setExportingData(true);
+      toast.info('📊 Exportiere deine Daten...');
+
+      console.log('🔍 DEBUG: Sending data export request via apiClient');
+
+      // Use apiClient instead of raw fetch() to ensure cookies are sent
+      // apiClient uses Tauri HTTP Plugin which properly sends session cookies
+      const response = await apiClient.get<GDPRDataExport>('/users/me/data-export');
+
+      console.log('✅ DEBUG: Data export response:', response);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Keine Daten erhalten');
+      }
+
+      // Create JSON file
+      const dataStr = JSON.stringify(response.data, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+
+      // Download file
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `daten-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('✅ Daten erfolgreich exportiert!');
+    } catch (error) {
+      console.error('❌ Data export error:', error);
+      toast.error('Fehler beim Exportieren der Daten');
+    } finally {
+      setExportingData(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -116,19 +160,19 @@ export function EmployeeDashboard() {
             </CardContent>
           </Card>
 
-          {/* Overtime */}
+          {/* Overtime - 4 Levels */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Überstunden
+                    Überstunden (Gesamt)
                   </p>
                   {loadingOvertime ? (
                     <LoadingSpinner size="sm" />
                   ) : (
                     <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {formatOvertimeHours(overtimeHours)}
+                      {formatOvertimeHours(overtimeStats?.totalYear || 0)}
                     </p>
                   )}
                 </div>
@@ -136,6 +180,28 @@ export function EmployeeDashboard() {
                   <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                 </div>
               </div>
+              {!loadingOvertime && overtimeStats && (
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Heute</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatOvertimeHours(overtimeStats.today)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Woche</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatOvertimeHours(overtimeStats.thisWeek)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Monat</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatOvertimeHours(overtimeStats.thisMonth)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -146,7 +212,7 @@ export function EmployeeDashboard() {
             <CardTitle>Schnellaktionen</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Button variant="primary" fullWidth onClick={() => setShowTimeEntryForm(true)}>
                 <Clock className="w-4 h-4 mr-2" />
                 Zeit erfassen
@@ -154,6 +220,15 @@ export function EmployeeDashboard() {
               <Button variant="secondary" fullWidth onClick={() => setShowAbsenceForm(true)}>
                 <Umbrella className="w-4 h-4 mr-2" />
                 Abwesenheit beantragen
+              </Button>
+              <Button
+                variant="ghost"
+                fullWidth
+                onClick={handleDataExport}
+                disabled={exportingData}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exportingData ? 'Exportiere...' : 'Daten exportieren (DSGVO)'}
               </Button>
             </div>
           </CardContent>

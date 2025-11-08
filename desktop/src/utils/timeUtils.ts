@@ -51,8 +51,10 @@ export function formatHours(hours: number): string {
  * Example: 2.5 → "+2:30h", -1.5 → "-1:30h"
  */
 export function formatOvertimeHours(hours: number): string {
-  const sign = hours >= 0 ? '+' : '';
-  return sign + formatHours(Math.abs(hours));
+  const sign = hours >= 0 ? '+' : '-';
+  const absHours = Math.abs(hours);
+  const formattedTime = formatHours(absHours);
+  return sign + formattedTime;
 }
 
 /**

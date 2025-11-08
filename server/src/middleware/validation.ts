@@ -91,10 +91,10 @@ export function validateUserCreate(
   }
 
   // Password validation
-  if (data.password.length < 6) {
+  if (data.password.length < 8) {
     res.status(400).json({
       success: false,
-      error: 'Password must be at least 6 characters',
+      error: 'Password must be at least 8 characters',
     });
     return;
   }
@@ -182,10 +182,10 @@ export function validateUserUpdate(
 
   // Password validation (if provided)
   if (data.password !== undefined) {
-    if (data.password.length < 6) {
+    if (data.password.length < 8) {
       res.status(400).json({
         success: false,
-        error: 'Password must be at least 6 characters',
+        error: 'Password must be at least 8 characters',
       });
       return;
     }

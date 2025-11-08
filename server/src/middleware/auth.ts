@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { SessionUser } from '../types/index.js';
+import logger from '../utils/logger.js';
 
 /**
  * Auth Middleware
@@ -15,6 +16,7 @@ export function requireAuth(
   next: NextFunction
 ): void {
   if (!req.session?.user) {
+    logger.warn({ url: req.originalUrl }, 'Unauthorized access attempt');
     res.status(401).json({
       success: false,
       error: 'Unauthorized - Please login',

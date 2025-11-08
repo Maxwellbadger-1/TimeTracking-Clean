@@ -11,7 +11,10 @@ import {
   updateUserStatus,
   usernameExists,
   emailExists,
+  exportUserData,
+  updatePrivacyConsent,
 } from '../services/userService.js';
+import { upsertVacationBalance } from '../services/vacationBalanceService.js';
 import { logAudit } from '../services/auditService.js';
 import type { ApiResponse, UserPublic, UserCreateInput } from '../types/index.js';
 
@@ -37,6 +40,88 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get users',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/users/me/data-export
+ * GDPR Data Export (DSGVO Art. 15)
+ * Export all user data for GDPR compliance
+ * IMPORTANT: Must be BEFORE /:id route to avoid route collision
+ */
+router.get(
+  '/me/data-export',
+  requireAuth,
+  (req: Request, res: Response) => {
+    try {
+      const userId = req.session.user!.id;
+
+      console.log('📊 GDPR Data Export requested by user:', userId);
+
+      // Export all user data
+      const exportData = exportUserData(userId);
+
+      // Note: We don't log this in audit table because 'export' is not in the CHECK constraint
+      // and it's not critical for GDPR compliance to audit data exports
+      console.log('✅ GDPR Data Export completed for user:', userId);
+
+      res.json({
+        success: true,
+        data: exportData,
+        message: 'User data exported successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error exporting user data:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to export user data',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/users/me/privacy-consent
+ * Accept Privacy Policy (DSGVO)
+ * Update privacy consent timestamp
+ * IMPORTANT: Must be BEFORE /:id route to avoid route collision
+ */
+router.post(
+  '/me/privacy-consent',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse<UserPublic>>) => {
+    try {
+      const userId = req.session.user!.id;
+
+      console.log('📝 Privacy consent accepted by user:', userId);
+
+      // Update privacy consent
+      const user = updatePrivacyConsent(userId);
+
+      // CRITICAL: Update session with new privacyConsentAt timestamp
+      // This ensures the privacy modal doesn't show again after acceptance
+      if (req.session.user) {
+        req.session.user.privacyConsentAt = user.privacyConsentAt;
+        console.log('✅ Session updated with privacyConsentAt:', user.privacyConsentAt);
+      }
+
+      // Log audit
+      logAudit(userId, 'update', 'user', userId, {
+        privacyConsentAt: user.privacyConsentAt,
+      });
+
+      res.json({
+        success: true,
+        data: user,
+        message: 'Privacy consent updated successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error updating privacy consent:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update privacy consent',
       });
     }
   }
@@ -118,6 +203,31 @@ router.post(
 
       // Create user
       const user = await createUser(data);
+
+      // Initialize vacation balance for current and next year
+      const currentYear = new Date().getFullYear();
+      try {
+        // Current year
+        upsertVacationBalance({
+          userId: user.id,
+          year: currentYear,
+          entitlement: data.vacationDaysPerYear || 30,
+          carryover: 0,
+        });
+
+        // Next year (for planning)
+        upsertVacationBalance({
+          userId: user.id,
+          year: currentYear + 1,
+          entitlement: data.vacationDaysPerYear || 30,
+          carryover: 0,
+        });
+
+        console.log(`✅ Initialized vacation balances for user ${user.id} (years ${currentYear}, ${currentYear + 1})`);
+      } catch (error) {
+        console.error('⚠️ Failed to initialize vacation balances:', error);
+        // Don't fail user creation if vacation balance initialization fails
+      }
 
       // Log audit
       logAudit(req.session.user!.id, 'create', 'user', user.id, {

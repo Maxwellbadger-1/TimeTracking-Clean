@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger.js';
 
 /**
  * Error Handler Middleware
@@ -22,11 +23,11 @@ export function errorHandler(
   const statusCode = err.status || err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
-  console.error('❌ Error:', {
+  logger.error({
+    err,
     status: statusCode,
     message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-  });
+  }, '❌ Error occurred');
 
   res.status(statusCode).json({
     success: false,

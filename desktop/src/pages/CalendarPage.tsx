@@ -11,7 +11,7 @@ import { MonthCalendar } from '../components/calendar/MonthCalendar';
 import { WeekCalendarColumns } from '../components/calendar/WeekCalendarColumns';
 import { YearCalendar } from '../components/calendar/YearCalendar';
 import { TeamCalendar } from '../components/calendar/TeamCalendar';
-import { useTimeEntries, useAbsenceRequests, useCurrentYearHolidays } from '../hooks';
+import { useTimeEntries, useAbsenceRequests, useMultiYearHolidays } from '../hooks';
 
 export function CalendarPage() {
   const { user } = useAuthStore();
@@ -25,7 +25,7 @@ export function CalendarPage() {
 
   const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(userIdFilter ? { userId: userIdFilter } : undefined);
   const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter ? { userId: userIdFilter } : undefined);
-  const { data: holidays, isLoading: loadingHolidays } = useCurrentYearHolidays();
+  const { data: holidays, isLoading: loadingHolidays } = useMultiYearHolidays();
 
   if (!user) return null;
 

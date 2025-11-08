@@ -135,7 +135,7 @@ export function UserManagementPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
 
-    const { userId, userName } = deleteConfirm;
+    const { userId } = deleteConfirm;
     console.log('✅ User confirmed deletion');
     console.log('🚀 Calling deleteUser.mutateAsync(' + userId + ')...');
 
@@ -305,7 +305,7 @@ export function UserManagementPage() {
                 onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                 options={[
                   { value: 'active', label: 'Nur Aktive' },
-                  { value: 'all', label: 'Alle (inkl. Gelöschte)' },
+                  { value: 'all', label: 'Alle (inkl. Inaktive)' },
                 ]}
               />
 
@@ -361,6 +361,9 @@ export function UserManagementPage() {
                         Abteilung
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Mitarbeiter seit
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -405,6 +408,13 @@ export function UserManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                           {user.department || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          {user.hireDate ? new Date(user.hireDate).toLocaleDateString('de-DE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          }) : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${

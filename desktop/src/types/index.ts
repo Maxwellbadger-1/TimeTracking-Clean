@@ -11,8 +11,11 @@ export interface User {
   position?: string | null;
   weeklyHours: number;
   vacationDaysPerYear: number;
+  hireDate: string; // Eintrittsdatum (YYYY-MM-DD)
+  endDate?: string | null; // Austrittsdatum (optional)
   isActive: boolean;
   status?: 'active' | 'inactive';
+  privacyConsentAt?: string | null; // DSGVO Privacy Consent Timestamp
   createdAt: string;
   deletedAt?: string | null;
 }
@@ -90,4 +93,22 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// DSGVO/GDPR Data Export (Art. 15 - Right to Data Portability)
+export interface GDPRDataExport {
+  exportDate: string;
+  user: User;
+  timeEntries: TimeEntry[];
+  absenceRequests: AbsenceRequest[];
+  overtimeBalance: {
+    totalHours: number;
+    lastUpdated: string;
+  };
+  vacationBalance: {
+    availableDays: number;
+    usedDays: number;
+    totalDays: number;
+    lastUpdated: string;
+  };
 }

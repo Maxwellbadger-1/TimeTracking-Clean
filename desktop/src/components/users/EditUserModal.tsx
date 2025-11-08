@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useUpdateUser } from '../../hooks';
-import { isValidEmail } from '../../utils';
+import { isValidEmail, getTodayDate } from '../../utils';
 import type { User } from '../../types';
 
 interface EditUserModalProps {
@@ -27,6 +27,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const [department, setDepartment] = useState(user.department || '');
   const [position, setPosition] = useState(user.position || '');
   const [isActive, setIsActive] = useState(user.isActive);
+  const [hireDate, setHireDate] = useState(user.hireDate || getTodayDate());
+  const [endDate, setEndDate] = useState(user.endDate || '');
 
   // Error state
   const [emailError, setEmailError] = useState('');
@@ -44,6 +46,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setDepartment(user.department || '');
     setPosition(user.position || '');
     setIsActive(user.isActive);
+    setHireDate(user.hireDate || getTodayDate());
+    setEndDate(user.endDate || '');
   }, [user]);
 
   const validateForm = (): boolean => {
@@ -75,6 +79,23 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       isValid = false;
     }
 
+    // Validate hireDate: cannot be in the future
+    if (hireDate) {
+      const today = getTodayDate();
+      if (hireDate > today) {
+        alert('Eintrittsdatum kann nicht in der Zukunft liegen');
+        isValid = false;
+      }
+    }
+
+    // Validate endDate: must be after hireDate
+    if (endDate && hireDate) {
+      if (endDate < hireDate) {
+        alert('Austrittsdatum muss nach dem Eintrittsdatum liegen');
+        isValid = false;
+      }
+    }
+
     return isValid;
   };
 
@@ -85,20 +106,31 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       return;
     }
 
+    console.log('🔥🔥🔥 EDIT USER - FRONTEND DEBUG 🔥🔥🔥');
+    console.log('User ID:', user.id);
+    console.log('hireDate state:', hireDate);
+    console.log('endDate state:', endDate);
+
+    const updateData = {
+      email: email.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      role,
+      weeklyHours: parseInt(weeklyHours) || 40,
+      vacationDaysPerYear: parseInt(vacationDays) || 30,
+      department: department.trim() || undefined,
+      position: position.trim() || undefined,
+      isActive,
+      hireDate,
+      endDate: endDate || undefined,
+    };
+
+    console.log('📦 Update Data being sent:', updateData);
+
     try {
       await updateUser.mutateAsync({
         id: user.id,
-        data: {
-          email: email.trim(),
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          role,
-          weeklyHours: parseInt(weeklyHours) || 40,
-          vacationDaysPerYear: parseInt(vacationDays) || 30,
-          department: department.trim() || undefined,
-          position: position.trim() || undefined,
-          isActive,
-        },
+        data: updateData,
       });
 
       // Close modal
@@ -118,6 +150,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setVacationDays(String(user.vacationDaysPerYear || 30));
     setDepartment(user.department || '');
     setPosition(user.position || '');
+    setHireDate(user.hireDate || getTodayDate());
+    setEndDate(user.endDate || '');
     setIsActive(user.isActive);
 
     // Reset errors
@@ -231,6 +265,24 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               value={vacationDays}
               onChange={(e) => setVacationDays(e.target.value)}
               required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Eintrittsdatum"
+              type="date"
+              value={hireDate}
+              onChange={(e) => setHireDate(e.target.value)}
+              required
+              helperText="Ab diesem Datum werden Arbeitsstunden erfasst"
+            />
+            <Input
+              label="Austrittsdatum (optional)"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              helperText="Leer lassen, wenn Mitarbeiter aktiv ist"
             />
           </div>
 

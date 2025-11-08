@@ -1,0 +1,2 @@
+./stop-dev.sh && sleep 3 && ./SIMPLE-START.sh
+

@@ -6,7 +6,7 @@ import db from '../database/connection.js';
 
 export function logAudit(
   userId: number | null,
-  action: 'create' | 'update' | 'delete',
+  action: 'create' | 'update' | 'delete' | 'export',
   entity: string,
   entityId: number | null,
   changes?: Record<string, unknown>

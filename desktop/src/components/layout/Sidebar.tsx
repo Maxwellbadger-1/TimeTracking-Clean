@@ -19,11 +19,15 @@ import {
   FileText,
   Clock,
   Umbrella,
+  Wallet,
+  TrendingUp,
+  Database,
+  Settings,
   LogOut,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-type ViewType = 'dashboard' | 'calendar' | 'users' | 'reports' | 'time-entries' | 'absences';
+type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings';
 
 interface NavItem {
   id: ViewType;
@@ -60,10 +64,34 @@ const navItems: NavItem[] = [
     adminOnly: true,
   },
   {
+    id: 'vacation-balances',
+    label: 'Urlaubskonten',
+    icon: <Wallet className="w-5 h-5" />,
+    adminOnly: true,
+  },
+  {
+    id: 'overtime',
+    label: 'Überstunden',
+    icon: <TrendingUp className="w-5 h-5" />,
+    adminOnly: true,
+  },
+  {
     id: 'reports',
     label: 'Berichte',
     icon: <FileText className="w-5 h-5" />,
     adminOnly: true,
+  },
+  {
+    id: 'backups',
+    label: 'Backups',
+    icon: <Database className="w-5 h-5" />,
+    adminOnly: true,
+  },
+  {
+    id: 'settings',
+    label: 'Einstellungen',
+    icon: <Settings className="w-5 h-5" />,
+    adminOnly: false,
   },
 ];
 

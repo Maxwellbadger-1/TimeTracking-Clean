@@ -1,5 +1,8 @@
 import { db } from '../database/connection.js';
-import type { TimeEntry } from '../types/index.js';
+import type { TimeEntry, AbsenceRequest } from '../types/index.js';
+import { updateAllOvertimeLevels } from './overtimeService.js';
+import { validateTimeEntryArbZG } from './arbeitszeitgesetzService.js';
+import logger from '../utils/logger.js';
 
 /**
  * Time Entry Service
@@ -173,6 +176,27 @@ export function checkOverlap(
 }
 
 /**
+ * Check if user has an approved absence on this date
+ * Returns the absence if found, null otherwise
+ */
+export function checkAbsenceConflict(
+  userId: number,
+  date: string
+): AbsenceRequest | null {
+  const query = `
+    SELECT *
+    FROM absence_requests
+    WHERE userId = ?
+      AND status = 'approved'
+      AND date(?) BETWEEN date(startDate) AND date(endDate)
+  `;
+
+  const absence = db.prepare(query).get(userId, date) as AbsenceRequest | undefined;
+
+  return absence || null;
+}
+
+/**
  * Get all time entries (with optional user filter)
  * Includes user information (firstName, lastName, initials) via JOIN
  */
@@ -245,6 +269,19 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
     throw new Error(validation.error);
   }
 
+  // Check for approved absence on this date
+  const absence = checkAbsenceConflict(data.userId, data.date);
+  if (absence) {
+    const typeLabels: Record<string, string> = {
+      vacation: 'Urlaub',
+      sick: 'Krankmeldung',
+      overtime_comp: 'Überstundenausgleich',
+      unpaid: 'Unbezahlter Urlaub'
+    };
+    const typeLabel = typeLabels[absence.type] || absence.type;
+    throw new Error(`An diesem Tag hast du ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+  }
+
   // Check for overlaps
   const hasOverlap = checkOverlap(data.userId, data.date, data.startTime, data.endTime);
   if (hasOverlap) {
@@ -257,6 +294,29 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
     data.endTime,
     data.breakMinutes || 0
   );
+
+  // ✅ ArbZG Validation (Arbeitszeitgesetz §3-5)
+  logger.debug('🏛️ Running ArbZG validation for new time entry...');
+  const arbzgValidation = validateTimeEntryArbZG({
+    userId: data.userId,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    hours,
+    breakMinutes: data.breakMinutes || 0,
+  });
+
+  if (!arbzgValidation.valid) {
+    logger.warn({ errors: arbzgValidation.errors }, '❌ ArbZG Validation FAILED');
+    // Throw first error (most critical)
+    throw new Error(arbzgValidation.errors[0]);
+  }
+
+  if (arbzgValidation.warnings.length > 0) {
+    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings');
+    // Warnings are logged but don't block creation
+    // Frontend can check for warnings in response
+  }
 
   // Insert entry
   const query = `
@@ -282,9 +342,8 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
       data.notes || null
     );
 
-  // Update overtime balance for this month
-  const month = data.date.substring(0, 7); // YYYY-MM
-  updateOvertimeBalance(data.userId, month);
+  // Update all 3 overtime levels (daily, weekly, monthly)
+  updateAllOvertimeLevels(data.userId, data.date);
 
   // Return created entry
   const entry = getTimeEntryById(result.lastInsertRowid as number);
@@ -302,20 +361,19 @@ export function updateTimeEntry(
   id: number,
   data: TimeEntryUpdateInput
 ): TimeEntry {
-  console.log('🔥🔥🔥 UPDATE TIME ENTRY SERVICE CALLED 🔥🔥🔥');
-  console.log('📍 ID:', id);
-  console.log('📦 Input data:', data);
+  logger.debug('🔥🔥🔥 UPDATE TIME ENTRY SERVICE CALLED 🔥🔥🔥');
+  logger.debug({ id, data }, '📍 Update parameters');
 
   // Get existing entry
-  console.log('🔍 Fetching existing entry with ID:', id);
+  logger.debug({ id }, '🔍 Fetching existing entry');
   const existing = getTimeEntryById(id);
 
   if (!existing) {
-    console.error('❌ ENTRY NOT FOUND! ID:', id);
+    logger.error({ id }, '❌ ENTRY NOT FOUND');
     throw new Error('Time entry not found');
   }
 
-  console.log('✅ Existing entry found:', existing);
+  logger.debug({ existing }, '✅ Existing entry found');
 
   // Merge data
   const merged = {
@@ -325,21 +383,36 @@ export function updateTimeEntry(
     breakMinutes: data.breakMinutes ?? existing.breakMinutes,
   };
 
-  console.log('🔄 Merged data:', merged);
+  logger.debug({ merged }, '🔄 Merged data');
 
   // Validate merged data
-  console.log('🔍 Validating merged data...');
+  logger.debug('🔍 Validating merged data...');
   const validation = validateTimeEntryData(merged);
 
   if (!validation.valid) {
-    console.error('❌ VALIDATION FAILED!', validation.error);
+    logger.error({ error: validation.error }, '❌ VALIDATION FAILED');
     throw new Error(validation.error);
   }
 
-  console.log('✅ Validation passed!');
+  logger.debug('✅ Validation passed');
+
+  // Check for approved absence on this date
+  logger.debug('🔍 Checking for absence conflicts...');
+  const absence = checkAbsenceConflict(existing.userId, merged.date);
+  if (absence) {
+    const typeLabels: Record<string, string> = {
+      vacation: 'Urlaub',
+      sick: 'Krankmeldung',
+      overtime_comp: 'Überstundenausgleich',
+      unpaid: 'Unbezahlter Urlaub'
+    };
+    const typeLabel = typeLabels[absence.type] || absence.type;
+    logger.error({ absence }, '❌ ABSENCE CONFLICT DETECTED');
+    throw new Error(`An diesem Tag hast du ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+  }
 
   // Check for overlaps (excluding this entry)
-  console.log('🔍 Checking for overlaps...');
+  logger.debug('🔍 Checking for overlaps...');
   const hasOverlap = checkOverlap(
     existing.userId,
     merged.date,
@@ -349,23 +422,44 @@ export function updateTimeEntry(
   );
 
   if (hasOverlap) {
-    console.error('❌ OVERLAP DETECTED!');
+    logger.error('❌ OVERLAP DETECTED');
     throw new Error('Time entry overlaps with existing entry on this date');
   }
 
-  console.log('✅ No overlap found!');
+  logger.debug('✅ No overlap found');
 
   // Calculate new hours
-  console.log('🔢 Calculating hours...');
+  logger.debug('🔢 Calculating hours...');
   const hours = calculateHours(
     merged.startTime,
     merged.endTime,
     merged.breakMinutes
   );
-  console.log('✅ Hours calculated:', hours);
+  logger.debug({ hours }, '✅ Hours calculated');
+
+  // ✅ ArbZG Validation (Arbeitszeitgesetz §3-5)
+  logger.debug('🏛️ Running ArbZG validation for updated time entry...');
+  const arbzgValidation = validateTimeEntryArbZG({
+    userId: existing.userId,
+    date: merged.date,
+    startTime: merged.startTime,
+    endTime: merged.endTime,
+    hours,
+    breakMinutes: merged.breakMinutes,
+    excludeEntryId: id, // Exclude this entry from overlap checks
+  });
+
+  if (!arbzgValidation.valid) {
+    logger.warn({ errors: arbzgValidation.errors }, '❌ ArbZG Validation FAILED');
+    throw new Error(arbzgValidation.errors[0]);
+  }
+
+  if (arbzgValidation.warnings.length > 0) {
+    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings');
+  }
 
   // Build update query
-  console.log('🏗️ Building update query...');
+  logger.debug('🏗️ Building update query...');
   const fields: string[] = [];
   const values: unknown[] = [];
 
@@ -416,42 +510,38 @@ export function updateTimeEntry(
     WHERE id = ?
   `;
 
-  console.log('📝 Final SQL query:', query);
-  console.log('📦 Query values:', values);
+  logger.debug({ query, values }, '📝 Final SQL query');
 
-  console.log('💾 Executing UPDATE query...');
+  logger.debug('💾 Executing UPDATE query...');
   const result = db.prepare(query).run(...values);
-  console.log('✅ Query executed! Result:', result);
+  logger.debug({ result }, '✅ Query executed');
 
-  // Update overtime balance for old and new month (if date changed)
-  console.log('🔄 Updating overtime balances...');
-  const oldMonth = existing.date.substring(0, 7);
-  const newMonth = merged.date.substring(0, 7);
-  console.log('📅 Old month:', oldMonth, '| New month:', newMonth);
+  // Update all 3 overtime levels for old and new date (if date changed)
+  logger.debug('🔄 Updating overtime levels...');
 
   try {
-    updateOvertimeBalance(existing.userId, oldMonth);
-    console.log('✅ Old month balance updated');
+    updateAllOvertimeLevels(existing.userId, existing.date);
+    logger.debug('✅ Old date overtime levels updated');
 
-    if (oldMonth !== newMonth) {
-      updateOvertimeBalance(existing.userId, newMonth);
-      console.log('✅ New month balance updated');
+    if (existing.date !== merged.date) {
+      updateAllOvertimeLevels(existing.userId, merged.date);
+      logger.debug('✅ New date overtime levels updated');
     }
   } catch (balanceError) {
-    console.error('⚠️ Error updating balance (non-critical):', balanceError);
+    logger.warn({ err: balanceError }, '⚠️ Error updating overtime levels (non-critical)');
     // Continue anyway - balance update is not critical
   }
 
   // Return updated entry
-  console.log('🔍 Fetching updated entry...');
+  logger.debug('🔍 Fetching updated entry...');
   const entry = getTimeEntryById(id);
 
   if (!entry) {
-    console.error('❌ FAILED TO RETRIEVE UPDATED ENTRY!');
+    logger.error('❌ FAILED TO RETRIEVE UPDATED ENTRY');
     throw new Error('Failed to update time entry');
   }
 
-  console.log('✅✅✅ UPDATE SUCCESSFUL! Returning entry:', entry);
+  logger.info({ id, entry }, '✅✅✅ UPDATE SUCCESSFUL');
   return entry;
 }
 
@@ -464,27 +554,21 @@ export function deleteTimeEntry(id: number): void {
     throw new Error('Time entry not found');
   }
 
-  console.log('🗑️ Deleting time entry:', {
-    id,
-    userId: entry.userId,
-    date: entry.date,
-  });
+  logger.info({ id, userId: entry.userId, date: entry.date }, '🗑️ Deleting time entry');
 
   // Delete entry
   const query = 'DELETE FROM time_entries WHERE id = ?';
   db.prepare(query).run(id);
 
-  console.log('✅ Time entry deleted from database');
+  logger.info('✅ Time entry deleted from database');
 
-  // Update overtime balance for this month
-  const month = entry.date.substring(0, 7);
-
+  // Update all 3 overtime levels
   try {
-    console.log('🔄 Updating overtime balance for:', { userId: entry.userId, month });
-    updateOvertimeBalance(entry.userId, month);
-    console.log('✅ Overtime balance updated successfully');
+    logger.debug({ userId: entry.userId, date: entry.date }, '🔄 Updating overtime levels');
+    updateAllOvertimeLevels(entry.userId, entry.date);
+    logger.debug('✅ Overtime levels updated successfully');
   } catch (error) {
-    console.error('❌ Error updating overtime balance:', error);
+    logger.error({ err: error }, '❌ Error updating overtime levels');
     // Don't throw - deletion was successful, just log the overtime update error
   }
 }
@@ -503,7 +587,7 @@ export function updateOvertimeBalance(userId: number, month: string): void {
       throw new Error(`User not found: ${userId}`);
     }
 
-    console.log('👤 User weeklyHours:', user.weeklyHours);
+    logger.debug({ weeklyHours: user.weeklyHours }, '👤 User weekly hours');
 
     // Calculate target hours for the month
     // Method: (weeklyHours / 7) * days in month
@@ -511,12 +595,7 @@ export function updateOvertimeBalance(userId: number, month: string): void {
     const daysInMonth = new Date(year, monthNum, 0).getDate();
     const targetHours = Math.round(((user.weeklyHours / 7) * daysInMonth) * 100) / 100;
 
-    console.log('📊 Target hours calculation:', {
-      year,
-      monthNum,
-      daysInMonth,
-      targetHours,
-    });
+    logger.debug({ year, monthNum, daysInMonth, targetHours }, '📊 Target hours calculation');
 
     // Calculate actual hours for the month
     const actualHoursResult = db
@@ -531,7 +610,7 @@ export function updateOvertimeBalance(userId: number, month: string): void {
 
     const actualHours = actualHoursResult.total;
 
-    console.log('📊 Actual hours:', actualHours);
+    logger.debug({ actualHours }, '📊 Actual hours');
 
     // Upsert overtime_balance
     const upsertQuery = `
@@ -550,14 +629,9 @@ export function updateOvertimeBalance(userId: number, month: string): void {
       actualHours
     );
 
-    console.log('✅ Overtime balance upserted successfully');
+    logger.debug('✅ Overtime balance upserted successfully');
   } catch (error) {
-    console.error('❌ updateOvertimeBalance error:', {
-      userId,
-      month,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    logger.error({ err: error, userId, month }, '❌ updateOvertimeBalance error');
     throw error;
   }
 }

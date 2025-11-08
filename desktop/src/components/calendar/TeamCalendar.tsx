@@ -25,7 +25,8 @@ import {
 import { de } from 'date-fns/locale';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarLegend } from './CalendarLegend';
-import { getEventColor } from '../../utils/calendarUtils';
+import { getEventColor, getAbsenceTypeLabel, getAbsenceStatusLabel } from '../../utils/calendarUtils';
+import { formatHours } from '../../utils/timeUtils';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import type { User, TimeEntry, AbsenceRequest } from '../../types';
 import { useActiveEmployees, useTimeEntries, useAbsenceRequests } from '../../hooks';
@@ -261,8 +262,10 @@ export function TeamCalendar({
                     if (absence) {
                       const colors = getEventColor(absence.type as any);
                       colorClass = `${colors.bg} ${colors.border}`;
+                      const typeLabel = getAbsenceTypeLabel(absence.type as any);
+                      const statusLabel = getAbsenceStatusLabel(absence.status as any);
                       cellContent = (
-                        <div className={`w-full h-full ${colorClass} border-l-2 flex items-center justify-center`}>
+                        <div className={`w-full h-full ${colorClass} border-l-2 flex items-center justify-center`} title={`${typeLabel} (${statusLabel})`}>
                           <span className="text-xs">
                             {absence.type === 'vacation' && '🏖️'}
                             {absence.type === 'sick' && '🤒'}
@@ -278,7 +281,7 @@ export function TeamCalendar({
                       cellContent = (
                         <div className={`w-full h-full ${colorClass} flex items-center justify-center`}>
                           <span className="text-xs font-medium">
-                            {totalHours.toFixed(1)}h
+                            {formatHours(totalHours)}
                           </span>
                         </div>
                       );

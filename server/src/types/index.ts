@@ -10,7 +10,10 @@ export interface User {
   department: string | null;
   weeklyHours: number;
   vacationDaysPerYear: number;
+  hireDate: string;
+  endDate: string | null;
   status: 'active' | 'inactive';
+  privacyConsentAt: string | null;
   createdAt: string;
   deletedAt: string | null;
 }
@@ -25,6 +28,9 @@ export interface UserCreateInput {
   department?: string;
   weeklyHours?: number;
   vacationDaysPerYear?: number;
+  hireDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD (optional)
+  isActive?: boolean; // Maps to status field ('active' | 'inactive')
 }
 
 export interface UserPublic {
@@ -37,7 +43,10 @@ export interface UserPublic {
   department: string | null;
   weeklyHours: number;
   vacationDaysPerYear: number;
+  hireDate: string;
+  endDate: string | null;
   status: 'active' | 'inactive';
+  privacyConsentAt: string | null;
   createdAt: string;
 }
 
@@ -49,6 +58,10 @@ export interface SessionUser {
   firstName: string;
   lastName: string;
   role: 'admin' | 'employee';
+  weeklyHours: number;
+  vacationDaysPerYear: number;
+  hireDate: string;
+  privacyConsentAt?: string | null; // GDPR: Privacy policy acceptance timestamp
 }
 
 // Declare session data for express-session
@@ -114,4 +127,22 @@ export interface Project {
   description: string | null;
   status: 'active' | 'inactive';
   createdAt: string;
+}
+
+// GDPR Data Export Types (DSGVO Art. 15)
+export interface GDPRDataExport {
+  exportDate: string;
+  user: UserPublic;
+  timeEntries: TimeEntry[];
+  absenceRequests: AbsenceRequest[];
+  overtimeBalance: {
+    totalHours: number;
+    lastUpdated: string;
+  };
+  vacationBalance: {
+    availableDays: number;
+    usedDays: number;
+    totalDays: number;
+    lastUpdated: string;
+  };
 }

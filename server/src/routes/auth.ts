@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { authenticateUser } from '../services/authService.js';
+import { getUserById } from '../services/userService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { ApiResponse, SessionUser } from '../types/index.js';
 
@@ -103,14 +104,50 @@ router.get('/session', (req: Request, res: Response<ApiResponse<SessionUser | nu
 /**
  * GET /api/auth/me
  * Get current user (requires auth)
+ * IMPORTANT: Returns FRESH data from database, not cached session data!
  */
 router.get('/me', requireAuth, (req: Request, res: Response<ApiResponse<{ user: SessionUser }>>) => {
-  res.json({
-    success: true,
-    data: {
-      user: req.session.user!,
-    },
-  });
+  try {
+    const userId = req.session.user!.id;
+
+    // Get fresh user data from database
+    const freshUser = getUserById(userId);
+
+    if (!freshUser) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    // Update session with fresh data to keep it in sync
+    req.session.user = {
+      id: freshUser.id,
+      username: freshUser.username,
+      email: freshUser.email,
+      firstName: freshUser.firstName,
+      lastName: freshUser.lastName,
+      role: freshUser.role,
+      weeklyHours: freshUser.weeklyHours,
+      vacationDaysPerYear: freshUser.vacationDaysPerYear,
+      hireDate: freshUser.hireDate,
+      privacyConsentAt: freshUser.privacyConsentAt,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        user: req.session.user,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error fetching current user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user data',
+    });
+  }
 });
 
 export default router;

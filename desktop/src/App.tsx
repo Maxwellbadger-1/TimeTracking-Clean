@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useUIStore } from './store/uiStore';
 import { Login } from './components/auth/Login';
@@ -9,6 +9,10 @@ import { TimeEntriesPage } from './pages/TimeEntriesPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { AbsencesPage } from './pages/AbsencesPage';
 import { ReportsPage } from './pages/ReportsPage';
+import VacationBalanceManagementPage from './pages/VacationBalanceManagementPage';
+import OvertimeManagementPage from './pages/OvertimeManagementPage';
+import BackupPage from './pages/BackupPage';
+import SettingsPage from './pages/SettingsPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -17,10 +21,13 @@ import { ThemeToggle } from './components/ui/ThemeToggle';
 import { LogOut } from 'lucide-react';
 import DebugPanel from './components/DebugPanel';
 import { useGlobalKeyboardShortcuts } from './hooks';
+import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
+import { useDesktopNotifications } from './hooks/useDesktopNotifications';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
   const { currentView, setCurrentView } = useUIStore();
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Global Keyboard Shortcuts (Ctrl/Cmd + Number)
   useGlobalKeyboardShortcuts({
@@ -32,10 +39,45 @@ export default function App() {
     onUsers: () => user?.role === 'admin' && setCurrentView('users'),
   });
 
+  // Desktop Notifications (monitors DB notifications and triggers native desktop alerts)
+  useDesktopNotifications(user?.id);
+
   // Check session on mount
   useEffect(() => {
     checkSession();
   }, [checkSession]);
+
+  // Check if user needs to accept privacy policy
+  useEffect(() => {
+    console.log('🔍🔍🔍 PRIVACY MODAL CHECK 🔍🔍🔍');
+    console.log('📊 user:', user);
+    console.log('📊 user.privacyConsentAt:', user?.privacyConsentAt);
+    console.log('📊 !user.privacyConsentAt:', user && !user.privacyConsentAt);
+    console.log('📊 Current showPrivacyModal state:', showPrivacyModal);
+
+    if (user && !user.privacyConsentAt) {
+      console.log('✅ SETTING showPrivacyModal to TRUE');
+      setShowPrivacyModal(true);
+    } else if (user && user.privacyConsentAt) {
+      console.log('✅ User has privacy consent, setting showPrivacyModal to FALSE');
+      setShowPrivacyModal(false);
+    }
+  }, [user]);
+
+  // Handle privacy policy acceptance
+  const handlePrivacyAccept = async () => {
+    console.log('🎯🎯🎯 PRIVACY ACCEPT CALLED 🎯🎯🎯');
+    console.log('📊 Setting showPrivacyModal to FALSE');
+    setShowPrivacyModal(false);
+
+    console.log('📊 Calling checkSession() to refresh user data...');
+    // Refresh user session to get updated privacyConsentAt
+    await checkSession();
+
+    console.log('📊 checkSession() completed');
+    console.log('📊 Updated user:', user);
+    console.log('📊 Updated user.privacyConsentAt:', user?.privacyConsentAt);
+  };
 
   // Show loading spinner while checking session
   if (isLoading) {
@@ -86,10 +128,18 @@ export default function App() {
             {currentView === 'time-entries' && <TimeEntriesPage />}
             {currentView === 'absences' && <AbsencesPage />}
             {currentView === 'users' && user.role === 'admin' && <UserManagementPage />}
+            {currentView === 'vacation-balances' && user.role === 'admin' && <VacationBalanceManagementPage />}
+            {currentView === 'overtime' && user.role === 'admin' && <OvertimeManagementPage />}
             {currentView === 'reports' && <ReportsPage />}
+            {currentView === 'backups' && user.role === 'admin' && <BackupPage />}
+            {currentView === 'settings' && <SettingsPage />}
           </main>
         </div>
       </div>
+
+      {/* Privacy Policy Modal (DSGVO) */}
+      <PrivacyPolicyModal isOpen={showPrivacyModal} onAccept={handlePrivacyAccept} />
+
       <DebugPanel />
     </>
   );
