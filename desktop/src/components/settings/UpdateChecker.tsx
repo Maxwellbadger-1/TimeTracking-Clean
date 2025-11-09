@@ -36,8 +36,9 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
       const update = await check();
 
       if (update === null) {
-        toast.error('Update-Prüfung fehlgeschlagen', {
-          description: 'Konnte nicht auf Updates prüfen. Bitte später erneut versuchen.'
+        // Kein Release gefunden - normal wenn noch kein veröffentlichtes Release existiert
+        toast.info('Keine Updates verfügbar', {
+          description: 'Aktuell ist kein Update-Release veröffentlicht.'
         });
         return;
       }
@@ -57,9 +58,23 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
       }
     } catch (error) {
       console.error('❌ Update check failed:', error);
-      toast.error('Update-Prüfung fehlgeschlagen', {
-        description: error instanceof Error ? error.message : 'Unbekannter Fehler'
-      });
+
+      // Bessere Fehlermeldungen
+      const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+
+      if (errorMessage.includes('Could not fetch') || errorMessage.includes('release JSON')) {
+        toast.warning('Update-Prüfung nicht möglich', {
+          description: 'Es wurde noch kein Release veröffentlicht. Sobald ein Update verfügbar ist, erscheint es hier.'
+        });
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        toast.error('Netzwerkfehler', {
+          description: 'Keine Verbindung zum Update-Server. Bitte Internetverbindung prüfen.'
+        });
+      } else {
+        toast.error('Update-Prüfung fehlgeschlagen', {
+          description: errorMessage
+        });
+      }
     } finally {
       setChecking(false);
     }
