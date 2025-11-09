@@ -105,27 +105,49 @@ app.use(
 );
 
 // Rate Limiting (CRITICAL: DoS & Brute-force Protection)
-// General API rate limit: 100 requests per 15 minutes
+// General API rate limit: 1000 requests per 15 minutes (increased for multi-user production)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Max 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  max: 1000, // Max 1000 requests per windowMs (10 users x 100 requests each)
+  message: JSON.stringify({
+    success: false,
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: 900 // seconds
+  }),
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   skip: (req) => {
     // Skip rate limiting for health check endpoint
     return req.path === '/api/health';
   },
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many requests from this IP, please try again later.',
+      retryAfter: 900 // 15 minutes in seconds
+    });
+  },
 });
 
-// Strict rate limit for login endpoint: 5 attempts per 15 minutes
+// Strict rate limit for login endpoint: 10 attempts per 15 minutes (increased for testing)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Max 5 login attempts per windowMs
-  message: 'Too many login attempts from this IP, please try again after 15 minutes.',
+  max: 10, // Max 10 login attempts per windowMs
+  message: JSON.stringify({
+    success: false,
+    error: 'Too many login attempts from this IP, please try again after 15 minutes.',
+    retryAfter: 900
+  }),
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many login attempts from this IP, please try again later.',
+      retryAfter: 900 // 15 minutes in seconds
+    });
+  },
 });
 
 // Apply rate limiters
