@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { AlertCircle, CheckCircle, Download, RefreshCw } from 'lucide-react';
+import { AlertCircle, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UpdateCheckerProps {
@@ -103,15 +103,20 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
       console.log('📥 Downloading update...');
 
       // Download und Install mit Progress-Tracking
+      let totalDownloaded = 0;
       await updateInfo.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started':
             console.log('📦 Download started');
             setDownloadProgress(0);
+            totalDownloaded = 0;
             break;
           case 'Progress':
-            const progress = Math.round((event.data.downloaded / event.data.contentLength) * 100);
-            console.log(`📊 Download progress: ${progress}%`);
+            totalDownloaded += event.data.chunkLength;
+            // Annahme: Durchschnittliche Update-Größe ~50MB für Progress-Anzeige
+            const estimatedTotal = 50 * 1024 * 1024;
+            const progress = Math.min(Math.round((totalDownloaded / estimatedTotal) * 100), 99);
+            console.log(`📊 Download progress: ${progress}% (${(totalDownloaded / 1024 / 1024).toFixed(2)} MB)`);
             setDownloadProgress(progress);
             break;
           case 'Finished':
