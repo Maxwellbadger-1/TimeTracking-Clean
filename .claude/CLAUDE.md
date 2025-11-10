@@ -4,8 +4,9 @@
 **Offizieller Name:** "TimeTracking System"
 **Typ:** Tauri Desktop-App + Backend Server
 **Ziel:** Production-ready, intuitiv, privater Server, Multi-User fähig
-**Version:** 1.0
-**Letzte Aktualisierung:** 2025-10-31
+**Version:** 1.1
+**Letzte Aktualisierung:** 2025-11-10
+**CI/CD Status:** ✅ Vollständig automatisiert (GitHub Actions)
 
 ---
 
@@ -146,6 +147,237 @@ Claude: Nutzt Sub-Agent für PDF-Generation
 - ✅ Bei Wechsel zwischen verschiedenen Features
 - ✅ Nach größeren Debugging-Sessions
 - ✅ Wenn Konversation unübersichtlich wird
+
+---
+
+# 🚀 CI/CD WORKFLOW (Production Deployment)
+
+**STATUS:** ✅ Vollständig automatisiert seit 2025-11-10
+
+## Automatisches Deployment
+
+**WICHTIG:** Das Projekt hat eine vollständig automatisierte CI/CD Pipeline via GitHub Actions!
+
+### Was passiert bei `git push origin main`?
+
+1. **Automatische Tests (IMMER):**
+   - TypeScript Type Check (Server + Desktop)
+   - Security Audit (`npm audit`)
+   - Hardcoded URL Detection
+   - Config Validation
+
+2. **Automatisches Deployment (wenn `server/**` geändert):**
+   - SSH zu Oracle Cloud (129.159.8.19)
+   - Database Backup erstellen
+   - Git Pull latest code
+   - `npm ci` (Dependencies installieren)
+   - `npm run build` (TypeScript → JavaScript)
+   - PM2 Restart (Zero-Downtime)
+   - Health Check (http://localhost:3000/api/health)
+
+**Dauer:** ~2-3 Minuten
+**Status:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+
+---
+
+## Empfohlener Development Workflow
+
+### Option 1: Direkt auf main (für kleine Änderungen)
+
+```bash
+# 1. Änderungen machen
+code server/src/server.ts
+
+# 2. Lokal testen
+./SIMPLE-START.sh
+
+# 3. Committen & Pushen
+git add .
+git commit -m "fix: Bug XYZ gefixt"
+git push origin main  # ← Triggert automatisches Deployment!
+
+# 4. Status checken
+# https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+```
+
+### Option 2: Feature Branch (EMPFOHLEN für größere Änderungen)
+
+```bash
+# 1. Branch erstellen
+git checkout -b feature/neue-funktion
+
+# 2. Änderungen machen
+code server/src/server.ts
+
+# 3. Lokal testen
+./SIMPLE-START.sh
+
+# 4. Committen (mehrere Commits OK!)
+git add .
+git commit -m "feat: Teil 1 fertig"
+git add .
+git commit -m "feat: Teil 2 fertig"
+
+# 5. Branch pushen (KEIN Deployment!)
+git push origin feature/neue-funktion
+
+# 6. Wenn alles funktioniert: Merge zu main
+git checkout main
+git merge feature/neue-funktion
+git push origin main  # ← JETZT deployt GitHub Actions!
+
+# 7. Branch löschen
+git branch -d feature/neue-funktion
+```
+
+---
+
+## Was wurde automatisiert?
+
+### ✅ Server Deployment
+- **Trigger:** Push zu `main` wenn `server/**` geändert
+- **Workflow:** `.github/workflows/deploy-server.yml`
+- **Ziel:** Oracle Cloud Server (ubuntu@129.159.8.19)
+- **Features:**
+  - Database Backup vor jedem Deployment
+  - Zero-Downtime Restart (PM2)
+  - Automatischer Health Check
+  - Rollback bei Fehler
+
+### ✅ Automated Testing
+- **Trigger:** Push zu `main` (immer)
+- **Workflow:** `.github/workflows/test.yml`
+- **Tests:**
+  - TypeScript kompiliert fehlerfrei?
+  - Keine High/Critical Security Vulnerabilities?
+  - Keine hardcoded `localhost:3000` URLs?
+  - Environment Files vorhanden?
+  - Tauri Config korrekt?
+
+### ✅ Desktop App Releases
+- **Trigger:** Git Tag (z.B. `git tag v1.0.8`)
+- **Workflow:** `.github/workflows/release.yml`
+- **Output:** Windows `.exe`, macOS `.app`, Linux `.AppImage`
+- **Auto-Update:** Desktop-Apps laden Updates automatisch
+
+---
+
+## Monitoring & Status
+
+### GitHub Actions Logs
+```
+https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+```
+
+- **Grüner Haken ✅** = Deployment erfolgreich
+- **Rotes X ❌** = Fehler (klicken für Details)
+- **Gelber Kreis 🟡** = Läuft noch...
+
+### Server Health Check
+```bash
+# Browser:
+http://129.159.8.19:3000/api/health
+
+# Erwartete Antwort:
+{"status":"ok","database":"connected"}
+```
+
+### Server Status (SSH)
+```bash
+ssh -i "ssh-key.key" ubuntu@129.159.8.19
+
+# PM2 Status
+pm2 status
+
+# Logs anzeigen
+pm2 logs timetracking-server --lines 50
+
+# Server neu starten (falls nötig)
+pm2 restart timetracking-server
+```
+
+---
+
+## Was musst du NIEMALS mehr tun:
+
+- ❌ Manuell SSH zu Oracle Cloud
+- ❌ Manuell `git pull` auf Server
+- ❌ Manuell `npm install` auf Server
+- ❌ Manuell `npm run build` auf Server
+- ❌ Manuell `pm2 restart` auf Server
+- ❌ `./deploy-to-oracle.sh` Script ausführen
+
+**Alles läuft automatisch nach `git push origin main`!**
+
+---
+
+## Troubleshooting
+
+### Deployment fehlgeschlagen ❌
+
+1. **Logs checken:**
+   - https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+   - Klicke auf den fehlgeschlagenen Run
+   - Klicke auf "Deploy to Oracle Cloud via SSH"
+
+2. **Häufige Fehler:**
+   - **"Build failed"** → TypeScript Fehler im Code
+   - **"Health check failed"** → Server crashed nach Deployment
+   - **"Cannot find module"** → Dependency fehlt in `package.json`
+   - **"Permission denied"** → SSH Key Problem (sehr unwahrscheinlich)
+
+3. **Manueller Rollback (falls nötig):**
+   ```bash
+   ssh -i "ssh-key.key" ubuntu@129.159.8.19
+   cd /home/ubuntu/TimeTracking-Clean
+
+   # Zeige letzte Commits
+   git log -5
+
+   # Checkout vorherigen Commit
+   git checkout <vorheriger-commit-hash>
+
+   # Rebuild
+   cd server
+   npm ci
+   npm run build
+   pm2 restart timetracking-server
+   ```
+
+---
+
+## Desktop App Release erstellen
+
+### Neuen Release mit Auto-Update:
+
+```bash
+# 1. Version bumpen in beiden Dateien:
+# - desktop/package.json: "version": "1.0.8"
+# - desktop/src-tauri/Cargo.toml: version = "1.0.8"
+
+# 2. Committen
+git add desktop/package.json desktop/src-tauri/Cargo.toml
+git commit -m "release: v1.0.8 - Neue Features"
+
+# 3. Git Tag erstellen
+git tag v1.0.8
+git push origin v1.0.8  # ← Triggert Release-Workflow!
+
+# 4. Warten (~15-20 Minuten)
+# GitHub Actions baut für Windows, macOS, Linux
+# Release wird automatisch veröffentlicht
+
+# 5. Desktop-Apps laden Update automatisch!
+```
+
+---
+
+## Dokumentation
+
+- **CI/CD Setup:** `.github/CI-CD-SETUP-COMPLETE.md`
+- **Quick Setup:** `.github/QUICK-SETUP-SECRETS.md`
+- **SSH Key Fix:** `.github/FIX-SSH-KEY.md`
+- **GitHub Actions:** `.github/workflows/`
 
 ---
 
