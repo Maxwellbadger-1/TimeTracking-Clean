@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { Download, RefreshCw, Trash2, Clock, Database } from 'lucide-react';
 import { universalFetch } from '../lib/tauriHttpClient';
 
+// Use environment variable for API URL (supports both dev and production)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 interface Backup {
   filename: string;
   size: number;
@@ -31,7 +34,7 @@ export default function BackupPage() {
     queryKey: ['backups'],
     queryFn: async () => {
       console.log('🔍 Fetching backups with universalFetch...');
-      const response = await universalFetch('http://localhost:3000/api/backup', {
+      const response = await universalFetch(`${API_BASE_URL}/backup`, {
         method: 'GET',
       });
       console.log('📥 Backup response:', response);
@@ -50,7 +53,7 @@ export default function BackupPage() {
     queryKey: ['backup-stats'],
     queryFn: async () => {
       console.log('🔍 Fetching backup stats with universalFetch...');
-      const response = await universalFetch('http://localhost:3000/api/backup/stats', {
+      const response = await universalFetch(`${API_BASE_URL}/backup/stats`, {
         method: 'GET',
       });
       console.log('📥 Stats response:', response);
@@ -68,7 +71,7 @@ export default function BackupPage() {
   const createBackupMutation = useMutation({
     mutationFn: async () => {
       console.log('🔍 Creating backup with universalFetch...');
-      const response = await universalFetch('http://localhost:3000/api/backup', {
+      const response = await universalFetch(`${API_BASE_URL}/backup`, {
         method: 'POST',
       });
       console.log('📥 Create backup response:', response);
@@ -92,7 +95,7 @@ export default function BackupPage() {
   const restoreBackupMutation = useMutation({
     mutationFn: async (filename: string) => {
       console.log('🔍 Restoring backup with universalFetch:', filename);
-      const response = await universalFetch(`http://localhost:3000/api/backup/restore/${filename}`, {
+      const response = await universalFetch(`${API_BASE_URL}/backup/restore/${filename}`, {
         method: 'POST',
       });
       console.log('📥 Restore backup response:', response);
@@ -117,7 +120,7 @@ export default function BackupPage() {
   const deleteBackupMutation = useMutation({
     mutationFn: async (filename: string) => {
       console.log('🔍 Deleting backup with universalFetch:', filename);
-      const response = await universalFetch(`http://localhost:3000/api/backup/${filename}`, {
+      const response = await universalFetch(`${API_BASE_URL}/backup/${filename}`, {
         method: 'DELETE',
       });
       console.log('📥 Delete backup response:', response);
