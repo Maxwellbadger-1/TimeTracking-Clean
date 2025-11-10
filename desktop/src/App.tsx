@@ -19,7 +19,6 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { Button } from './components/ui/Button';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { LogOut } from 'lucide-react';
-import DebugPanel from './components/DebugPanel';
 import { useGlobalKeyboardShortcuts } from './hooks';
 import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
 import { useDesktopNotifications } from './hooks/useDesktopNotifications';
@@ -49,56 +48,32 @@ export default function App() {
 
   // Check if user needs to accept privacy policy
   useEffect(() => {
-    console.log('🔍🔍🔍 PRIVACY MODAL CHECK 🔍🔍🔍');
-    console.log('📊 user:', user);
-    console.log('📊 user.privacyConsentAt:', user?.privacyConsentAt);
-    console.log('📊 !user.privacyConsentAt:', user && !user.privacyConsentAt);
-    console.log('📊 Current showPrivacyModal state:', showPrivacyModal);
-
     if (user && !user.privacyConsentAt) {
-      console.log('✅ SETTING showPrivacyModal to TRUE');
       setShowPrivacyModal(true);
     } else if (user && user.privacyConsentAt) {
-      console.log('✅ User has privacy consent, setting showPrivacyModal to FALSE');
       setShowPrivacyModal(false);
     }
   }, [user]);
 
   // Handle privacy policy acceptance
   const handlePrivacyAccept = async () => {
-    console.log('🎯🎯🎯 PRIVACY ACCEPT CALLED 🎯🎯🎯');
-    console.log('📊 Setting showPrivacyModal to FALSE');
     setShowPrivacyModal(false);
-
-    console.log('📊 Calling checkSession() to refresh user data...');
     // Refresh user session to get updated privacyConsentAt
     await checkSession();
-
-    console.log('📊 checkSession() completed');
-    console.log('📊 Updated user:', user);
-    console.log('📊 Updated user.privacyConsentAt:', user?.privacyConsentAt);
   };
 
   // Show loading spinner while checking session
   if (isLoading) {
     return (
-      <>
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-        <DebugPanel />
-      </>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
     );
   }
 
   // Show login if not authenticated
   if (!isAuthenticated || !user) {
-    return (
-      <>
-        <Login />
-        <DebugPanel />
-      </>
-    );
+    return <Login />;
   }
 
   // Main App with Sidebar + Content Area
@@ -139,8 +114,6 @@ export default function App() {
 
       {/* Privacy Policy Modal (DSGVO) */}
       <PrivacyPolicyModal isOpen={showPrivacyModal} onAccept={handlePrivacyAccept} />
-
-      <DebugPanel />
     </>
   );
 }
