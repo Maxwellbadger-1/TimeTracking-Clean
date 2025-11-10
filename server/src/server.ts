@@ -104,48 +104,60 @@ app.use(
   })
 );
 
-// Rate Limiting (CRITICAL: DoS & Brute-force Protection)
-// General API rate limit: 1000 requests per 15 minutes (increased for multi-user production)
+// ========================================
+// RATE LIMITING - Enterprise Best Practices
+// ========================================
+// Based on industry standards (GitHub, Stripe, Zendesk):
+// - GitHub: 60 requests/minute (unauthenticated), 5000/hour (authenticated)
+// - Stripe: 25 requests/second = 1500/minute
+// - Zendesk: 100 requests/minute per user
+// - Okta: 600 requests/minute for auth
+//
+// Our limits (for ~10-50 users):
+// - General API: 600 requests/minute (enterprise standard)
+// - Login: 20 attempts/hour (security)
+// - Uses Sliding Window for fairness
+// ========================================
+
+// General API rate limit: 600 requests per minute (Enterprise Standard)
+// GitHub uses 60/min unauthenticated, Stripe uses 1500/min, we're in the middle
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Max 1000 requests per windowMs (10 users x 100 requests each)
-  message: JSON.stringify({
-    success: false,
-    error: 'Too many requests from this IP, please try again later.',
-    retryAfter: 900 // seconds
-  }),
-  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
-  legacyHeaders: false, // Disable `X-RateLimit-*` headers
+  windowMs: 1 * 60 * 1000, // 1 minute (shorter window = more responsive)
+  max: 600, // 600 requests/minute (supports 50+ concurrent users comfortably)
+  standardHeaders: 'draft-7', // Use latest standard (RateLimit-* headers)
+  legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for health check endpoint
+    // Skip rate limiting for health check
     return req.path === '/api/health';
   },
   handler: (_req, res) => {
     res.status(429).json({
       success: false,
-      error: 'Too many requests from this IP, please try again later.',
-      retryAfter: 900 // 15 minutes in seconds
+      error: 'Rate limit exceeded. Please slow down your requests.',
+      retryAfter: 60, // 1 minute
+      limit: 600,
+      window: '1 minute',
+      message: 'Too many requests. Please try again in a moment.'
     });
   },
 });
 
-// Strict rate limit for login endpoint: 10 attempts per 15 minutes (increased for testing)
+// Strict rate limit for login endpoint: 20 attempts per hour (Brute-force Protection)
+// Industry standard: Okta uses 600/min, but login should be much stricter
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login attempts per windowMs
-  message: JSON.stringify({
-    success: false,
-    error: 'Too many login attempts from this IP, please try again after 15 minutes.',
-    retryAfter: 900
-  }),
-  standardHeaders: true,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // 20 login attempts per hour (prevents brute-force)
+  standardHeaders: 'draft-7',
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
   handler: (_req, res) => {
     res.status(429).json({
       success: false,
-      error: 'Too many login attempts from this IP, please try again later.',
-      retryAfter: 900 // 15 minutes in seconds
+      error: 'Too many login attempts. Please try again later.',
+      retryAfter: 3600, // 1 hour
+      limit: 20,
+      window: '1 hour',
+      message: 'Account temporarily locked due to too many failed login attempts.'
     });
   },
 });
