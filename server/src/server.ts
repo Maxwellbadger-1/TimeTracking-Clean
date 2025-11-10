@@ -25,7 +25,7 @@ import { initializeHolidays } from './services/holidayService.js';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
-// CI/CD Pipeline Active - GitHub Actions enabled
+// CI/CD Pipeline Active - GitHub Actions enabled (SSH Key Fixed)
 
 // Security: Helmet - HTTP Security Headers
 // Protects against: XSS, clickjacking, MIME sniffing, etc.
