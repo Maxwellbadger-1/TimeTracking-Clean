@@ -53,3 +53,4 @@ desktop/src-tauri/WixTools/
 *.deb
 *.rpm
 *.AppImage
+GITHUB-SECRETS-VALUES.md
