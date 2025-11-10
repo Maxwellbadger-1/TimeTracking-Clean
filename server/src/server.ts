@@ -25,6 +25,8 @@ import { initializeHolidays } from './services/holidayService.js';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+// CI/CD Pipeline Active - GitHub Actions enabled
+
 // Security: Helmet - HTTP Security Headers
 // Protects against: XSS, clickjacking, MIME sniffing, etc.
 app.use(helmet({
