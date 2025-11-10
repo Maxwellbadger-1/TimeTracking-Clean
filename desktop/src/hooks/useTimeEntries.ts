@@ -123,7 +123,14 @@ export function useCreateTimeEntry() {
     onSuccess: () => {
       // Invalidate all time entry queries
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
+      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
       toast.success('Zeiteintrag erfolgreich erstellt');
     },
     onError: (error: Error) => {
@@ -163,7 +170,14 @@ export function useUpdateTimeEntry() {
       // Invalidate specific entry and list
       queryClient.invalidateQueries({ queryKey: ['timeEntry', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
+      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag aktualisiert');
     },
@@ -205,7 +219,14 @@ export function useDeleteTimeEntry() {
       console.log('🎉 onSuccess callback triggered! Data:', data);
       console.log('🔄 Invalidating queries...');
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
+      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag gelöscht');
     },
