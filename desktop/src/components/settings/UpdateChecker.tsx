@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 import { AlertCircle, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,7 +16,12 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [currentVersion] = useState('1.0.0'); // Aus package.json/tauri.conf.json
+  const [currentVersion, setCurrentVersion] = useState<string>('...');
+
+  // Get app version from Tauri
+  useEffect(() => {
+    getVersion().then(setCurrentVersion).catch(() => setCurrentVersion('1.0.5'));
+  }, []);
 
   // Auto-check on mount (optional, z.B. für automatische Prüfung beim App-Start)
   useState(() => {
