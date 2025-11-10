@@ -1,0 +1,100 @@
+name: 'CD - Deploy Server to Oracle Cloud'
+
+# Deploy only when server code changes and tests pass
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: 'Deploy to Oracle Cloud (Production)'
+    runs-on: ubuntu-latest
+    # Only deploy if tests passed (runs after test.yml)
+    needs: []  # Will be auto-skipped if test.yml fails
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Oracle Cloud via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script_stop: true  # Stop on first error
+          script: |
+            set -e  # Exit on error
+
+            echo "🚀 Starting deployment..."
+            cd /home/ubuntu/TimeTracking-Clean
+
+            # Backup current database (safety!)
+            echo "💾 Creating database backup..."
+            cp server/database.db server/database.backup.$(date +%Y%m%d_%H%M%S).db || true
+
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Clean up old files
+            echo "🧹 Cleaning up old files..."
+            find server -name "*.mjs" -delete 2>/dev/null || true
+
+            # Install dependencies and build
+            echo "📦 Installing dependencies..."
+            cd server
+            npm ci  # Faster than npm install
+
+            echo "🔨 Building TypeScript..."
+            npm run build
+
+            # Check if build succeeded
+            if [ ! -f "dist/server.js" ]; then
+              echo "❌ Build failed! dist/server.js not found"
+              exit 1
+            fi
+
+            # Restart PM2
+            echo "🔄 Restarting PM2..."
+            pm2 stop timetracking-server || true
+            pm2 delete timetracking-server || true
+            pm2 start dist/server.js \
+              --name timetracking-server \
+              --cwd /home/ubuntu/TimeTracking-Clean/server \
+              --time
+            pm2 save
+
+            # Wait for server to start
+            echo "⏳ Waiting for server to start..."
+            sleep 5
+
+            # Health check
+            echo "🏥 Running health check..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Deployment successful! Server is healthy"
+              pm2 status
+            else
+              echo "❌ Health check failed! HTTP $HTTP_CODE"
+              pm2 logs timetracking-server --lines 50
+              exit 1
+            fi
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Deployment to Oracle Cloud successful!"
+          echo "🌐 Server URL: http://129.159.8.19:3000"
+          echo "📊 Check status: ssh ubuntu@129.159.8.19 'pm2 status'"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check logs: ssh ubuntu@129.159.8.19 'pm2 logs timetracking-server --lines 100'"

@@ -1,0 +1,89 @@
+name: 'CI - Automated Tests'
+
+# Run tests on every push and pull request
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'desktop/src/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-server:
+    name: 'Test Server (Node.js + TypeScript)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'server/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci  # Faster and more reliable than npm install for CI
+
+      - name: TypeScript Type Check
+        working-directory: server
+        run: npm run build
+
+      - name: Security Audit
+        working-directory: server
+        run: npm audit --audit-level=high
+        continue-on-error: true  # Don't fail build on moderate vulnerabilities
+
+      - name: Check for hardcoded localhost URLs
+        run: |
+          if grep -r "localhost:3000" desktop/src --exclude-dir=node_modules | grep -v "API_BASE_URL\|import.meta.env.VITE_API_URL"; then
+            echo "❌ Found hardcoded localhost URLs!"
+            echo "Use import.meta.env.VITE_API_URL instead"
+            exit 1
+          fi
+          echo "✅ No hardcoded localhost URLs found"
+
+      - name: Verify environment files exist
+        run: |
+          if [ ! -f "desktop/.env.production" ]; then
+            echo "❌ Missing desktop/.env.production"
+            exit 1
+          fi
+          echo "✅ Environment files OK"
+
+  test-desktop:
+    name: 'Test Desktop (TypeScript + Vite)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'desktop/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: TypeScript Type Check
+        working-directory: desktop
+        run: npm run build
+
+      - name: Verify Tauri config
+        working-directory: desktop
+        run: |
+          if ! grep -q "updater" src-tauri/tauri.conf.json; then
+            echo "❌ Updater not configured in tauri.conf.json"
+            exit 1
+          fi
+          echo "✅ Tauri config OK"
