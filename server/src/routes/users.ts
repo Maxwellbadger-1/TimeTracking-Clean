@@ -8,6 +8,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  reactivateUser,
   updateUserStatus,
   usernameExists,
   emailExists,
@@ -369,6 +370,57 @@ router.delete(
       res.status(500).json({
         success: false,
         error: 'Failed to delete user',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/users/:id/reactivate
+ * Reactivate soft-deleted user (Admin only)
+ */
+router.post(
+  '/:id/reactivate',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<UserPublic>>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      const user = reactivateUser(id);
+
+      // Log audit
+      logAudit(req.session.user!.id, 'update', 'user', id, {
+        action: 'reactivated',
+        username: user.username,
+        email: user.email,
+      });
+
+      res.json({
+        success: true,
+        data: user,
+        message: 'User reactivated successfully',
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found or not deleted',
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reactivate user',
       });
     }
   }

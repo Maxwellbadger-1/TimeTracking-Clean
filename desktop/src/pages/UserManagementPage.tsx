@@ -20,7 +20,7 @@ import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Users, UserPlus, Search, Filter, Shield, UserCheck, UserX } from 'lucide-react';
-import { useUsers, useDeleteUser } from '../hooks';
+import { useUsers, useDeleteUser, useReactivateUser } from '../hooks';
 import type { User } from '../types';
 import { CreateUserModal } from '../components/users/CreateUserModal';
 import { EditUserModal } from '../components/users/EditUserModal';
@@ -29,6 +29,7 @@ export function UserManagementPage() {
   const { user: currentUser } = useAuthStore();
   const { data: users, isLoading } = useUsers();
   const deleteUser = useDeleteUser();
+  const reactivateUser = useReactivateUser();
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -430,22 +431,43 @@ export function UserManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingUser(user)}
-                            >
-                              Bearbeiten
-                            </Button>
-                            {user.id !== currentUser.id && (
+                            {!user.isActive ? (
+                              // Deleted user - show reactivate button
                               <Button
                                 size="sm"
-                                variant="danger"
-                                onClick={() => handleDeleteClick(user.id, `${user.firstName} ${user.lastName}`)}
-                                disabled={deleteUser.isPending}
+                                variant="primary"
+                                onClick={async () => {
+                                  try {
+                                    await reactivateUser.mutateAsync(user.id);
+                                  } catch (error) {
+                                    // Error handled by hook
+                                  }
+                                }}
+                                disabled={reactivateUser.isPending}
                               >
-                                Löschen
+                                Reaktivieren
                               </Button>
+                            ) : (
+                              // Active user - show edit/delete buttons
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingUser(user)}
+                                >
+                                  Bearbeiten
+                                </Button>
+                                {user.id !== currentUser.id && (
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    onClick={() => handleDeleteClick(user.id, `${user.firstName} ${user.lastName}`)}
+                                    disabled={deleteUser.isPending}
+                                  >
+                                    Löschen
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>

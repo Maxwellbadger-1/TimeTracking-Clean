@@ -266,6 +266,85 @@ export function useUpdateUser() {
   });
 }
 
+// Reactivate user mutation (Admin only - undo soft delete)
+export function useReactivateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiClient.post<User>(`/users/${id}/reactivate`);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to reactivate user');
+      }
+
+      return response.data;
+    },
+    onMutate: async (id: number) => {
+      console.log('🔄 Optimistic reactivation starting for user:', id);
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['user', id] });
+      await queryClient.cancelQueries({ queryKey: ['users'] });
+
+      // Snapshot previous values
+      const previousUser = queryClient.getQueryData<User>(['user', id]);
+      const previousUsers = queryClient.getQueryData<User[]>(['users']);
+
+      // Optimistically mark user as active
+      if (previousUser) {
+        const optimisticUser = { ...previousUser, isActive: true, deletedAt: null };
+        queryClient.setQueryData(['user', id], optimisticUser);
+        console.log('✨ Optimistically reactivated user:', optimisticUser);
+      }
+
+      // Optimistically update users list
+      if (previousUsers) {
+        const optimisticUsers = previousUsers.map(u =>
+          u.id === id ? { ...u, isActive: true, deletedAt: null } : u
+        );
+        queryClient.setQueryData(['users'], optimisticUsers);
+        console.log('✨ Optimistically updated users list');
+      }
+
+      // Return context for rollback
+      return { previousUser, previousUsers };
+    },
+    onError: (error: Error, variables, context) => {
+      console.error('❌ Reactivation failed, rolling back optimistic update');
+
+      // Rollback on error
+      if (context?.previousUser) {
+        queryClient.setQueryData(['user', variables], context.previousUser);
+      }
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users'], context.previousUsers);
+      }
+
+      toast.error(`Fehler: ${error.message}`);
+    },
+    onSuccess: async (data, variables) => {
+      console.log('✅ User reactivated successfully, invalidating related queries');
+
+      // Invalidate all user-related queries
+      queryClient.invalidateQueries({ queryKey: ['user', variables] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+
+      // Invalidate overtime queries
+      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+
+      // Invalidate vacation queries
+      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+
+      toast.success('Benutzer reaktiviert');
+      console.log('✅ All queries invalidated, UI updated');
+    },
+  });
+}
+
 // Delete user mutation (Admin only - soft delete)
 export function useDeleteUser() {
   const queryClient = useQueryClient();

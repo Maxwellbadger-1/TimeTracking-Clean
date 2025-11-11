@@ -1,6 +1,6 @@
 import db from '../database/connection.js';
 import { hashPassword } from './authService.js';
-import type { UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
+import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
 import { getVacationBalance } from './absenceService.js';
 import { getCurrentOvertimeStats } from './overtimeService.js';
 import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
@@ -331,6 +331,47 @@ export function deleteUser(id: number): void {
 }
 
 /**
+ * Reactivate deleted user (undo soft delete)
+ * Only possible if user was soft-deleted (deletedAt IS NOT NULL)
+ */
+export function reactivateUser(id: number): UserPublic {
+  try {
+    // Check if user exists and is deleted
+    const user = db.prepare('SELECT * FROM users WHERE id = ? AND deletedAt IS NOT NULL').get(id) as User | undefined;
+
+    if (!user) {
+      throw new Error('User not found or not deleted');
+    }
+
+    // Reactivate user
+    const stmt = db.prepare(`
+      UPDATE users
+      SET deletedAt = NULL, status = 'active'
+      WHERE id = ?
+    `);
+
+    const result = stmt.run(id);
+
+    if (result.changes === 0) {
+      throw new Error('Failed to reactivate user');
+    }
+
+    logger.info({ userId: id, username: user.username, email: user.email }, '🔄 User reactivated');
+
+    // Return updated user
+    const reactivatedUser = getUserById(id);
+    if (!reactivatedUser) {
+      throw new Error('Failed to fetch reactivated user');
+    }
+
+    return reactivatedUser;
+  } catch (error) {
+    logger.error({ err: error, userId: id }, '❌ Error reactivating user');
+    throw error;
+  }
+}
+
+/**
  * Update user status (active/inactive)
  */
 export function updateUserStatus(
@@ -371,18 +412,20 @@ export function usernameExists(username: string, excludeId?: number): boolean {
   try {
     let stmt;
     if (excludeId) {
+      // Check ALL users (including deleted) to respect UNIQUE constraint
       stmt = db.prepare(`
         SELECT COUNT(*) as count
         FROM users
-        WHERE username = ? AND id != ? AND deletedAt IS NULL
+        WHERE username = ? AND id != ?
       `);
       const result = stmt.get(username, excludeId) as { count: number };
       return result.count > 0;
     } else {
+      // Check ALL users (including deleted) to respect UNIQUE constraint
       stmt = db.prepare(`
         SELECT COUNT(*) as count
         FROM users
-        WHERE username = ? AND deletedAt IS NULL
+        WHERE username = ?
       `);
       const result = stmt.get(username) as { count: number };
       return result.count > 0;
@@ -400,18 +443,20 @@ export function emailExists(email: string, excludeId?: number): boolean {
   try {
     let stmt;
     if (excludeId) {
+      // Check ALL users (including deleted) to respect UNIQUE constraint
       stmt = db.prepare(`
         SELECT COUNT(*) as count
         FROM users
-        WHERE email = ? AND id != ? AND deletedAt IS NULL
+        WHERE email = ? AND id != ?
       `);
       const result = stmt.get(email, excludeId) as { count: number };
       return result.count > 0;
     } else {
+      // Check ALL users (including deleted) to respect UNIQUE constraint
       stmt = db.prepare(`
         SELECT COUNT(*) as count
         FROM users
-        WHERE email = ? AND deletedAt IS NULL
+        WHERE email = ?
       `);
       const result = stmt.get(email) as { count: number };
       return result.count > 0;

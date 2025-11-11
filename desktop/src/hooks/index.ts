@@ -59,6 +59,7 @@ export {
   useCreateUser,
   useUpdateUser,
   useDeleteUser,
+  useReactivateUser,
 } from './useUsers';
 
 // Notifications
