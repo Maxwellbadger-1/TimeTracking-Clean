@@ -137,17 +137,19 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Zeit erfassen" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* User Picker (Admin only) */}
+        {/* User Picker (Admin only) - Only ACTIVE users */}
         {user?.role === 'admin' && (
           <Select
             label="Mitarbeiter"
             value={String(selectedUserId)}
             onChange={(e) => setSelectedUserId(Number(e.target.value))}
             options={
-              users?.map((u) => ({
-                value: String(u.id),
-                label: `${u.firstName} ${u.lastName}`,
-              })) || []
+              users
+                ?.filter((u) => u.isActive !== false && !u.deletedAt) // Only active, not archived
+                ?.map((u) => ({
+                  value: String(u.id),
+                  label: `${u.firstName} ${u.lastName}`,
+                })) || []
             }
             required
           />
