@@ -1611,6 +1611,227 @@ function formatHours(hours: number): string {
 
 ---
 
+## Abwesenheits-Gutschrift (KRITISCH!)
+
+**WICHTIGSTE REGEL:** "Krank/Urlaub = Gearbeitet"
+
+### Grundprinzip (Personio, DATEV, SAP)
+
+```
+Kranke/Urlaubstage dürfen NIEMALS zu Minusstunden führen!
+```
+
+### Implementierung
+
+#### 1. **Soll-Stunden (Target Hours)**
+
+```typescript
+// Basis: Alle Arbeitstage im Zeitraum
+const targetHours = workingDays × targetHoursPerDay;
+
+// WICHTIG: Unbezahlter Urlaub reduziert Soll!
+const unpaidDays = absences.filter(a => a.type === 'unpaid').reduce(...);
+const adjustedTargetHours = targetHours - (unpaidDays × targetHoursPerDay);
+```
+
+**Regel:**
+- ✅ Normale Arbeitstage → Zählen als Soll
+- ✅ Wochenenden → Zählen NICHT
+- ✅ Feiertage → Zählen NICHT
+- ✅ Unbezahlter Urlaub → REDUZIERT Soll
+
+#### 2. **Ist-Stunden (Actual Hours)**
+
+```typescript
+// Basis: Tatsächlich gearbeitete Stunden
+const workedHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
+
+// KRITISCH: Abwesenheits-Gutschrift addieren!
+const absenceCredits = absences
+  .filter(a => a.status === 'approved')
+  .reduce((sum, a) => {
+    const days = a.daysRequired || 0;
+    // Krankheit, Urlaub, Überstunden-Ausgleich → Gutschrift
+    if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
+      return sum + (days × targetHoursPerDay);
+    }
+    // Unbezahlter Urlaub → KEINE Gutschrift
+    return sum;
+  }, 0);
+
+const actualHours = workedHours + absenceCredits;
+```
+
+**Regel:**
+- ✅ Gearbeitete Stunden → Zählen
+- ✅ Krankheitstage → Gutschrift (wie gearbeitet!)
+- ✅ Urlaubstage → Gutschrift (wie gearbeitet!)
+- ✅ Überstunden-Ausgleich → Gutschrift (wie gearbeitet!)
+- ❌ Unbezahlter Urlaub → KEINE Gutschrift
+
+#### 3. **Überstunden Calculation**
+
+```typescript
+const overtime = actualHours - adjustedTargetHours;
+```
+
+### Beispiele
+
+#### Beispiel 1: Krankheit (Best Practice)
+
+```
+Situation:
+- Woche mit 5 Arbeitstagen (Mo-Fr)
+- Soll: 40h (5 × 8h)
+- Mo, Di: Gearbeitet (2 × 8h = 16h)
+- Mi, Do, Fr: Krank (3 Tage)
+
+FALSCHE Berechnung (Alt):
+Soll: (5 - 3) × 8h = 16h  // Krankheitstage ABGEZOGEN
+Ist: 16h
+Überstunden: 16h - 16h = 0h
+→ Sieht OK aus, aber FALSCH!
+
+RICHTIGE Berechnung (Best Practice):
+Soll: 5 × 8h = 40h  // Alle Arbeitstage
+Ist: 16h + (3 × 8h) = 40h  // Gearbeitet + Kranken-Gutschrift
+Überstunden: 40h - 40h = 0h ✅
+```
+
+#### Beispiel 2: Urlaub (Best Practice)
+
+```
+Situation:
+- Woche mit 5 Arbeitstagen
+- Soll: 40h
+- Mo, Di, Mi: Gearbeitet (24h)
+- Do, Fr: Urlaub (2 Tage)
+
+RICHTIGE Berechnung:
+Soll: 5 × 8h = 40h
+Ist: 24h + (2 × 8h) = 40h  // Gearbeitet + Urlaubs-Gutschrift
+Überstunden: 40h - 40h = 0h ✅
+```
+
+#### Beispiel 3: Unbezahlter Urlaub (Special Case)
+
+```
+Situation:
+- Woche mit 5 Arbeitstagen
+- Mo, Di, Mi: Gearbeitet (24h)
+- Do, Fr: Unbezahlter Urlaub (2 Tage)
+
+RICHTIGE Berechnung:
+Soll: (5 - 2) × 8h = 24h  // Unbezahlt REDUZIERT Soll!
+Ist: 24h  // KEINE Gutschrift für unbezahlt
+Überstunden: 24h - 24h = 0h ✅
+```
+
+#### Beispiel 4: Mix (Realistisch)
+
+```
+Situation:
+- 2 Wochen (10 Arbeitstage)
+- Soll: 80h
+- 5 Tage gearbeitet (40h)
+- 2 Tage Urlaub
+- 1 Tag krank
+- 1 Tag unbezahlter Urlaub
+- 1 Tag Überstunden-Ausgleich
+
+RICHTIGE Berechnung:
+Basis-Soll: 10 × 8h = 80h
+Unbezahlt-Reduktion: 1 × 8h = 8h
+Adjusted Soll: 80h - 8h = 72h
+
+Gearbeitet: 40h
+Urlaubs-Gutschrift: 2 × 8h = 16h
+Kranken-Gutschrift: 1 × 8h = 8h
+Überstunden-Ausgleich-Gutschrift: 1 × 8h = 8h
+Actual Ist: 40h + 16h + 8h + 8h = 72h
+
+Überstunden: 72h - 72h = 0h ✅
+```
+
+### UI Display
+
+**Soll-Stunden Card:**
+```tsx
+<Card>
+  <Title>Soll-Stunden</Title>
+  <Value>72:00h</Value>
+  <Subtitle>
+    {unpaidReduction > 0
+      ? `Reduziert um ${formatHours(unpaidReduction)} (unbez. Urlaub)`
+      : `Stand: ${currentDate}`
+    }
+  </Subtitle>
+</Card>
+```
+
+**Ist-Stunden Card:**
+```tsx
+<Card>
+  <Title>Ist-Stunden</Title>
+  <Value>72:00h</Value>
+  <Subtitle>
+    {formatHours(workedHours)} gearbeitet
+    {absenceCredits > 0 && ` + ${formatHours(absenceCredits)} Abwesenheit`}
+  </Subtitle>
+</Card>
+```
+
+**Überstunden Card:**
+```tsx
+<Card>
+  <Title>Überstunden (Differenz)</Title>
+  <Value className={overtime >= 0 ? 'green' : 'red'}>
+    {formatOvertimeHours(overtime)}
+  </Value>
+  <Subtitle>Ist - Soll = Überstunden</Subtitle>
+</Card>
+```
+
+### Datenbank-Schema
+
+**WICHTIG:** Keine Änderung nötig! Alles wird ON-DEMAND berechnet.
+
+Die `absence_requests` Tabelle enthält bereits alles:
+```sql
+CREATE TABLE absence_requests (
+  type TEXT CHECK(type IN ('vacation', 'sick', 'unpaid', 'overtime_comp')),
+  status TEXT CHECK(status IN ('pending', 'approved', 'rejected')),
+  daysRequired REAL,
+  -- ...
+);
+```
+
+### NIEMALS:
+
+- ❌ Krankheitstage vom Soll abziehen
+- ❌ Urlaubstage vom Soll abziehen
+- ❌ Überstunden-Ausgleich vom Soll abziehen
+- ❌ Unbezahlten Urlaub als Gutschrift behandeln
+- ❌ Database Cache für Abwesenheits-Berechnung (immer live!)
+
+### IMMER:
+
+- ✅ Krankheit = Gearbeitet (Gutschrift!)
+- ✅ Urlaub = Gearbeitet (Gutschrift!)
+- ✅ Überstunden-Ausgleich = Gearbeitet (Gutschrift!)
+- ✅ Unbezahlter Urlaub = Soll reduzieren (keine Gutschrift!)
+- ✅ Live-Berechnung (kein Cache!)
+- ✅ Approved absences only (pending zählt nicht!)
+
+### Quellen (Web Research)
+
+- **Personio Community:** "Krankheit/Urlaub als Minusstunden gerechnet. Wie ändern?"
+- **Schichtplan-Fibel:** "Krank ist wie gearbeitet"
+- **Staffomatic Blog:** "Wie werden die Stunden bei Krankheit berechnet?"
+- **DATEV:** Entgeltfortzahlung bei Krankheit und Feiertagen
+
+---
+
 # 🔄 Inkrementelle Entwicklung
 
 ## Maximale Change-Größe
