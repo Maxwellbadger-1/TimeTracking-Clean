@@ -18,6 +18,7 @@ import overtimeRoutes from './routes/overtime.js';
 import vacationBalanceRoutes from './routes/vacationBalance.js';
 import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
+import exportsRoutes from './routes/exports.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { startBackupScheduler } from './services/cronService.js';
 import { initializeHolidays } from './services/holidayService.js';
@@ -204,6 +205,7 @@ app.use('/api/overtime', overtimeRoutes);
 app.use('/api/vacation-balances', vacationBalanceRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/exports', exportsRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);
