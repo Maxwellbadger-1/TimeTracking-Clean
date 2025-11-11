@@ -1428,6 +1428,187 @@ Kern-Features:
 - Reports & Export (PDF/CSV)
 - Benachrichtigungen
 
+## Überstunden-Berechnung (Best Practice!)
+
+**KRITISCH:** Diese Regeln entsprechen professionellen HR-Systemen (Personio, DATEV, SAP)
+
+### Grundformel (UNVERÄNDERLICH!)
+
+```
+Überstunden = Ist-Stunden - Soll-Stunden
+```
+
+**NIEMALS anders berechnen!** Diese Formel ist der Standard in ALLEN professionellen Systemen.
+
+### Referenz-Datum (IMMER HEUTE!)
+
+```typescript
+// ✅ RICHTIG - Heute ist INKLUSIVE
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// Berechne working days FROM hireDate TO today (BEIDE inklusive!)
+const workingDays = countWorkingDaysBetween(hireDate, today);
+```
+
+**Beispiel:**
+- Eintrittsdatum: 07.11.2025 (Donnerstag)
+- Heute: 11.11.2025 (Montag)
+- Arbeitstage: 3 (Do, Fr, Mo)
+- Soll-Stunden: 3 × 8h = 24h
+- Ist-Stunden: 0h (keine Einträge)
+- **Überstunden: 0h - 24h = -24h** ✅
+
+### Live-Berechnung vs. Database Cache
+
+**PFLICHT:** Überstunden immer ON-DEMAND berechnen!
+
+```typescript
+// ✅ RICHTIG - Live-Berechnung (Frontend)
+const targetHours = calculateTargetHours(user.weeklyHours, user.hireDate);
+const actualHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
+const overtime = actualHours - targetHours;
+
+// ❌ FALSCH - Database Cache verwenden
+const overtime = overtimeData?.totalOvertime; // Kann veraltet sein!
+```
+
+**Warum?**
+- Database `overtime_balance` wird NICHT automatisch täglich aktualisiert
+- Nur bei Events (Login, Time Entry, etc.) wird neu berechnet
+- Live-Berechnung ist IMMER aktuell
+
+**Ausnahme:** Historical Reports können Cache nutzen (Performance)
+
+### UI Display-Regeln
+
+**PFLICHT:** Zeige immer 3 separate Metriken!
+
+```tsx
+// ✅ RICHTIG - Klar getrennte Cards
+<Card>Soll-Stunden: 24:00h</Card>
+<Card>Ist-Stunden: 0:00h</Card>
+<Card>Überstunden (Differenz): -24:00h</Card>
+
+// ❌ FALSCH - Vermischte Information
+<Card>
+  Ist: 0:00h
+  Soll: 24:00h  // Als Subtitle
+</Card>
+```
+
+**Best Practice Layout:**
+1. **Soll-Stunden** (Target Hours)
+   - Neutraler Ton (Gray)
+   - Icon: Clock
+   - Subtitle: Stand: [Aktuelles Datum]
+
+2. **Ist-Stunden** (Actual Hours)
+   - Informational (Blue)
+   - Icon: CheckCircle
+   - Subtitle: [Prozent] vom Soll
+
+3. **Überstunden** (Overtime = Ist - Soll)
+   - Positiv: Green (TrendingUp Icon)
+   - Negativ: Red (AlertCircle Icon)
+   - Subtitle: "Ist - Soll = Überstunden"
+
+### Filter-Verhalten
+
+**PFLICHT:** Filter beeinflussen ALLE Anzeigen konsistent!
+
+```typescript
+// ✅ RICHTIG - Filter anwenden
+if (selectedUserId !== 'all') {
+  entries = entries.filter(e => e.userId === selectedUserId);
+}
+
+if (reportType === 'monthly') {
+  // Nur gewählten Monat
+  targetHours = calculateMonthlyTargetHours(...);
+} else {
+  // Ganzes Jahr
+  targetHours = calculateYearlyTargetHours(...);
+}
+```
+
+**User-Erwartung:**
+- Monat-Filter → Zeige Soll/Ist/Überstunden für DIESEN Monat
+- Jahr-Filter → Zeige Soll/Ist/Überstunden für DIESES Jahr
+- User-Filter → Zeige nur DIESEN User
+
+### Arbeitstage-Berechnung
+
+**KRITISCH:** Exakte Berechnung unter Berücksichtigung von:
+
+```typescript
+// ✅ RICHTIG - Alle Faktoren berücksichtigen
+export function countWorkingDaysBetween(from: Date, to: Date): number {
+  let workingDays = 0;
+
+  for (let d = from; d <= to; d++) {
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isHoliday = holidays.includes(formatDate(d));
+
+    if (!isWeekend && !isHoliday) {
+      workingDays++;
+    }
+  }
+
+  return workingDays;
+}
+```
+
+**Faktoren:**
+- ✅ Wochenenden ausschließen (Samstag, Sonntag)
+- ✅ Feiertage ausschließen (aus `holidays` Tabelle)
+- ✅ Eintrittsdatum berücksichtigen (nicht davor rechnen!)
+- ✅ Austrittsdatum berücksichtigen (falls gesetzt)
+- ✅ Heute INKLUSIVE zählen
+
+### Zeitformatierung
+
+**PFLICHT:** Konsistente Formatierung!
+
+```typescript
+// ✅ RICHTIG - Mit Vorzeichen
+function formatOvertimeHours(hours: number): string {
+  const sign = hours >= 0 ? '+' : '';
+  const h = Math.floor(Math.abs(hours));
+  const m = Math.round((Math.abs(hours) - h) * 60);
+  return `${sign}${h}:${String(m).padStart(2, '0')}h`;
+}
+
+// Output:
+// +8:00h   → Überstunden
+// -16:00h  → Minusstunden
+// 0:00h    → Genau Soll
+
+// ✅ RICHTIG - Ohne Vorzeichen (für Soll/Ist)
+function formatHours(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}:${String(m).padStart(2, '0')}h`;
+}
+```
+
+### NIEMALS:
+
+- ❌ Überstunden aus `overtime_balance` Table direkt anzeigen (kann veraltet sein)
+- ❌ Heute EXKLUDIEREN bei Berechnungen
+- ❌ Filter nur auf manche Cards anwenden (inkonsistent!)
+- ❌ Soll und Ist in EINER Card vermischen (unklar!)
+- ❌ Formeln wie `Soll - Ist` verwenden (Standard ist `Ist - Soll`)
+
+### IMMER:
+
+- ✅ Live-Berechnung für Überstunden
+- ✅ Heute INKLUSIVE zählen
+- ✅ Drei separate Cards: Soll, Ist, Überstunden
+- ✅ Filter beeinflussen alle Anzeigen
+- ✅ Formel: `Ist - Soll = Überstunden` (UNVERÄNDERLICH!)
+
 ---
 
 # 🔄 Inkrementelle Entwicklung
