@@ -22,6 +22,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { toast } from 'sonner';
+import { universalFetch } from '../lib/tauriHttpClient';
 import {
   FileText,
   Download,
@@ -406,10 +407,15 @@ export function ReportsPage() {
 
       console.log('📅 Date Range:', { startDate, endDate });
 
-      // Fetch DATEV export from API
-      const response = await fetch(
+      // Fetch DATEV export from API using universalFetch (handles session cookies correctly)
+      const response = await universalFetch(
         `http://localhost:3000/api/exports/datev?startDate=${startDate}&endDate=${endDate}`,
-        { credentials: 'include' }
+        {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
 
       if (!response.ok) {
@@ -456,11 +462,16 @@ export function ReportsPage() {
 
       console.log('📅 Date Range:', { startDateInput, endDateInput });
 
-      // Fetch historical export from API
+      // Fetch historical export from API using universalFetch (handles session cookies correctly)
       const userId = selectedUserId === 'all' ? '' : `&userId=${selectedUserId}`;
-      const response = await fetch(
+      const response = await universalFetch(
         `http://localhost:3000/api/exports/historical/csv?startDate=${startDateInput}&endDate=${endDateInput}${userId}`,
-        { credentials: 'include' }
+        {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
 
       if (!response.ok) {

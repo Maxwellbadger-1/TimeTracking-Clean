@@ -1240,6 +1240,7 @@ if (filePath) {
 - ❌ Direct fetch() zu externen APIs (nutze Tauri Commands)
 - ❌ Browser Notifications (nutze Tauri Notifications)
 - ❌ window.location (nutze Tauri Router)
+- ❌ **KRITISCH: `fetch()` direkt verwenden - IMMER `universalFetch` nutzen!**
 
 ## IMMER:
 
@@ -1249,6 +1250,38 @@ if (filePath) {
 - ✅ Native File Dialogs
 - ✅ Keyboard Shortcuts
 - ✅ Auto-Update aktivieren
+- ✅ **KRITISCH: `universalFetch` für ALLE API-Calls (Session-Cookies!)**
+
+## API-Calls & Session-Management (KRITISCH!)
+
+**PROBLEM:** Browser `fetch()` sendet keine Session-Cookies bei Cross-Origin Requests (localhost:1420 → localhost:3000)
+
+**LÖSUNG:** IMMER `universalFetch` verwenden!
+
+```typescript
+// ❌ FALSCH - Session-Cookies gehen verloren!
+const response = await fetch('http://localhost:3000/api/exports/datev', {
+  credentials: 'include'
+});
+
+// ✅ RICHTIG - Session-Cookies werden korrekt gehandhabt!
+import { universalFetch } from '../lib/tauriHttpClient';
+
+const response = await universalFetch('http://localhost:3000/api/exports/datev', {
+  credentials: 'include',
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+```
+
+**Warum `universalFetch`?**
+- Nutzt Tauri HTTP Plugin in Desktop-App (korrekte Cookie-Handhabung)
+- Nutzt Browser `fetch()` im Browser (fallback)
+- Handled Session-Cookies korrekt bei Cross-Origin
+- Definiert in `src/lib/tauriHttpClient.ts`
+
+**Regel:** Wenn du jemals `await fetch(` siehst, ersetze es SOFORT mit `universalFetch`!
 
 ---
 
