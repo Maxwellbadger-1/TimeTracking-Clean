@@ -59,6 +59,11 @@ export function ReportsPage() {
     currentUser?.role === 'admin' ? 'all' : currentUser?.id || 0
   );
 
+  // Historical Export Modal State
+  const [showHistoricalExportModal, setShowHistoricalExportModal] = useState(false);
+  const [historicalStartDate, setHistoricalStartDate] = useState(`${new Date().getFullYear()}-01-01`);
+  const [historicalEndDate, setHistoricalEndDate] = useState(`${new Date().getFullYear()}-12-31`);
+
   // Fetch data
   const { data: timeEntries, isLoading: loadingTimeEntries } = useTimeEntries(
     currentUser?.role === 'admin' && selectedUserId === 'all'
@@ -447,25 +452,21 @@ export function ReportsPage() {
     }
   };
 
-  // Historical Export Handler
+  // Historical Export Handler - Open Modal
+  const handleExportHistoricalClick = () => {
+    setShowHistoricalExportModal(true);
+  };
+
+  // Historical Export Handler - Execute Export
   const handleExportHistorical = async () => {
     console.log('🚀 Historical Export START');
     try {
-      // Prompt user for date range
-      const startDateInput = prompt('Start-Datum (YYYY-MM-DD):', `${selectedYear}-01-01`);
-      const endDateInput = prompt('End-Datum (YYYY-MM-DD):', `${selectedYear}-12-31`);
-
-      if (!startDateInput || !endDateInput) {
-        console.log('❌ User cancelled');
-        return;
-      }
-
-      console.log('📅 Date Range:', { startDateInput, endDateInput });
+      console.log('📅 Date Range:', { historicalStartDate, historicalEndDate });
 
       // Fetch historical export from API using universalFetch (handles session cookies correctly)
       const userId = selectedUserId === 'all' ? '' : `&userId=${selectedUserId}`;
       const response = await universalFetch(
-        `http://localhost:3000/api/exports/historical/csv?startDate=${startDateInput}&endDate=${endDateInput}${userId}`,
+        `http://localhost:3000/api/exports/historical/csv?startDate=${historicalStartDate}&endDate=${historicalEndDate}${userId}`,
         {
           credentials: 'include',
           headers: {
@@ -487,7 +488,7 @@ export function ReportsPage() {
       // Use Tauri save dialog
       const userPart = selectedUserId === 'all' ? '_All' : `_User${selectedUserId}`;
       const filePath = await save({
-        defaultPath: `Historical_Export${userPart}_${startDateInput}_${endDateInput}.csv`,
+        defaultPath: `Historical_Export${userPart}_${historicalStartDate}_${historicalEndDate}.csv`,
         filters: [{
           name: 'CSV',
           extensions: ['csv']
@@ -497,6 +498,7 @@ export function ReportsPage() {
       if (filePath) {
         await writeTextFile(filePath, csvContent);
         toast.success('✅ Historischer Export erfolgreich!');
+        setShowHistoricalExportModal(false); // Close modal on success
       }
     } catch (error) {
       console.error('❌ Historical Export Error:', error);
@@ -552,7 +554,7 @@ export function ReportsPage() {
               <Download className="w-4 h-4 mr-2" />
               DATEV Export
             </Button>
-            <Button onClick={handleExportHistorical} variant="secondary">
+            <Button onClick={handleExportHistoricalClick} variant="secondary">
               <Download className="w-4 h-4 mr-2" />
               Historischer Export
             </Button>
@@ -995,6 +997,60 @@ export function ReportsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Historical Export Modal */}
+      {showHistoricalExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Historischer Export
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Start-Datum
+                </label>
+                <Input
+                  type="date"
+                  value={historicalStartDate}
+                  onChange={(e) => setHistoricalStartDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End-Datum
+                </label>
+                <Input
+                  type="date"
+                  value={historicalEndDate}
+                  onChange={(e) => setHistoricalEndDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={() => setShowHistoricalExportModal(false)}
+                variant="secondary"
+                className="flex-1"
+              >
+                Abbrechen
+              </Button>
+              <Button
+                onClick={handleExportHistorical}
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export starten
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
