@@ -49,7 +49,7 @@ jobs:
             # Install dependencies and build
             echo "📦 Installing dependencies..."
             cd server
-            npm ci  # Faster than npm install
+            npm install  # Using npm install (project doesn't have package-lock.json)
 
             echo "🔨 Building TypeScript..."
             npm run build

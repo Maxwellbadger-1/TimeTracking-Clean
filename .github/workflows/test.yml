@@ -23,12 +23,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'server/package-lock.json'
+          # Note: Caching disabled as project doesn't commit package-lock.json
+          # cache: 'npm'
+          # cache-dependency-path: 'server/package-lock.json'
 
       - name: Install dependencies
         working-directory: server
-        run: npm ci  # Faster and more reliable than npm install for CI
+        run: npm install  # Using npm install (project doesn't have package-lock.json)
 
       - name: TypeScript Type Check
         working-directory: server
@@ -68,12 +69,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'desktop/package-lock.json'
+          # Note: Caching disabled as project doesn't commit package-lock.json
+          # cache: 'npm'
+          # cache-dependency-path: 'desktop/package-lock.json'
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install  # Using npm install (project doesn't have package-lock.json)
 
       - name: TypeScript Type Check
         working-directory: desktop
