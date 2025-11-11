@@ -272,45 +272,79 @@ export function useDeleteUser() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      console.log('🔥🔥🔥 DELETE USER MUTATION TRIGGERED 🔥🔥🔥');
-      console.log('📍 User ID to delete:', id);
-      console.log('🌐 Calling API endpoint: DELETE /users/' + id);
-
       const response = await apiClient.delete(`/users/${id}`);
 
-      console.log('📥 DELETE USER RESPONSE:', response);
-      console.log('✅ Success?', response.success);
-      console.log('📦 Data:', response.data);
-      console.log('❌ Error?', response.error);
-
       if (!response.success) {
-        console.error('💥💥💥 DELETE FAILED 💥💥💥');
-        console.error('Error message:', response.error);
         throw new Error(response.error || 'Failed to delete user');
       }
 
-      console.log('✅✅✅ DELETE SUCCESSFUL ✅✅✅');
       return response.data;
     },
-    onSuccess: (data, variables) => {
-      console.log('🎉 DELETE SUCCESS CALLBACK TRIGGERED');
-      console.log('📦 Deleted user ID:', variables);
-      console.log('📊 Response data:', data);
-      console.log('🔄 Invalidating users query...');
+    onMutate: async (id: number) => {
+      console.log('🗑️ Optimistic delete starting for user:', id);
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Benutzer gelöscht');
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['user', id] });
+      await queryClient.cancelQueries({ queryKey: ['users'] });
 
-      console.log('✅ Query invalidated, UI should refresh');
+      // Snapshot previous values
+      const previousUser = queryClient.getQueryData<User>(['user', id]);
+      const previousUsers = queryClient.getQueryData<User[]>(['users']);
+
+      // Optimistically mark user as deleted (soft delete)
+      if (previousUser) {
+        const optimisticUser = { ...previousUser, isActive: false, deletedAt: new Date().toISOString() };
+        queryClient.setQueryData(['user', id], optimisticUser);
+        console.log('✨ Optimistically deleted user:', optimisticUser);
+      }
+
+      // Optimistically remove user from list (or mark as inactive)
+      if (previousUsers) {
+        const optimisticUsers = previousUsers.map(u =>
+          u.id === id ? { ...u, isActive: false, deletedAt: new Date().toISOString() } : u
+        );
+        queryClient.setQueryData(['users'], optimisticUsers);
+        console.log('✨ Optimistically updated users list');
+      }
+
+      // Return context for rollback
+      return { previousUser, previousUsers };
     },
-    onError: (error: Error, variables) => {
-      console.error('💥💥💥 DELETE ERROR CALLBACK TRIGGERED 💥💥💥');
-      console.error('❌ Error:', error);
-      console.error('❌ User ID that failed:', variables);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
+    onError: (error: Error, variables, context) => {
+      console.error('❌ Delete failed, rolling back optimistic update');
+
+      // Rollback on error
+      if (context?.previousUser) {
+        queryClient.setQueryData(['user', variables], context.previousUser);
+      }
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users'], context.previousUsers);
+      }
 
       toast.error(`Fehler: ${error.message}`);
+    },
+    onSuccess: async (data, variables) => {
+      console.log('✅ User deleted successfully, invalidating related queries');
+
+      // Invalidate all user-related queries
+      queryClient.invalidateQueries({ queryKey: ['user', variables] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+
+      // Invalidate overtime queries (user shouldn't appear in overtime dashboard anymore)
+      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+      queryClient.invalidateQueries({ queryKey: ['allUsersOvertimeSummary'] });
+
+      // Invalidate vacation queries
+      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+
+      // Invalidate time entries
+      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+
+      toast.success('Benutzer gelöscht');
+      console.log('✅ All queries invalidated, UI updated');
     },
   });
 }
