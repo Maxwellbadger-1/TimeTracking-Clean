@@ -642,120 +642,16 @@ function updateBalancesAfterApproval(requestId: number): void {
     // Deduct from overtime balance
     const hoursToDeduct = request.days * 8; // 8 hours per day
     deductOvertimeHours(request.userId, hoursToDeduct);
-  } else if (request.type === 'sick') {
-    // Create automatic time entries for sick days
-    // This ensures sick days count towards target hours (German labor law)
-    createSickLeaveTimeEntries(request);
   }
+  // Note: Sick days don't need any balance updates here
+  // The overtime calculation in ReportsPage.tsx handles absence credits automatically
 }
 
-/**
- * Create automatic time entries for sick leave days
- * In Germany, sick days count as worked hours for overtime calculation
- */
-function createSickLeaveTimeEntries(request: AbsenceRequest): void {
-  logger.debug('🏥 Creating time entries for sick leave');
-  logger.debug({ requestId: request.id, userId: request.userId, startDate: request.startDate, endDate: request.endDate, days: request.days }, 'Sick leave details');
-
-  // Get user's target hours per day
-  const user = db
-    .prepare('SELECT weeklyHours FROM users WHERE id = ?')
-    .get(request.userId) as { weeklyHours: number } | undefined;
-
-  if (!user) {
-    logger.error({ userId: request.userId }, 'User not found for sick leave time entries');
-    throw new Error(`User not found: ${request.userId}`);
-  }
-
-  // Calculate daily target hours (e.g., 40h / 5 days = 8h)
-  const dailyHours = user.weeklyHours / 5;
-
-  logger.debug({ weeklyHours: user.weeklyHours, dailyHours }, 'Calculated daily hours');
-
-  // Parse dates
-  const [startYear, startMonth, startDay] = request.startDate.split('-').map(Number);
-  const [endYear, endMonth, endDay] = request.endDate.split('-').map(Number);
-
-  const startDate = new Date(startYear, startMonth - 1, startDay);
-  const endDate = new Date(endYear, endMonth - 1, endDay);
-
-  const current = new Date(startDate);
-  let entriesCreated = 0;
-
-  // Create time entry for each business day
-  while (current <= endDate) {
-    const dayOfWeek = current.getDay();
-    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
-
-    if (isWeekday) {
-      // Format date as YYYY-MM-DD
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, '0');
-      const day = String(current.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-
-      // Calculate start and end time based on daily hours
-      const startTime = '08:00';
-      const endHour = 8 + Math.floor(dailyHours);
-      const endMinute = Math.round((dailyHours % 1) * 60);
-      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
-
-      // Insert time entry
-      const insertQuery = `
-        INSERT INTO time_entries (userId, date, startTime, endTime, breakMinutes, hours, activity, location, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      try {
-        db.prepare(insertQuery).run(
-          request.userId,
-          dateStr,
-          startTime,
-          endTime,
-          0, // No break for sick leave
-          dailyHours,
-          'Krankheit',
-          'homeoffice',
-          `Automatisch erstellt für Krankmeldung #${request.id}`
-        );
-
-        entriesCreated++;
-        logger.debug({ date: dateStr, hours: dailyHours }, 'Created sick leave time entry');
-      } catch (error) {
-        logger.error({ error, date: dateStr }, 'Failed to create sick leave time entry');
-        // Continue with next day even if one fails
-      }
-    }
-
-    current.setDate(current.getDate() + 1);
-  }
-
-  logger.info({ entriesCreated, expectedDays: request.days }, '✅ Sick leave time entries created');
-
-  // Update overtime calculations for all affected dates
-  const updateCurrent = new Date(startDate);
-  while (updateCurrent <= endDate) {
-    const dayOfWeek = updateCurrent.getDay();
-    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
-
-    if (isWeekday) {
-      const year = updateCurrent.getFullYear();
-      const month = String(updateCurrent.getMonth() + 1).padStart(2, '0');
-      const day = String(updateCurrent.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-
-      try {
-        // Import updateAllOvertimeLevels dynamically to avoid circular dependency
-        const { updateAllOvertimeLevels } = require('./overtimeService.js');
-        updateAllOvertimeLevels(request.userId, dateStr);
-      } catch (error) {
-        logger.error({ error, date: dateStr }, 'Failed to update overtime for sick leave date');
-      }
-    }
-
-    updateCurrent.setDate(updateCurrent.getDate() + 1);
-  }
-}
+// REMOVED: createSickLeaveTimeEntries function
+// Old implementation created automatic time_entries for sick days
+// This is WRONG per Best Practice (Personio, DATEV, SAP)
+// Sick days should ONLY exist in absence_requests table
+// Overtime calculation now handles absence credits directly in ReportsPage.tsx
 
 /**
  * Revert balance changes after deletion
