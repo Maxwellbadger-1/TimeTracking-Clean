@@ -39,7 +39,7 @@ export function UserManagementPage() {
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'employee'>('all');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'all'>('active');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'inactive'>('active');
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
   if (!currentUser || currentUser.role !== 'admin') {
@@ -91,7 +91,11 @@ export function UserManagementPage() {
     // Filter by status
     if (statusFilter === 'active') {
       filtered = filtered.filter(u => u.isActive);
+    } else if (statusFilter === 'inactive') {
+      // Archive view - only show deleted/inactive users
+      filtered = filtered.filter(u => !u.isActive);
     }
+    // 'all' shows both active and inactive
 
     // Filter by department
     if (departmentFilter !== 'all') {
@@ -300,13 +304,14 @@ export function UserManagementPage() {
                 ]}
               />
 
-              {/* Status Filter */}
+              {/* Status Filter - Enhanced with Archive view */}
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                 options={[
                   { value: 'active', label: 'Nur Aktive' },
-                  { value: 'all', label: 'Alle (inkl. Inaktive)' },
+                  { value: 'all', label: 'Alle (inkl. Archiv)' },
+                  { value: 'inactive', label: '🗄️ Nur Archiv (Gelöscht)' },
                 ]}
               />
 

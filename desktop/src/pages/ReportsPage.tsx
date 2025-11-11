@@ -390,6 +390,106 @@ export function ReportsPage() {
     console.log('🏁 CSV Export END');
   };
 
+  // DATEV Export Handler
+  const handleExportDATEV = async () => {
+    console.log('🚀 DATEV Export START');
+    try {
+      const startDate = reportType === 'monthly'
+        ? `${selectedMonth}-01`
+        : `${selectedYear}-01-01`;
+      const endDate = reportType === 'monthly'
+        ? new Date(new Date(selectedMonth).getFullYear(), new Date(selectedMonth).getMonth() + 1, 0).toISOString().split('T')[0]
+        : `${selectedYear}-12-31`;
+
+      console.log('📅 Date Range:', { startDate, endDate });
+
+      // Fetch DATEV export from API
+      const response = await fetch(
+        `http://localhost:3000/api/exports/datev?startDate=${startDate}&endDate=${endDate}`,
+        { credentials: 'include' }
+      );
+
+      if (!response.ok) {
+        throw new Error('DATEV Export fehlgeschlagen');
+      }
+
+      // Get CSV content
+      const csvContent = await response.text();
+
+      // Use Tauri save dialog
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+      const filePath = await save({
+        defaultPath: `DATEV_Export_${startDate}_${endDate}.csv`,
+        filters: [{
+          name: 'CSV',
+          extensions: ['csv']
+        }]
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, csvContent);
+        alert('✅ DATEV Export erfolgreich!');
+      }
+    } catch (error) {
+      console.error('❌ DATEV Export Error:', error);
+      alert('Fehler beim DATEV Export: ' + (error as Error).message);
+    }
+  };
+
+  // Historical Export Handler
+  const handleExportHistorical = async () => {
+    console.log('🚀 Historical Export START');
+    try {
+      // Prompt user for date range
+      const startDateInput = prompt('Start-Datum (YYYY-MM-DD):', `${selectedYear}-01-01`);
+      const endDateInput = prompt('End-Datum (YYYY-MM-DD):', `${selectedYear}-12-31`);
+
+      if (!startDateInput || !endDateInput) {
+        console.log('❌ User cancelled');
+        return;
+      }
+
+      console.log('📅 Date Range:', { startDateInput, endDateInput });
+
+      // Fetch historical export from API
+      const userId = selectedUserId === 'all' ? '' : `&userId=${selectedUserId}`;
+      const response = await fetch(
+        `http://localhost:3000/api/exports/historical/csv?startDate=${startDateInput}&endDate=${endDateInput}${userId}`,
+        { credentials: 'include' }
+      );
+
+      if (!response.ok) {
+        throw new Error('Historical Export fehlgeschlagen');
+      }
+
+      // Get CSV content
+      const csvContent = await response.text();
+
+      // Use Tauri save dialog
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+      const userPart = selectedUserId === 'all' ? '_All' : `_User${selectedUserId}`;
+      const filePath = await save({
+        defaultPath: `Historical_Export${userPart}_${startDateInput}_${endDateInput}.csv`,
+        filters: [{
+          name: 'CSV',
+          extensions: ['csv']
+        }]
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, csvContent);
+        alert('✅ Historischer Export erfolgreich!');
+      }
+    } catch (error) {
+      console.error('❌ Historical Export Error:', error);
+      alert('Fehler beim Historischen Export: ' + (error as Error).message);
+    }
+  };
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -429,10 +529,20 @@ export function ReportsPage() {
             </div>
           </div>
 
-          <Button onClick={handleExportCSV} variant="secondary">
-            <Download className="w-4 h-4 mr-2" />
-            CSV Export
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportCSV} variant="secondary">
+              <Download className="w-4 h-4 mr-2" />
+              CSV Export
+            </Button>
+            <Button onClick={handleExportDATEV} variant="secondary">
+              <Download className="w-4 h-4 mr-2" />
+              DATEV Export
+            </Button>
+            <Button onClick={handleExportHistorical} variant="secondary">
+              <Download className="w-4 h-4 mr-2" />
+              Historischer Export
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
