@@ -203,7 +203,9 @@ export function ReportsPage() {
       .reduce((sum, r) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
 
     // Overtime Stats
-    const overtimeHours = overtimeData?.totalOvertime || 0;
+    // IMPORTANT: Überstunden = Ist - Soll (same as Differenz!)
+    // Use the SAME calculation as targetVsActualDiff for consistency
+    const overtimeHours = targetVsActualDiff;
 
     // By User (if admin viewing all)
     const byUser: Record<number, {
@@ -629,9 +631,29 @@ export function ReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Statistics Cards */}
+        {/* Statistics Cards - Best Practice Layout: Soll, Ist, Differenz */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Hours */}
+          {/* Soll-Stunden (Target Hours) */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Soll-Stunden
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {formatHours(stats.targetHours)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Stand: {new Date().toLocaleDateString('de-DE')}
+                  </p>
+                </div>
+                <Clock className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ist-Stunden (Actual Hours) */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -639,66 +661,42 @@ export function ReportsPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Ist-Stunden
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                     {formatHours(stats.totalHours)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Soll: {formatHours(stats.targetHours)}
-                  </p>
-                </div>
-                <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Soll/Ist Vergleich */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Soll/Ist Vergleich
-                  </p>
-                  <p className={`text-2xl font-bold mt-1 ${
-                    stats.targetVsActualDiff >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatOvertimeHours(stats.targetVsActualDiff)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {stats.targetVsActualPercent} vom Soll
                   </p>
                 </div>
-                {stats.targetVsActualDiff >= 0 ? (
-                  <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
-                ) : (
-                  <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-                )}
+                <CheckCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </CardContent>
           </Card>
 
-          {/* Overtime */}
+          {/* Überstunden (Differenz = Ist - Soll) */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Überstunden
+                    Überstunden (Differenz)
                   </p>
                   <p className={`text-2xl font-bold mt-1 ${
                     stats.overtimeHours >= 0
-                      ? 'text-purple-600 dark:text-purple-400'
+                      ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
                   }`}>
                     {formatOvertimeHours(stats.overtimeHours)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Stand: {reportType === 'monthly' ? 'Monat' : 'Jahr'}
+                    Ist - Soll = Überstunden
                   </p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                {stats.overtimeHours >= 0 ? (
+                  <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
+                ) : (
+                  <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                )}
               </div>
             </CardContent>
           </Card>
