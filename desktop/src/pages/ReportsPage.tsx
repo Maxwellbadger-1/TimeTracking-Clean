@@ -19,6 +19,9 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { toast } from 'sonner';
 import {
   FileText,
   Download,
@@ -410,16 +413,16 @@ export function ReportsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('DATEV Export fehlgeschlagen');
+        const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
+        throw new Error(`DATEV Export fehlgeschlagen: ${response.status}`);
       }
 
       // Get CSV content
       const csvContent = await response.text();
+      console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
       // Use Tauri save dialog
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-
       const filePath = await save({
         defaultPath: `DATEV_Export_${startDate}_${endDate}.csv`,
         filters: [{
@@ -430,11 +433,11 @@ export function ReportsPage() {
 
       if (filePath) {
         await writeTextFile(filePath, csvContent);
-        alert('✅ DATEV Export erfolgreich!');
+        toast.success('✅ DATEV Export erfolgreich!');
       }
     } catch (error) {
       console.error('❌ DATEV Export Error:', error);
-      alert('Fehler beim DATEV Export: ' + (error as Error).message);
+      toast.error('Fehler beim DATEV Export: ' + (error as Error).message);
     }
   };
 
@@ -461,16 +464,16 @@ export function ReportsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Historical Export fehlgeschlagen');
+        const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
+        throw new Error(`Historical Export fehlgeschlagen: ${response.status}`);
       }
 
       // Get CSV content
       const csvContent = await response.text();
+      console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
       // Use Tauri save dialog
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-
       const userPart = selectedUserId === 'all' ? '_All' : `_User${selectedUserId}`;
       const filePath = await save({
         defaultPath: `Historical_Export${userPart}_${startDateInput}_${endDateInput}.csv`,
@@ -482,11 +485,11 @@ export function ReportsPage() {
 
       if (filePath) {
         await writeTextFile(filePath, csvContent);
-        alert('✅ Historischer Export erfolgreich!');
+        toast.success('✅ Historischer Export erfolgreich!');
       }
     } catch (error) {
       console.error('❌ Historical Export Error:', error);
-      alert('Fehler beim Historischen Export: ' + (error as Error).message);
+      toast.error('Fehler beim Historischen Export: ' + (error as Error).message);
     }
   };
 

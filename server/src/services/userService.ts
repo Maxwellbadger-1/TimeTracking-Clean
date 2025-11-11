@@ -11,16 +11,15 @@ import logger from '../utils/logger.js';
  */
 
 /**
- * Get all users (excluding deleted)
+ * Get all users (including deleted for archive view)
  */
 export function getAllUsers(): UserPublic[] {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
-             CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
+             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
+             CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive
       FROM users
-      WHERE deletedAt IS NULL
       ORDER BY createdAt DESC
     `);
 

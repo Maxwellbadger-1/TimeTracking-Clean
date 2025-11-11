@@ -48,6 +48,8 @@ export interface UserPublic {
   status: 'active' | 'inactive';
   privacyConsentAt: string | null;
   createdAt: string;
+  deletedAt?: string | null;
+  isActive?: boolean;
 }
 
 // Session Types
