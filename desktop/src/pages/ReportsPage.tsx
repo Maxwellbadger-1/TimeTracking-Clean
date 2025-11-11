@@ -169,14 +169,38 @@ export function ReportsPage() {
     // Count working days in period (Mo-Fr, excluding weekends)
     const workingDaysInPeriod = countWorkingDays(periodStart, periodEnd);
 
-    // Subtract approved absences (vacation + sick days)
-    const approvedAbsenceDays = filteredAbsences
-      .filter(a => a.status === 'approved' && (a.type === 'vacation' || a.type === 'sick'))
+    // BEST PRACTICE (Personio, DATEV, SAP):
+    // Target hours = All working days (Soll bleibt konstant!)
+    const targetHours = workingDaysInPeriod * targetHoursPerDay;
+
+    // Calculate absence credits ("Krank/Urlaub = Gearbeitet")
+    const absenceCredits = filteredAbsences
+      .filter(a => a.status === 'approved')
+      .reduce((sum, a) => {
+        const days = a.daysRequired || 0;
+        // vacation, sick, overtime_comp → Count as worked
+        if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
+          return sum + (days * targetHoursPerDay);
+        }
+        // unpaid → Reduce target hours (handled below)
+        return sum;
+      }, 0);
+
+    // Calculate unpaid leave reduction (reduces Soll!)
+    const unpaidLeaveDays = filteredAbsences
+      .filter(a => a.status === 'approved' && a.type === 'unpaid')
       .reduce((sum, a) => sum + (a.daysRequired || 0), 0);
 
-    const actualWorkDays = workingDaysInPeriod - approvedAbsenceDays;
-    const targetHours = actualWorkDays * targetHoursPerDay;
-    const targetVsActualDiff = totalHours - targetHours;
+    const unpaidLeaveReduction = unpaidLeaveDays * targetHoursPerDay;
+
+    // Adjusted target hours (Soll minus unpaid leave)
+    const adjustedTargetHours = targetHours - unpaidLeaveReduction;
+
+    // Actual hours = worked hours + absence credits
+    const actualHoursWithCredits = totalHours + absenceCredits;
+
+    // Overtime = Ist (with credits) - Soll (adjusted)
+    const targetVsActualDiff = actualHoursWithCredits - adjustedTargetHours;
     const targetVsActualPercent = targetHours > 0
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
       : '0.0%';
@@ -265,12 +289,33 @@ export function ReportsPage() {
 
         // Get user's absences
         const userAbsences = filteredAbsences.filter(a => a.userId === parseInt(userId));
-        const userApprovedAbsenceDays = userAbsences
-          .filter(a => a.status === 'approved' && (a.type === 'vacation' || a.type === 'sick'))
-          .reduce((sum, a) => sum + (a.daysRequired || 0), 0);
 
-        const userActualWorkDays = userWorkingDays - userApprovedAbsenceDays;
-        byUser[parseInt(userId)].targetHours = userActualWorkDays * userTargetHoursPerDay;
+        // BEST PRACTICE: Same logic as single user view
+        const userTargetHours = userWorkingDays * userTargetHoursPerDay;
+
+        // Calculate absence credits for this user
+        const userAbsenceCredits = userAbsences
+          .filter(a => a.status === 'approved')
+          .reduce((sum, a) => {
+            const days = a.daysRequired || 0;
+            if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
+              return sum + (days * userTargetHoursPerDay);
+            }
+            return sum;
+          }, 0);
+
+        // Calculate unpaid leave reduction for this user
+        const userUnpaidDays = userAbsences
+          .filter(a => a.status === 'approved' && a.type === 'unpaid')
+          .reduce((sum, a) => sum + (a.daysRequired || 0), 0);
+        const userUnpaidReduction = userUnpaidDays * userTargetHoursPerDay;
+
+        // Adjusted target and actual with credits
+        const userAdjustedTarget = userTargetHours - userUnpaidReduction;
+        const userActualWithCredits = byUser[parseInt(userId)].hours + userAbsenceCredits;
+
+        byUser[parseInt(userId)].targetHours = userAdjustedTarget;
+        byUser[parseInt(userId)].overtime = userActualWithCredits - userAdjustedTarget;
       });
     }
 
@@ -278,7 +323,10 @@ export function ReportsPage() {
       totalHours: Math.round(totalHours * 100) / 100,
       totalDays,
       avgHoursPerDay: Math.round(avgHoursPerDay * 100) / 100,
-      targetHours: Math.round(targetHours * 100) / 100,
+      targetHours: Math.round(adjustedTargetHours * 100) / 100, // Use adjusted target (with unpaid reduction)
+      actualHours: Math.round(actualHoursWithCredits * 100) / 100, // Actual + credits
+      absenceCredits: Math.round(absenceCredits * 100) / 100, // For display
+      unpaidLeaveReduction: Math.round(unpaidLeaveReduction * 100) / 100, // For display
       targetVsActualDiff: Math.round(targetVsActualDiff * 100) / 100,
       targetVsActualPercent,
       vacationDays,
@@ -294,6 +342,8 @@ export function ReportsPage() {
     currentUser,
     selectedUserId,
     reportType,
+    selectedMonth,
+    selectedYear,
     overtimeData,
     allUsersOvertimeData,
   ]);
@@ -645,7 +695,10 @@ export function ReportsPage() {
                     {formatHours(stats.targetHours)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Stand: {new Date().toLocaleDateString('de-DE')}
+                    {stats.unpaidLeaveReduction > 0
+                      ? `Reduziert um ${formatHours(stats.unpaidLeaveReduction)} (unbez. Urlaub)`
+                      : `Stand: ${new Date().toLocaleDateString('de-DE')}`
+                    }
                   </p>
                 </div>
                 <Clock className="w-8 h-8 text-gray-600 dark:text-gray-400" />
@@ -653,7 +706,7 @@ export function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Ist-Stunden (Actual Hours) */}
+          {/* Ist-Stunden (Actual Hours with Absence Credits) */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -662,10 +715,11 @@ export function ReportsPage() {
                     Ist-Stunden
                   </p>
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                    {formatHours(stats.totalHours)}
+                    {formatHours(stats.actualHours)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {stats.targetVsActualPercent} vom Soll
+                    {formatHours(stats.totalHours)} gearbeitet
+                    {stats.absenceCredits > 0 && ` + ${formatHours(stats.absenceCredits)} Abwesenheit`}
                   </p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
