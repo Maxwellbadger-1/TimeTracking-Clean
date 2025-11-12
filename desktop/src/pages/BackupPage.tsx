@@ -36,6 +36,7 @@ export default function BackupPage() {
       console.log('🔍 Fetching backups with universalFetch...');
       const response = await universalFetch(`${API_BASE_URL}/backup`, {
         method: 'GET',
+        credentials: 'include', // CRITICAL: Required for session cookies
       });
       console.log('📥 Backup response:', response);
       if (!response.ok) {
@@ -55,6 +56,7 @@ export default function BackupPage() {
       console.log('🔍 Fetching backup stats with universalFetch...');
       const response = await universalFetch(`${API_BASE_URL}/backup/stats`, {
         method: 'GET',
+        credentials: 'include', // CRITICAL: Required for session cookies
       });
       console.log('📥 Stats response:', response);
       if (!response.ok) {
@@ -73,6 +75,7 @@ export default function BackupPage() {
       console.log('🔍 Creating backup with universalFetch...');
       const response = await universalFetch(`${API_BASE_URL}/backup`, {
         method: 'POST',
+        credentials: 'include', // CRITICAL: Required for session cookies
       });
       console.log('📥 Create backup response:', response);
       if (!response.ok) {
@@ -97,6 +100,7 @@ export default function BackupPage() {
       console.log('🔍 Restoring backup with universalFetch:', filename);
       const response = await universalFetch(`${API_BASE_URL}/backup/restore/${filename}`, {
         method: 'POST',
+        credentials: 'include', // CRITICAL: Required for session cookies
       });
       console.log('📥 Restore backup response:', response);
       if (!response.ok) {
@@ -122,6 +126,7 @@ export default function BackupPage() {
       console.log('🔍 Deleting backup with universalFetch:', filename);
       const response = await universalFetch(`${API_BASE_URL}/backup/${filename}`, {
         method: 'DELETE',
+        credentials: 'include', // CRITICAL: Required for session cookies
       });
       console.log('📥 Delete backup response:', response);
       if (!response.ok) {
