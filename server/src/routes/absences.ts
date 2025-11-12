@@ -6,7 +6,7 @@ import {
   validateAbsenceUpdate,
 } from '../middleware/validation.js';
 import {
-  getAllAbsenceRequests,
+  getAbsenceRequestsPaginated,
   getAbsenceRequestById,
   createAbsenceRequest,
   updateAbsenceRequest,
@@ -29,7 +29,13 @@ const router = Router();
 
 /**
  * GET /api/absences
- * Get all absence requests (Admin: all, Employee: own)
+ * Get paginated absence requests (Admin: all, Employee: own)
+ * Query params:
+ *  - page: number (optional, default: 1)
+ *  - limit: number (optional, default: 30, max: 100)
+ *  - year: number (optional, default: current year for admin)
+ *  - status: string (optional, 'pending' | 'approved' | 'rejected')
+ *  - type: string (optional, 'vacation' | 'sick' | 'unpaid' | 'overtime_comp')
  */
 router.get(
   '/',
@@ -38,33 +44,58 @@ router.get(
     try {
       const isAdmin = req.session.user!.role === 'admin';
 
-      // Query params for filtering
-      const { status, type } = req.query;
+      // Get pagination and filter parameters
+      const { page, limit, year, status, type } = req.query;
 
-      const filters: {
-        userId?: number;
-        status?: string;
-        type?: string;
-      } = {};
+      // Validate parameters
+      const pageNum = page ? parseInt(page as string, 10) : 1;
+      const limitNum = limit ? parseInt(limit as string, 10) : 30;
+      const yearNum = year ? parseInt(year as string, 10) : undefined;
 
-      // Admin can see all, Employee only own
-      if (!isAdmin) {
-        filters.userId = req.session.user!.id;
+      if (isNaN(pageNum) || pageNum < 1) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid page number',
+        });
+        return;
       }
 
-      if (status) {
-        filters.status = status as string;
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid limit (must be 1-100)',
+        });
+        return;
       }
 
-      if (type) {
-        filters.type = type as string;
+      if (year && isNaN(yearNum!)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid year',
+        });
+        return;
       }
 
-      const requests = getAllAbsenceRequests(filters);
+      // Use paginated function
+      const result = getAbsenceRequestsPaginated({
+        userId: isAdmin ? undefined : req.session.user!.id,
+        status: status as string,
+        type: type as string,
+        year: yearNum,
+        page: pageNum,
+        limit: limitNum,
+      });
 
       res.json({
         success: true,
-        data: requests,
+        data: result.rows,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: result.totalPages,
+          hasMore: result.hasMore,
+        },
       });
     } catch (error) {
       res.status(500).json({

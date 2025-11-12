@@ -262,9 +262,19 @@ export function hasEnoughVacationDays(
   return balance.remaining >= requestedDays;
 }
 
+interface PaginatedResult<T> {
+  rows: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 /**
  * Get all absence requests (with optional filters)
  * Includes user information (firstName, lastName, initials) via JOIN
+ * @deprecated Use getAbsenceRequestsPaginated for better performance
  */
 export function getAllAbsenceRequests(filters?: {
   userId?: number;
@@ -302,6 +312,89 @@ export function getAllAbsenceRequests(filters?: {
   query += ' ORDER BY ar.createdAt DESC';
 
   return db.prepare(query).all(...params) as AbsenceRequest[];
+}
+
+/**
+ * Get paginated absence requests with offset-based pagination
+ * Better performance for large datasets
+ */
+export function getAbsenceRequestsPaginated(options: {
+  userId?: number;
+  status?: string;
+  type?: string;
+  year?: number;
+  page?: number;
+  limit?: number;
+}): PaginatedResult<AbsenceRequest> {
+  const page = options.page || 1;
+  const limit = Math.min(options.limit || 30, 100); // Max 100 per page
+  const offset = (page - 1) * limit;
+
+  // Build query
+  let query = `
+    SELECT
+      ar.*,
+      u.firstName,
+      u.lastName,
+      u.email,
+      SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
+    FROM absence_requests ar
+    LEFT JOIN users u ON ar.userId = u.id
+    WHERE 1=1
+  `;
+
+  const params: unknown[] = [];
+
+  // Filter by user
+  if (options.userId) {
+    query += ' AND ar.userId = ?';
+    params.push(options.userId);
+  }
+
+  // Filter by status
+  if (options.status) {
+    query += ' AND ar.status = ?';
+    params.push(options.status);
+  }
+
+  // Filter by type
+  if (options.type) {
+    query += ' AND ar.type = ?';
+    params.push(options.type);
+  }
+
+  // Filter by year (default: current year for admin, all for employees)
+  if (options.year) {
+    query += ' AND (strftime("%Y", ar.startDate) = ? OR strftime("%Y", ar.endDate) = ?)';
+    params.push(options.year.toString(), options.year.toString());
+  } else if (!options.userId) {
+    // Admin view without year: default to current year
+    const currentYear = new Date().getFullYear();
+    query += ' AND (strftime("%Y", ar.startDate) = ? OR strftime("%Y", ar.endDate) = ?)';
+    params.push(currentYear.toString(), currentYear.toString());
+  }
+
+  // Get total count (before pagination)
+  const countQuery = query.replace(
+    /SELECT[\s\S]*?FROM/,
+    'SELECT COUNT(*) as count FROM'
+  );
+  const { count } = db.prepare(countQuery).get(...params) as { count: number };
+
+  // Add pagination
+  query += ' ORDER BY ar.createdAt DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const rows = db.prepare(query).all(...params) as AbsenceRequest[];
+
+  return {
+    rows,
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+    hasMore: page * limit < count,
+  };
 }
 
 /**

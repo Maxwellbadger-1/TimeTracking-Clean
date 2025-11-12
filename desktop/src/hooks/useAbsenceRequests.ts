@@ -7,6 +7,9 @@ export interface AbsenceRequestFilters {
   userId?: number;
   status?: 'pending' | 'approved' | 'rejected';
   type?: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
+  year?: number;
+  page?: number;
+  limit?: number;
 }
 
 interface CreateAbsenceRequestData {
@@ -26,7 +29,19 @@ interface RejectAbsenceData {
   reason: string;
 }
 
-// Get all absence requests (with optional filters)
+interface AbsenceRequestsResponse {
+  rows: AbsenceRequest[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+// Get all absence requests (with optional filters and pagination)
+// Returns array for backward compatibility
 export function useAbsenceRequests(filters?: AbsenceRequestFilters) {
   return useQuery({
     queryKey: ['absenceRequests', filters],
@@ -35,15 +50,23 @@ export function useAbsenceRequests(filters?: AbsenceRequestFilters) {
       if (filters?.userId) params.append('userId', filters.userId.toString());
       if (filters?.status) params.append('status', filters.status);
       if (filters?.type) params.append('type', filters.type);
+      if (filters?.year) params.append('year', filters.year.toString());
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
 
       const query = params.toString() ? `?${params.toString()}` : '';
-      const response = await apiClient.get<AbsenceRequest[]>(`/absences${query}`);
+      const response = await apiClient.get<AbsenceRequest[] | AbsenceRequestsResponse>(`/absences${query}`);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch absence requests');
       }
 
-      return response.data || [];
+      // Backward compatibility: Always return array
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      return response.data?.rows || [];
     },
   });
 }

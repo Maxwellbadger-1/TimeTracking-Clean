@@ -207,16 +207,16 @@ export function ReportsPage() {
     };
 
     const vacationDays = filteredAbsences
-      .filter((r) => r.type === 'vacation')
-      .reduce((sum, r) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
+      .filter((r: any) => r.type === 'vacation')
+      .reduce((sum: number, r: any) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
 
     const sickDays = filteredAbsences
-      .filter((r) => r.type === 'sick')
-      .reduce((sum, r) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
+      .filter((r: any) => r.type === 'sick')
+      .reduce((sum: number, r: any) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
 
     const overtimeCompDays = filteredAbsences
-      .filter((r) => r.type === 'overtime_comp')
-      .reduce((sum, r) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
+      .filter((r: any) => r.type === 'overtime_comp')
+      .reduce((sum: number, r: any) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
 
     // Overtime Stats
     // Backend provides the correct overtime value
@@ -279,15 +279,15 @@ export function ReportsPage() {
         const userWorkingDays = countWorkingDays(userPeriodStart, userPeriodEnd);
 
         // Get user's absences
-        const userAbsences = filteredAbsences.filter(a => a.userId === parseInt(userId));
+        const userAbsences = filteredAbsences.filter((a: any) => a.userId === parseInt(userId));
 
         // BEST PRACTICE: Same logic as single user view
         const userTargetHours = userWorkingDays * userTargetHoursPerDay;
 
         // Calculate absence credits for this user
         const userAbsenceCredits = userAbsences
-          .filter(a => a.status === 'approved')
-          .reduce((sum, a) => {
+          .filter((a: any) => a.status === 'approved')
+          .reduce((sum: number, a: any) => {
             const days = a.daysRequired || 0;
             if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
               return sum + (days * userTargetHoursPerDay);
@@ -297,8 +297,8 @@ export function ReportsPage() {
 
         // Calculate unpaid leave reduction for this user
         const userUnpaidDays = userAbsences
-          .filter(a => a.status === 'approved' && a.type === 'unpaid')
-          .reduce((sum, a) => sum + (a.daysRequired || 0), 0);
+          .filter((a: any) => a.status === 'approved' && a.type === 'unpaid')
+          .reduce((sum: number, a: any) => sum + (a.daysRequired || 0), 0);
         const userUnpaidReduction = userUnpaidDays * userTargetHoursPerDay;
 
         // Adjusted target and actual with credits
