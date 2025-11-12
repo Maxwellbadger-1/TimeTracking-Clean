@@ -123,6 +123,12 @@ export function useMarkNotificationRead() {
             return updated as any;
           }
 
+          // Check if old has rows property (paginated response)
+          if (!old.rows || !Array.isArray(old.rows)) {
+            console.warn('🟡 [READ] onMutate: old.rows is not an array, skipping update');
+            return old;
+          }
+
           const updated = {
             ...old,
             rows: old.rows.map((n) =>
@@ -190,6 +196,11 @@ export function useMarkNotificationUnread() {
             return old.map((n) =>
               n.id === id ? { ...n, isRead: false } : n
             ) as any;
+          }
+
+          // Check if old has rows property (paginated response)
+          if (!old.rows || !Array.isArray(old.rows)) {
+            return old;
           }
 
           return {
