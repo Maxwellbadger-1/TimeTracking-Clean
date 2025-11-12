@@ -23,12 +23,44 @@ import logger from '../utils/logger.js';
 const router = Router();
 
 /**
+ * Validate date range for exports
+ * Returns error message if validation fails, null otherwise
+ */
+function validateDateRange(startDate: string, endDate: string): string | null {
+  // Validate date format
+  const startDateObj = new Date(startDate);
+  const endDateObj = new Date(endDate);
+
+  if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+    return 'Invalid date format (must be YYYY-MM-DD)';
+  }
+
+  // Validate date order
+  if (startDateObj > endDateObj) {
+    return 'startDate must be before or equal to endDate';
+  }
+
+  // Validate maximum date range (1 year = 365 days)
+  const daysDiff = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+  const MAX_DAYS = 365;
+
+  if (daysDiff > MAX_DAYS) {
+    return `Date range too large (${daysDiff} days). Maximum allowed: ${MAX_DAYS} days (1 year)`;
+  }
+
+  return null;
+}
+
+/**
  * GET /api/exports/datev
  * Generate DATEV CSV Export (Admin only)
  *
  * Query params:
  * - startDate: YYYY-MM-DD (required)
  * - endDate: YYYY-MM-DD (required)
+ *
+ * Validation:
+ * - Maximum date range: 1 year (365 days)
  *
  * Returns: CSV file (text/csv)
  */
@@ -44,6 +76,16 @@ router.get(
         res.status(400).json({
           success: false,
           error: 'startDate and endDate are required'
+        });
+        return;
+      }
+
+      // Validate date range
+      const validationError = validateDateRange(startDate as string, endDate as string);
+      if (validationError) {
+        res.status(400).json({
+          success: false,
+          error: validationError
         });
         return;
       }
@@ -84,6 +126,9 @@ router.get(
  * - endDate: YYYY-MM-DD (required)
  * - userId: number (optional, if omitted: all users)
  *
+ * Validation:
+ * - Maximum date range: 1 year (365 days)
+ *
  * Returns: JSON with complete historical data
  */
 router.get(
@@ -98,6 +143,16 @@ router.get(
         res.status(400).json({
           success: false,
           error: 'startDate and endDate are required'
+        });
+        return;
+      }
+
+      // Validate date range
+      const validationError = validateDateRange(startDate as string, endDate as string);
+      if (validationError) {
+        res.status(400).json({
+          success: false,
+          error: validationError
         });
         return;
       }
@@ -142,6 +197,9 @@ router.get(
  * - endDate: YYYY-MM-DD (required)
  * - userId: number (optional)
  *
+ * Validation:
+ * - Maximum date range: 1 year (365 days)
+ *
  * Returns: CSV file (text/csv)
  */
 router.get(
@@ -156,6 +214,16 @@ router.get(
         res.status(400).json({
           success: false,
           error: 'startDate and endDate are required'
+        });
+        return;
+      }
+
+      // Validate date range
+      const validationError = validateDateRange(startDate as string, endDate as string);
+      if (validationError) {
+        res.status(400).json({
+          success: false,
+          error: validationError
         });
         return;
       }
