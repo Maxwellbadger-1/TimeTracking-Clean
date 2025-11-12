@@ -23,6 +23,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { toast } from 'sonner';
 import { universalFetch } from '../lib/tauriHttpClient';
+import { SERVER_BASE_URL } from '../api/client';
 import {
   FileText,
   Download,
@@ -457,7 +458,7 @@ export function ReportsPage() {
 
       // Fetch DATEV export from API using universalFetch (handles session cookies correctly)
       const response = await universalFetch(
-        `http://localhost:3000/api/exports/datev?startDate=${startDate}&endDate=${endDate}`,
+        `${SERVER_BASE_URL}/api/exports/datev?startDate=${startDate}&endDate=${endDate}`,
         {
           credentials: 'include',
           headers: {
@@ -509,7 +510,7 @@ export function ReportsPage() {
       // Fetch historical export from API using universalFetch (handles session cookies correctly)
       const userId = selectedUserId === 'all' ? '' : `&userId=${selectedUserId}`;
       const response = await universalFetch(
-        `http://localhost:3000/api/exports/historical/csv?startDate=${historicalStartDate}&endDate=${historicalEndDate}${userId}`,
+        `${SERVER_BASE_URL}/api/exports/historical/csv?startDate=${historicalStartDate}&endDate=${historicalEndDate}${userId}`,
         {
           credentials: 'include',
           headers: {

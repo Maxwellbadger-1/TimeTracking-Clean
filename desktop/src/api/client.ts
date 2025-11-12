@@ -4,9 +4,13 @@ import { debugLog } from '../components/DebugPanel';
 
 // DEVELOPMENT: Use localhost
 // PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// Base URL without /api suffix (for direct exports endpoints that include /api in path)
+export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 console.log('🌐 API Base URL:', API_BASE_URL);
+console.log('🌐 Server Base URL:', SERVER_BASE_URL);
 
 export interface ApiResponse<T> {
   success: boolean;
