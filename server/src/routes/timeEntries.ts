@@ -15,6 +15,11 @@ import {
   getOvertimeBalance,
 } from '../services/timeEntryService.js';
 import { logAudit } from '../services/auditService.js';
+import {
+  notifyTimeEntryEditedByAdmin,
+  notifyTimeEntryDeleted
+} from '../services/notificationService.js';
+import { getUserById } from '../services/userService.js';
 import type { ApiResponse, TimeEntry } from '../types/index.js';
 
 const router = Router();
@@ -251,6 +256,18 @@ router.put(
       // Log audit
       logAudit(req.session.user!.id, 'update', 'time_entry', id, req.body);
 
+      // Notify employee if admin edited their time entry
+      if (isAdmin && !isOwner) {
+        const admin = getUserById(req.session.user!.id);
+        if (admin) {
+          notifyTimeEntryEditedByAdmin(
+            existing.userId,
+            existing.date,
+            `${admin.firstName} ${admin.lastName}`
+          );
+        }
+      }
+
       res.json({
         success: true,
         data: entry,
@@ -340,6 +357,18 @@ router.delete(
 
       // Log audit
       logAudit(req.session.user!.id, 'delete', 'time_entry', id);
+
+      // Notify employee if admin deleted their time entry
+      if (isAdmin && !isOwner) {
+        const admin = getUserById(req.session.user!.id);
+        if (admin) {
+          notifyTimeEntryDeleted(
+            existing.userId,
+            existing.date,
+            `${admin.firstName} ${admin.lastName}`
+          );
+        }
+      }
 
       res.json({
         success: true,

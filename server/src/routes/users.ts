@@ -17,6 +17,12 @@ import {
 } from '../services/userService.js';
 import { upsertVacationBalance } from '../services/vacationBalanceService.js';
 import { logAudit } from '../services/auditService.js';
+import {
+  notifyVacationDaysAdjusted,
+  notifyUserDeactivated,
+  notifyUserCreated,
+  notifyTargetHoursChanged
+} from '../services/notificationService.js';
 import type { ApiResponse, UserPublic, UserCreateInput } from '../types/index.js';
 
 const router = Router();
@@ -237,6 +243,9 @@ router.post(
         role: user.role,
       });
 
+      // Send welcome notification to new user
+      notifyUserCreated(user.id, user.firstName);
+
       res.status(201).json({
         success: true,
         data: user,
@@ -274,6 +283,16 @@ router.put(
 
       const data = req.body as Partial<UserCreateInput>;
 
+      // Get existing user for comparison (before update)
+      const oldUser = getUserById(id);
+      if (!oldUser) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
       // Check if username exists (for other users)
       if (data.username && usernameExists(data.username, id)) {
         res.status(409).json({
@@ -297,6 +316,24 @@ router.put(
 
       // Log audit
       logAudit(req.session.user!.id, 'update', 'user', id, data);
+
+      // Check if vacation days changed - notify employee
+      if (data.vacationDaysPerYear !== undefined && oldUser.vacationDaysPerYear !== data.vacationDaysPerYear) {
+        notifyVacationDaysAdjusted(
+          id,
+          oldUser.vacationDaysPerYear,
+          data.vacationDaysPerYear
+        );
+      }
+
+      // Check if weekly hours changed - notify employee
+      if (data.weeklyHours !== undefined && oldUser.weeklyHours !== data.weeklyHours) {
+        notifyTargetHoursChanged(
+          id,
+          oldUser.weeklyHours,
+          data.weeklyHours
+        );
+      }
 
       res.json({
         success: true,
@@ -353,6 +390,9 @@ router.delete(
 
       // Log audit
       logAudit(req.session.user!.id, 'delete', 'user', id);
+
+      // Notify user that their account was deactivated
+      notifyUserDeactivated(id);
 
       res.json({
         success: true,
@@ -459,6 +499,11 @@ router.patch(
 
       // Log audit
       logAudit(req.session.user!.id, 'update', 'user', id, { status });
+
+      // Notify user if they were deactivated
+      if (status === 'inactive') {
+        notifyUserDeactivated(id);
+      }
 
       res.json({
         success: true,
