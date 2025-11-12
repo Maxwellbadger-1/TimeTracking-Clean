@@ -323,7 +323,7 @@ export function useReactivateUser() {
 
       toast.error(`Fehler: ${error.message}`);
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async (_data, variables) => {
       console.log('✅ User reactivated successfully, invalidating related queries');
 
       // Invalidate all user-related queries
@@ -402,7 +402,7 @@ export function useDeleteUser() {
 
       toast.error(`Fehler: ${error.message}`);
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async (_data, variables) => {
       console.log('✅ User deleted successfully, invalidating related queries');
 
       // Invalidate all user-related queries

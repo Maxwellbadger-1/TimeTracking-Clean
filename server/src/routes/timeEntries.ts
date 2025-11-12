@@ -6,8 +6,7 @@ import {
   validateTimeEntryUpdate,
 } from '../middleware/validation.js';
 import {
-  getAllTimeEntries,
-  getTimeEntriesByDate,
+  getTimeEntriesPaginated,
   getTimeEntryById,
   createTimeEntry,
   updateTimeEntry,
@@ -26,7 +25,12 @@ const router = Router();
 
 /**
  * GET /api/time-entries
- * Get all time entries (Admin: all, Employee: own entries)
+ * Get paginated time entries (Admin: all, Employee: own entries)
+ * Query params:
+ *  - cursor: number (optional, for pagination)
+ *  - limit: number (optional, default: 50, max: 100)
+ *  - startDate: string (optional, YYYY-MM-DD)
+ *  - endDate: string (optional, YYYY-MM-DD)
  */
 router.get(
   '/',
@@ -36,24 +40,46 @@ router.get(
       const isAdmin = req.session.user!.role === 'admin';
       const userId = isAdmin ? undefined : req.session.user!.id;
 
-      // Optional date range filter
-      const { startDate, endDate } = req.query;
+      // Get pagination parameters
+      const { cursor, limit, startDate, endDate } = req.query;
 
-      let entries: TimeEntry[];
+      // Validate parameters
+      const cursorNum = cursor ? parseInt(cursor as string, 10) : undefined;
+      const limitNum = limit ? parseInt(limit as string, 10) : 50;
 
-      if (startDate && endDate && userId) {
-        entries = getTimeEntriesByDate(
-          userId,
-          startDate as string,
-          endDate as string
-        );
-      } else {
-        entries = getAllTimeEntries(userId);
+      if (cursor && isNaN(cursorNum!)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid cursor',
+        });
+        return;
       }
+
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid limit (must be 1-100)',
+        });
+        return;
+      }
+
+      // Use paginated function
+      const result = getTimeEntriesPaginated({
+        userId,
+        cursor: cursorNum,
+        limit: limitNum,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
 
       res.json({
         success: true,
-        data: entries,
+        data: result.rows,
+        pagination: {
+          cursor: result.cursor,
+          hasMore: result.hasMore,
+          total: result.total,
+        },
       });
     } catch (error) {
       console.error('❌ Error getting time entries:', error);

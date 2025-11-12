@@ -80,11 +80,12 @@ export interface ApiResponse<T = unknown> {
   error?: string;
   message?: string;
   pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
     hasMore: boolean;
+    cursor?: number | null; // For cursor-based pagination
   };
 }
 

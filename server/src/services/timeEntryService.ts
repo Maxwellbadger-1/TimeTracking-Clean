@@ -196,9 +196,17 @@ export function checkAbsenceConflict(
   return absence || null;
 }
 
+interface PaginatedResult<T> {
+  rows: T[];
+  total: number;
+  cursor: number | null;
+  hasMore: boolean;
+}
+
 /**
  * Get all time entries (with optional user filter)
  * Includes user information (firstName, lastName, initials) via JOIN
+ * @deprecated Use getTimeEntriesPaginated for better performance
  */
 export function getAllTimeEntries(userId?: number): TimeEntry[] {
   let query = `
@@ -223,6 +231,90 @@ export function getAllTimeEntries(userId?: number): TimeEntry[] {
   query += ' ORDER BY te.date DESC, te.startTime DESC';
 
   return db.prepare(query).all(...params) as TimeEntry[];
+}
+
+/**
+ * Get paginated time entries with cursor-based pagination
+ * Better performance for large datasets
+ */
+export function getTimeEntriesPaginated(options: {
+  userId?: number;
+  cursor?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}): PaginatedResult<TimeEntry> {
+  const limit = Math.min(options.limit || 50, 100); // Max 100 per page
+  const cursor = options.cursor;
+
+  // Build query
+  let query = `
+    SELECT
+      te.*,
+      u.firstName,
+      u.lastName,
+      u.email,
+      SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
+    FROM time_entries te
+    LEFT JOIN users u ON te.userId = u.id
+    WHERE 1=1
+  `;
+
+  const params: unknown[] = [];
+
+  // Filter by user
+  if (options.userId) {
+    query += ' AND te.userId = ?';
+    params.push(options.userId);
+  }
+
+  // Filter by date range (default: last 30 days for admin, all for employees)
+  if (options.startDate && options.endDate) {
+    query += ' AND te.date >= ? AND te.date <= ?';
+    params.push(options.startDate, options.endDate);
+  } else if (!options.userId) {
+    // Admin view without date range: default to last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const defaultStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+    query += ' AND te.date >= ?';
+    params.push(defaultStartDate);
+  }
+
+  // Cursor pagination
+  if (cursor) {
+    query += ' AND te.id < ?';
+    params.push(cursor);
+  }
+
+  // Get total count (before pagination)
+  const countQuery = query.replace(
+    /SELECT[\s\S]*?FROM/,
+    'SELECT COUNT(*) as count FROM'
+  );
+  const { count } = db.prepare(countQuery).get(...params) as { count: number };
+
+  // Add pagination (order by date DESC, then id DESC for consistent ordering)
+  query += ' ORDER BY te.date DESC, te.id DESC LIMIT ?';
+  params.push(limit + 1); // Fetch one extra to check if there's more
+
+  const rows = db.prepare(query).all(...params) as TimeEntry[];
+
+  // Check if there are more results
+  const hasMore = rows.length > limit;
+  if (hasMore) {
+    rows.pop(); // Remove the extra row
+  }
+
+  // Get next cursor (last row's id)
+  const nextCursor = rows.length > 0 ? rows[rows.length - 1].id : null;
+
+  return {
+    rows,
+    total: count,
+    cursor: hasMore ? nextCursor : null,
+    hasMore,
+  };
 }
 
 /**

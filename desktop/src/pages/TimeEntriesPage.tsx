@@ -19,7 +19,9 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Calendar, Clock, Download, TrendingUp } from 'lucide-react';
-import { useTimeEntries, useDeleteTimeEntry, useUsers } from '../hooks';
+import { useDeleteTimeEntry, useUsers } from '../hooks';
+import { useInfiniteTimeEntries } from '../hooks/useInfiniteTimeEntries';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { formatDateDE, formatHours, calculateTotalHours } from '../utils';
 import type { TimeEntry } from '../types';
 import { EditTimeEntryModal } from '../components/timeEntries/EditTimeEntryModal';
@@ -31,16 +33,7 @@ type DateRangePreset = 'today' | 'this-week' | 'last-week' | 'this-month' | 'las
 export function TimeEntriesPage() {
   const { user } = useAuthStore();
 
-  // Fetch users for employee filter (admin only)
-  const { data: users } = useUsers();
-
-  // Admin sees all entries (no userId filter), Employee sees only own entries
-  const { data: timeEntries, isLoading } = useTimeEntries(
-    user?.role === 'admin' ? undefined : { userId: user?.id || 0 }
-  );
-  const deleteEntry = useDeleteTimeEntry();
-
-  // Filter States
+  // Filter States (moved up for use in infinite query)
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('this-month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -49,18 +42,10 @@ export function TimeEntriesPage() {
   const [sortBy, setSortBy] = useState<'date' | 'hours' | 'employee'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Create Modal State
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  // Fetch users for employee filter (admin only)
+  const { data: users } = useUsers();
 
-  // Edit Modal State
-  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-
-  // Delete Confirmation State
-  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
-
-  if (!user) return null;
-
-  // Calculate date range based on preset
+  // Calculate date range based on preset (moved up for use in infinite query)
   const getDateRange = (): { start: string; end: string } => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -134,21 +119,43 @@ export function TimeEntriesPage() {
     }
   };
 
-  // Filter & Sort
+  const { start: startDate, end: endDate } = getDateRange();
+
+  // Use infinite scroll pagination with date range filter
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+  } = useInfiniteTimeEntries({
+    userId: user?.role === 'admin' ? undefined : user?.id || 0,
+    startDate,
+    endDate,
+  });
+
+  // Flatten all pages into single array
+  const timeEntries = useMemo(() => {
+    return data?.pages.flatMap((page) => page.rows) || [];
+  }, [data]);
+
+  const deleteEntry = useDeleteTimeEntry();
+
+  // Create Modal State
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Edit Modal State
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
+  // Delete Confirmation State
+  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
+
+  if (!user) return null;
+
+  // Filter & Sort (date range already applied in query, only client-side filters remain)
   const filteredEntries = useMemo(() => {
     if (!timeEntries) return [];
 
     let filtered = [...timeEntries];
-
-    // Filter by date range
-    const { start, end } = getDateRange();
-    if (start && end) {
-      filtered = filtered.filter(entry => entry.date >= start && entry.date <= end);
-    } else if (start) {
-      filtered = filtered.filter(entry => entry.date >= start);
-    } else if (end) {
-      filtered = filtered.filter(entry => entry.date <= end);
-    }
 
     // Filter by employee (admin only)
     if (user?.role === 'admin' && filterEmployee !== 'all') {
@@ -181,7 +188,7 @@ export function TimeEntriesPage() {
     });
 
     return filtered;
-  }, [timeEntries, dateRangePreset, customStartDate, customEndDate, filterEmployee, filterLocation, sortBy, sortOrder, user?.role]);
+  }, [timeEntries, filterEmployee, filterLocation, sortBy, sortOrder, user?.role]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -475,46 +482,62 @@ export function TimeEntriesPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
-                        onClick={() => toggleSort('date')}
-                      >
-                        Datum {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      {user?.role === 'admin' && (
+              <InfiniteScroll
+                dataLength={filteredEntries.length}
+                next={fetchNextPage}
+                hasMore={hasNextPage || false}
+                loader={
+                  <div className="flex justify-center py-4">
+                    <LoadingSpinner />
+                  </div>
+                }
+                endMessage={
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
+                    Alle Einträge geladen ({filteredEntries.length} gesamt)
+                  </p>
+                }
+                scrollableTarget="scrollableDiv"
+              >
+                <div id="scrollableDiv" className="overflow-x-auto" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                      <tr>
                         <th
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
-                          onClick={() => toggleSort('employee')}
+                          onClick={() => toggleSort('date')}
                         >
-                          Mitarbeiter {sortBy === 'employee' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Datum {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                      )}
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Zeit
-                      </th>
-                      <th
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
-                        onClick={() => toggleSort('hours')}
-                      >
-                        Stunden {sortBy === 'hours' && (sortOrder === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Ort
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Notiz
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Aktionen
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredEntries.map((entry) => (
+                        {user?.role === 'admin' && (
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                            onClick={() => toggleSort('employee')}
+                          >
+                            Mitarbeiter {sortBy === 'employee' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          </th>
+                        )}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Zeit
+                        </th>
+                        <th
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                          onClick={() => toggleSort('hours')}
+                        >
+                          Stunden {sortBy === 'hours' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Ort
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Notiz
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Aktionen
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredEntries.map((entry) => (
                       <tr
                         key={entry.id}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -589,10 +612,11 @@ export function TimeEntriesPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </InfiniteScroll>
             )}
           </CardContent>
         </Card>

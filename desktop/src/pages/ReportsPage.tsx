@@ -143,28 +143,9 @@ export function ReportsPage() {
     const targetHoursPerDay = weeklyHours / 5; // 5-day work week
 
     // Determine period bounds
-    const [year, month] = reportType === 'monthly'
+    const [_year, month] = reportType === 'monthly'
       ? selectedMonth.split('-').map(Number)
       : [selectedYear, 1];
-
-    const monthStart = reportType === 'monthly'
-      ? new Date(year, month - 1, 1)
-      : new Date(year, 0, 1);
-
-    const monthEnd = reportType === 'monthly'
-      ? new Date(year, month, 0) // Last day of month
-      : new Date(year, 11, 31); // Dec 31
-
-    // Use hire date as start if later than period start
-    const hireDate = targetUser?.hireDate ? new Date(targetUser.hireDate) : new Date('1900-01-01');
-    const periodStart = hireDate > monthStart ? hireDate : monthStart;
-
-    // Use today as end if current period
-    const today = new Date();
-    const isCurrentPeriod = reportType === 'monthly'
-      ? (month === today.getMonth() + 1 && year === today.getFullYear())
-      : (year === today.getFullYear());
-    const periodEnd = isCurrentPeriod ? today : monthEnd;
 
     // BEST PRACTICE: Use Backend overtime data (Single Source of Truth!)
     // Backend already calculates overtime with all credits (sick, vacation, etc.)

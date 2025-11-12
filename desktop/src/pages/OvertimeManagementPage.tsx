@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Clock, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { useAllUsersOvertime } from '../hooks';
-import { formatHours, formatOvertimeHours } from '../utils';
+import { formatHours } from '../utils';
 
 export default function OvertimeManagementPage() {
   const currentYear = new Date().getFullYear();
