@@ -1,521 +1,145 @@
 # TimeTracking System - Claude AI Development Guidelines
 
 **Projekt:** Multi-User Zeiterfassungssystem
-**Offizieller Name:** "TimeTracking System"
 **Typ:** Tauri Desktop-App + Backend Server
-**Ziel:** Production-ready, intuitiv, privater Server, Multi-User fähig
-**Version:** 1.1
-**Letzte Aktualisierung:** 2025-11-10
-**CI/CD Status:** ✅ Vollständig automatisiert (GitHub Actions)
+**Version:** 1.2
+**CI/CD:** ✅ GitHub Actions (Auto-Deploy)
+**Letzte Aktualisierung:** 2025-11-12
 
 ---
 
-# 📋 KRITISCH: IMPLEMENTATION_PLAN.md IMMER AKTUELL HALTEN!
+# 🎯 KERN-PRINZIPIEN
 
-**PFLICHT bei JEDEM Task:**
-
-1. ✅ **VOR Beginn:** IMPLEMENTATION_PLAN.md lesen
-   - Welche Phase?
-   - Welche Tasks?
-   - Was sind Success Criteria?
-
-2. ✅ **WÄHREND der Arbeit:** Plan aktualisieren
-   - Tasks abhaken: `- [ ]` → `- [x]`
-   - Status ändern: `🔴 NOT STARTED` → `🟢 IN PROGRESS` → `✅ COMPLETE`
-   - Bei Abschluss: Commit Hash + Datum hinzufügen
-
-3. ✅ **NACH Abschluss:** Plan committen
-   ```bash
-   git add IMPLEMENTATION_PLAN.md
-   git commit -m "docs: Update Phase X status"
-   ```
-
-**Warum?**
-- 🎯 Überblick behalten (was ist schon gemacht?)
-- 🎯 User kann Fortschritt sehen
-- 🎯 Neue Chat-Sessions wissen, wo wir stehen
-- 🎯 Verhindert doppelte Arbeit
-
-**NIEMALS:**
-- ❌ Plan ignorieren und "frei" coden
-- ❌ Plan nicht aktualisieren nach Fertigstellung
-- ❌ Phasen überspringen ohne Grund
-
----
-
-# 🎯 OBERSTES PRINZIP: KEINE REGRESSION!
-
-**KRITISCH:** Funktionierende Features dürfen NIEMALS kaputt gehen!
+## 1. KEINE REGRESSION
+Funktionierende Features dürfen NIEMALS kaputt gehen!
 
 **Vor JEDER Änderung:**
-1. ✅ Verstehe den aktuellen Code vollständig
-2. ✅ Erstelle einen detaillierten Plan
-3. ✅ User reviewed den Plan
-4. ✅ Teste die Änderung gründlich
-5. ✅ Prüfe ob andere Features betroffen sind
+1. Plan erstellen → User Review → Implementation
+2. Tests schreiben & ausführen
+3. Manuelle Prüfung (Happy Path + Edge Cases)
 
-**NIEMALS:**
-- ❌ Direkt coden ohne Plan
-- ❌ Monolithische Rewrites
-- ❌ Code ändern ohne zu verstehen was er tut
-- ❌ Alte funktionierende Logik entfernen ohne Grund
+## 2. PLAN-FIRST APPROACH
+- ❌ **NIEMALS** direkt coden
+- ✅ **IMMER** Plan mit User reviewen
+- ✅ Bei Komplexität: "think hard" nutzen
 
----
-
-# 🤖 Workflow mit Claude (PLAN-FIRST APPROACH)
-
-## Phase-Start Workflow
-
-**IMMER diese Schritte befolgen:**
-
-```
-1. BRANCH ERSTELLEN
-   git checkout -b phase-X-feature-name
-
-2. CONTEXT SAMMELN
-   - Relevante Dateien lesen
-   - Dokumentation prüfen
-   - Abhängigkeiten verstehen
-
-3. PLAN ERSTELLEN (mit Extended Thinking!)
-   - User: "think hard" oder "think harder" verwenden
-   - Claude: Detaillierten Plan schreiben
-   - Plan enthält:
-     * Was wird gebaut?
-     * Warum so und nicht anders?
-     * Welche Dateien betroffen?
-     * Abhängigkeiten?
-     * Tests?
-     * Erfolgs-Kriterien?
-
-4. USER REVIEW
-   - Plan dem User vorlegen
-   - Auf Feedback warten
-   - Plan anpassen falls nötig
-
-5. IMPLEMENTATION
-   - Erst Backend (API, Business Logic, Database)
-   - Dann Frontend (Components, Hooks, State)
-   - Tests parallel schreiben
-
-6. REVIEW & TEST
-   - Code Review
-   - Manuelles Testing
-   - Edge Cases prüfen
-
-7. MERGE
-   git checkout main
-   git merge phase-X-feature-name
-   git branch -d phase-X-feature-name
-
-8. CONTEXT CLEAR
-   /clear
-```
-
-## Wann "think hard" / "think harder" nutzen?
-
-- ✅ **"think"** - Standard komplexe Aufgabe
-- ✅ **"think hard"** - Architektur-Entscheidungen, komplexe Business Logic
-- ✅ **"think harder"** - Kritische Sicherheits-Features, Performance-Optimierung
-- ✅ **"ultrathink"** - Sehr komplexe Algorithmen, Multi-System Integration
-
-## Sub-Agents nutzen
-
-**Wann Sub-Agents?**
-- Komplexe Multi-Step Workflows
-- Parallele Tasks (z.B. mehrere Reports gleichzeitig)
-- Spezialisierte Tasks (z.B. PDF-Generation, Chart-Erstellung)
-
-**Beispiel:**
-```
-User: "Erstelle Monats-Report mit PDF Export"
-Claude: Nutzt Sub-Agent für PDF-Generation
-        Haupt-Agent fokussiert auf Daten-Aggregation
-```
-
-## Context Management
-
-**KRITISCH:** Zwischen JEDER Phase `/clear` verwenden!
-
-**Warum?**
-- Verhindert Vermischung von Kontexten
-- Verhindert Regression (alte Infos beeinflussen neue Änderungen)
-- Sauberer Neustart
-
-**Wann `/clear`?**
-- ✅ Nach jeder abgeschlossenen Phase
-- ✅ Bei Wechsel zwischen verschiedenen Features
-- ✅ Nach größeren Debugging-Sessions
-- ✅ Wenn Konversation unübersichtlich wird
+## 3. IMPLEMENTATION_PLAN.md PFLICHT
+- VOR Beginn lesen
+- WÄHREND aktualisieren
+- NACH Abschluss committen
 
 ---
 
-# 🚀 CI/CD WORKFLOW (Production Deployment)
+# 🚀 CI/CD WORKFLOW (Vollautomatisch)
 
-**STATUS:** ✅ Vollständig automatisiert seit 2025-11-10
+## Production Deployment (Oracle Cloud)
 
-## Automatisches Deployment
-
-**WICHTIG:** Das Projekt hat eine vollständig automatisierte CI/CD Pipeline via GitHub Actions!
-
-### Was passiert bei `git push origin main`?
-
-1. **Automatische Tests (IMMER):**
-   - TypeScript Type Check (Server + Desktop)
-   - Security Audit (`npm audit`)
-   - Hardcoded URL Detection
-   - Config Validation
-
-2. **Automatisches Deployment (wenn `server/**` geändert):**
-   - SSH zu Oracle Cloud (129.159.8.19)
-   - Database Backup erstellen
-   - Git Pull latest code
-   - `npm ci` (Dependencies installieren)
-   - `npm run build` (TypeScript → JavaScript)
-   - PM2 Restart (Zero-Downtime)
-   - Health Check (http://localhost:3000/api/health)
-
-**Dauer:** ~2-3 Minuten
-**Status:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
-
----
-
-## Empfohlener Development Workflow
-
-### Option 1: Direkt auf main (für kleine Änderungen)
+**Trigger:** `git push origin main` (wenn `server/**` geändert)
 
 ```bash
-# 1. Änderungen machen
-code server/src/server.ts
+# Lokale Änderung
+vim server/src/server.ts
 
-# 2. Lokal testen
-./SIMPLE-START.sh
+# Committen & Pushen
+git add server/
+git commit -m "fix: Bug XYZ"
+git push origin main
 
-# 3. Committen & Pushen
-git add .
-git commit -m "fix: Bug XYZ gefixt"
-git push origin main  # ← Triggert automatisches Deployment!
-
-# 4. Status checken
-# https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+# → GitHub Actions deployed automatisch!
+# → Status: https://github.com/user/repo/actions
 ```
 
-### Option 2: Feature Branch (EMPFOHLEN für größere Änderungen)
+**Was passiert automatisch:**
+1. TypeScript Type Check
+2. Security Audit
+3. SSH zu Oracle Cloud (129.159.8.19)
+4. Database Backup
+5. `npm ci && npm run build`
+6. PM2 Zero-Downtime Restart
+7. Health Check
 
+**Monitoring:**
 ```bash
-# 1. Branch erstellen
-git checkout -b feature/neue-funktion
-
-# 2. Änderungen machen
-code server/src/server.ts
-
-# 3. Lokal testen
-./SIMPLE-START.sh
-
-# 4. Committen (mehrere Commits OK!)
-git add .
-git commit -m "feat: Teil 1 fertig"
-git add .
-git commit -m "feat: Teil 2 fertig"
-
-# 5. Branch pushen (KEIN Deployment!)
-git push origin feature/neue-funktion
-
-# 6. Wenn alles funktioniert: Merge zu main
-git checkout main
-git merge feature/neue-funktion
-git push origin main  # ← JETZT deployt GitHub Actions!
-
-# 7. Branch löschen
-git branch -d feature/neue-funktion
-```
-
----
-
-## Was wurde automatisiert?
-
-### ✅ Server Deployment
-- **Trigger:** Push zu `main` wenn `server/**` geändert
-- **Workflow:** `.github/workflows/deploy-server.yml`
-- **Ziel:** Oracle Cloud Server (ubuntu@129.159.8.19)
-- **Features:**
-  - Database Backup vor jedem Deployment
-  - Zero-Downtime Restart (PM2)
-  - Automatischer Health Check
-  - Rollback bei Fehler
-
-### ✅ Automated Testing
-- **Trigger:** Push zu `main` (immer)
-- **Workflow:** `.github/workflows/test.yml`
-- **Tests:**
-  - TypeScript kompiliert fehlerfrei?
-  - Keine High/Critical Security Vulnerabilities?
-  - Keine hardcoded `localhost:3000` URLs?
-  - Environment Files vorhanden?
-  - Tauri Config korrekt?
-
-### ✅ Desktop App Releases
-- **Trigger:** Git Tag (z.B. `git tag v1.0.8`)
-- **Workflow:** `.github/workflows/release.yml`
-- **Output:** Windows `.exe`, macOS `.app`, Linux `.AppImage`
-- **Auto-Update:** Desktop-Apps laden Updates automatisch
-
----
-
-## Monitoring & Status
-
-### GitHub Actions Logs
-```
-https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
-```
-
-- **Grüner Haken ✅** = Deployment erfolgreich
-- **Rotes X ❌** = Fehler (klicken für Details)
-- **Gelber Kreis 🟡** = Läuft noch...
-
-### Server Health Check
-```bash
-# Browser:
+# Health Check
 http://129.159.8.19:3000/api/health
 
-# Erwartete Antwort:
-{"status":"ok","database":"connected"}
-```
-
-### Server Status (SSH)
-```bash
-ssh -i "ssh-key.key" ubuntu@129.159.8.19
-
-# PM2 Status
-pm2 status
-
-# Logs anzeigen
+# Server Logs (SSH)
+ssh ubuntu@129.159.8.19
 pm2 logs timetracking-server --lines 50
-
-# Server neu starten (falls nötig)
-pm2 restart timetracking-server
 ```
 
 ---
 
-## Was musst du NIEMALS mehr tun:
+## Desktop App Releases
 
-- ❌ Manuell SSH zu Oracle Cloud
-- ❌ Manuell `git pull` auf Server
-- ❌ Manuell `npm install` auf Server
-- ❌ Manuell `npm run build` auf Server
-- ❌ Manuell `pm2 restart` auf Server
-- ❌ `./deploy-to-oracle.sh` Script ausführen
+### ⚠️ KRITISCHE REGEL (Race Condition Fix)
 
-**Alles läuft automatisch nach `git push origin main`!**
+**Problem:** Tauri Action mit Matrix-Builds → Race Condition → Kein Release!
 
----
-
-## Troubleshooting
-
-### Deployment fehlgeschlagen ❌
-
-1. **Logs checken:**
-   - https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
-   - Klicke auf den fehlgeschlagenen Run
-   - Klicke auf "Deploy to Oracle Cloud via SSH"
-
-2. **Häufige Fehler:**
-   - **"Build failed"** → TypeScript Fehler im Code
-   - **"Health check failed"** → Server crashed nach Deployment
-   - **"Cannot find module"** → Dependency fehlt in `package.json`
-   - **"Permission denied"** → SSH Key Problem (sehr unwahrscheinlich)
-
-3. **Manueller Rollback (falls nötig):**
-   ```bash
-   ssh -i "ssh-key.key" ubuntu@129.159.8.19
-   cd /home/ubuntu/TimeTracking-Clean
-
-   # Zeige letzte Commits
-   git log -5
-
-   # Checkout vorherigen Commit
-   git checkout <vorheriger-commit-hash>
-
-   # Rebuild
-   cd server
-   npm ci
-   npm run build
-   pm2 restart timetracking-server
-   ```
-
----
-
-## Desktop App Release erstellen
-
-### Neuen Release mit Auto-Update:
+**LÖSUNG (Best Practice):**
 
 ```bash
-# 1. Version bumpen in beiden Dateien:
-# - desktop/package.json: "version": "1.0.8"
-# - desktop/src-tauri/Cargo.toml: version = "1.0.8"
+# 1. Release MANUELL erstellen (VOR Tag!)
+gh release create v1.0.9 \
+  --title "TimeTracking System v1.0.9" \
+  --notes "Release Notes..."
 
-# 2. Committen
-git add desktop/package.json desktop/src-tauri/Cargo.toml
-git commit -m "release: v1.0.8 - Neue Features"
+# 2. DANN Tag pushen
+git tag v1.0.9
+git push origin v1.0.9
 
-# 3. Git Tag erstellen
-git tag v1.0.8
-git push origin v1.0.8  # ← Triggert Release-Workflow!
-
-# 4. Warten (~15-20 Minuten)
-# GitHub Actions baut für Windows, macOS, Linux
-# Release wird automatisch veröffentlicht
-
-# 5. Desktop-Apps laden Update automatisch!
+# → Workflow uploaded Binaries zu BESTEHENDEM Release
 ```
+
+**NIEMALS:**
+- ❌ Tag pushen ohne Release zu erstellen
+- ❌ Darauf verlassen dass Tauri Action Release erstellt
+
+**Warum?**
+- Matrix-Builds (4 Plattformen parallel)
+- Alle Jobs versuchen gleichzeitig Release zu erstellen
+- Ergebnis: Kein Release, aber Build erfolgreich ❌
 
 ---
 
-## Dokumentation
+# 🗄️ DATABASE REGELN
 
-- **CI/CD Setup:** `.github/CI-CD-SETUP-COMPLETE.md`
-- **Quick Setup:** `.github/QUICK-SETUP-SECRETS.md`
-- **SSH Key Fix:** `.github/FIX-SSH-KEY.md`
-- **GitHub Actions:** `.github/workflows/`
+## Eine Datenbank (PFLICHT!)
+- ✅ Nur: `server/database.db`
+- ❌ NIEMALS weitere DB-Dateien
 
----
-
-# 🏗️ Architektur-Prinzipien
-
-## SOLID Principles (PFLICHT!)
-
-### S - Single Responsibility Principle
+## WAL Mode (Multi-User)
 ```typescript
-// ✅ RICHTIG - Eine Verantwortung
-class UserService {
-  createUser(data: UserData): User { }
-  updateUser(id: number, data: UserData): User { }
-  deleteUser(id: number): void { }
-}
-
-// ❌ FALSCH - Zu viele Verantwortungen
-class UserService {
-  createUser() { }
-  sendWelcomeEmail() { }  // Email-Service Aufgabe!
-  generatePdfReport() { }  // Report-Service Aufgabe!
-}
+db.pragma('journal_mode = WAL');
 ```
 
-### O - Open/Closed Principle
-- Offen für Erweiterung
-- Geschlossen für Änderung
-
-### L - Liskov Substitution Principle
-- Subtypen müssen austauschbar sein
-
-### I - Interface Segregation
-- Kleine, spezifische Interfaces
-- Nicht ein großes "God Interface"
-
-### D - Dependency Inversion
-- Abhängigkeiten zu Abstraktionen, nicht Konkretionen
-
-## DRY (Don't Repeat Yourself)
-
-```typescript
-// ✅ RICHTIG - Wiederverwendbare Funktion
-function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-// ❌ FALSCH - Code-Duplikation
-// date.toISOString().split('T')[0]  <- 10x im Code
-```
-
-## YAGNI (You Aren't Gonna Need It)
-
-**Nur bauen, was JETZT gebraucht wird!**
-
-```typescript
-// ✅ RICHTIG - Simple Lösung für aktuelles Problem
-interface User {
-  id: number;
-  name: string;
-  email: string;
-}
-
-// ❌ FALSCH - Spekulativ für Zukunft
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  socialMediaProfiles?: SocialMedia[];  // Nicht gebraucht!
-  preferences?: UserPreferences;         // Nicht gebraucht!
-  gamificationPoints?: number;          // Nicht gebraucht!
-}
-```
-
-## Clean Architecture Layers
-
-```
-┌─────────────────────────────────────┐
-│  UI Layer (React Components)        │ ← Presentation
-├─────────────────────────────────────┤
-│  State (TanStack Query + Zustand)   │ ← State Management
-├─────────────────────────────────────┤
-│  API Client (Typed Endpoints)       │ ← Communication
-├─────────────────────────────────────┤
-│  REST API (Express Routes)          │ ← API Layer
-├─────────────────────────────────────┤
-│  Services (Business Logic)          │ ← Business Rules
-├─────────────────────────────────────┤
-│  Data Access (DB Queries)            │ ← Data Layer
-├─────────────────────────────────────┤
-│  Database (SQLite + WAL)             │ ← Persistence
-└─────────────────────────────────────┘
-```
-
-**Dependency Rule:** Dependencies zeigen immer NACH INNEN!
-- UI kennt Services, aber Services kennen NICHT UI
-- Services kennen Database, aber Database kennt NICHT Services
-
----
-
-# 💻 Code-Qualitäts-Regeln
-
-## TypeScript Strict Mode (PFLICHT!)
-
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
-  }
-}
-```
-
-### NIEMALS `any` verwenden!
-
+## Prepared Statements (SQL Injection Schutz)
 ```typescript
 // ✅ RICHTIG
-function processUser(user: User): void { }
+const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
 
 // ❌ FALSCH
-function processUser(user: any): void { }
-
-// ✅ Wenn Typ unklar: unknown
-function processData(data: unknown): void {
-  if (typeof data === 'string') {
-    // Type guard
-  }
-}
+const user = db.prepare(`SELECT * FROM users WHERE id = ${userId}`).get();
 ```
 
-## Defensive Programming (KRITISCH!)
+## Soft Delete
+```sql
+UPDATE users SET deletedAt = datetime('now') WHERE id = ?;
+-- NICHT: DELETE FROM users WHERE id = ?;
+```
 
+---
+
+# 💻 CODE-QUALITÄT
+
+## TypeScript Strict Mode (PFLICHT!)
+- ❌ **NIEMALS** `any` verwenden
+- ✅ `unknown` wenn Typ unklar
+- ✅ Type Guards nutzen
+
+## Defensive Programming
 ```typescript
-// ✅ RICHTIG - Null-Checks, Optional Chaining, Defaults
+// ✅ RICHTIG - Optional Chaining + Defaults
 const totalHours = timeEntries
   ?.filter(e => e.userId === userId)
   ?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0;
@@ -526,1027 +150,155 @@ const totalHours = timeEntries
   .reduce((sum, entry) => sum + entry.hours, 0);
 ```
 
-### IMMER:
-- ✅ Optional Chaining (`?.`)
-- ✅ Nullish Coalescing (`??`)
-- ✅ Default Values (`|| 0`, `?? 'default'`)
-- ✅ Array/String Length Checks
-- ✅ Try-Catch für async Operationen
-
 ## Error Handling (PFLICHT!)
-
 ```typescript
-// ✅ RICHTIG - Comprehensive Error Handling
 async function createUser(data: UserData): Promise<User> {
   try {
     // Validation
     if (!data.email?.trim()) {
-      throw new Error('Email is required');
+      throw new Error('Email required');
     }
 
     // Business Logic
     const user = await db.createUser(data);
-
-    if (!user) {
-      throw new Error('Failed to create user');
-    }
+    if (!user) throw new Error('Failed to create user');
 
     return user;
   } catch (error) {
-    console.error('❌ Error creating user:', error);
+    console.error('❌ Error:', error);
     throw error; // Re-throw für API Handler
   }
 }
-
-// ❌ FALSCH - Kein Error Handling
-async function createUser(data: UserData): Promise<User> {
-  const user = await db.createUser(data);
-  return user;
-}
-```
-
-## Naming Conventions
-
-```typescript
-// ✅ RICHTIG - Klare, beschreibende Namen
-
-// Variablen: camelCase, beschreibend
-const userVacationDays = 30;
-const isAdminUser = user.role === 'admin';
-
-// Funktionen: camelCase, Verben
-function calculateOvertimeHours(entries: TimeEntry[]): number { }
-function validateTimeEntry(entry: TimeEntry): boolean { }
-
-// Interfaces: PascalCase
-interface User { }
-interface TimeEntry { }
-interface VacationRequest { }
-
-// Types: PascalCase
-type UserRole = 'admin' | 'employee';
-type TimeEntryStatus = 'pending' | 'approved';
-
-// Constants: UPPER_SNAKE_CASE
-const MAX_VACATION_DAYS = 30;
-const DEFAULT_WEEKLY_HOURS = 40;
-
-// ❌ FALSCH - Unklare Namen
-const x = 30;
-const flag = true;
-function calc(e) { }
-```
-
-## Code Struktur
-
-```typescript
-// ✅ RICHTIG - Klare Struktur
-
-export default function Component() {
-  // 1. Hooks (useState, useMemo, useQuery, etc.)
-  const [state, setState] = useState();
-  const { data } = useQuery();
-
-  // 2. Berechnungen (useMemo, useCallback)
-  const computed = useMemo(() => { ... }, [deps]);
-
-  // 3. Event Handler
-  const handleClick = useCallback(() => { ... }, [deps]);
-
-  // 4. Effects (useEffect)
-  useEffect(() => { ... }, [deps]);
-
-  // 5. Return JSX
-  return (
-    <div>...</div>
-  );
-}
 ```
 
 ---
 
-# 🗄️ Database-Regeln
-
-## Eine einzige Datenbank (PFLICHT!)
-
-- ✅ **Nur:** `server/database.db`
-- ❌ **NIEMALS:** Weitere DB-Dateien erstellen
-- ❌ **NIEMALS:** Alternative DB-Pfade verwenden
-
-## SQLite WAL Mode (PFLICHT!)
-
-```typescript
-// IMMER aktivieren für Multi-User Support
-db.pragma('journal_mode = WAL');
-```
-
-## Prepared Statements (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - SQL Injection sicher
-const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-
-// ❌ FALSCH - SQL Injection möglich
-const user = db.prepare(`SELECT * FROM users WHERE id = ${userId}`).get();
-```
-
-## Foreign Keys (PFLICHT!)
-
-```sql
--- IMMER Foreign Keys nutzen für Integrität
-CREATE TABLE time_entries (
-  id INTEGER PRIMARY KEY,
-  userId INTEGER NOT NULL,
-  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
-## Soft Delete
-
-```sql
--- IMMER soft delete nutzen (deletedAt statt DELETE)
-UPDATE users SET deletedAt = datetime('now') WHERE id = ?;
-
--- NICHT:
-DELETE FROM users WHERE id = ?;
-```
-
----
-
-# 🧪 Testing-Strategie
-
-## Test-Driven Development (TDD)
-
-**Workflow:**
-```
-1. Test schreiben (Red)
-2. Code schreiben (Green)
-3. Refactor (Clean)
-```
-
-## Was testen?
-
-- ✅ **Business Logic** (Services)
-- ✅ **API Endpoints** (Request/Response)
-- ✅ **Berechnungen** (Überstunden, Urlaubstage)
-- ✅ **Edge Cases** (null, undefined, empty arrays)
-- ✅ **Validation** (falsche Eingaben)
-
-## Manuelles Testing (PFLICHT!)
-
-**Vor jedem Merge:**
-- ✅ Happy Path durchspielen
-- ✅ Edge Cases testen
-- ✅ Multi-User Szenario
-- ✅ Browser Console checken (keine Errors)
-- ✅ Network Tab checken (API Calls OK)
-
----
-
-# 🔒 Sicherheits-Regeln
-
-## Authentication & Authorization
-
-```typescript
-// ✅ Passwort Hashing
-import bcrypt from 'bcrypt';
-const hashedPassword = await bcrypt.hash(password, 10);
-
-// ✅ Session-based Auth
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,    // XSS Protection
-    secure: true,      // HTTPS only (production)
-    sameSite: 'strict', // CSRF Protection
-    maxAge: 24 * 60 * 60 * 1000 // 24h
-  }
-}));
-
-// ✅ Auth Middleware
-const requireAuth = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-};
-
-// ✅ Role-based Access
-const requireAdmin = (req, res, next) => {
-  if (req.session.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  next();
-};
-```
-
-## Input Validation (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - Backend UND Frontend validieren
-
-// Backend
-app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
-  const { email, password, firstName } = req.body;
-
-  // Validation
-  if (!email?.trim() || !email.includes('@')) {
-    return res.status(400).json({ error: 'Invalid email' });
-  }
-
-  if (!password || password.length < 8) {
-    return res.status(400).json({ error: 'Password too short' });
-  }
-
-  if (!firstName?.trim()) {
-    return res.status(400).json({ error: 'First name required' });
-  }
-
-  // ... rest
-});
-
-// Frontend
-if (!formData.email?.trim() || !formData.email.includes('@')) {
-  toast.error('Ungültige E-Mail');
-  return;
-}
-```
-
-## NIEMALS:
-
-- ❌ Passwörter im Klartext speichern
-- ❌ Session-Secrets hardcoden
-- ❌ API-Keys im Frontend
-- ❌ Sensitive Daten in Logs
-- ❌ SQL ohne Prepared Statements
-
----
-
-# 🎨 UI/UX Regeln
-
-## Tailwind CSS (PFLICHT!)
-
-```tsx
-// ✅ RICHTIG - Tailwind Utility Classes
-<button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-  Speichern
-</button>
-
-// ❌ FALSCH - Inline Styles
-<button style={{ padding: '8px 16px', background: '#2563eb' }}>
-  Speichern
-</button>
-```
-
-## Dark Mode Support (IMMER!)
-
-```tsx
-// ✅ RICHTIG - Dark Mode Varianten
-<div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-  Content
-</div>
-```
-
-## Responsive Design (PFLICHT!)
-
-```tsx
-// ✅ RICHTIG - Mobile-first, dann Desktop
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-  {/* Mobile: 1 Spalte, Tablet: 2, Desktop: 3 */}
-</div>
-```
-
-## Loading & Error States
-
-```tsx
-// ✅ RICHTIG - Immer Loading/Error States
-function Component() {
-  const { data, isLoading, error } = useQuery(...);
-
-  if (isLoading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage error={error} />;
-  if (!data?.length) return <EmptyState />;
-
-  return <DataTable data={data} />;
-}
-```
-
-## Accessibility (PFLICHT!)
-
-```tsx
-// ✅ RICHTIG - ARIA Labels, Keyboard Navigation
-<button
-  aria-label="Delete user"
-  onClick={handleDelete}
-  className="..."
->
-  <TrashIcon />
-</button>
-
-<input
-  type="email"
-  aria-required="true"
-  aria-invalid={!!error}
-  aria-describedby="email-error"
-/>
-{error && <span id="email-error">{error}</span>}
-```
-
----
-
-# 🌐 API Design
-
-## RESTful Endpoints (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - Standard REST
-GET    /api/users              // Liste
-GET    /api/users/:id          // Einzeln
-POST   /api/users              // Erstellen
-PUT    /api/users/:id          // Update (vollständig)
-PATCH  /api/users/:id          // Update (partial)
-DELETE /api/users/:id          // Löschen
-
-// ❌ FALSCH - Inkonsistent
-POST /api/getUsers
-POST /api/updateUser
-POST /api/deleteUser
-```
-
-## Response-Struktur (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - Konsistent
-// Success
-res.json({
-  success: true,
-  data: result
-});
-
-// Error
-res.status(400).json({
-  success: false,
-  error: 'Error message'
-});
-
-// ❌ FALSCH - Inkonsistent
-res.json(result);
-res.send('Error');
-```
-
-## HTTP Status Codes
-
-```typescript
-// ✅ RICHTIG
-200 OK              // Success (GET, PUT, PATCH)
-201 Created         // Success (POST)
-204 No Content      // Success (DELETE)
-400 Bad Request     // Validation Error
-401 Unauthorized    // Not logged in
-403 Forbidden       // Logged in, but no permission
-404 Not Found       // Resource doesn't exist
-500 Server Error    // Unexpected error
-```
-
----
-
-# 📦 State Management
-
-## TanStack Query für Server-State (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - Server-Daten mit TanStack Query
-export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const response = await fetch('/api/users', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-}
-
-// ❌ FALSCH - useState + useEffect für Server-Daten
-const [users, setUsers] = useState([]);
-useEffect(() => {
-  fetch('/api/users').then(r => r.json()).then(setUsers);
-}, []);
-```
-
-## Zustand für UI-State (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - UI State in Zustand
-import { create } from 'zustand';
-
-const useUIStore = create((set) => ({
-  sidebarOpen: true,
-  currentView: 'dashboard',
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setCurrentView: (view) => set({ currentView: view }),
-}));
-
-// ❌ FALSCH - Server-Daten in Zustand
-const useDataStore = create((set) => ({
-  users: [],
-  fetchUsers: async () => { ... } // NEIN! TanStack Query nutzen!
-}));
-```
-
----
-
-# 📅 Datums-Handling
-
-## Manuelle ISO-Formatierung (PFLICHT!)
-
-```typescript
-// ✅ RICHTIG - Timezone-safe
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// ❌ FALSCH - Timezone-Bug durch UTC
-const dateString = date.toISOString().split('T')[0];
-```
-
-## date-fns nutzen (empfohlen)
-
-```typescript
-import { format, parseISO, addDays } from 'date-fns';
-
-const formatted = format(new Date(), 'yyyy-MM-dd');
-const parsed = parseISO('2025-10-30');
-const tomorrow = addDays(new Date(), 1);
-```
-
----
-
-# 🖥️ Tauri Desktop-App (KRITISCH!)
-
-## Architektur: Desktop-App + Server
-
-**WICHTIG:** Dies ist KEINE Electron-App! Tauri ist moderner, kleiner, schneller.
-
-**Struktur:**
-- **Desktop-Apps** (Windows .exe, macOS .app, Linux .AppImage) → **Clients**
-- **Server** (Node.js + Express + SQLite) → **Zentrale Datenhaltung**
-- **Multi-User:** Mehrere Desktop-Apps verbinden sich zum selben Server
-
-**Vorteile:**
-- Desktop-Apps: ~10 MB (Electron: ~100 MB)
-- RAM-Verbrauch: ~50 MB (Electron: ~200 MB)
-- Native Performance (Rust Backend)
-- System Tray Integration
-- Native Notifications
-- Auto-Update System (Built-in)
-
-## Tauri Commands (PFLICHT!)
-
-**NIEMALS direkt fetch() verwenden! Immer Tauri invoke()!**
-
-**Rust Side (src-tauri/src/main.rs):**
-```rust
-use tauri::command;
-
-#[command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-```
-
-**Frontend Side (React/TypeScript):**
-```typescript
-import { invoke } from '@tauri-apps/api/core';
-
-// ✅ RICHTIG - Tauri Command
-async function fetchServerUrl(): Promise<string> {
-  try {
-    const url = await invoke<string>('get_server_url');
-    return url;
-  } catch (error) {
-    console.error('Failed to get server URL:', error);
-    throw error;
-  }
-}
-```
-
-## System Tray (PFLICHT!)
-
-**App MUSS im System Tray laufen können!**
-
-**Rust Side (src-tauri/src/tray.rs):**
-```rust
-use tauri::{AppHandle, CustomMenuItem, SystemTray, SystemTrayEvent, SystemTrayMenu};
-
-pub fn create_tray() -> SystemTray {
-    let quit = CustomMenuItem::new("quit".to_string(), "Beenden");
-    let show = CustomMenuItem::new("show".to_string(), "Anzeigen");
-    let tray_menu = SystemTrayMenu::new()
-        .add_item(show)
-        .add_item(quit);
-
-    SystemTray::new().with_menu(tray_menu)
-}
-
-pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::LeftClick { .. } => {
-            let window = app.get_window("main").unwrap();
-            window.show().unwrap();
-            window.set_focus().unwrap();
-        }
-        SystemTrayEvent::MenuItemClick { id, .. } => {
-            match id.as_str() {
-                "quit" => {
-                    std::process::exit(0);
-                }
-                "show" => {
-                    let window = app.get_window("main").unwrap();
-                    window.show().unwrap();
-                }
-                _ => {}
-            }
-        }
-        _ => {}
-    }
-}
-```
-
-## Native Notifications (PFLICHT!)
-
-**NIEMALS Browser-Notifications! Immer Tauri Notifications!**
-
-```typescript
-import { sendNotification } from '@tauri-apps/api/notification';
-
-// ✅ RICHTIG - Tauri Notification
-async function notifyUser(title: string, body: string) {
-  await sendNotification({
-    title,
-    body,
-    icon: '/icons/icon.png'
-  });
-}
-
-// Beispiel: Abwesenheitsanfrage genehmigt
-notifyUser(
-  'Urlaubsantrag genehmigt',
-  'Dein Urlaub vom 01.11. - 05.11. wurde genehmigt.'
-);
-```
-
-## Window Management
-
-```typescript
-import { appWindow } from '@tauri-apps/api/window';
-
-// Fenster minimieren
-await appWindow.minimize();
-
-// Fenster maximieren
-await appWindow.maximize();
-
-// Fenster schließen (versteckt es nur, beendet nicht die App!)
-await appWindow.hide();
-
-// App komplett beenden
-import { exit } from '@tauri-apps/api/process';
-await exit(0);
-```
-
-## Tauri Configuration (tauri.conf.json)
-
-**KRITISCHE Einstellungen:**
-
-```json
-{
-  "package": {
-    "productName": "Stiftung der DPolG TimeTracker",
-    "version": "1.0.0"
-  },
-  "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "window": {
-        "all": true
-      },
-      "notification": {
-        "all": true
-      },
-      "fs": {
-        "all": false,
-        "readFile": true,
-        "writeFile": true
-      }
-    },
-    "bundle": {
-      "identifier": "com.dpolg-stiftung.timetracker",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ]
-    },
-    "systemTray": {
-      "iconPath": "icons/icon.png"
-    },
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/user/repo/releases/latest/download/latest.json"
-      ],
-      "dialog": true,
-      "pubkey": "YOUR_PUBLIC_KEY_HERE"
-    },
-    "windows": [
-      {
-        "title": "Stiftung der DPolG TimeTracker",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 1024,
-        "minHeight": 600,
-        "resizable": true,
-        "fullscreen": false
-      }
-    ]
-  }
-}
-```
-
-## Desktop-Specific Features
-
-**System Tray:**
-- App läuft im Hintergrund weiter
-- Klick auf Tray Icon → Fenster zeigen
-- Rechtsklick → Kontext-Menü
-
-**Keyboard Shortcuts:**
-```typescript
-import { register } from '@tauri-apps/api/globalShortcut';
-
-// Globale Shortcuts registrieren
-await register('CommandOrControl+Shift+T', () => {
-  appWindow.show();
-  appWindow.setFocus();
-});
-```
-
-**File System Access:**
-```typescript
-import { open, save } from '@tauri-apps/api/dialog';
-import { writeTextFile } from '@tauri-apps/api/fs';
-
-// Datei-Dialog öffnen (für CSV Export)
-const filePath = await save({
-  defaultPath: `bericht_${format(new Date(), 'yyyy-MM-dd')}.csv`,
-  filters: [{
-    name: 'CSV',
-    extensions: ['csv']
-  }]
-});
-
-if (filePath) {
-  await writeTextFile(filePath, csvContent);
-}
-```
-
-## NIEMALS:
-
-- ❌ Browser-spezifische APIs verwenden (window.open, alert, confirm)
-- ❌ localStorage für sensible Daten (nutze Tauri Store)
-- ❌ Direct fetch() zu externen APIs (nutze Tauri Commands)
-- ❌ Browser Notifications (nutze Tauri Notifications)
-- ❌ window.location (nutze Tauri Router)
-- ❌ **KRITISCH: `fetch()` direkt verwenden - IMMER `universalFetch` nutzen!**
-
-## IMMER:
-
-- ✅ Tauri Commands für Backend-Kommunikation
-- ✅ Tauri Notifications für System-Benachrichtigungen
-- ✅ System Tray Integration
-- ✅ Native File Dialogs
-- ✅ Keyboard Shortcuts
-- ✅ Auto-Update aktivieren
-- ✅ **KRITISCH: `universalFetch` für ALLE API-Calls (Session-Cookies!)**
+# 🖥️ TAURI DESKTOP-APP (KRITISCH!)
+
+## Architektur
+- Desktop-Apps (Windows .exe, macOS .app, Linux .AppImage) = Clients
+- Server (Node.js + SQLite) = Zentrale Datenhaltung
+- Multi-User: Mehrere Apps → Ein Server
 
 ## API-Calls & Session-Management (KRITISCH!)
 
-**PROBLEM:** Browser `fetch()` sendet keine Session-Cookies bei Cross-Origin Requests (localhost:1420 → localhost:3000)
+**PROBLEM:** Browser `fetch()` sendet keine Session-Cookies bei Cross-Origin!
 
-**LÖSUNG:** IMMER `universalFetch` verwenden!
+**LÖSUNG:** `universalFetch` verwenden!
 
 ```typescript
-// ❌ FALSCH - Session-Cookies gehen verloren!
+// ❌ FALSCH - Session-Cookies gehen verloren
 const response = await fetch('http://localhost:3000/api/exports/datev', {
   credentials: 'include'
 });
 
-// ✅ RICHTIG - Session-Cookies werden korrekt gehandhabt!
+// ✅ RICHTIG - Korrekte Cookie-Handhabung
 import { universalFetch } from '../lib/tauriHttpClient';
 
 const response = await universalFetch('http://localhost:3000/api/exports/datev', {
   credentials: 'include',
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  headers: { 'Content-Type': 'application/json' }
 });
 ```
 
 **Warum `universalFetch`?**
-- Nutzt Tauri HTTP Plugin in Desktop-App (korrekte Cookie-Handhabung)
+- Nutzt Tauri HTTP Plugin in Desktop-App
 - Nutzt Browser `fetch()` im Browser (fallback)
 - Handled Session-Cookies korrekt bei Cross-Origin
 - Definiert in `src/lib/tauriHttpClient.ts`
 
-**Regel:** Wenn du jemals `await fetch(` siehst, ersetze es SOFORT mit `universalFetch`!
+**REGEL:** Wenn du `await fetch(` siehst → SOFORT ersetzen mit `universalFetch`!
 
----
+## apiClient (Bereits konfiguriert!)
 
-# 🔄 WebSocket (Real-time Updates)
-
-## Exponential Backoff (PFLICHT!)
+Der `apiClient` nutzt bereits `universalFetch` mit `credentials: 'include'`:
 
 ```typescript
-// ✅ RICHTIG - Mit Max Attempts + Backoff
-let reconnectAttempts = 0;
-const maxReconnectAttempts = 10;
-
-ws.onclose = () => {
-  if (reconnectAttempts < maxReconnectAttempts) {
-    reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-    setTimeout(() => connect(), delay);
-  }
-};
-
-ws.onopen = () => {
-  reconnectAttempts = 0; // Reset on success
-};
-
-// ❌ FALSCH - Sofort reconnect (Infinite Loop!)
-ws.onclose = () => {
-  connect();
-};
+// src/api/client.ts
+const response = await universalFetch(url, {
+  ...options,
+  credentials: 'include', // ✅ Bereits konfiguriert!
+  headers: {
+    'Content-Type': 'application/json',
+    ...options?.headers,
+  },
+});
 ```
 
----
+**ABER:** Direkte `universalFetch` Calls brauchen manuelles `credentials: 'include'`!
 
-# 🚫 VERBOTE (NIEMALS TUN!)
-
-## Code
-
-- ❌ **any** Type verwenden
-- ❌ Code kopieren/duplizieren (DRY!)
-- ❌ Inline Styles (Tailwind nutzen!)
-- ❌ console.log in Production lassen
-- ❌ Hardcoded Values (Constants nutzen!)
-- ❌ Passwörter/Secrets im Code
-
-## Database
-
-- ❌ Neue DB-Dateien erstellen
-- ❌ SQL Injection (IMMER Prepared Statements!)
-- ❌ Hard Delete (Soft Delete nutzen!)
-- ❌ Ohne Foreign Keys arbeiten
-
-## Workflow
-
-- ❌ Direkt coden ohne Plan
-- ❌ Auf main branch arbeiten
-- ❌ Commits ohne Beschreibung
-- ❌ Mergen ohne Testing
-- ❌ Context nicht clearen zwischen Phasen
-
-## Sicherheit
-
-- ❌ Passwörter Klartext
-- ❌ Input nicht validieren
-- ❌ Auth/Authorization vergessen
-- ❌ Session-Secrets hardcoden
-- ❌ HTTPS in Production weglassen
+## VERBOTE
+- ❌ Browser-APIs (window.open, alert, confirm)
+- ❌ localStorage für sensible Daten
+- ❌ Direct `fetch()` (immer `universalFetch`!)
+- ❌ Browser Notifications (Tauri Notifications nutzen!)
 
 ---
 
-# ✅ PRE-COMMIT CHECKLISTE
+# 📊 ÜBERSTUNDEN-BERECHNUNG (Best Practice)
 
-**Vor JEDEM Commit:**
+**KRITISCH:** Diese Regeln entsprechen HR-Systemen (Personio, DATEV, SAP)
 
-- [ ] TypeScript kompiliert ohne Fehler (`tsc`)
-- [ ] Keine `any` Types verwendet
-- [ ] Error Handling implementiert
-- [ ] Null-Checks für Arrays/Strings/Objects
-- [ ] Dark Mode Styles hinzugefügt
-- [ ] Responsive Design getestet
-- [ ] Loading/Error States vorhanden
-- [ ] Debug console.logs entfernt
-- [ ] Konsistente Namensgebung
-- [ ] Keine hardcoded Secrets
-- [ ] Keine SQL ohne Prepared Statements
-- [ ] Input Validation (Backend + Frontend)
-- [ ] Tests geschrieben (falls nötig)
-- [ ] Manuell getestet (Happy Path + Edge Cases)
-- [ ] Browser Console: Keine Errors
-- [ ] Git Diff reviewed
-
----
-
-# 📊 Logging-Konventionen
-
-```typescript
-// ✅ RICHTIG - Strukturiert mit Emoji-Prefix
-console.log('✅ Database connected:', dbPath);
-console.error('❌ API Error:', error);
-console.warn('⚠️ Deprecated feature:', feature);
-console.log('🔄 Reconnecting...', attempt);
-console.log('📊 Stats:', { users: 10, entries: 50 });
-
-// ❌ FALSCH - Unstrukturiert
-console.log('connected');
-console.log(error);
-```
-
----
-
-# 🎯 Projekt-spezifische Regeln
-
-## Tech Stack (NICHT ÄNDERN!)
-
-- **Frontend:** React 18 + TypeScript + Vite + TanStack Query + Zustand + Tailwind
-- **Backend:** Node.js 20 + Express + TypeScript + SQLite
-- **Database:** SQLite mit WAL Mode
-- **Real-time:** WebSocket (ws library)
-
-## Database Schema
-
-**11 Tabellen (siehe IMPLEMENTATION_PLAN.md):**
-1. users
-2. time_entries
-3. absence_requests
-4. vacation_balance
-5. overtime_balance
-6. departments
-7. projects
-8. activities
-9. holidays
-10. notifications
-11. audit_log
-
-## Features
-
-**Siehe IMPLEMENTATION_PLAN.md für komplette Liste**
-
-Kern-Features:
-- Manuelle Zeiterfassung + Pausen
-- Urlaubs-/Krankheitsverwaltung
-- Überstunden-Tracking
-- Admin-Dashboard
-- Mitarbeiter-Dashboard
-- Kalender (Monat/Woche/Jahr)
-- Reports & Export (PDF/CSV)
-- Benachrichtigungen
-
-## Überstunden-Berechnung (Best Practice!)
-
-**KRITISCH:** Diese Regeln entsprechen professionellen HR-Systemen (Personio, DATEV, SAP)
-
-### Grundformel (UNVERÄNDERLICH!)
-
+## Grundformel (UNVERÄNDERLICH!)
 ```
 Überstunden = Ist-Stunden - Soll-Stunden
 ```
 
-**NIEMALS anders berechnen!** Diese Formel ist der Standard in ALLEN professionellen Systemen.
+**NIEMALS anders berechnen!** Standard in ALLEN professionellen Systemen.
 
-### Referenz-Datum (IMMER HEUTE!)
-
+## Referenz-Datum (IMMER HEUTE!)
 ```typescript
-// ✅ RICHTIG - Heute ist INKLUSIVE
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-// Berechne working days FROM hireDate TO today (BEIDE inklusive!)
+// Arbeits tage FROM hireDate TO today (BEIDE inklusive!)
 const workingDays = countWorkingDaysBetween(hireDate, today);
 ```
 
 **Beispiel:**
-- Eintrittsdatum: 07.11.2025 (Donnerstag)
+- Eintritt: 07.11.2025 (Donnerstag)
 - Heute: 11.11.2025 (Montag)
 - Arbeitstage: 3 (Do, Fr, Mo)
-- Soll-Stunden: 3 × 8h = 24h
-- Ist-Stunden: 0h (keine Einträge)
+- Soll: 3 × 8h = 24h
+- Ist: 0h
 - **Überstunden: 0h - 24h = -24h** ✅
 
-### Live-Berechnung vs. Database Cache
+## Live-Berechnung (PFLICHT!)
 
-**PFLICHT:** Überstunden immer ON-DEMAND berechnen!
+**Überstunden IMMER ON-DEMAND berechnen!**
 
 ```typescript
-// ✅ RICHTIG - Live-Berechnung (Frontend)
+// ✅ RICHTIG - Live-Berechnung
 const targetHours = calculateTargetHours(user.weeklyHours, user.hireDate);
 const actualHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
 const overtime = actualHours - targetHours;
 
-// ❌ FALSCH - Database Cache verwenden
-const overtime = overtimeData?.totalOvertime; // Kann veraltet sein!
+// ❌ FALSCH - Database Cache (kann veraltet sein!)
+const overtime = overtimeData?.totalOvertime;
 ```
 
-**Warum?**
-- Database `overtime_balance` wird NICHT automatisch täglich aktualisiert
-- Nur bei Events (Login, Time Entry, etc.) wird neu berechnet
-- Live-Berechnung ist IMMER aktuell
+## UI Display-Regeln (PFLICHT!)
 
-**Ausnahme:** Historical Reports können Cache nutzen (Performance)
-
-### UI Display-Regeln
-
-**PFLICHT:** Zeige immer 3 separate Metriken!
+**3 separate Metriken zeigen:**
 
 ```tsx
-// ✅ RICHTIG - Klar getrennte Cards
 <Card>Soll-Stunden: 24:00h</Card>
 <Card>Ist-Stunden: 0:00h</Card>
 <Card>Überstunden (Differenz): -24:00h</Card>
-
-// ❌ FALSCH - Vermischte Information
-<Card>
-  Ist: 0:00h
-  Soll: 24:00h  // Als Subtitle
-</Card>
 ```
 
-**Best Practice Layout:**
-1. **Soll-Stunden** (Target Hours)
-   - Neutraler Ton (Gray)
-   - Icon: Clock
-   - Subtitle: Stand: [Aktuelles Datum]
+**Layout Best Practice:**
+1. **Soll** (Target) - Gray, Clock Icon, Subtitle: "Stand: [Datum]"
+2. **Ist** (Actual) - Blue, CheckCircle Icon, Subtitle: "[%] vom Soll"
+3. **Überstunden** (Diff) - Green/Red, TrendingUp/AlertCircle Icon, Subtitle: "Ist - Soll"
 
-2. **Ist-Stunden** (Actual Hours)
-   - Informational (Blue)
-   - Icon: CheckCircle
-   - Subtitle: [Prozent] vom Soll
-
-3. **Überstunden** (Overtime = Ist - Soll)
-   - Positiv: Green (TrendingUp Icon)
-   - Negativ: Red (AlertCircle Icon)
-   - Subtitle: "Ist - Soll = Überstunden"
-
-### Filter-Verhalten
-
-**PFLICHT:** Filter beeinflussen ALLE Anzeigen konsistent!
+## Arbeitstage-Berechnung
 
 ```typescript
-// ✅ RICHTIG - Filter anwenden
-if (selectedUserId !== 'all') {
-  entries = entries.filter(e => e.userId === selectedUserId);
-}
-
-if (reportType === 'monthly') {
-  // Nur gewählten Monat
-  targetHours = calculateMonthlyTargetHours(...);
-} else {
-  // Ganzes Jahr
-  targetHours = calculateYearlyTargetHours(...);
-}
-```
-
-**User-Erwartung:**
-- Monat-Filter → Zeige Soll/Ist/Überstunden für DIESEN Monat
-- Jahr-Filter → Zeige Soll/Ist/Überstunden für DIESES Jahr
-- User-Filter → Zeige nur DIESEN User
-
-### Arbeitstage-Berechnung
-
-**KRITISCH:** Exakte Berechnung unter Berücksichtigung von:
-
-```typescript
-// ✅ RICHTIG - Alle Faktoren berücksichtigen
 export function countWorkingDaysBetween(from: Date, to: Date): number {
   let workingDays = 0;
 
-  for (let d = from; d <= to; d++) {
+  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
     const dayOfWeek = d.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const isHoliday = holidays.includes(formatDate(d));
@@ -1560,19 +312,10 @@ export function countWorkingDaysBetween(from: Date, to: Date): number {
 }
 ```
 
-**Faktoren:**
-- ✅ Wochenenden ausschließen (Samstag, Sonntag)
-- ✅ Feiertage ausschließen (aus `holidays` Tabelle)
-- ✅ Eintrittsdatum berücksichtigen (nicht davor rechnen!)
-- ✅ Austrittsdatum berücksichtigen (falls gesetzt)
-- ✅ Heute INKLUSIVE zählen
-
-### Zeitformatierung
-
-**PFLICHT:** Konsistente Formatierung!
+## Zeitformatierung
 
 ```typescript
-// ✅ RICHTIG - Mit Vorzeichen
+// Mit Vorzeichen (für Überstunden)
 function formatOvertimeHours(hours: number): string {
   const sign = hours >= 0 ? '+' : '';
   const h = Math.floor(Math.abs(hours));
@@ -1580,12 +323,7 @@ function formatOvertimeHours(hours: number): string {
   return `${sign}${h}:${String(m).padStart(2, '0')}h`;
 }
 
-// Output:
-// +8:00h   → Überstunden
-// -16:00h  → Minusstunden
-// 0:00h    → Genau Soll
-
-// ✅ RICHTIG - Ohne Vorzeichen (für Soll/Ist)
+// Ohne Vorzeichen (für Soll/Ist)
 function formatHours(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -1593,60 +331,33 @@ function formatHours(hours: number): string {
 }
 ```
 
-### NIEMALS:
-
-- ❌ Überstunden aus `overtime_balance` Table direkt anzeigen (kann veraltet sein)
-- ❌ Heute EXKLUDIEREN bei Berechnungen
-- ❌ Filter nur auf manche Cards anwenden (inkonsistent!)
-- ❌ Soll und Ist in EINER Card vermischen (unklar!)
-- ❌ Formeln wie `Soll - Ist` verwenden (Standard ist `Ist - Soll`)
-
-### IMMER:
-
-- ✅ Live-Berechnung für Überstunden
-- ✅ Heute INKLUSIVE zählen
-- ✅ Drei separate Cards: Soll, Ist, Überstunden
-- ✅ Filter beeinflussen alle Anzeigen
-- ✅ Formel: `Ist - Soll = Überstunden` (UNVERÄNDERLICH!)
-
 ---
 
-## Abwesenheits-Gutschrift (KRITISCH!)
+# 🏖️ ABWESENHEITS-GUTSCHRIFT (Best Practice)
 
 **WICHTIGSTE REGEL:** "Krank/Urlaub = Gearbeitet"
 
-### Grundprinzip (Personio, DATEV, SAP)
-
+## Grundprinzip (Personio, DATEV, SAP)
 ```
 Kranke/Urlaubstage dürfen NIEMALS zu Minusstunden führen!
 ```
 
-### Implementierung
+## Implementierung
 
-#### 1. **Soll-Stunden (Target Hours)**
-
+### 1. Soll-Stunden (Target)
 ```typescript
-// Basis: Alle Arbeitstage im Zeitraum
 const targetHours = workingDays × targetHoursPerDay;
 
-// WICHTIG: Unbezahlter Urlaub reduziert Soll!
+// Unbezahlter Urlaub REDUZIERT Soll!
 const unpaidDays = absences.filter(a => a.type === 'unpaid').reduce(...);
 const adjustedTargetHours = targetHours - (unpaidDays × targetHoursPerDay);
 ```
 
-**Regel:**
-- ✅ Normale Arbeitstage → Zählen als Soll
-- ✅ Wochenenden → Zählen NICHT
-- ✅ Feiertage → Zählen NICHT
-- ✅ Unbezahlter Urlaub → REDUZIERT Soll
-
-#### 2. **Ist-Stunden (Actual Hours)**
-
+### 2. Ist-Stunden (Actual)
 ```typescript
-// Basis: Tatsächlich gearbeitete Stunden
 const workedHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
 
-// KRITISCH: Abwesenheits-Gutschrift addieren!
+// Abwesenheits-Gutschrift addieren!
 const absenceCredits = absences
   .filter(a => a.status === 'approved')
   .reduce((sum, a) => {
@@ -1662,638 +373,279 @@ const absenceCredits = absences
 const actualHours = workedHours + absenceCredits;
 ```
 
-**Regel:**
-- ✅ Gearbeitete Stunden → Zählen
-- ✅ Krankheitstage → Gutschrift (wie gearbeitet!)
-- ✅ Urlaubstage → Gutschrift (wie gearbeitet!)
-- ✅ Überstunden-Ausgleich → Gutschrift (wie gearbeitet!)
-- ❌ Unbezahlter Urlaub → KEINE Gutschrift
-
-#### 3. **Überstunden Calculation**
-
+### 3. Überstunden
 ```typescript
 const overtime = actualHours - adjustedTargetHours;
 ```
 
-### Beispiele
+## Beispiele
 
-#### Beispiel 1: Krankheit (Best Practice)
-
+### Beispiel 1: Krankheit
 ```
-Situation:
-- Woche mit 5 Arbeitstagen (Mo-Fr)
-- Soll: 40h (5 × 8h)
-- Mo, Di: Gearbeitet (2 × 8h = 16h)
-- Mi, Do, Fr: Krank (3 Tage)
+Woche: 5 Arbeitstage (Mo-Fr)
+Mo, Di: Gearbeitet (16h)
+Mi, Do, Fr: Krank (3 Tage)
 
-FALSCHE Berechnung (Alt):
-Soll: (5 - 3) × 8h = 16h  // Krankheitstage ABGEZOGEN
-Ist: 16h
-Überstunden: 16h - 16h = 0h
-→ Sieht OK aus, aber FALSCH!
-
-RICHTIGE Berechnung (Best Practice):
-Soll: 5 × 8h = 40h  // Alle Arbeitstage
-Ist: 16h + (3 × 8h) = 40h  // Gearbeitet + Kranken-Gutschrift
-Überstunden: 40h - 40h = 0h ✅
-```
-
-#### Beispiel 2: Urlaub (Best Practice)
-
-```
-Situation:
-- Woche mit 5 Arbeitstagen
-- Soll: 40h
-- Mo, Di, Mi: Gearbeitet (24h)
-- Do, Fr: Urlaub (2 Tage)
-
-RICHTIGE Berechnung:
+RICHTIG:
 Soll: 5 × 8h = 40h
-Ist: 24h + (2 × 8h) = 40h  // Gearbeitet + Urlaubs-Gutschrift
+Ist: 16h + (3 × 8h) = 40h  // Kranken-Gutschrift!
 Überstunden: 40h - 40h = 0h ✅
 ```
 
-#### Beispiel 3: Unbezahlter Urlaub (Special Case)
-
+### Beispiel 2: Unbezahlter Urlaub
 ```
-Situation:
-- Woche mit 5 Arbeitstagen
-- Mo, Di, Mi: Gearbeitet (24h)
-- Do, Fr: Unbezahlter Urlaub (2 Tage)
+Woche: 5 Arbeitstage
+Mo-Mi: Gearbeitet (24h)
+Do, Fr: Unbezahlter Urlaub (2 Tage)
 
-RICHTIGE Berechnung:
+RICHTIG:
 Soll: (5 - 2) × 8h = 24h  // Unbezahlt REDUZIERT Soll!
-Ist: 24h  // KEINE Gutschrift für unbezahlt
+Ist: 24h  // KEINE Gutschrift
 Überstunden: 24h - 24h = 0h ✅
 ```
 
-#### Beispiel 4: Mix (Realistisch)
+---
 
-```
-Situation:
-- 2 Wochen (10 Arbeitstage)
-- Soll: 80h
-- 5 Tage gearbeitet (40h)
-- 2 Tage Urlaub
-- 1 Tag krank
-- 1 Tag unbezahlter Urlaub
-- 1 Tag Überstunden-Ausgleich
+# 🎨 UI/UX REGELN
 
-RICHTIGE Berechnung:
-Basis-Soll: 10 × 8h = 80h
-Unbezahlt-Reduktion: 1 × 8h = 8h
-Adjusted Soll: 80h - 8h = 72h
-
-Gearbeitet: 40h
-Urlaubs-Gutschrift: 2 × 8h = 16h
-Kranken-Gutschrift: 1 × 8h = 8h
-Überstunden-Ausgleich-Gutschrift: 1 × 8h = 8h
-Actual Ist: 40h + 16h + 8h + 8h = 72h
-
-Überstunden: 72h - 72h = 0h ✅
-```
-
-### UI Display
-
-**Soll-Stunden Card:**
+## Tailwind CSS (PFLICHT!)
 ```tsx
-<Card>
-  <Title>Soll-Stunden</Title>
-  <Value>72:00h</Value>
-  <Subtitle>
-    {unpaidReduction > 0
-      ? `Reduziert um ${formatHours(unpaidReduction)} (unbez. Urlaub)`
-      : `Stand: ${currentDate}`
-    }
-  </Subtitle>
-</Card>
+// ✅ RICHTIG
+<button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+  Speichern
+</button>
+
+// ❌ FALSCH - Inline Styles
+<button style={{ padding: '8px 16px', background: '#2563eb' }}>
+  Speichern
+</button>
 ```
 
-**Ist-Stunden Card:**
+## Dark Mode Support (IMMER!)
 ```tsx
-<Card>
-  <Title>Ist-Stunden</Title>
-  <Value>72:00h</Value>
-  <Subtitle>
-    {formatHours(workedHours)} gearbeitet
-    {absenceCredits > 0 && ` + ${formatHours(absenceCredits)} Abwesenheit`}
-  </Subtitle>
-</Card>
+<div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+  Content
+</div>
 ```
 
-**Überstunden Card:**
+## Loading & Error States (PFLICHT!)
 ```tsx
-<Card>
-  <Title>Überstunden (Differenz)</Title>
-  <Value className={overtime >= 0 ? 'green' : 'red'}>
-    {formatOvertimeHours(overtime)}
-  </Value>
-  <Subtitle>Ist - Soll = Überstunden</Subtitle>
-</Card>
-```
+function Component() {
+  const { data, isLoading, error } = useQuery(...);
 
-### Datenbank-Schema
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  if (!data?.length) return <EmptyState />;
 
-**WICHTIG:** Keine Änderung nötig! Alles wird ON-DEMAND berechnet.
-
-Die `absence_requests` Tabelle enthält bereits alles:
-```sql
-CREATE TABLE absence_requests (
-  type TEXT CHECK(type IN ('vacation', 'sick', 'unpaid', 'overtime_comp')),
-  status TEXT CHECK(status IN ('pending', 'approved', 'rejected')),
-  daysRequired REAL,
-  -- ...
-);
-```
-
-### NIEMALS:
-
-- ❌ Krankheitstage vom Soll abziehen
-- ❌ Urlaubstage vom Soll abziehen
-- ❌ Überstunden-Ausgleich vom Soll abziehen
-- ❌ Unbezahlten Urlaub als Gutschrift behandeln
-- ❌ Database Cache für Abwesenheits-Berechnung (immer live!)
-
-### IMMER:
-
-- ✅ Krankheit = Gearbeitet (Gutschrift!)
-- ✅ Urlaub = Gearbeitet (Gutschrift!)
-- ✅ Überstunden-Ausgleich = Gearbeitet (Gutschrift!)
-- ✅ Unbezahlter Urlaub = Soll reduzieren (keine Gutschrift!)
-- ✅ Live-Berechnung (kein Cache!)
-- ✅ Approved absences only (pending zählt nicht!)
-
-### Quellen (Web Research)
-
-- **Personio Community:** "Krankheit/Urlaub als Minusstunden gerechnet. Wie ändern?"
-- **Schichtplan-Fibel:** "Krank ist wie gearbeitet"
-- **Staffomatic Blog:** "Wie werden die Stunden bei Krankheit berechnet?"
-- **DATEV:** Entgeltfortzahlung bei Krankheit und Feiertagen
-
----
-
-# 🔄 Inkrementelle Entwicklung
-
-## Maximale Change-Größe
-
-- ✅ **Max. 100-200 Zeilen** pro Context-File
-- ✅ **Patch-Sets** statt Monolith-Rewrites
-- ✅ **Kleine, testbare Schritte**
-
-## Bei großen Changes
-
-1. Plan in Sub-Tasks aufteilen
-2. Sub-Agents nutzen
-3. Schrittweise implementieren
-4. Nach jedem Schritt testen
-
----
-
-# 📚 Dokumentation
-
-## Code-Kommentare
-
-```typescript
-// ✅ RICHTIG - WARUM, nicht WAS
-// Berechne Überstunden mit Berücksichtigung von Feiertagen
-const overtime = calculateOvertime(entries, holidays);
-
-// ❌ FALSCH - Offensichtliches kommentieren
-// Addiere 1 zu counter
-counter = counter + 1;
-```
-
-## README.md
-
-- Setup-Anleitung
-- Development Commands
-- Deployment-Anleitung
-- Environment Variables
-
----
-
-# 🚀 Deployment
-
-## Environment Variables
-
-```env
-# NIEMALS im Git committen!
-SESSION_SECRET=xxx
-DATABASE_PATH=./database.db
-NODE_ENV=production
-PORT=3000
-```
-
-## Production Checklist
-
-- [ ] Environment Variables gesetzt
-- [ ] HTTPS aktiviert
-- [ ] PM2 konfiguriert
-- [ ] Database Backups eingerichtet
-- [ ] Monitoring aktiv
-- [ ] Logging konfiguriert
-- [ ] Error Tracking (optional: Sentry)
-- [ ] GitHub Releases Setup
-- [ ] Auto-Update System aktiv
-
----
-
-# 🔄 GitHub Releases & Auto-Update System
-
-## Semantic Versioning (PFLICHT!)
-
-**WICHTIG:** Version MUSS synchron sein in `package.json` und `Cargo.toml`!
-
-```json
-// package.json
-{
-  "version": "1.0.0"  // MAJOR.MINOR.PATCH
+  return <DataTable data={data} />;
 }
 ```
 
-```toml
-# src-tauri/Cargo.toml
-[package]
-version = "1.0.0"
-```
+---
 
-**Regeln:**
-- **MAJOR** (1.x.x): Breaking Changes
-- **MINOR** (x.1.x): Neue Features (backwards compatible)
-- **PATCH** (x.x.1): Bug Fixes
+# 🌐 API DESIGN
 
-**Beispiele:**
-- `1.0.0` → `1.0.1`: Bug Fix
-- `1.0.1` → `1.1.0`: Neues Feature
-- `1.1.0` → `2.0.0`: Breaking Change (z.B. API geändert)
-
-## GitHub Actions Tauri Release Workflow
-
-**KRITISCH:** Tauri-Apps MÜSSEN auf allen Plattformen gebaut werden!
-
-### ⚠️ WICHTIGE RELEASE-REGEL (Aus Erfahrung gelernt!)
-
-**Problem:** Tauri Action (`tauri-apps/tauri-action@v0`) erstellt Releases automatisch, ABER:
-- Bei Matrix-Builds (mehrere Plattformen parallel) → Race Condition
-- Alle Jobs versuchen gleichzeitig das Release zu erstellen
-- Ergebnis: **Kein Release, aber Build erfolgreich** ❌
-
-**LÖSUNG (Best Practice):**
-
-1. **Schritt 1: Release MANUELL erstellen (VOR dem Build)**
-   ```bash
-   # IMMER zuerst das Release erstellen!
-   gh release create v1.0.8 \
-     --title "TimeTracking System v1.0.8" \
-     --notes "Release Notes hier..."
-   ```
-
-2. **Schritt 2: Tag pushen (triggert Build)**
-   ```bash
-   git tag v1.0.8
-   git push origin v1.0.8
-   ```
-
-3. **Schritt 3: Workflow lädt Binaries zum existierenden Release hoch**
-   - Workflow findet das Release (existiert bereits)
-   - Binaries werden hinzugefügt
-   - Kein Race-Condition Problem! ✅
-
-**WORKFLOW:**
-```bash
-# 1. Version bumpen
-vim desktop/package.json        # version: "1.0.8"
-vim desktop/src-tauri/Cargo.toml # version = "1.0.8"
-
-# 2. Commit
-git add desktop/package.json desktop/src-tauri/Cargo.toml
-git commit -m "release: v1.0.8 - Description"
-
-# 3. WICHTIG: Release ZUERST erstellen!
-gh release create v1.0.8 \
-  --title "TimeTracking System v1.0.8" \
-  --notes "$(cat RELEASE_NOTES.md)"  # Oder inline notes
-
-# 4. Tag erstellen & pushen (triggert Build)
-git tag v1.0.8
-git push origin main
-git push origin v1.0.8
-
-# 5. Warten (~15-20 Min)
-# Binaries werden zum existierenden Release hinzugefügt
-```
-
-**NIEMALS:**
-- ❌ Tag pushen OHNE vorher Release zu erstellen
-- ❌ Darauf verlassen dass Tauri Action das Release erstellt (Race Condition!)
-- ❌ Workflow mehrmals laufen lassen (verschwendet GitHub Actions Minutes)
-
-**IMMER:**
-- ✅ Release MANUELL erstellen (gh release create)
-- ✅ DANN Tag pushen (triggert Binaries-Upload)
-- ✅ Verify: Release existiert VOR dem Workflow-Start
-
-```yaml
-# .github/workflows/release.yml
-name: 'Tauri Release'
-
-on:
-  push:
-    tags:
-      - 'v*'  # Triggered bei git tag v1.0.0
-
-jobs:
-  release:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
-
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-20.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Stiftung der DPolG TimeTracker v__VERSION__'
-          releaseBody: 'See CHANGELOG.md for details'
-          releaseDraft: false
-          prerelease: false
-```
-
-**Output:**
-- **Windows:** `.exe`, `.msi`
-- **macOS:** `.app`, `.dmg`
-- **Linux:** `.AppImage`, `.deb`
-- **Update Files:** `latest.json`, signatures
-
-## Version-Check API
-
+## RESTful Endpoints
 ```typescript
-// Backend: GET /api/version
-app.get('/api/version', (req, res) => {
-  res.json({
-    version: process.env.npm_package_version,
-    releaseDate: '2025-10-30',
-    changelog: 'Bug fixes and improvements'
-  });
+GET    /api/users              // Liste
+GET    /api/users/:id          // Einzeln
+POST   /api/users              // Erstellen
+PUT    /api/users/:id          // Update (vollständig)
+PATCH  /api/users/:id          // Update (partial)
+DELETE /api/users/:id          // Löschen
+```
+
+## Response-Struktur (PFLICHT!)
+```typescript
+// Success
+res.json({
+  success: true,
+  data: result
 });
 
-// Backend: GET /api/updates/check
-app.get('/api/updates/check', async (req, res) => {
-  const latestRelease = await fetchGitHubLatestRelease();
-  const currentVersion = process.env.npm_package_version;
-
-  res.json({
-    updateAvailable: isNewer(latestRelease.version, currentVersion),
-    latestVersion: latestRelease.version,
-    downloadUrl: latestRelease.assets[0].browser_download_url,
-    changelog: latestRelease.body
-  });
+// Error
+res.status(400).json({
+  success: false,
+  error: 'Error message'
 });
 ```
 
-## Tauri Auto-Update Mechanismus (PFLICHT!)
+## HTTP Status Codes
+```
+200 OK              // GET, PUT, PATCH
+201 Created         // POST
+204 No Content      // DELETE
+400 Bad Request     // Validation Error
+401 Unauthorized    // Not logged in
+403 Forbidden       // Logged in, no permission
+404 Not Found       // Resource doesn't exist
+500 Server Error    // Unexpected error
+```
 
-**WICHTIG:** Tauri hat Built-in Updater! Nutze ihn!
+---
 
-**Desktop-App Update (Frontend):**
+# 🔒 SICHERHEIT
+
+## Authentication & Authorization
 ```typescript
-import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
-import { relaunch } from '@tauri-apps/api/process';
-import { sendNotification } from '@tauri-apps/api/notification';
+// Passwort Hashing
+import bcrypt from 'bcrypt';
+const hashedPassword = await bcrypt.hash(password, 10);
 
-// Update Checker Component
-export function TauriUpdateChecker() {
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
-  const [installing, setInstalling] = useState(false);
+// Session Configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: true,      // HTTPS only
+    sameSite: 'strict',
+    maxAge: 24 * 60 * 60 * 1000 // 24h
+  }
+}));
 
-  useEffect(() => {
-    checkForUpdates();
-  }, []);
+// Auth Middleware
+const requireAuth = (req, res, next) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
 
-  async function checkForUpdates() {
-    try {
-      const { shouldUpdate, manifest } = await checkUpdate();
+// Role-based Access
+const requireAdmin = (req, res, next) => {
+  if (req.session.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+};
+```
 
-      if (shouldUpdate) {
-        setUpdateAvailable(true);
-        setUpdateInfo(manifest);
+## Input Validation (PFLICHT!)
+```typescript
+// Backend
+app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
+  const { email, password } = req.body;
 
-        // System Notification
-        await sendNotification({
-          title: 'Update verfügbar',
-          body: `Version ${manifest?.version} ist verfügbar!`
-        });
-      }
-    } catch (error) {
-      console.error('Update check failed:', error);
-    }
+  // Validation
+  if (!email?.trim() || !email.includes('@')) {
+    return res.status(400).json({ error: 'Invalid email' });
   }
 
-  async function handleInstallUpdate() {
-    setInstalling(true);
-    try {
-      // Download + Install Update
-      await installUpdate();
-
-      // App neu starten
-      await relaunch();
-    } catch (error) {
-      console.error('Update installation failed:', error);
-      setInstalling(false);
-    }
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Password too short' });
   }
 
-  if (!updateAvailable) return null;
-
-  return (
-    <div className="fixed bottom-4 right-4 bg-blue-500 text-white p-4 rounded-lg shadow-lg">
-      <h3 className="font-bold">Update verfügbar!</h3>
-      <p>Version {updateInfo?.version}</p>
-      <button
-        onClick={handleInstallUpdate}
-        disabled={installing}
-        className="mt-2 bg-white text-blue-500 px-4 py-2 rounded"
-      >
-        {installing ? 'Installiere...' : 'Jetzt aktualisieren'}
-      </button>
-    </div>
-  );
-}
+  // ... rest
+});
 ```
-
-**Tauri Updater Configuration:**
-```json
-// tauri.conf.json
-{
-  "tauri": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/username/repo/releases/latest/download/latest.json"
-      ],
-      "dialog": true,
-      "pubkey": "YOUR_PUBLIC_KEY_HERE"
-    }
-  }
-}
-```
-
-**Update Signature generieren:**
-```bash
-# Einmalig: Generate Key Pair
-npm run tauri signer generate
-
-# Output:
-# Private Key: SAVE_IN_GITHUB_SECRETS
-# Public Key: ADD_TO_tauri.conf.json
-```
-
-## Server Update (Separate!)
-
-**Server hat eigenen Update-Prozess:**
-
-```bash
-#!/bin/bash
-# scripts/update-server.sh
-
-echo "🔄 Updating Server..."
-
-# 1. Backup Database
-cp server/database.db server/database.backup.$(date +%Y%m%d).db
-
-# 2. Pull latest code
-git pull origin main
-
-# 3. Install dependencies
-cd server && npm install --production
-
-# 4. PM2 Reload (zero-downtime)
-pm2 reload ecosystem.config.js
-
-echo "✅ Server Update complete!"
-```
-
-## Rollback Mechanismus
-
-**Desktop-App:**
-- Tauri erstellt automatisch Backup vor Update
-- Bei Fehler: Previous version wird wiederhergestellt
-
-**Server:**
-```bash
-#!/bin/bash
-# scripts/rollback-server.sh
-
-echo "⏪ Rolling back..."
-
-# 1. Restore Database Backup
-cp server/database.backup.db server/database.db
-
-# 2. Git checkout previous tag
-git checkout $(git describe --tags --abbrev=0 HEAD^)
-
-# 3. Reinstall
-npm install --production
-
-# 4. Reload PM2
-pm2 reload ecosystem.config.js
-
-echo "✅ Rollback complete!"
-```
-
-## CHANGELOG.md (automatisch generiert)
-
-```markdown
-# Changelog
-
-## [1.1.0] - 2025-10-31
-### Added
-- Auto-Update System
-- GitHub Releases Integration
-
-### Fixed
-- Bug in time calculation
-
-## [1.0.0] - 2025-10-30
-### Initial Release
-- Time Tracking
-- Vacation Management
-- Admin Dashboard
-```
-
-## Sicherheits-Regeln für Updates
-
-- ✅ **Nur Admin** darf Updates installieren
-- ✅ **Database Backup** VOR Update
-- ✅ **Rollback-Script** bereit
-- ✅ **Changelog** dem User zeigen
-- ✅ **Bestätigung** vor Installation
-- ✅ **Audit Log** für alle Updates
 
 ---
 
-# 📖 Weiterführende Ressourcen
+# 📦 STATE MANAGEMENT
 
-- **Clean Architecture:** https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
-- **SOLID Principles:** https://en.wikipedia.org/wiki/SOLID
-- **TypeScript Handbook:** https://www.typescriptlang.org/docs/
-- **TanStack Query:** https://tanstack.com/query/latest
-- **Tailwind CSS:** https://tailwindcss.com/docs
+## TanStack Query für Server-State (PFLICHT!)
+```typescript
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await apiClient.get('/users');
+      if (!response.success) throw new Error(response.error);
+      return response.data;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+```
+
+## Zustand für UI-State (PFLICHT!)
+```typescript
+import { create } from 'zustand';
+
+const useUIStore = create((set) => ({
+  sidebarOpen: true,
+  currentView: 'dashboard',
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  setCurrentView: (view) => set({ currentView: view }),
+}));
+```
 
 ---
 
-**Version:** 1.0
-**Letztes Update:** 2025-10-30
+# 🚫 VERBOTE (NIEMALS TUN!)
+
+## Code
+- ❌ `any` Type verwenden
+- ❌ Code kopieren/duplizieren (DRY!)
+- ❌ Inline Styles (Tailwind nutzen!)
+- ❌ console.log in Production
+- ❌ Hardcoded Values
+
+## Database
+- ❌ Neue DB-Dateien erstellen
+- ❌ SQL Injection (IMMER Prepared Statements!)
+- ❌ Hard Delete (Soft Delete nutzen!)
+
+## Workflow
+- ❌ Direkt coden ohne Plan
+- ❌ Auf main branch arbeiten
+- ❌ Commits ohne Beschreibung
+- ❌ Mergen ohne Testing
+
+## Sicherheit
+- ❌ Passwörter Klartext
+- ❌ Input nicht validieren
+- ❌ Auth/Authorization vergessen
+- ❌ Session-Secrets hardcoden
+
+---
+
+# ✅ PRE-COMMIT CHECKLISTE
+
+**Vor JEDEM Commit:**
+- [ ] TypeScript kompiliert ohne Fehler
+- [ ] Keine `any` Types
+- [ ] Error Handling implementiert
+- [ ] Null-Checks vorhanden
+- [ ] Dark Mode Styles
+- [ ] Responsive Design
+- [ ] Loading/Error States
+- [ ] Debug console.logs entfernt
+- [ ] Keine hardcoded Secrets
+- [ ] Prepared Statements
+- [ ] Input Validation (Backend + Frontend)
+- [ ] Manuell getestet
+- [ ] Browser Console: Keine Errors
+
+---
+
+# 📊 PROJEKT-SPEZIFISCH
+
+## Tech Stack (NICHT ÄNDERN!)
+- **Frontend:** React 18 + TypeScript + Vite + TanStack Query + Zustand + Tailwind
+- **Backend:** Node.js 20 + Express + TypeScript + SQLite
+- **Database:** SQLite mit WAL Mode
+- **Real-time:** WebSocket (ws library)
+- **Desktop:** Tauri v2
+
+## Database Schema (11 Tabellen)
+1. users
+2. time_entries
+3. absence_requests
+4. vacation_balance
+5. overtime_balance
+6. departments
+7. projects
+8. activities
+9. holidays
+10. notifications
+11. audit_log
+
+---
+
+**Version:** 1.2
+**Letzte Aktualisierung:** 2025-11-12
 **Status:** ✅ AKTIV
-
----
-
-# ⚡ QUICK REFERENCE
-
-**Bei jedem Task:**
-1. ✅ Branch erstellen
-2. ✅ "think hard" für Plan
-3. ✅ User-Review
-4. ✅ Implementieren
-5. ✅ Testen
-6. ✅ Merge
-7. ✅ `/clear`
-
-**NIEMALS:**
-- ❌ `any` Type
-- ❌ SQL Injection
-- ❌ Regression
-- ❌ Ohne Plan coden
-
-**IMMER:**
-- ✅ TypeScript strict
-- ✅ Error Handling
-- ✅ Null-Checks
-- ✅ Tests
-- ✅ Clean Code
