@@ -36,14 +36,37 @@ export function calculateTotalHours(entries: TimeEntry[]): number {
 
 /**
  * Format hours to HH:MM display
- * Example: 8.5 hours → "8:30h"
+ * Example: 8.5 hours → "8:30h", -23.5 hours → "-23:30h"
+ *
+ * BUG FIX: Handle negative values correctly
+ * Old bug: -23.5h → "-24:-30h" (wrong!)
+ * Fixed: -23.5h → "-23:30h" (correct!)
  */
 export function formatHours(hours: number): string {
-  const totalMinutes = Math.round(hours * 60);
+  console.log('🔍 [formatHours] INPUT:', hours);
+
+  // Handle negative values correctly
+  const isNegative = hours < 0;
+  const absHours = Math.abs(hours);
+
+  const totalMinutes = Math.round(absHours * 60);
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
 
-  return `${h}:${m.toString().padStart(2, '0')}h`;
+  const result = `${isNegative ? '-' : ''}${h}:${m.toString().padStart(2, '0')}h`;
+
+  console.log('🔍 [formatHours] OUTPUT:', result);
+  console.log('🔍 [formatHours] Details:', {
+    input: hours,
+    isNegative,
+    absHours,
+    totalMinutes,
+    h,
+    m,
+    result
+  });
+
+  return result;
 }
 
 /**
