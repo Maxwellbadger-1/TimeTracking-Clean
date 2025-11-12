@@ -98,6 +98,7 @@ router.get(
         },
       });
     } catch (error) {
+      console.error('❌ Error getting absence requests:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get absence requests',

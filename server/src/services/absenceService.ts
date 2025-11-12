@@ -365,12 +365,12 @@ export function getAbsenceRequestsPaginated(options: {
 
   // Filter by year (default: current year for admin, all for employees)
   if (options.year) {
-    query += ' AND (strftime("%Y", ar.startDate) = ? OR strftime("%Y", ar.endDate) = ?)';
+    query += ' AND (strftime(\'%Y\', ar.startDate) = ? OR strftime(\'%Y\', ar.endDate) = ?)';
     params.push(options.year.toString(), options.year.toString());
   } else if (!options.userId) {
     // Admin view without year: default to current year
     const currentYear = new Date().getFullYear();
-    query += ' AND (strftime("%Y", ar.startDate) = ? OR strftime("%Y", ar.endDate) = ?)';
+    query += ' AND (strftime(\'%Y\', ar.startDate) = ? OR strftime(\'%Y\', ar.endDate) = ?)';
     params.push(currentYear.toString(), currentYear.toString());
   }
 
