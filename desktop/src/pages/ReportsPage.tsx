@@ -166,14 +166,34 @@ export function ReportsPage() {
       : (year === today.getFullYear());
     const periodEnd = isCurrentPeriod ? today : monthEnd;
 
-    // Count working days in period (Mo-Fr, excluding weekends)
-    const workingDaysInPeriod = countWorkingDays(periodStart, periodEnd);
+    // BEST PRACTICE: Use Backend overtime data (Single Source of Truth!)
+    // Backend already calculates overtime with all credits (sick, vacation, etc.)
 
-    // BEST PRACTICE (Personio, DATEV, SAP):
-    // Target hours = All working days (Soll bleibt konstant!)
-    const targetHours = workingDaysInPeriod * targetHoursPerDay;
+    // Get month data from backend for current period
+    const currentMonthKey = reportType === 'monthly'
+      ? selectedMonth
+      : `${selectedYear}-${String(month).padStart(2, '0')}`;
 
-    // Calculate absence credits ("Krank/Urlaub = Gearbeitet")
+    const monthData = overtimeData?.monthly?.find(m => m.month === currentMonthKey) || {
+      targetHours: 0,
+      actualHours: 0,
+      overtime: 0,
+    };
+
+    // For yearly view: use total overtime from backend
+    const targetHours = reportType === 'yearly'
+      ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.targetHours, 0) || 0)
+      : monthData.targetHours;
+
+    const actualHoursWithCredits = reportType === 'yearly'
+      ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.actualHours, 0) || 0)
+      : monthData.actualHours;
+
+    const targetVsActualDiff = reportType === 'yearly'
+      ? (overtimeData?.totalOvertime || 0)
+      : monthData.overtime;
+
+    // Calculate absence credits for display breakdown (UI only)
     const absenceCredits = filteredAbsences
       .filter(a => a.status === 'approved')
       .reduce((sum, a) => {
@@ -182,25 +202,9 @@ export function ReportsPage() {
         if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
           return sum + (days * targetHoursPerDay);
         }
-        // unpaid → Reduce target hours (handled below)
         return sum;
       }, 0);
 
-    // Calculate unpaid leave reduction (reduces Soll!)
-    const unpaidLeaveDays = filteredAbsences
-      .filter(a => a.status === 'approved' && a.type === 'unpaid')
-      .reduce((sum, a) => sum + (a.days || 0), 0);
-
-    const unpaidLeaveReduction = unpaidLeaveDays * targetHoursPerDay;
-
-    // Adjusted target hours (Soll minus unpaid leave)
-    const adjustedTargetHours = targetHours - unpaidLeaveReduction;
-
-    // Actual hours = worked hours + absence credits
-    const actualHoursWithCredits = totalHours + absenceCredits;
-
-    // Overtime = Ist (with credits) - Soll (adjusted)
-    const targetVsActualDiff = actualHoursWithCredits - adjustedTargetHours;
     const targetVsActualPercent = targetHours > 0
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
       : '0.0%';
@@ -227,8 +231,7 @@ export function ReportsPage() {
       .reduce((sum, r) => sum + calculateDaysBetween(r.startDate, r.endDate), 0);
 
     // Overtime Stats
-    // IMPORTANT: Überstunden = Ist - Soll (same as Differenz!)
-    // Use the SAME calculation as targetVsActualDiff for consistency
+    // Backend provides the correct overtime value
     const overtimeHours = targetVsActualDiff;
 
     // By User (if admin viewing all)
