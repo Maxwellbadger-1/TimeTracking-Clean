@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, Download } from 'lucide-react';
+import { Clock, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { useAllUsersOvertime } from '../hooks';
 import { formatHours, formatOvertimeHours } from '../utils';
 
@@ -58,29 +57,6 @@ export default function OvertimeManagementPage() {
     return { total, positive, negative, critical, average };
   }, [overtimeData]);
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (!filteredData.length) return;
-
-    const headers = ['Mitarbeiter', 'E-Mail', 'Überstunden (Stunden)'];
-    const rows = filteredData.map(e => [
-      `${e.firstName} ${e.lastName}`,
-      e.email,
-      formatOvertimeHours(e.totalOvertime).replace('h', ''),
-    ]);
-
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `ueberstunden_${selectedYear}.csv`;
-    link.click();
-  };
-
   const toggleSort = (field: 'name' | 'overtime') => {
     if (sortBy === field) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -125,15 +101,6 @@ export default function OvertimeManagementPage() {
                 ))}
               </select>
 
-              {/* Export Button */}
-              <Button
-                variant="secondary"
-                onClick={handleExportCSV}
-                disabled={!filteredData.length}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                CSV Export
-              </Button>
             </div>
           </div>
 

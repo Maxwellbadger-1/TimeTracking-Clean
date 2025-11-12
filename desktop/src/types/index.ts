@@ -48,7 +48,8 @@ export interface AbsenceRequest {
   type: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
   startDate: string;
   endDate: string;
-  daysRequired: number;
+  days: number; // Database field name
+  daysRequired?: number; // Legacy alias (for backwards compatibility)
   status: 'pending' | 'approved' | 'rejected';
   reason: string | null;
   adminNote: string | null;

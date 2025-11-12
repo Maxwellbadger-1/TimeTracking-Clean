@@ -177,7 +177,7 @@ export function ReportsPage() {
     const absenceCredits = filteredAbsences
       .filter(a => a.status === 'approved')
       .reduce((sum, a) => {
-        const days = a.daysRequired || 0;
+        const days = a.days || 0;
         // vacation, sick, overtime_comp → Count as worked
         if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
           return sum + (days * targetHoursPerDay);
@@ -189,7 +189,7 @@ export function ReportsPage() {
     // Calculate unpaid leave reduction (reduces Soll!)
     const unpaidLeaveDays = filteredAbsences
       .filter(a => a.status === 'approved' && a.type === 'unpaid')
-      .reduce((sum, a) => sum + (a.daysRequired || 0), 0);
+      .reduce((sum, a) => sum + (a.days || 0), 0);
 
     const unpaidLeaveReduction = unpaidLeaveDays * targetHoursPerDay;
 
@@ -204,21 +204,6 @@ export function ReportsPage() {
     const targetVsActualPercent = targetHours > 0
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
       : '0.0%';
-
-    // 🔥 DEBUG: Log calculation details
-    console.log('🔥🔥🔥 REPORTS PAGE CALCULATION DEBUG 🔥🔥🔥');
-    console.log('📅 Period:', { periodStart, periodEnd });
-    console.log('📊 Working Days:', workingDaysInPeriod);
-    console.log('🎯 Target Hours per Day:', targetHoursPerDay);
-    console.log('📈 Target Hours (Soll):', targetHours);
-    console.log('🏥 Absence Credits:', absenceCredits);
-    console.log('💼 Unpaid Leave Reduction:', unpaidLeaveReduction);
-    console.log('✅ Adjusted Target Hours:', adjustedTargetHours);
-    console.log('⏰ Total Worked Hours:', totalHours);
-    console.log('💯 Actual Hours with Credits:', actualHoursWithCredits);
-    console.log('🎯 OVERTIME (Differenz):', targetVsActualDiff);
-    console.log('📋 Filtered Absences:', filteredAbsences);
-    console.log('🔥🔥🔥 END DEBUG 🔥🔥🔥');
 
     // Absence Stats - Calculate actual days (not just number of requests)
     const calculateDaysBetween = (startDate: string, endDate: string): number => {
