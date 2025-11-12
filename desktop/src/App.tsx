@@ -13,6 +13,7 @@ import VacationBalanceManagementPage from './pages/VacationBalanceManagementPage
 import OvertimeManagementPage from './pages/OvertimeManagementPage';
 import BackupPage from './pages/BackupPage';
 import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -102,6 +103,7 @@ export default function App() {
             {currentView === 'calendar' && <CalendarPage />}
             {currentView === 'time-entries' && <TimeEntriesPage />}
             {currentView === 'absences' && <AbsencesPage />}
+            {currentView === 'notifications' && <NotificationsPage />}
             {currentView === 'users' && user.role === 'admin' && <UserManagementPage />}
             {currentView === 'vacation-balances' && user.role === 'admin' && <VacationBalanceManagementPage />}
             {currentView === 'overtime' && user.role === 'admin' && <OvertimeManagementPage />}

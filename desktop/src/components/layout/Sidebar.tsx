@@ -24,10 +24,11 @@ import {
   Database,
   Settings,
   LogOut,
+  Bell,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings';
+type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings' | 'notifications';
 
 interface NavItem {
   id: ViewType;
@@ -56,6 +57,11 @@ const navItems: NavItem[] = [
     id: 'absences',
     label: 'Abwesenheiten',
     icon: <Umbrella className="w-5 h-5" />,
+  },
+  {
+    id: 'notifications',
+    label: 'Benachrichtigungen',
+    icon: <Bell className="w-5 h-5" />,
   },
   {
     id: 'users',

@@ -59,6 +59,29 @@ export function useMarkNotificationRead() {
   });
 }
 
+// Mark notification as unread mutation
+export function useMarkNotificationUnread() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiClient.put<Notification>(`/notifications/${id}/unread`, {});
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to mark notification as unread');
+      }
+
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error: Error) => {
+      console.error('Failed to mark notification as unread:', error);
+    },
+  });
+}
+
 // Mark all notifications as read mutation
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();

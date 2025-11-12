@@ -77,6 +77,14 @@ export function markNotificationAsRead(id: number): void {
 }
 
 /**
+ * Mark notification as unread
+ */
+export function markNotificationAsUnread(id: number): void {
+  const query = 'UPDATE notifications SET read = 0 WHERE id = ?';
+  db.prepare(query).run(id);
+}
+
+/**
  * Mark all notifications as read for a user
  */
 export function markAllNotificationsAsRead(userId: number): void {
@@ -222,6 +230,244 @@ export function notifyAbsenceRequested(
       'absence_requested',
       `Neuer ${typeLabel}-Antrag`,
       `${employeeName} hat einen ${typeLabel} vom ${startDate} bis ${endDate} (${days} Tage) beantragt.`
+    );
+  });
+}
+
+// ==================== HIGH PRIORITY ====================
+
+/**
+ * Notify employee when admin edits their time entry
+ */
+export function notifyTimeEntryEditedByAdmin(
+  userId: number,
+  date: string,
+  adminName: string,
+  reason?: string
+): void {
+  let message = `Ihre Zeiterfassung für ${date} wurde von ${adminName} bearbeitet.`;
+  if (reason) {
+    message += ` Grund: ${reason}`;
+  }
+  createNotification(userId, 'time_edited_by_admin', 'Zeiterfassung bearbeitet', message);
+}
+
+/**
+ * Notify employee when admin deletes their time entry
+ */
+export function notifyTimeEntryDeleted(
+  userId: number,
+  date: string,
+  adminName: string,
+  reason?: string
+): void {
+  let message = `Ihre Zeiterfassung für ${date} wurde von ${adminName} gelöscht.`;
+  if (reason) {
+    message += ` Grund: ${reason}`;
+  }
+  createNotification(userId, 'time_entry_deleted', 'Zeiterfassung gelöscht', message);
+}
+
+/**
+ * Notify employee when vacation days are manually adjusted
+ */
+export function notifyVacationDaysAdjusted(
+  userId: number,
+  oldDays: number,
+  newDays: number,
+  reason?: string
+): void {
+  const diff = newDays - oldDays;
+  const diffText = diff > 0 ? `+${diff}` : `${diff}`;
+
+  let message = `Ihre Urlaubstage wurden von ${oldDays} auf ${newDays} Tage angepasst (${diffText}).`;
+  if (reason) {
+    message += ` Grund: ${reason}`;
+  }
+  createNotification(userId, 'vacation_days_adjusted', 'Urlaubstage angepasst', message);
+}
+
+/**
+ * Notify employee when their account is deactivated
+ */
+export function notifyUserDeactivated(userId: number): void {
+  createNotification(
+    userId,
+    'account_deactivated',
+    'Account deaktiviert',
+    'Ihr Account wurde vom Administrator deaktiviert. Bitte kontaktieren Sie Ihren Vorgesetzten.'
+  );
+}
+
+// ==================== MEDIUM PRIORITY ====================
+
+/**
+ * Notify employee when overtime threshold is reached
+ */
+export function notifyOvertimeThreshold(
+  userId: number,
+  currentOvertime: number,
+  threshold: number
+): void {
+  const hours = Math.abs(currentOvertime);
+  const type = currentOvertime >= 0 ? 'positive' : 'negative';
+
+  createNotification(
+    userId,
+    'overtime_threshold',
+    'Überstunden-Schwellenwert erreicht',
+    `Sie haben aktuell ${hours.toFixed(1)}h ${type} Überstunden (Schwellenwert: ${threshold}h).`
+  );
+}
+
+/**
+ * Notify admin when employee has significant negative overtime
+ */
+export function notifyNegativeOvertimeAlert(
+  employeeName: string,
+  currentOvertime: number,
+  threshold: number
+): void {
+  const hours = Math.abs(currentOvertime);
+
+  // Get all admin users
+  const admins = db
+    .prepare('SELECT id FROM users WHERE role = ? AND deletedAt IS NULL')
+    .all('admin') as Array<{ id: number }>;
+
+  admins.forEach((admin) => {
+    createNotification(
+      admin.id,
+      'negative_overtime_alert',
+      'Negative Überstunden Warnung',
+      `${employeeName} hat aktuell -${hours.toFixed(1)}h Überstunden (Schwellenwert: ${threshold}h).`
+    );
+  });
+}
+
+/**
+ * Notify employee when target hours are changed
+ */
+export function notifyTargetHoursChanged(
+  userId: number,
+  oldHours: number,
+  newHours: number
+): void {
+  createNotification(
+    userId,
+    'target_hours_changed',
+    'Soll-Stunden geändert',
+    `Ihre Soll-Stunden wurden von ${oldHours}h auf ${newHours}h pro Woche angepasst.`
+  );
+}
+
+/**
+ * Notify employee when vacation days are running low
+ */
+export function notifyVacationDaysLow(
+  userId: number,
+  remainingDays: number,
+  threshold: number = 5
+): void {
+  if (remainingDays <= threshold && remainingDays > 0) {
+    createNotification(
+      userId,
+      'vacation_days_low',
+      'Urlaubstage werden knapp',
+      `Sie haben nur noch ${remainingDays} Urlaubstage übrig.`
+    );
+  }
+}
+
+// ==================== LOW PRIORITY ====================
+
+/**
+ * Send welcome notification to new user
+ */
+export function notifyUserCreated(
+  userId: number,
+  firstName: string
+): void {
+  createNotification(
+    userId,
+    'user_created',
+    'Willkommen!',
+    `Hallo ${firstName}! Ihr Account wurde erfolgreich erstellt. Viel Erfolg mit dem TimeTracking System!`
+  );
+}
+
+/**
+ * Notify about missed clock-in (if user was supposed to work)
+ */
+export function notifyMissedClockIn(
+  userId: number,
+  date: string,
+  expectedTime: string
+): void {
+  createNotification(
+    userId,
+    'missed_clock_in',
+    'Einstempeln vergessen?',
+    `Sie haben am ${date} um ${expectedTime} nicht eingestempelt. Bitte tragen Sie Ihre Arbeitszeit nach.`
+  );
+}
+
+/**
+ * Notify admin about missed clock-in
+ */
+export function notifyAdminMissedClockIn(
+  employeeName: string,
+  date: string
+): void {
+  const admins = db
+    .prepare('SELECT id FROM users WHERE role = ? AND deletedAt IS NULL')
+    .all('admin') as Array<{ id: number }>;
+
+  admins.forEach((admin) => {
+    createNotification(
+      admin.id,
+      'employee_missed_clock_in',
+      'Mitarbeiter: Einstempeln vergessen',
+      `${employeeName} hat am ${date} nicht eingestempelt.`
+    );
+  });
+}
+
+/**
+ * Notify about break time violation (German law: 30min after 6h, 45min after 9h)
+ */
+export function notifyBreakTimeViolation(
+  userId: number,
+  date: string,
+  workedHours: number,
+  requiredBreak: number
+): void {
+  createNotification(
+    userId,
+    'break_time_violation',
+    'Pausenzeit-Verstoß',
+    `Am ${date} haben Sie ${workedHours}h ohne ausreichende Pause (${requiredBreak}min erforderlich) gearbeitet.`
+  );
+}
+
+/**
+ * Notify admin about employee weekly overtime limit exceeded
+ */
+export function notifyWeeklyOvertimeLimitExceeded(
+  employeeName: string,
+  weeklyHours: number,
+  limit: number = 48
+): void {
+  const admins = db
+    .prepare('SELECT id FROM users WHERE role = ? AND deletedAt IS NULL')
+    .all('admin') as Array<{ id: number }>;
+
+  admins.forEach((admin) => {
+    createNotification(
+      admin.id,
+      'weekly_overtime_limit_exceeded',
+      'Wöchentliche Arbeitszeitgrenze überschritten',
+      `${employeeName} hat diese Woche ${weeklyHours}h gearbeitet (Limit: ${limit}h).`
     );
   });
 }

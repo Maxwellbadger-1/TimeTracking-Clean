@@ -67,6 +67,7 @@ export {
   useNotifications,
   useUnreadNotifications,
   useMarkNotificationRead,
+  useMarkNotificationUnread,
   useMarkAllNotificationsRead,
   useDeleteNotification,
 } from './useNotifications';

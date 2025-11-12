@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Trash2, CheckCheck } from 'lucide-react';
+import { Bell, Check, Trash2, CheckCheck, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import {
@@ -9,11 +9,13 @@ import {
   useDeleteNotification,
 } from '../../hooks';
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import { formatDateLong } from '../../utils';
 import type { Notification } from '../../types';
 
 export function NotificationBell() {
   const { user } = useAuthStore();
+  const { setCurrentView } = useUIStore();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -21,6 +23,9 @@ export function NotificationBell() {
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
+
+  // Show only last 5 unread notifications in dropdown
+  const displayedNotifications = unreadNotifications?.slice(0, 5) || [];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -50,6 +55,11 @@ export function NotificationBell() {
 
   const handleDelete = async (notificationId: number) => {
     await deleteNotification.mutateAsync(notificationId);
+  };
+
+  const handleViewAllNotifications = () => {
+    setIsOpen(false);
+    setCurrentView('notifications');
   };
 
   const getNotificationIcon = (type: string) => {
@@ -108,9 +118,9 @@ export function NotificationBell() {
               <div className="flex justify-center py-8">
                 <LoadingSpinner size="md" />
               </div>
-            ) : unreadNotifications && unreadNotifications.length > 0 ? (
+            ) : displayedNotifications && displayedNotifications.length > 0 ? (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {unreadNotifications.map((notification: Notification) => (
+                {displayedNotifications.map((notification: Notification) => (
                   <div
                     key={notification.id}
                     className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -164,10 +174,17 @@ export function NotificationBell() {
 
           {/* Footer */}
           {count > 0 && (
-            <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {count} {count === 1 ? 'neue Benachrichtigung' : 'neue Benachrichtigungen'}
-              </p>
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="ghost"
+                fullWidth
+                size="sm"
+                onClick={handleViewAllNotifications}
+                className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Alle anzeigen ({count})
+              </Button>
             </div>
           )}
         </div>

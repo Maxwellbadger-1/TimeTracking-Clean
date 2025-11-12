@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import {
   getUserNotifications,
   markNotificationAsRead,
+  markNotificationAsUnread,
   markAllNotificationsAsRead,
   deleteNotification,
   getUnreadNotificationCount,
@@ -96,6 +97,41 @@ router.patch(
       res.status(500).json({
         success: false,
         error: 'Failed to mark notification as read',
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/notifications/:id/unread
+ * Mark notification as unread
+ */
+router.patch(
+  '/:id/unread',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid notification ID',
+        });
+        return;
+      }
+
+      markNotificationAsUnread(id);
+
+      res.json({
+        success: true,
+        message: 'Notification marked as unread',
+      });
+    } catch (error) {
+      console.error('❌ Error marking notification as unread:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to mark notification as unread',
       });
     }
   }
