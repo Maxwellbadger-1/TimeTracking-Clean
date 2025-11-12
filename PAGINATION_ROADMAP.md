@@ -80,20 +80,28 @@
 
 ---
 
-### 3. Holidays Default Year Filter
-**Current Problem:**
-- Without year parameter: Loads ALL holidays in database
+### 3. Holidays Default Year Filter ✅ **COMPLETE** (Commit: 5eabcf0)
+**Problem Solved:**
+- Without year parameter: Loaded ALL holidays in database
 - After 10 years: 120 holidays
 
-**Solution:**
-- Require year parameter (default: current year)
-- `GET /api/holidays?year=2025`
+**Solution Implemented:**
+- ✅ Default to current year if no year provided (backend)
+- ✅ `GET /api/holidays` → Returns current year holidays
+- ✅ `GET /api/holidays?year=2025` → Returns specific year
+- ✅ Validation: Year must be between 2000-2100
+- ✅ Backward compatible
 
-**Files to Modify:**
-- `server/src/routes/holidays.ts`
-- `desktop/src/hooks/useHolidays.ts` (if exists)
+**Files Modified:**
+- ✅ `server/src/routes/holidays.ts` - Added default year + validation
+- ✅ `desktop/src/hooks/useHolidays.ts` - Updated documentation
 
-**Estimated Time:** 1 hour
+**Performance Impact:**
+- 🚫 Prevents unbounded queries (no more SELECT * FROM holidays)
+- ✅ Default to current year (~12 holidays)
+- ✅ 90% reduction for multi-year scenarios (12 vs 120 records)
+
+**Actual Time:** ~45 minutes
 
 ---
 
@@ -166,15 +174,15 @@ app.use((req, res, next) => {
 
 ## 📊 Priority Matrix
 
-| Task | Priority | Impact | Effort | When |
-|------|----------|--------|--------|------|
-| Time Entries Pagination | 🔴 CRITICAL | Very High | High | ASAP |
-| Absences Pagination | 🟠 HIGH | Medium | Medium | Week 2 |
-| Holidays Year Filter | 🟠 HIGH | Low | Low | Week 2 |
-| Exports Validation | 🟠 HIGH | Medium | Low | Week 2 |
-| Virtual Scrolling | 🟡 MEDIUM | Medium | Medium | Week 3 |
-| Performance Monitoring | 🟡 MEDIUM | Low | Low | Week 3 |
-| Query Optimization | 🟢 LOW | Low | Low | Later |
+| Task | Priority | Impact | Effort | Status |
+|------|----------|--------|--------|--------|
+| Time Entries Pagination | 🔴 CRITICAL | Very High | High | ✅ COMPLETE |
+| Absences Pagination | 🟠 HIGH | Medium | Medium | ✅ COMPLETE |
+| Holidays Year Filter | 🟠 HIGH | Low | Low | ✅ COMPLETE |
+| Exports Validation | 🟠 HIGH | Medium | Low | ⏳ NEXT |
+| Virtual Scrolling | 🟡 MEDIUM | Medium | Medium | 🔜 Later |
+| Performance Monitoring | 🟡 MEDIUM | Low | Low | 🔜 Later |
+| Query Optimization | 🟢 LOW | Low | Low | 🔜 Later |
 
 ---
 
@@ -239,7 +247,7 @@ To continue PHASE 2:
 
 ---
 
-**Status:** PHASE 1 Complete ✅ | PHASE 2 Ready to Start 🚧
+**Status:** PHASE 1 Complete ✅ | PHASE 2: 3/4 Tasks Complete 🚀
 
 **Last Updated:** 2025-11-12
-**Version:** 1.0.0
+**Version:** 1.1.0
