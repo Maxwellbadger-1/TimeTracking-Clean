@@ -56,7 +56,7 @@ class ApiClient {
       // credentials: 'include' is ESSENTIAL for session cookies to work cross-origin
       const response = await universalFetch(url, {
         ...options,
-        credentials: 'include', // CRITICAL: Required for cookies on cross-origin (localhost:1420 -> localhost:3000)
+        credentials: 'include', // CRITICAL: Required for cookies on cross-origin requests (desktop app to server)
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
