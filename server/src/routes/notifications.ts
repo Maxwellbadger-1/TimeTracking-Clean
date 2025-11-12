@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import {
   getUserNotifications,
+  getUserNotificationsPaginated,
   markNotificationAsRead,
   markNotificationAsUnread,
   markAllNotificationsAsRead,
@@ -15,28 +16,61 @@ const router = Router();
 
 /**
  * GET /api/notifications
- * Get all notifications for current user
+ * Get paginated notifications for current user
+ * Query params:
+ *  - unreadOnly: boolean (default: false)
+ *  - page: number (default: 1)
+ *  - limit: number (default: 20, max: 100)
  */
 router.get(
   '/',
   requireAuth,
   (req: Request, res: Response<ApiResponse>) => {
     try {
-      const { unreadOnly } = req.query;
-      const notifications = getUserNotifications(
-        req.session.user!.id,
-        unreadOnly === 'true'
-      );
+      const { unreadOnly, page, limit } = req.query;
+
+      const pageNum = page ? parseInt(page as string, 10) : 1;
+      const limitNum = limit ? parseInt(limit as string, 10) : 20;
+
+      // Validate page and limit
+      if (isNaN(pageNum) || pageNum < 1) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid page number',
+        });
+        return;
+      }
+
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid limit (must be 1-100)',
+        });
+        return;
+      }
+
+      const result = getUserNotificationsPaginated(req.session.user!.id, {
+        unreadOnly: unreadOnly === 'true',
+        page: pageNum,
+        limit: limitNum,
+      });
 
       // Transform: read (0|1) → isRead (boolean)
-      const transformedNotifications = notifications.map((n: any) => ({
+      const transformedRows = result.rows.map((n: any) => ({
         ...n,
         isRead: n.read === 1,
       }));
 
       res.json({
         success: true,
-        data: transformedNotifications,
+        data: transformedRows,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: result.totalPages,
+          hasMore: result.hasMore,
+        },
       });
     } catch (error) {
       console.error('❌ Error getting notifications:', error);

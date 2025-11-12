@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { initializeDatabase } from './schema.js';
-import { createIndexes } from './indexes.js';
+import { createIndexes, verifyIndexes } from './indexes.js';
 import logger from '../utils/logger.js';
 
 // Database path: server/database.db
@@ -38,6 +38,9 @@ function initializeConnection(): Database.Database {
 
   // Create performance indexes
   createIndexes(database);
+
+  // Verify indexes were created successfully
+  verifyIndexes(database);
 
   return database;
 }

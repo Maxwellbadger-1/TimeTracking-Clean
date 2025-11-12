@@ -9,28 +9,31 @@ import { notificationService } from '../services/notificationService';
 import type { Notification } from '../types';
 
 export function useDesktopNotifications(userId: number | undefined) {
-  const { data: notifications } = useNotifications(userId!);
+  const { data: notificationsData } = useNotifications(userId!);
   const previousNotifications = useRef<Notification[]>([]);
 
   useEffect(() => {
-    if (!userId || !notifications) {
+    if (!userId || !notificationsData) {
       return;
     }
+
+    // Extract notifications array from paginated response
+    const notifications = notificationsData.rows || [];
 
     // Get IDs of previous notifications
     const previousIds = new Set(previousNotifications.current.map((n) => n.id));
 
     // Find NEW notifications (not in previous set)
-    const newNotifications = notifications.filter((n) => !previousIds.has(n.id) && !n.isRead);
+    const newNotifications = notifications.filter((n: Notification) => !previousIds.has(n.id) && !n.isRead);
 
     // Send desktop notification for each new notification
-    newNotifications.forEach((notification) => {
+    newNotifications.forEach((notification: Notification) => {
       sendDesktopNotification(notification);
     });
 
     // Update ref for next comparison
     previousNotifications.current = notifications;
-  }, [notifications, userId]);
+  }, [notificationsData, userId]);
 }
 
 /**

@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Bell, Search, Trash2, Check, CheckCheck, X } from 'lucide-react';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { useAuthStore } from '../store/authStore';
 import {
-  useNotifications,
+  useInfiniteNotifications,
   useMarkNotificationRead,
   useMarkNotificationUnread,
   useMarkAllNotificationsRead,
@@ -22,22 +23,30 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<NotificationType>('all');
 
-  const { data: notifications, isLoading } = useNotifications(user?.id || 0);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+  } = useInfiniteNotifications(user?.id || 0, activeTab === 'unread');
+
   const markRead = useMarkNotificationRead();
   const markUnread = useMarkNotificationUnread();
   const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
 
-  // Filter notifications based on active tab, search, and type filter
+  // Flatten all pages into a single array
+  const allNotifications = useMemo(() => {
+    return data?.pages.flatMap((page) => page.rows) || [];
+  }, [data]);
+
+  // Filter notifications based on search and type filter
   const filteredNotifications = useMemo(() => {
-    if (!notifications) return [];
+    let filtered = [...allNotifications];
 
-    let filtered = [...notifications];
-
-    // Tab filter
-    if (activeTab === 'unread') {
-      filtered = filtered.filter((n) => !n.isRead);
-    } else if (activeTab === 'read') {
+    // Tab filter is handled by the query itself (unreadOnly parameter)
+    // But we still need to handle 'read' tab
+    if (activeTab === 'read') {
       filtered = filtered.filter((n) => n.isRead);
     }
 
@@ -57,12 +66,12 @@ export default function NotificationsPage() {
     }
 
     return filtered;
-  }, [notifications, activeTab, searchQuery, typeFilter]);
+  }, [allNotifications, activeTab, searchQuery, typeFilter]);
 
   // Count statistics
-  const unreadCount = notifications?.filter((n) => !n.isRead).length || 0;
-  const readCount = notifications?.filter((n) => n.isRead).length || 0;
-  const totalCount = notifications?.length || 0;
+  const unreadCount = allNotifications.filter((n) => !n.isRead).length;
+  const readCount = allNotifications.filter((n) => n.isRead).length;
+  const totalCount = data?.pages[0]?.pagination.total || 0;
 
   const handleToggleRead = async (notification: Notification) => {
     if (notification.isRead) {
@@ -216,22 +225,42 @@ export default function NotificationsPage() {
       )}
 
       {/* Notification List */}
-      <div className="space-y-2">
-        {filteredNotifications.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
-              {searchQuery || typeFilter !== 'all'
-                ? 'Keine Benachrichtigungen gefunden'
-                : activeTab === 'unread'
-                ? 'Keine ungelesenen Benachrichtigungen'
-                : activeTab === 'read'
-                ? 'Keine gelesenen Benachrichtigungen'
-                : 'Keine Benachrichtigungen vorhanden'}
-            </p>
-          </div>
-        ) : (
-          filteredNotifications.map((notification) => (
+      {filteredNotifications.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+          <p className="text-gray-500 dark:text-gray-400 text-lg">
+            {searchQuery || typeFilter !== 'all'
+              ? 'Keine Benachrichtigungen gefunden'
+              : activeTab === 'unread'
+              ? 'Keine ungelesenen Benachrichtigungen'
+              : activeTab === 'read'
+              ? 'Keine gelesenen Benachrichtigungen'
+              : 'Keine Benachrichtigungen vorhanden'}
+          </p>
+        </div>
+      ) : (
+        <InfiniteScroll
+          dataLength={filteredNotifications.length}
+          next={fetchNextPage}
+          hasMore={hasNextPage || false}
+          loader={
+            <div className="text-center py-4">
+              <LoadingSpinner size="sm" />
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Lade weitere Benachrichtigungen...
+              </p>
+            </div>
+          }
+          endMessage={
+            filteredNotifications.length > 10 && (
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
+                Alle Benachrichtigungen geladen
+              </p>
+            )
+          }
+          className="space-y-2"
+        >
+          {filteredNotifications.map((notification) => (
             <div
               key={notification.id}
               className={`bg-white dark:bg-gray-800 rounded-lg border transition-all ${
@@ -310,9 +339,9 @@ export default function NotificationsPage() {
                 </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </InfiniteScroll>
+      )}
 
       {/* Count Info */}
       {filteredNotifications.length > 0 && (

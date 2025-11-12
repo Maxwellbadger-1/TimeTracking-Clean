@@ -15,6 +15,15 @@ interface Notification {
   createdAt: string;
 }
 
+interface PaginatedResult<T> {
+  rows: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 /**
  * Create a notification for a user
  */
@@ -51,7 +60,8 @@ export function getNotificationById(id: number): Notification | null {
 }
 
 /**
- * Get all notifications for a user
+ * Get all notifications for a user (non-paginated)
+ * @deprecated Use getUserNotificationsPaginated for better performance
  */
 export function getUserNotifications(
   userId: number,
@@ -66,6 +76,45 @@ export function getUserNotifications(
   query += ' ORDER BY createdAt DESC';
 
   return db.prepare(query).all(userId) as Notification[];
+}
+
+/**
+ * Get paginated notifications for a user
+ */
+export function getUserNotificationsPaginated(
+  userId: number,
+  options: { unreadOnly?: boolean; page?: number; limit?: number }
+): PaginatedResult<Notification> {
+  const page = options.page || 1;
+  const limit = Math.min(options.limit || 20, 100); // Max 100 per page
+  const offset = (page - 1) * limit;
+
+  // Build query
+  let query = 'SELECT * FROM notifications WHERE userId = ?';
+  const params: any[] = [userId];
+
+  if (options.unreadOnly) {
+    query += ' AND read = 0';
+  }
+
+  // Get total count
+  const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+  const { count } = db.prepare(countQuery).get(...params) as { count: number };
+
+  // Add pagination
+  query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const rows = db.prepare(query).all(...params) as Notification[];
+
+  return {
+    rows,
+    total: count,
+    page,
+    limit,
+    totalPages: Math.ceil(count / limit),
+    hasMore: page * limit < count,
+  };
 }
 
 /**

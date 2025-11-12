@@ -71,6 +71,7 @@ export {
   useMarkAllNotificationsRead,
   useDeleteNotification,
 } from './useNotifications';
+export { useInfiniteNotifications } from './useInfiniteNotifications';
 
 // Holidays
 export {

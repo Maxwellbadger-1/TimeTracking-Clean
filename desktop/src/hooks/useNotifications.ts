@@ -3,36 +3,80 @@ import { apiClient } from '../api/client';
 import type { Notification } from '../types';
 import { toast } from 'sonner';
 
-// Get all notifications for current user
-export function useNotifications(userId: number) {
+interface UseNotificationsOptions {
+  page?: number;
+  limit?: number;
+  unreadOnly?: boolean;
+}
+
+interface NotificationResponse {
+  rows: Notification[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+// Get paginated notifications for current user
+export function useNotifications(userId: number, options: UseNotificationsOptions = {}) {
+  const { page = 1, limit = 20, unreadOnly = false } = options;
+
   return useQuery({
-    queryKey: ['notifications', userId],
+    queryKey: ['notifications', userId, { page, limit, unreadOnly }],
     queryFn: async () => {
-      const response = await apiClient.get<Notification[]>(
-        `/notifications?userId=${userId}`
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (unreadOnly) {
+        params.append('unreadOnly', 'true');
+      }
+
+      const response = await apiClient.get<Notification[] | NotificationResponse>(
+        `/notifications?${params}`
       );
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch notifications');
       }
 
-      return response.data || [];
+      // Handle both paginated and non-paginated responses for backward compatibility
+      if (Array.isArray(response.data)) {
+        // Old non-paginated response
+        return {
+          rows: response.data,
+          pagination: {
+            page: 1,
+            limit: response.data.length,
+            total: response.data.length,
+            totalPages: 1,
+            hasMore: false,
+          },
+        };
+      }
+
+      return response.data || {
+        rows: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+      };
     },
     enabled: !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
 
-// Get unread notifications
+// Get unread notifications (uses unreadOnly filter)
 export function useUnreadNotifications(userId: number) {
-  const { data: notifications, ...rest } = useNotifications(userId);
-
-  const unreadNotifications = notifications?.filter((n) => !n.isRead) || [];
+  const { data, ...rest } = useNotifications(userId, { unreadOnly: true });
 
   return {
     ...rest,
-    data: unreadNotifications,
-    count: unreadNotifications.length,
+    data: data?.rows || [],
+    count: data?.pagination.total || 0,
   };
 }
 
@@ -64,14 +108,27 @@ export function useMarkNotificationRead() {
       console.log('🟢 [READ] onMutate: Previous data snapshot taken:', previousNotifications.length, 'queries');
 
       // Optimistically update all notification queries
-      queryClient.setQueriesData<Notification[]>(
+      queryClient.setQueriesData<NotificationResponse>(
         { queryKey: ['notifications'] },
         (old) => {
           console.log('🟢 [READ] onMutate: Old data:', old);
           if (!old) return old;
-          const updated = old.map((n) =>
-            n.id === id ? { ...n, isRead: true } : n
-          );
+
+          // Handle both array (legacy) and paginated response
+          if (Array.isArray(old)) {
+            const updated = old.map((n) =>
+              n.id === id ? { ...n, isRead: true } : n
+            );
+            console.log('🟢 [READ] onMutate: Updated data (optimistic, legacy):', updated);
+            return updated as any;
+          }
+
+          const updated = {
+            ...old,
+            rows: old.rows.map((n) =>
+              n.id === id ? { ...n, isRead: true } : n
+            ),
+          };
           console.log('🟢 [READ] onMutate: Updated data (optimistic):', updated);
           return updated;
         }
@@ -123,13 +180,24 @@ export function useMarkNotificationUnread() {
       const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
 
       // Optimistically update all notification queries
-      queryClient.setQueriesData<Notification[]>(
+      queryClient.setQueriesData<NotificationResponse>(
         { queryKey: ['notifications'] },
         (old) => {
           if (!old) return old;
-          return old.map((n) =>
-            n.id === id ? { ...n, isRead: false } : n
-          );
+
+          // Handle both array (legacy) and paginated response
+          if (Array.isArray(old)) {
+            return old.map((n) =>
+              n.id === id ? { ...n, isRead: false } : n
+            ) as any;
+          }
+
+          return {
+            ...old,
+            rows: old.rows.map((n) =>
+              n.id === id ? { ...n, isRead: false } : n
+            ),
+          };
         }
       );
 
@@ -174,11 +242,20 @@ export function useMarkAllNotificationsRead() {
       const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
 
       // Optimistically update all notification queries
-      queryClient.setQueriesData<Notification[]>(
+      queryClient.setQueriesData<NotificationResponse>(
         { queryKey: ['notifications'] },
         (old) => {
           if (!old) return old;
-          return old.map((n) => ({ ...n, isRead: true }));
+
+          // Handle both array (legacy) and paginated response
+          if (Array.isArray(old)) {
+            return old.map((n) => ({ ...n, isRead: true })) as any;
+          }
+
+          return {
+            ...old,
+            rows: old.rows.map((n) => ({ ...n, isRead: true })),
+          };
         }
       );
 
@@ -225,11 +302,24 @@ export function useDeleteNotification() {
       const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
 
       // Optimistically remove notification from all queries
-      queryClient.setQueriesData<Notification[]>(
+      queryClient.setQueriesData<NotificationResponse>(
         { queryKey: ['notifications'] },
         (old) => {
           if (!old) return old;
-          return old.filter((n) => n.id !== id);
+
+          // Handle both array (legacy) and paginated response
+          if (Array.isArray(old)) {
+            return old.filter((n) => n.id !== id) as any;
+          }
+
+          return {
+            ...old,
+            rows: old.rows.filter((n) => n.id !== id),
+            pagination: {
+              ...old.pagination,
+              total: old.pagination.total - 1,
+            },
+          };
         }
       );
 
