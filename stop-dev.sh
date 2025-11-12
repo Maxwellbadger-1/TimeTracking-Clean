@@ -48,6 +48,9 @@ lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null
 lsof -ti:1420 2>/dev/null | xargs kill -9 2>/dev/null
 lsof -ti:1421 2>/dev/null | xargs kill -9 2>/dev/null
 
+# Remove lockfile
+rm -f /tmp/timetracking-dev.lock
+
 echo ""
 echo "✅ All development processes stopped!"
 echo "   (Ports 3000, 1420, 1421 are now free)"
