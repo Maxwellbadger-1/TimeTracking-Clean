@@ -19,7 +19,9 @@ import vacationBalanceRoutes from './routes/vacationBalance.js';
 import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
 import exportsRoutes from './routes/exports.js';
+import performanceRoutes from './routes/performance.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { performanceMonitor } from './middleware/performanceMonitor.js';
 import { startBackupScheduler } from './services/cronService.js';
 import { initializeHolidays } from './services/holidayService.js';
 
@@ -170,6 +172,9 @@ const loginLimiter = rateLimit({
 app.use('/api/', apiLimiter); // General API rate limit
 app.use('/api/auth/login', loginLimiter); // Strict login rate limit
 
+// Performance monitoring middleware (after rate limiting, before routes)
+app.use(performanceMonitor);
+
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -206,6 +211,7 @@ app.use('/api/vacation-balances', vacationBalanceRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/exports', exportsRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);
