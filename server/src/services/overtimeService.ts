@@ -219,8 +219,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     targetHours
   }, `📅 updateMonthlyOvertime`);
 
-  // Calculate actual hours for the month
-  const actualHours = db
+  // Calculate actual worked hours for the month
+  const workedHours = db
     .prepare(
       `SELECT COALESCE(SUM(hours), 0) as total
        FROM time_entries
@@ -228,13 +228,54 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     )
     .get(userId, `${month}%`) as { total: number };
 
+  // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
+  // Get approved absences for this month
+  const absenceCredits = db
+    .prepare(
+      `SELECT COALESCE(SUM(days * ?), 0) as total
+       FROM absence_requests
+       WHERE userId = ?
+         AND status = 'approved'
+         AND type IN ('sick', 'vacation', 'overtime_comp')
+         AND startDate LIKE ?`
+    )
+    .get(dailyHours, userId, `${month}%`) as { total: number };
+
+  // Calculate unpaid leave reduction (reduces target hours)
+  const unpaidLeaveDays = db
+    .prepare(
+      `SELECT COALESCE(SUM(days), 0) as total
+       FROM absence_requests
+       WHERE userId = ?
+         AND status = 'approved'
+         AND type = 'unpaid'
+         AND startDate LIKE ?`
+    )
+    .get(userId, `${month}%`) as { total: number };
+
+  const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
+
+  // Adjusted target hours (Soll minus unpaid leave)
+  const adjustedTargetHours = targetHours - unpaidLeaveReduction;
+
+  // Actual hours WITH absence credits
+  const actualHoursWithCredits = workedHours.total + absenceCredits.total;
+
+  logger.debug({
+    workedHours: workedHours.total,
+    absenceCredits: absenceCredits.total,
+    unpaidLeaveReduction,
+    adjustedTargetHours,
+    actualHoursWithCredits
+  }, `📊 Monthly hours breakdown`);
+
   // Upsert monthly overtime
   db.prepare(
     `INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(userId, month)
      DO UPDATE SET targetHours = ?, actualHours = ?`
-  ).run(userId, month, targetHours, actualHours.total, targetHours, actualHours.total);
+  ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
 }
 
 /**
@@ -480,8 +521,8 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
     if (!existing) {
       logger.debug({ month, targetHours }, `✨ Creating overtime_balance entry`);
 
-      // Calculate actual hours for this month
-      const actualHours = db
+      // Calculate actual worked hours for this month
+      const workedHours = db
         .prepare(
           `SELECT COALESCE(SUM(hours), 0) as total
            FROM time_entries
@@ -489,13 +530,48 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
         )
         .get(userId, `${month}%`) as { total: number };
 
+      // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
+      const absenceCredits = db
+        .prepare(
+          `SELECT COALESCE(SUM(days * ?), 0) as total
+           FROM absence_requests
+           WHERE userId = ?
+             AND status = 'approved'
+             AND type IN ('sick', 'vacation', 'overtime_comp')
+             AND startDate LIKE ?`
+        )
+        .get(dailyHours, userId, `${month}%`) as { total: number };
+
+      // Calculate unpaid leave reduction
+      const unpaidLeaveDays = db
+        .prepare(
+          `SELECT COALESCE(SUM(days), 0) as total
+           FROM absence_requests
+           WHERE userId = ?
+             AND status = 'approved'
+             AND type = 'unpaid'
+             AND startDate LIKE ?`
+        )
+        .get(userId, `${month}%`) as { total: number };
+
+      const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
+      const adjustedTargetHours = targetHours - unpaidLeaveReduction;
+      const actualHoursWithCredits = workedHours.total + absenceCredits.total;
+
       // Insert the entry
       db.prepare(
         `INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
          VALUES (?, ?, ?, ?)`
-      ).run(userId, month, targetHours, actualHours.total);
+      ).run(userId, month, adjustedTargetHours, actualHoursWithCredits);
 
-      logger.debug({ actualHours: actualHours.total, overtime: actualHours.total - targetHours }, `✅ Created entry`);
+      logger.debug({
+        workedHours: workedHours.total,
+        absenceCredits: absenceCredits.total,
+        unpaidLeaveReduction,
+        adjustedTargetHours,
+        actualHoursWithCredits,
+        overtime: actualHoursWithCredits - adjustedTargetHours
+      }, `✅ Created entry`);
     }
   }
 }
