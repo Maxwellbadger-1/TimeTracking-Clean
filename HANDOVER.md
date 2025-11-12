@@ -115,7 +115,11 @@ sleep 3
 ```
 8eefc02 - fix: Critical bugs - overtime calculation & notifications
 65f8c15 - fix: Absences API - SQL syntax error with strftime
+8830777 - docs: Add comprehensive handover document
+8f465f2 - fix: Prevent multiple instances with lockfile and trap cleanup
 ```
+
+**WICHTIGSTER FIX:** Commit `8f465f2` verhindert das Multiple-Prozesse-Problem!
 
 ---
 
