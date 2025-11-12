@@ -28,9 +28,15 @@ router.get(
         unreadOnly === 'true'
       );
 
+      // Transform: read (0|1) → isRead (boolean)
+      const transformedNotifications = notifications.map((n: any) => ({
+        ...n,
+        isRead: n.read === 1,
+      }));
+
       res.json({
         success: true,
-        data: notifications,
+        data: transformedNotifications,
       });
     } catch (error) {
       console.error('❌ Error getting notifications:', error);
@@ -77,8 +83,10 @@ router.patch(
   (req: Request, res: Response<ApiResponse>) => {
     try {
       const id = parseInt(req.params.id);
+      console.log('🔵 [BACKEND] Mark as READ request for ID:', id);
 
       if (isNaN(id)) {
+        console.log('❌ [BACKEND] Invalid ID');
         res.status(400).json({
           success: false,
           error: 'Invalid notification ID',
@@ -87,9 +95,22 @@ router.patch(
       }
 
       markNotificationAsRead(id);
+      console.log('✅ [BACKEND] Notification marked as read in database');
+
+      // Get updated notification to return
+      const notification = getUserNotifications(req.session.user!.id).find((n: any) => n.id === id);
+      console.log('📤 [BACKEND] Raw notification from DB:', notification);
+
+      // Transform: read (0|1) → isRead (boolean)
+      const transformedNotification = notification ? {
+        ...notification,
+        isRead: notification.read === 1,
+      } : null;
+      console.log('📤 [BACKEND] Transformed notification:', transformedNotification);
 
       res.json({
         success: true,
+        data: transformedNotification,
         message: 'Notification marked as read',
       });
     } catch (error) {
@@ -123,8 +144,18 @@ router.patch(
 
       markNotificationAsUnread(id);
 
+      // Get updated notification to return
+      const notification = getUserNotifications(req.session.user!.id).find((n: any) => n.id === id);
+
+      // Transform: read (0|1) → isRead (boolean)
+      const transformedNotification = notification ? {
+        ...notification,
+        isRead: notification.read === 1,
+      } : null;
+
       res.json({
         success: true,
+        data: transformedNotification,
         message: 'Notification marked as unread',
       });
     } catch (error) {

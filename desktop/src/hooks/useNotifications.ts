@@ -42,7 +42,9 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async (id: number) => {
+      console.log('🔵 [READ] Mutation started for ID:', id);
       const response = await apiClient.patch<Notification>(`/notifications/${id}/read`, {});
+      console.log('🔵 [READ] Server response:', response);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to mark notification as read');
@@ -51,26 +53,34 @@ export function useMarkNotificationRead() {
       return response.data;
     },
     onMutate: async (id: number) => {
+      console.log('🟢 [READ] onMutate: Starting optimistic update for ID:', id);
+
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      console.log('🟢 [READ] onMutate: Cancelled ongoing queries');
 
       // Snapshot previous value
       const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+      console.log('🟢 [READ] onMutate: Previous data snapshot taken:', previousNotifications.length, 'queries');
 
       // Optimistically update all notification queries
       queryClient.setQueriesData<Notification[]>(
         { queryKey: ['notifications'] },
         (old) => {
+          console.log('🟢 [READ] onMutate: Old data:', old);
           if (!old) return old;
-          return old.map((n) =>
+          const updated = old.map((n) =>
             n.id === id ? { ...n, isRead: true } : n
           );
+          console.log('🟢 [READ] onMutate: Updated data (optimistic):', updated);
+          return updated;
         }
       );
 
       return { previousNotifications };
     },
     onError: (error: Error, _id, context) => {
+      console.log('🔴 [READ] onError: Mutation failed, rolling back');
       // Rollback on error
       if (context?.previousNotifications) {
         context.previousNotifications.forEach(([queryKey, data]) => {
@@ -80,7 +90,11 @@ export function useMarkNotificationRead() {
       console.error('Failed to mark notification as read:', error);
       toast.error('Fehler beim Markieren als gelesen');
     },
+    onSuccess: (data) => {
+      console.log('🟢 [READ] onSuccess: Mutation succeeded, server data:', data);
+    },
     onSettled: () => {
+      console.log('🟡 [READ] onSettled: Invalidating queries for refetch');
       // Refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
