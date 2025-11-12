@@ -42,7 +42,7 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiClient.put<Notification>(`/notifications/${id}/read`, {});
+      const response = await apiClient.patch<Notification>(`/notifications/${id}/read`, {});
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to mark notification as read');
@@ -93,7 +93,7 @@ export function useMarkNotificationUnread() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiClient.put<Notification>(`/notifications/${id}/unread`, {});
+      const response = await apiClient.patch<Notification>(`/notifications/${id}/unread`, {});
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to mark notification as unread');
@@ -144,7 +144,7 @@ export function useMarkAllNotificationsRead() {
 
   return useMutation({
     mutationFn: async (userId: number) => {
-      const response = await apiClient.put('/notifications/read-all', { userId });
+      const response = await apiClient.patch('/notifications/read-all', { userId });
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to mark all notifications as read');
