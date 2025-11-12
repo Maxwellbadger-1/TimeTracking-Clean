@@ -1931,6 +1931,68 @@ version = "1.0.0"
 
 **KRITISCH:** Tauri-Apps MÜSSEN auf allen Plattformen gebaut werden!
 
+### ⚠️ WICHTIGE RELEASE-REGEL (Aus Erfahrung gelernt!)
+
+**Problem:** Tauri Action (`tauri-apps/tauri-action@v0`) erstellt Releases automatisch, ABER:
+- Bei Matrix-Builds (mehrere Plattformen parallel) → Race Condition
+- Alle Jobs versuchen gleichzeitig das Release zu erstellen
+- Ergebnis: **Kein Release, aber Build erfolgreich** ❌
+
+**LÖSUNG (Best Practice):**
+
+1. **Schritt 1: Release MANUELL erstellen (VOR dem Build)**
+   ```bash
+   # IMMER zuerst das Release erstellen!
+   gh release create v1.0.8 \
+     --title "TimeTracking System v1.0.8" \
+     --notes "Release Notes hier..."
+   ```
+
+2. **Schritt 2: Tag pushen (triggert Build)**
+   ```bash
+   git tag v1.0.8
+   git push origin v1.0.8
+   ```
+
+3. **Schritt 3: Workflow lädt Binaries zum existierenden Release hoch**
+   - Workflow findet das Release (existiert bereits)
+   - Binaries werden hinzugefügt
+   - Kein Race-Condition Problem! ✅
+
+**WORKFLOW:**
+```bash
+# 1. Version bumpen
+vim desktop/package.json        # version: "1.0.8"
+vim desktop/src-tauri/Cargo.toml # version = "1.0.8"
+
+# 2. Commit
+git add desktop/package.json desktop/src-tauri/Cargo.toml
+git commit -m "release: v1.0.8 - Description"
+
+# 3. WICHTIG: Release ZUERST erstellen!
+gh release create v1.0.8 \
+  --title "TimeTracking System v1.0.8" \
+  --notes "$(cat RELEASE_NOTES.md)"  # Oder inline notes
+
+# 4. Tag erstellen & pushen (triggert Build)
+git tag v1.0.8
+git push origin main
+git push origin v1.0.8
+
+# 5. Warten (~15-20 Min)
+# Binaries werden zum existierenden Release hinzugefügt
+```
+
+**NIEMALS:**
+- ❌ Tag pushen OHNE vorher Release zu erstellen
+- ❌ Darauf verlassen dass Tauri Action das Release erstellt (Race Condition!)
+- ❌ Workflow mehrmals laufen lassen (verschwendet GitHub Actions Minutes)
+
+**IMMER:**
+- ✅ Release MANUELL erstellen (gh release create)
+- ✅ DANN Tag pushen (triggert Binaries-Upload)
+- ✅ Verify: Release existiert VOR dem Workflow-Start
+
 ```yaml
 # .github/workflows/release.yml
 name: 'Tauri Release'
