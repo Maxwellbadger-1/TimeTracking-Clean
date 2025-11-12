@@ -12,22 +12,27 @@ const router = express.Router();
   /**
    * GET /api/holidays
    * Get all holidays for a specific year
+   * Query params:
+   *  - year: number (optional, defaults to current year)
    */
   router.get('/', (req, res) => {
     try {
       const { year } = req.query;
 
-      let query = 'SELECT * FROM holidays';
-      const params: any[] = [];
+      // Default to current year if not specified (prevents unbounded queries)
+      const targetYear = year ? String(year) : String(new Date().getFullYear());
 
-      if (year) {
-        query += " WHERE strftime('%Y', date) = ?";
-        params.push(String(year));
+      // Validate year format
+      const yearNum = parseInt(targetYear, 10);
+      if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid year (must be between 2000 and 2100)',
+        });
       }
 
-      query += ' ORDER BY date ASC';
-
-      const holidays = db.prepare(query).all(...params);
+      const query = "SELECT * FROM holidays WHERE strftime('%Y', date) = ? ORDER BY date ASC";
+      const holidays = db.prepare(query).all(targetYear);
 
       res.json({
         success: true,

@@ -7,6 +7,7 @@ import { apiClient } from '../api/client';
 
 /**
  * Get all holidays for a specific year
+ * @param year - Year to fetch holidays for (defaults to current year on backend)
  */
 export function useHolidays(year?: number) {
   return useQuery({
@@ -15,6 +16,7 @@ export function useHolidays(year?: number) {
       const params = year ? `?year=${year}` : '';
       const response = await apiClient.get(`/holidays${params}`);
       // Ensure we always return an array (never undefined)
+      // Note: Backend defaults to current year if no year provided
       return (response.data || []) as Array<{ id: number; date: string; name: string; federal: number }>;
     },
     retry: false,
