@@ -205,6 +205,21 @@ export function ReportsPage() {
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
       : '0.0%';
 
+    // 🔥 DEBUG: Log calculation details
+    console.log('🔥🔥🔥 REPORTS PAGE CALCULATION DEBUG 🔥🔥🔥');
+    console.log('📅 Period:', { periodStart, periodEnd });
+    console.log('📊 Working Days:', workingDaysInPeriod);
+    console.log('🎯 Target Hours per Day:', targetHoursPerDay);
+    console.log('📈 Target Hours (Soll):', targetHours);
+    console.log('🏥 Absence Credits:', absenceCredits);
+    console.log('💼 Unpaid Leave Reduction:', unpaidLeaveReduction);
+    console.log('✅ Adjusted Target Hours:', adjustedTargetHours);
+    console.log('⏰ Total Worked Hours:', totalHours);
+    console.log('💯 Actual Hours with Credits:', actualHoursWithCredits);
+    console.log('🎯 OVERTIME (Differenz):', targetVsActualDiff);
+    console.log('📋 Filtered Absences:', filteredAbsences);
+    console.log('🔥🔥🔥 END DEBUG 🔥🔥🔥');
+
     // Absence Stats - Calculate actual days (not just number of requests)
     const calculateDaysBetween = (startDate: string, endDate: string): number => {
       const start = new Date(startDate);
