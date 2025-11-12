@@ -50,11 +50,39 @@ export function useMarkNotificationRead() {
 
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onMutate: async (id: number) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+
+      // Snapshot previous value
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+
+      // Optimistically update all notification queries
+      queryClient.setQueriesData<Notification[]>(
+        { queryKey: ['notifications'] },
+        (old) => {
+          if (!old) return old;
+          return old.map((n) =>
+            n.id === id ? { ...n, isRead: true } : n
+          );
+        }
+      );
+
+      return { previousNotifications };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        context.previousNotifications.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       console.error('Failed to mark notification as read:', error);
+      toast.error('Fehler beim Markieren als gelesen');
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -73,11 +101,39 @@ export function useMarkNotificationUnread() {
 
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onMutate: async (id: number) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+
+      // Snapshot previous value
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+
+      // Optimistically update all notification queries
+      queryClient.setQueriesData<Notification[]>(
+        { queryKey: ['notifications'] },
+        (old) => {
+          if (!old) return old;
+          return old.map((n) =>
+            n.id === id ? { ...n, isRead: false } : n
+          );
+        }
+      );
+
+      return { previousNotifications };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        context.previousNotifications.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       console.error('Failed to mark notification as unread:', error);
+      toast.error('Fehler beim Markieren als ungelesen');
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -96,12 +152,39 @@ export function useMarkAllNotificationsRead() {
 
       return response.data;
     },
+    onMutate: async (_userId: number) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+
+      // Snapshot previous value
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+
+      // Optimistically update all notification queries
+      queryClient.setQueriesData<Notification[]>(
+        { queryKey: ['notifications'] },
+        (old) => {
+          if (!old) return old;
+          return old.map((n) => ({ ...n, isRead: true }));
+        }
+      );
+
+      return { previousNotifications };
+    },
+    onError: (error: Error, _userId, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        context.previousNotifications.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      toast.error(`Fehler: ${error.message}`);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success('Alle Benachrichtigungen als gelesen markiert');
     },
-    onError: (error: Error) => {
-      toast.error(`Fehler: ${error.message}`);
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -120,11 +203,37 @@ export function useDeleteNotification() {
 
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onMutate: async (id: number) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+
+      // Snapshot previous value
+      const previousNotifications = queryClient.getQueriesData({ queryKey: ['notifications'] });
+
+      // Optimistically remove notification from all queries
+      queryClient.setQueriesData<Notification[]>(
+        { queryKey: ['notifications'] },
+        (old) => {
+          if (!old) return old;
+          return old.filter((n) => n.id !== id);
+        }
+      );
+
+      return { previousNotifications };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        context.previousNotifications.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       console.error('Failed to delete notification:', error);
+      toast.error('Fehler beim Löschen der Benachrichtigung');
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
