@@ -205,6 +205,13 @@ export function ReportsPage() {
         return sum;
       }, 0);
 
+    // Calculate unpaid leave reduction for display (UI only)
+    const unpaidLeaveDays = filteredAbsences
+      .filter(a => a.status === 'approved' && a.type === 'unpaid')
+      .reduce((sum, a) => sum + (a.days || 0), 0);
+
+    const unpaidLeaveReduction = unpaidLeaveDays * targetHoursPerDay;
+
     const targetVsActualPercent = targetHours > 0
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
       : '0.0%';
@@ -326,11 +333,11 @@ export function ReportsPage() {
       totalHours: Math.round(totalHours * 100) / 100,
       totalDays,
       avgHoursPerDay: Math.round(avgHoursPerDay * 100) / 100,
-      targetHours: Math.round(adjustedTargetHours * 100) / 100, // Use adjusted target (with unpaid reduction)
-      actualHours: Math.round(actualHoursWithCredits * 100) / 100, // Actual + credits
+      targetHours: Math.round(targetHours * 100) / 100, // From Backend (already adjusted)
+      actualHours: Math.round(actualHoursWithCredits * 100) / 100, // From Backend (actual + credits)
       absenceCredits: Math.round(absenceCredits * 100) / 100, // For display
       unpaidLeaveReduction: Math.round(unpaidLeaveReduction * 100) / 100, // For display
-      targetVsActualDiff: Math.round(targetVsActualDiff * 100) / 100,
+      targetVsActualDiff: Math.round(targetVsActualDiff * 100) / 100, // From Backend (overtime)
       targetVsActualPercent,
       vacationDays,
       sickDays,
