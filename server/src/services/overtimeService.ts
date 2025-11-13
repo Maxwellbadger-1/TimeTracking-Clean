@@ -234,7 +234,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     .get(userId, `${month}%`) as { total: number };
 
   // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
-  // Get approved absences for this month (only from hireDate onwards!)
+  // Get approved absences for this month (only from hireDate onwards AND up to endDate!)
+  const endDateString = formatDate(endDate, 'yyyy-MM-dd');
   const absenceCredits = db
     .prepare(
       `SELECT COALESCE(SUM(days * ?), 0) as total
@@ -243,12 +244,13 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
          AND status = 'approved'
          AND type IN ('sick', 'vacation', 'overtime_comp')
          AND startDate LIKE ?
-         AND startDate >= ?`
+         AND startDate >= ?
+         AND startDate <= ?`
     )
-    .get(dailyHours, userId, `${month}%`, user.hireDate) as { total: number };
+    .get(dailyHours, userId, `${month}%`, user.hireDate, endDateString) as { total: number };
 
   // Calculate unpaid leave reduction (reduces target hours)
-  // Only count unpaid leave from hireDate onwards
+  // Only count unpaid leave from hireDate onwards AND up to endDate
   const unpaidLeaveDays = db
     .prepare(
       `SELECT COALESCE(SUM(days), 0) as total
@@ -257,9 +259,10 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
          AND status = 'approved'
          AND type = 'unpaid'
          AND startDate LIKE ?
-         AND startDate >= ?`
+         AND startDate >= ?
+         AND startDate <= ?`
     )
-    .get(userId, `${month}%`, user.hireDate) as { total: number };
+    .get(userId, `${month}%`, user.hireDate, endDateString) as { total: number };
 
   const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
 
@@ -539,7 +542,8 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
         .get(userId, `${month}%`) as { total: number };
 
       // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
-      // Only count absences from hireDate onwards
+      // Only count absences from hireDate onwards AND up to today (not future)
+      const todayString = formatDate(endDate, 'yyyy-MM-dd'); // endDate is already capped at today
       const absenceCredits = db
         .prepare(
           `SELECT COALESCE(SUM(days * ?), 0) as total
@@ -548,12 +552,13 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
              AND status = 'approved'
              AND type IN ('sick', 'vacation', 'overtime_comp')
              AND startDate LIKE ?
-             AND startDate >= ?`
+             AND startDate >= ?
+             AND startDate <= ?`
         )
-        .get(dailyHours, userId, `${month}%`, user.hireDate) as { total: number };
+        .get(dailyHours, userId, `${month}%`, user.hireDate, todayString) as { total: number };
 
       // Calculate unpaid leave reduction
-      // Only count unpaid leave from hireDate onwards
+      // Only count unpaid leave from hireDate onwards AND up to today
       const unpaidLeaveDays = db
         .prepare(
           `SELECT COALESCE(SUM(days), 0) as total
@@ -562,9 +567,10 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
              AND status = 'approved'
              AND type = 'unpaid'
              AND startDate LIKE ?
-             AND startDate >= ?`
+             AND startDate >= ?
+             AND startDate <= ?`
         )
-        .get(userId, `${month}%`, user.hireDate) as { total: number };
+        .get(userId, `${month}%`, user.hireDate, todayString) as { total: number };
 
       const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
       const adjustedTargetHours = targetHours - unpaidLeaveReduction;

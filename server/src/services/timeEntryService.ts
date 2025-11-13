@@ -361,6 +361,16 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
     throw new Error(validation.error);
   }
 
+  // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
+  const user = db.prepare('SELECT hireDate FROM users WHERE id = ?').get(data.userId) as { hireDate: string } | undefined;
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (data.date < user.hireDate) {
+    throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
+  }
+
   // Check for approved absence on this date
   const absence = checkAbsenceConflict(data.userId, data.date);
   if (absence) {

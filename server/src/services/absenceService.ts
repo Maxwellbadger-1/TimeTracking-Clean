@@ -415,6 +415,16 @@ export function createAbsenceRequest(
   logger.debug('🚀🚀🚀 CREATE ABSENCE REQUEST DEBUG 🚀🚀🚀');
   logger.debug({ data }, '📥 Input data');
 
+  // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
+  const user = db.prepare('SELECT hireDate FROM users WHERE id = ?').get(data.userId) as { hireDate: string } | undefined;
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (data.startDate < user.hireDate) {
+    throw new Error(`Abwesenheit vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
+  }
+
   // Validate dates
   const validation = validateAbsenceDates(data);
   if (!validation.valid) {
