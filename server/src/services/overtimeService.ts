@@ -1,10 +1,15 @@
 import { db } from '../database/connection.js';
-import { startOfWeek, endOfWeek, format } from 'date-fns';
+import { startOfWeek, endOfWeek } from 'date-fns';
 import {
   calculateDailyTargetHours,
   countWorkingDaysBetween,
 } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
+import {
+  getCurrentDate,
+  getCurrentYear,
+  formatDate,
+} from '../utils/timezone.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -41,25 +46,25 @@ interface OvertimeSummary {
 }
 
 /**
- * Get ISO week string from date
+ * Get ISO week string from date (Berlin timezone)
  * Format: "2025-W45"
  */
 function getISOWeek(date: string): string {
   const d = new Date(date);
   const weekStart = startOfWeek(d, { weekStartsOn: 1 }); // Monday
-  return format(weekStart, "yyyy-'W'II");
+  return formatDate(weekStart, "yyyy-'W'II");
 }
 
 /**
- * Get week start and end dates from a date
+ * Get week start and end dates from a date (Berlin timezone)
  */
 function getWeekDateRange(date: string): { startDate: string; endDate: string } {
   const d = new Date(date);
   const weekStart = startOfWeek(d, { weekStartsOn: 1 }); // Monday
   const weekEnd = endOfWeek(d, { weekStartsOn: 1 }); // Sunday
   return {
-    startDate: format(weekStart, 'yyyy-MM-dd'),
-    endDate: format(weekEnd, 'yyyy-MM-dd'),
+    startDate: formatDate(weekStart, 'yyyy-MM-dd'),
+    endDate: formatDate(weekEnd, 'yyyy-MM-dd'),
   };
 }
 
@@ -186,8 +191,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   }
 
   const [year, monthNum] = month.split('-').map(Number);
-  const today = new Date();
-  const currentMonth = format(today, 'yyyy-MM');
+  const today = getCurrentDate();
+  const currentMonth = formatDate(today, 'yyyy-MM');
 
   // Determine start and end dates for calculation
   const monthStart = new Date(year, monthNum - 1, 1);
@@ -213,8 +218,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 
   logger.debug({
     month,
-    startDate: format(startDate, 'yyyy-MM-dd'),
-    endDate: format(endDate, 'yyyy-MM-dd'),
+    startDate: formatDate(startDate, 'yyyy-MM-dd'),
+    endDate: formatDate(endDate, 'yyyy-MM-dd'),
     workingDays,
     targetHours
   }, `📅 updateMonthlyOvertime`);
@@ -312,10 +317,10 @@ export function getOvertimeSummary(userId: number, year: number): OvertimeSummar
   logger.debug({ hireDate }, '📅 User hireDate');
 
   // Determine the end month (current month if current year, December if past year)
-  const today = new Date();
+  const today = getCurrentDate();
   const currentYear = today.getFullYear();
   const endMonth = year === currentYear
-    ? format(today, 'yyyy-MM')
+    ? formatDate(today, 'yyyy-MM')
     : `${year}-12`;
 
   logger.debug({ endMonth }, '📅 Ensuring overtime entries up to');
@@ -422,10 +427,10 @@ export function getMonthlyOvertime(userId: number, month: string): MonthlyOverti
  * Returns: today, this week, this month, total year
  */
 export function getCurrentOvertimeStats(userId: number) {
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
   const currentWeek = getISOWeek(today);
-  const currentMonth = format(new Date(), 'yyyy-MM');
-  const currentYear = new Date().getFullYear();
+  const currentMonth = formatDate(getCurrentDate(), 'yyyy-MM');
+  const currentYear = getCurrentYear();
 
   logger.debug('🔥🔥🔥 getCurrentOvertimeStats CALLED 🔥🔥🔥');
   logger.debug({ userId, today, currentWeek, currentMonth, currentYear }, '📌 Parameters');
@@ -481,7 +486,7 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
   const current = new Date(hireDate.getFullYear(), hireDate.getMonth(), 1);
 
   while (current <= targetDate) {
-    months.push(format(current, 'yyyy-MM'));
+    months.push(formatDate(current, 'yyyy-MM'));
     current.setMonth(current.getMonth() + 1);
   }
 
@@ -490,8 +495,8 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
   // For each month, ensure an overtime_balance entry exists
   for (const month of months) {
     const [year, monthNum] = month.split('-').map(Number);
-    const today = new Date();
-    const currentMonth = format(today, 'yyyy-MM');
+    const today = getCurrentDate();
+    const currentMonth = formatDate(today, 'yyyy-MM');
 
     // Determine start and end dates for this month
     const monthStart = new Date(year, monthNum - 1, 1);
@@ -590,12 +595,12 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
  * IMPORTANT: Only counts months from employee's hire date onwards!
  */
 export function getAllUsersOvertimeSummary(year: number) {
-  const today = new Date();
+  const today = getCurrentDate();
   const currentYear = today.getFullYear();
 
   const startMonth = `${year}-01`;
   const endMonth = year === currentYear
-    ? format(today, 'yyyy-MM')
+    ? formatDate(today, 'yyyy-MM')
     : `${year}-12`;
 
   // First, ensure all users have complete overtime_balance entries
@@ -639,7 +644,7 @@ export function deductOvertimeForAbsence(
   hours: number,
   absenceDate: string
 ): void {
-  const currentYear = new Date().getFullYear();
+  const currentYear = getCurrentYear();
   const summary = getOvertimeSummary(userId, currentYear);
 
   if (summary.totalOvertime < hours) {
@@ -664,7 +669,7 @@ export function deductOvertimeForAbsence(
  * Check if user has enough overtime for compensation request
  */
 export function hasEnoughOvertime(userId: number, requestedHours: number): boolean {
-  const currentYear = new Date().getFullYear();
+  const currentYear = getCurrentYear();
   const summary = getOvertimeSummary(userId, currentYear);
   return summary.totalOvertime >= requestedHours;
 }
