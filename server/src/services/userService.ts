@@ -200,6 +200,22 @@ export async function updateUser(
 
     // CRITICAL: Handle side effects of changes
 
+    // If hireDate changed, DELETE and recalculate all overtime entries (SAP/Personio Best Practice)
+    // This ensures correct calculation from new employment start date
+    if (data.hireDate !== undefined && data.hireDate !== existingUser.hireDate) {
+      logger.info({ oldHireDate: existingUser.hireDate, newHireDate: data.hireDate }, '🔄 hireDate changed, clearing and recalculating overtime');
+      try {
+        // Delete ALL overtime entries - they will be recreated on next API call
+        db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
+        db.prepare('DELETE FROM overtime_daily WHERE userId = ?').run(id);
+        db.prepare('DELETE FROM overtime_weekly WHERE userId = ?').run(id);
+        logger.info('✅ Overtime entries cleared - will recalculate on next access');
+      } catch (error) {
+        logger.error({ err: error }, '❌ Failed to clear overtime after hireDate change');
+        // Don't fail the update, but log the error
+      }
+    }
+
     // If weeklyHours changed, recalculate all overtime_balance entries
     if (data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours) {
       logger.info({ oldHours: existingUser.weeklyHours, newHours: data.weeklyHours }, '🔄 weeklyHours changed, recalculating overtime');
@@ -235,7 +251,8 @@ export async function updateUser(
 
 /**
  * Recalculate all overtime_balance entries for a user
- * Called when weeklyHours changes
+ * Called when weeklyHours or hireDate changes
+ * Best Practice (SAP/Personio): Delete and rebuild from scratch for hireDate changes
  */
 function recalculateOvertimeForUser(userId: number): void {
   logger.debug({ userId }, '🔄 Recalculating overtime for user');
