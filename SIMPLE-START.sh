@@ -2,10 +2,12 @@
 
 # SIMPLE START - WITH PROPER CLEANUP
 # Prevents multiple instances and cleans up on exit
+# Best Practice: Kill process group on exit
 
 set -e
 
 LOCKFILE="/tmp/timetracking-dev.lock"
+SCRIPT_PID=$$
 
 # Check if already running
 if [ -f "$LOCKFILE" ]; then
@@ -14,21 +16,31 @@ if [ -f "$LOCKFILE" ]; then
   exit 1
 fi
 
-# Cleanup function
+# Cleanup function - Kills ALL child processes using pkill -P
 cleanup() {
   echo ""
   echo "🧹 Cleaning up..."
-  if [ -f "$LOCKFILE" ]; then
-    SERVER_PID=$(cat "$LOCKFILE")
-    kill -TERM $SERVER_PID 2>/dev/null || true
-    rm -f "$LOCKFILE"
-  fi
+
+  # Kill all child processes of this script
+  pkill -P $SCRIPT_PID 2>/dev/null || true
+
+  # Also kill known process names (belt and suspenders)
   killall -9 node npm vite cargo tauri tsx 2>/dev/null || true
+
+  # Remove lockfile
+  rm -f "$LOCKFILE"
+
   echo "✅ Cleanup complete"
 }
 
-# Register cleanup on exit
-trap cleanup EXIT INT TERM
+# Register cleanup on exit (EXIT catches ALL exit conditions)
+trap cleanup EXIT INT TERM QUIT HUP
+
+echo ""
+echo "⚠️  IMPORTANT: Never run this script with '&' in background!"
+echo "   The script manages background processes internally."
+echo "   Just run: ./SIMPLE-START.sh"
+echo ""
 
 echo "🛑 Stopping any existing processes..."
 killall -9 node npm vite cargo tauri tsx 2>/dev/null || true
@@ -40,6 +52,7 @@ npm start &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$LOCKFILE"
 echo "   Server PID: $SERVER_PID (saved to lockfile)"
+echo "   Script PID: $SCRIPT_PID (parent process)"
 
 sleep 5
 
