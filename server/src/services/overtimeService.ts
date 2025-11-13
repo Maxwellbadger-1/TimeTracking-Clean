@@ -643,6 +643,74 @@ export function getAllUsersOvertimeSummary(year: number) {
 }
 
 /**
+ * Get aggregated overtime statistics for all users (Admin dashboard)
+ * Returns total sums for Soll, Ist, and Überstunden
+ * Best Practice: Used for "Alle Mitarbeiter" view in reports
+ */
+export function getAggregatedOvertimeStats(year: number, month?: string) {
+  const today = getCurrentDate();
+  const currentYear = today.getFullYear();
+
+  // Ensure all users have complete overtime_balance entries
+  const users = db.prepare('SELECT id FROM users WHERE deletedAt IS NULL').all() as Array<{ id: number }>;
+
+  const targetMonth = month || formatDate(today, 'yyyy-MM');
+
+  for (const user of users) {
+    ensureOvertimeBalanceEntries(user.id, targetMonth);
+  }
+
+  // Query for monthly aggregation
+  if (month) {
+    const query = `
+      SELECT
+        SUM(ob.targetHours) as totalTargetHours,
+        SUM(ob.actualHours) as totalActualHours,
+        SUM(ob.overtime) as totalOvertime,
+        COUNT(DISTINCT ob.userId) as userCount
+      FROM overtime_balance ob
+      JOIN users u ON ob.userId = u.id
+      WHERE u.deletedAt IS NULL
+        AND ob.month = ?
+    `;
+
+    return db.prepare(query).get(month) as {
+      totalTargetHours: number;
+      totalActualHours: number;
+      totalOvertime: number;
+      userCount: number;
+    };
+  }
+
+  // Query for yearly aggregation
+  const startMonth = `${year}-01`;
+  const endMonth = year === currentYear
+    ? formatDate(today, 'yyyy-MM')
+    : `${year}-12`;
+
+  const query = `
+    SELECT
+      SUM(ob.targetHours) as totalTargetHours,
+      SUM(ob.actualHours) as totalActualHours,
+      SUM(ob.overtime) as totalOvertime,
+      COUNT(DISTINCT ob.userId) as userCount
+    FROM overtime_balance ob
+    JOIN users u ON ob.userId = u.id
+    WHERE u.deletedAt IS NULL
+      AND ob.month >= ?
+      AND ob.month <= ?
+      AND ob.month >= strftime('%Y-%m', u.hireDate)
+  `;
+
+  return db.prepare(query).all(startMonth, endMonth)[0] as {
+    totalTargetHours: number;
+    totalActualHours: number;
+    totalOvertime: number;
+    userCount: number;
+  };
+}
+
+/**
  * Deduct overtime when overtime compensation absence is approved
  */
 export function deductOvertimeForAbsence(

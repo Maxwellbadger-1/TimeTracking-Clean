@@ -41,6 +41,7 @@ import {
   useOvertimeSummary,
   useAllUsersOvertime,
 } from '../hooks';
+import { useAggregatedOvertimeStats } from '../hooks/useAggregatedOvertimeStats';
 import { formatHours, formatOvertimeHours } from '../utils/timeUtils';
 import { eachDayOfInterval, isWeekend } from 'date-fns';
 
@@ -79,12 +80,17 @@ export function ReportsPage() {
   );
 
   // Overtime data
+  // FIXED: When 'all' is selected, don't use individual data
   const { data: overtimeData } = useOvertimeSummary(
-    selectedUserId === 'all' ? currentUser?.id || 0 : selectedUserId,
+    selectedUserId === 'all' ? 0 : selectedUserId, // 0 will be ignored when 'all'
     selectedYear
   );
 
   const { data: allUsersOvertimeData } = useAllUsersOvertime(selectedYear);
+
+  // FIXED: Get aggregated stats when "Alle Mitarbeiter" is selected
+  const aggregatedMonth = reportType === 'monthly' ? selectedMonth : undefined;
+  const { data: aggregatedStats } = useAggregatedOvertimeStats(selectedYear, aggregatedMonth);
 
   const isLoading = loadingTimeEntries || loadingAbsences;
 
@@ -151,29 +157,41 @@ export function ReportsPage() {
     // BEST PRACTICE: Use Backend overtime data (Single Source of Truth!)
     // Backend already calculates overtime with all credits (sick, vacation, etc.)
 
-    // Get month data from backend for current period
-    const currentMonthKey = reportType === 'monthly'
-      ? selectedMonth
-      : `${selectedYear}-${String(month).padStart(2, '0')}`;
+    // FIXED: When "Alle Mitarbeiter" is selected, use aggregated data
+    let targetHours = 0;
+    let actualHoursWithCredits = 0;
+    let targetVsActualDiff = 0;
 
-    const monthData = overtimeData?.monthly?.find(m => m.month === currentMonthKey) || {
-      targetHours: 0,
-      actualHours: 0,
-      overtime: 0,
-    };
+    if (selectedUserId === 'all' && aggregatedStats) {
+      // Use aggregated statistics from the backend
+      targetHours = aggregatedStats.totalTargetHours || 0;
+      actualHoursWithCredits = aggregatedStats.totalActualHours || 0;
+      targetVsActualDiff = aggregatedStats.totalOvertime || 0;
+    } else {
+      // SINGLE USER - use existing logic
+      const currentMonthKey = reportType === 'monthly'
+        ? selectedMonth
+        : `${selectedYear}-${String(month).padStart(2, '0')}`;
 
-    // For yearly view: use total overtime from backend
-    const targetHours = reportType === 'yearly'
-      ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.targetHours, 0) || 0)
-      : monthData.targetHours;
+      const monthData = overtimeData?.monthly?.find(m => m.month === currentMonthKey) || {
+        targetHours: 0,
+        actualHours: 0,
+        overtime: 0,
+      };
 
-    const actualHoursWithCredits = reportType === 'yearly'
-      ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.actualHours, 0) || 0)
-      : monthData.actualHours;
+      // For yearly view: use total overtime from backend
+      targetHours = reportType === 'yearly'
+        ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.targetHours, 0) || 0)
+        : monthData.targetHours;
 
-    const targetVsActualDiff = reportType === 'yearly'
-      ? (overtimeData?.totalOvertime || 0)
-      : monthData.overtime;
+      actualHoursWithCredits = reportType === 'yearly'
+        ? (overtimeData?.monthly?.reduce((sum, m) => sum + m.actualHours, 0) || 0)
+        : monthData.actualHours;
+
+      targetVsActualDiff = reportType === 'yearly'
+        ? (overtimeData?.totalOvertime || 0)
+        : monthData.overtime;
+    }
 
     // Calculate absence credits for display breakdown (UI only)
     const absenceCredits = filteredAbsences

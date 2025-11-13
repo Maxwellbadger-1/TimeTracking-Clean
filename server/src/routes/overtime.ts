@@ -10,6 +10,7 @@ import {
   getWeeklyOvertime,
   getCurrentOvertimeStats,
   getOvertimeSummary,
+  getAggregatedOvertimeStats,
 } from '../services/overtimeService.js';
 import type { ApiResponse } from '../types/index.js';
 
@@ -182,6 +183,58 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get all users overtime',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/aggregated
+ * Get aggregated overtime statistics for all users (Admin only)
+ * Query params:
+ *   - year: Year to get data for (default: current year)
+ *   - month: Optional month in format "YYYY-MM"
+ * Returns: totalTargetHours, totalActualHours, totalOvertime, userCount
+ */
+router.get(
+  '/aggregated',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const year = req.query.year
+        ? parseInt(req.query.year as string)
+        : new Date().getFullYear();
+
+      const month = req.query.month as string | undefined;
+
+      if (isNaN(year) || year < 2000 || year > 2100) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid year',
+        });
+        return;
+      }
+
+      if (month && !/^\d{4}-\d{2}$/.test(month)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid month format. Use YYYY-MM',
+        });
+        return;
+      }
+
+      const aggregatedStats = getAggregatedOvertimeStats(year, month);
+
+      res.json({
+        success: true,
+        data: aggregatedStats,
+      });
+    } catch (error) {
+      console.error('Error getting aggregated overtime stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get aggregated overtime statistics',
       });
     }
   }
