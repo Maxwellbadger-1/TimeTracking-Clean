@@ -10,6 +10,7 @@ import {
   getCurrentYear,
   formatDate,
 } from '../utils/timezone.js';
+import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -269,12 +270,16 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   // Adjusted target hours (Soll minus unpaid leave)
   const adjustedTargetHours = targetHours - unpaidLeaveReduction;
 
-  // Actual hours WITH absence credits
-  const actualHoursWithCredits = workedHours.total + absenceCredits.total;
+  // Get overtime corrections for this month
+  const overtimeCorrections = getTotalCorrectionsForUserInMonth(userId, month);
+
+  // Actual hours WITH absence credits AND corrections
+  const actualHoursWithCredits = workedHours.total + absenceCredits.total + overtimeCorrections;
 
   logger.debug({
     workedHours: workedHours.total,
     absenceCredits: absenceCredits.total,
+    overtimeCorrections,
     unpaidLeaveReduction,
     adjustedTargetHours,
     actualHoursWithCredits

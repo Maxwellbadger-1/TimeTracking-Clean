@@ -12,7 +12,14 @@ import {
   getOvertimeSummary,
   getAggregatedOvertimeStats,
 } from '../services/overtimeService.js';
-import type { ApiResponse } from '../types/index.js';
+import {
+  createOvertimeCorrection,
+  getOvertimeCorrectionsForUser,
+  getAllOvertimeCorrections,
+  deleteOvertimeCorrection,
+  getCorrectionStatistics,
+} from '../services/overtimeCorrectionsService.js';
+import type { ApiResponse, OvertimeCorrectionCreateInput } from '../types/index.js';
 
 const router = Router();
 
@@ -510,6 +517,171 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get overtime summary',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/overtime/corrections
+ * Create a new overtime correction (admin only)
+ * Body: { userId, hours, date, reason, correctionType }
+ */
+router.post(
+  '/corrections',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const { userId, hours, date, reason, correctionType } = req.body as OvertimeCorrectionCreateInput;
+      const createdBy = req.session.user!.id;
+
+      // Validation
+      if (!userId || !hours || !date || !reason || !correctionType) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields',
+        });
+        return;
+      }
+
+      if (reason.trim().length < 10) {
+        res.status(400).json({
+          success: false,
+          error: 'Reason must be at least 10 characters',
+        });
+        return;
+      }
+
+      const correction = createOvertimeCorrection(
+        { userId, hours, date, reason, correctionType },
+        createdBy
+      );
+
+      res.json({
+        success: true,
+        data: correction,
+      });
+    } catch (error) {
+      console.error('Error creating overtime correction:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create overtime correction',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/corrections
+ * Get overtime corrections for current user or all users (admin)
+ * Query params:
+ *   - userId: User ID (optional, admin can get for specific user)
+ */
+router.get(
+  '/corrections',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+      const requestedUserId = req.query.userId ? parseInt(req.query.userId as string) : null;
+
+      let corrections;
+
+      if (requestedUserId) {
+        // Admin can get corrections for any user, employee can only get their own
+        if (!isAdmin && requestedUserId !== req.session.user!.id) {
+          res.status(403).json({
+            success: false,
+            error: 'Forbidden',
+          });
+          return;
+        }
+        corrections = getOvertimeCorrectionsForUser(requestedUserId);
+      } else if (isAdmin) {
+        // Admin without userId query gets all corrections
+        corrections = getAllOvertimeCorrections();
+      } else {
+        // Employee gets their own corrections
+        corrections = getOvertimeCorrectionsForUser(req.session.user!.id);
+      }
+
+      res.json({
+        success: true,
+        data: corrections,
+      });
+    } catch (error) {
+      console.error('Error getting overtime corrections:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get overtime corrections',
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/overtime/corrections/:id
+ * Delete an overtime correction (admin only)
+ */
+router.delete(
+  '/corrections/:id',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deletedBy = req.session.user!.id;
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid correction ID',
+        });
+        return;
+      }
+
+      deleteOvertimeCorrection(id, deletedBy);
+
+      res.json({
+        success: true,
+        message: 'Overtime correction deleted',
+      });
+    } catch (error) {
+      console.error('Error deleting overtime correction:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete overtime correction',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/corrections/statistics
+ * Get correction statistics (admin only)
+ * Query params:
+ *   - userId: User ID (optional, get stats for specific user)
+ */
+router.get(
+  '/corrections/statistics',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+
+      const stats = getCorrectionStatistics(userId);
+
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      console.error('Error getting correction statistics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get correction statistics',
       });
     }
   }

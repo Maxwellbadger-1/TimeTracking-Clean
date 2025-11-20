@@ -156,3 +156,67 @@ export interface GDPRDataExport {
     lastUpdated: string;
   };
 }
+
+// Overtime Correction Types
+export interface OvertimeCorrection {
+  id: number;
+  userId: number;
+  hours: number;
+  date: string;
+  reason: string;
+  correctionType: 'system_error' | 'absence_credit' | 'migration' | 'manual';
+  createdBy: number;
+  approvedBy: number | null;
+  approvedAt: string | null;
+  createdAt: string;
+}
+
+export interface OvertimeCorrectionCreateInput {
+  userId: number;
+  hours: number;
+  date: string;
+  reason: string;
+  correctionType: 'system_error' | 'absence_credit' | 'migration' | 'manual';
+}
+
+export interface OvertimeCorrectionWithUser extends OvertimeCorrection {
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  creator: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  approver?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+// Work Time Account Types
+export interface WorkTimeAccount {
+  id: number;
+  userId: number;
+  currentBalance: number;
+  maxPlusHours: number;
+  maxMinusHours: number;
+  lastUpdated: string;
+}
+
+export interface WorkTimeAccountWithUser extends WorkTimeAccount {
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    weeklyHours: number;
+  };
+}
+
+export interface WorkTimeAccountUpdateInput {
+  maxPlusHours?: number;
+  maxMinusHours?: number;
+}

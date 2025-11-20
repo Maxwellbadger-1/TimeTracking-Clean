@@ -3,7 +3,7 @@ import logger from '../utils/logger.js';
 
 /**
  * Database Schema Definition
- * All 11 tables for TimeTracking System
+ * All 13 tables for TimeTracking System
  */
 
 export function initializeDatabase(db: Database.Database): void {
@@ -211,6 +211,38 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // 12. overtime_corrections table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS overtime_corrections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      hours REAL NOT NULL,
+      date TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      correctionType TEXT NOT NULL CHECK(correctionType IN ('system_error', 'absence_credit', 'migration', 'manual')),
+      createdBy INTEGER NOT NULL,
+      approvedBy INTEGER,
+      approvedAt TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (createdBy) REFERENCES users(id),
+      FOREIGN KEY (approvedBy) REFERENCES users(id)
+    );
+  `);
+
+  // 13. work_time_accounts table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_time_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL UNIQUE,
+      currentBalance REAL DEFAULT 0,
+      maxPlusHours REAL DEFAULT 50,
+      maxMinusHours REAL DEFAULT -20,
+      lastUpdated TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+
   // Create indexes for performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_time_entries_userId ON time_entries(userId);
@@ -221,11 +253,14 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
     CREATE INDEX IF NOT EXISTS idx_audit_log_userId ON audit_log(userId);
     CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity, entityId);
+    CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
+    CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
+    CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
   `);
 
   logger.info('✅ Database schema initialized successfully');
   logger.info('✅ WAL mode enabled for multi-user support');
   logger.info('✅ Foreign keys enabled');
-  logger.info('✅ All 11 tables created');
+  logger.info('✅ All 13 tables created');
   logger.info('✅ Indexes created for performance');
 }
