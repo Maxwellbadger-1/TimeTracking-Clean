@@ -45,5 +45,7 @@ export function useAggregatedOvertimeStats(year?: number, month?: string) {
       };
     },
     retry: false,
+    refetchOnWindowFocus: true, // Auto-refresh when window gets focus
+    staleTime: 0, // Always consider data stale (fresh fetch every time)
   });
 }

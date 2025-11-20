@@ -679,11 +679,26 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
         AND ob.month = ?
     `;
 
-    return db.prepare(query).get(month) as {
+    const baseStats = db.prepare(query).get(month) as {
       totalTargetHours: number;
       totalActualHours: number;
       totalOvertime: number;
       userCount: number;
+    };
+
+    // Add corrections for this month
+    const correctionsQuery = `
+      SELECT COALESCE(SUM(hours), 0) as totalCorrections
+      FROM overtime_corrections
+      WHERE strftime('%Y-%m', date) = ?
+    `;
+    const corrections = db.prepare(correctionsQuery).get(month) as { totalCorrections: number };
+
+    return {
+      totalTargetHours: baseStats.totalTargetHours || 0,
+      totalActualHours: (baseStats.totalActualHours || 0) + corrections.totalCorrections,
+      totalOvertime: (baseStats.totalOvertime || 0) + corrections.totalCorrections,
+      userCount: baseStats.userCount || 0,
     };
   }
 
@@ -707,11 +722,26 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
       AND ob.month >= strftime('%Y-%m', u.hireDate)
   `;
 
-  return db.prepare(query).all(startMonth, endMonth)[0] as {
+  const baseStats = db.prepare(query).all(startMonth, endMonth)[0] as {
     totalTargetHours: number;
     totalActualHours: number;
     totalOvertime: number;
     userCount: number;
+  };
+
+  // Add corrections for this year
+  const correctionsQuery = `
+    SELECT COALESCE(SUM(hours), 0) as totalCorrections
+    FROM overtime_corrections
+    WHERE strftime('%Y', date) = ?
+  `;
+  const corrections = db.prepare(correctionsQuery).get(year.toString()) as { totalCorrections: number };
+
+  return {
+    totalTargetHours: baseStats.totalTargetHours || 0,
+    totalActualHours: (baseStats.totalActualHours || 0) + corrections.totalCorrections,
+    totalOvertime: (baseStats.totalOvertime || 0) + corrections.totalCorrections,
+    userCount: baseStats.userCount || 0,
   };
 }
 

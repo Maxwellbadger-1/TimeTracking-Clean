@@ -243,7 +243,8 @@ export function useUpdateUser() {
           queryClient.refetchQueries({ queryKey: ['overtimeSummary', variables.id], type: 'active' }),
           queryClient.refetchQueries({ queryKey: ['currentOvertimeStats', variables.id], type: 'active' }),
           queryClient.refetchQueries({ queryKey: ['totalOvertime', variables.id], type: 'active' }),
-          queryClient.refetchQueries({ queryKey: ['overtime'], type: 'active' })
+          queryClient.refetchQueries({ queryKey: ['overtime'], type: 'active' }),
+          queryClient.refetchQueries({ queryKey: ['overtime', 'aggregated'], type: 'active' }) // Aggregated stats for "Alle Mitarbeiter"
         ]);
         console.log('✅ Overtime refetch completed');
       }
