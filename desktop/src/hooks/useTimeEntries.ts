@@ -136,6 +136,9 @@ export function useCreateTimeEntry() {
           startTime: newEntry.startTime,
           endTime: newEntry.endTime,
           breakMinutes: newEntry.breakMinutes || 0,
+          hours: 0, // Will be calculated by backend
+          activity: null,
+          project: null,
           location: newEntry.location,
           notes: newEntry.description || null,
           createdAt: new Date().toISOString(),

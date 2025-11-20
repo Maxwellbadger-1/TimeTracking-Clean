@@ -143,7 +143,6 @@ export function useUpsertVacationBalance() {
           taken: 0,
           remaining: newBalance.entitlement + newBalance.carryover,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         };
 
         // Check if balance already exists for this user/year

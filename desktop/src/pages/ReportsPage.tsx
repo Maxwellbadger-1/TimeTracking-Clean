@@ -47,7 +47,6 @@ import { WorkTimeAccountHistory } from '../components/worktime/WorkTimeAccountHi
 import { OvertimeCorrectionModal } from '../components/corrections/OvertimeCorrectionModal';
 import { CorrectionsTable } from '../components/corrections/CorrectionsTable';
 import { formatHours, formatOvertimeHours } from '../utils/timeUtils';
-import { eachDayOfInterval, isWeekend } from 'date-fns';
 
 type ReportType = 'monthly' | 'yearly';
 
@@ -138,12 +137,6 @@ export function ReportsPage() {
 
   // Calculate statistics
   const stats = useMemo(() => {
-    // Helper: Count working days (Mo-Fr) in a period
-    const countWorkingDays = (startDate: Date, endDate: Date): number => {
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
-      return days.filter(day => !isWeekend(day)).length;
-    };
-
     // Working Hours Stats
     const totalHours = filteredTimeEntries.reduce(
       (sum, entry) => sum + (entry.hours || 0),
@@ -151,16 +144,6 @@ export function ReportsPage() {
     );
     const totalDays = new Set(filteredTimeEntries.map((e) => e.date)).size;
     const avgHoursPerDay = totalDays > 0 ? totalHours / totalDays : 0;
-
-    // Soll/Ist Vergleich (Target vs Actual)
-    // Get current user or selected user for individual reports
-    const targetUser = selectedUserId === 'all'
-      ? currentUser
-      : users?.find((u) => u.id === selectedUserId) || currentUser;
-
-    // Calculate target hours based on user's weeklyHours
-    const weeklyHours = targetUser?.weeklyHours || 40;
-    const targetHoursPerDay = weeklyHours / 5; // 5-day work week
 
     // Determine period bounds
     const [_year, month] = reportType === 'monthly'

@@ -122,14 +122,14 @@ export function useCreateAbsenceRequest() {
           type: newRequest.type,
           startDate: newRequest.startDate,
           endDate: newRequest.endDate,
-          daysRequired: 1, // Will be calculated by backend
+          days: 1, // Will be calculated by backend
+          daysRequired: 1, // Legacy alias
           reason: newRequest.reason || null,
+          adminNote: null,
           status: newRequest.type === 'sick' ? 'approved' : 'pending',
           approvedBy: newRequest.type === 'sick' ? newRequest.userId : null,
           approvedAt: newRequest.type === 'sick' ? new Date().toISOString() : null,
           rejectedBy: null,
-          rejectedAt: null,
-          rejectionReason: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -288,8 +288,6 @@ export function useRejectAbsenceRequest() {
           ...previousRequest,
           status: 'rejected',
           rejectedBy: data.rejectedBy,
-          rejectedAt: new Date().toISOString(),
-          rejectionReason: data.reason,
           updatedAt: new Date().toISOString(),
         });
       }

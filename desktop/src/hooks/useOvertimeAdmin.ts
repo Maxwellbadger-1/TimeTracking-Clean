@@ -12,6 +12,8 @@ export interface OvertimeSummary {
   lastName: string;
   email: string;
   totalOvertime: number;
+  targetHours?: number; // Total target hours for the year
+  actualHours?: number; // Total actual hours for the year
 }
 
 /**

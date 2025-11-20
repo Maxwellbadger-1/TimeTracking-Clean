@@ -35,6 +35,7 @@ export interface TimeEntry {
   description?: string | null;
   createdAt: string;
   updatedAt: string | null;
+  deletedAt?: string | null; // Soft delete timestamp
   // User information (from JOIN)
   firstName?: string;
   lastName?: string;
@@ -55,7 +56,9 @@ export interface AbsenceRequest {
   adminNote: string | null;
   approvedBy: number | null;
   approvedAt: string | null;
+  rejectedBy?: number | null; // Who rejected the request
   createdAt: string;
+  updatedAt?: string; // When the request was last updated
   // User information (from JOIN)
   firstName?: string;
   lastName?: string;
@@ -71,6 +74,7 @@ export interface VacationBalance {
   carryover: number;
   taken: number;
   remaining: number;
+  createdAt?: string; // Creation timestamp
 }
 
 export interface OvertimeBalance {
