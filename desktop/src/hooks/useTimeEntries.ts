@@ -120,6 +120,34 @@ export function useCreateTimeEntry() {
 
       return response.data;
     },
+    onMutate: async (newEntry) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['timeEntries'] });
+
+      // Snapshot previous value
+      const previousEntries = queryClient.getQueryData<TimeEntry[]>(['timeEntries']);
+
+      // Optimistically update cache with temporary entry
+      if (previousEntries) {
+        const optimisticEntry: TimeEntry = {
+          id: Date.now(), // Temporary ID
+          userId: newEntry.userId,
+          date: newEntry.date,
+          startTime: newEntry.startTime,
+          endTime: newEntry.endTime,
+          breakMinutes: newEntry.breakMinutes || 0,
+          location: newEntry.location,
+          notes: newEntry.description || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          deletedAt: null,
+        };
+
+        queryClient.setQueryData<TimeEntry[]>(['timeEntries'], [...previousEntries, optimisticEntry]);
+      }
+
+      return { previousEntries };
+    },
     onSuccess: () => {
       // Invalidate all time entry queries
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
@@ -133,7 +161,11 @@ export function useCreateTimeEntry() {
       queryClient.invalidateQueries({ queryKey: ['overtime'] });
       toast.success('Zeiteintrag erfolgreich erstellt');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousEntries) {
+        queryClient.setQueryData(['timeEntries'], context.previousEntries);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -164,6 +196,36 @@ export function useUpdateTimeEntry() {
       console.log('✅ UPDATE MUTATION SUCCESS! Returning data:', response.data);
       return response.data;
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['timeEntries'] });
+      await queryClient.cancelQueries({ queryKey: ['timeEntry', id] });
+
+      // Snapshot previous values
+      const previousEntries = queryClient.getQueryData<TimeEntry[]>(['timeEntries']);
+      const previousEntry = queryClient.getQueryData<TimeEntry>(['timeEntry', id]);
+
+      // Optimistically update list
+      if (previousEntries) {
+        queryClient.setQueryData<TimeEntry[]>(
+          ['timeEntries'],
+          previousEntries.map((entry) =>
+            entry.id === id ? { ...entry, ...data, updatedAt: new Date().toISOString() } : entry
+          )
+        );
+      }
+
+      // Optimistically update single entry
+      if (previousEntry) {
+        queryClient.setQueryData<TimeEntry>(['timeEntry', id], {
+          ...previousEntry,
+          ...data,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      return { previousEntries, previousEntry };
+    },
     onSuccess: (_data: TimeEntry | undefined, variables: { id: number; data: UpdateTimeEntryData }) => {
       console.log('🎉 UPDATE onSuccess callback triggered! Data:', _data);
       console.log('🔄 Invalidating queries...');
@@ -181,11 +243,20 @@ export function useUpdateTimeEntry() {
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag aktualisiert');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
       console.error('💥 UPDATE onError callback triggered!');
       console.error('❌ Error object:', error);
       console.error('❌ Error message:', error.message);
       console.error('❌ Error stack:', error.stack);
+
+      // Rollback on error
+      if (context?.previousEntries) {
+        queryClient.setQueryData(['timeEntries'], context.previousEntries);
+      }
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['timeEntry', variables.id], context.previousEntry);
+      }
+
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -215,6 +286,23 @@ export function useDeleteTimeEntry() {
       console.log('✅ MUTATION SUCCESS! Returning data:', response.data);
       return response.data;
     },
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['timeEntries'] });
+
+      // Snapshot previous value
+      const previousEntries = queryClient.getQueryData<TimeEntry[]>(['timeEntries']);
+
+      // Optimistically remove from cache
+      if (previousEntries) {
+        queryClient.setQueryData<TimeEntry[]>(
+          ['timeEntries'],
+          previousEntries.filter((entry) => entry.id !== id)
+        );
+      }
+
+      return { previousEntries };
+    },
     onSuccess: (data) => {
       console.log('🎉 onSuccess callback triggered! Data:', data);
       console.log('🔄 Invalidating queries...');
@@ -230,11 +318,17 @@ export function useDeleteTimeEntry() {
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag gelöscht');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
       console.error('💥 onError callback triggered!');
       console.error('❌ Error object:', error);
       console.error('❌ Error message:', error.message);
       console.error('❌ Error stack:', error.stack);
+
+      // Rollback on error
+      if (context?.previousEntries) {
+        queryClient.setQueryData(['timeEntries'], context.previousEntries);
+      }
+
       toast.error(`Fehler: ${error.message}`);
     },
   });

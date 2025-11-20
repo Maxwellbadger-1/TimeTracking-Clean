@@ -107,6 +107,38 @@ export function useCreateAbsenceRequest() {
 
       return response.data;
     },
+    onMutate: async (newRequest) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['absenceRequests'] });
+
+      // Snapshot previous value
+      const previousRequests = queryClient.getQueryData<AbsenceRequest[]>(['absenceRequests']);
+
+      // Optimistically add new request
+      if (previousRequests) {
+        const optimisticRequest: AbsenceRequest = {
+          id: Date.now(), // Temporary ID
+          userId: newRequest.userId,
+          type: newRequest.type,
+          startDate: newRequest.startDate,
+          endDate: newRequest.endDate,
+          daysRequired: 1, // Will be calculated by backend
+          reason: newRequest.reason || null,
+          status: newRequest.type === 'sick' ? 'approved' : 'pending',
+          approvedBy: newRequest.type === 'sick' ? newRequest.userId : null,
+          approvedAt: newRequest.type === 'sick' ? new Date().toISOString() : null,
+          rejectedBy: null,
+          rejectedAt: null,
+          rejectionReason: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        queryClient.setQueryData<AbsenceRequest[]>(['absenceRequests'], [...previousRequests, optimisticRequest]);
+      }
+
+      return { previousRequests };
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
@@ -118,7 +150,11 @@ export function useCreateAbsenceRequest() {
         toast.success('Abwesenheitsantrag wurde eingereicht');
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(['absenceRequests'], context.previousRequests);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -141,6 +177,46 @@ export function useApproveAbsenceRequest() {
 
       return response.data;
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['absenceRequests'] });
+      await queryClient.cancelQueries({ queryKey: ['absenceRequest', id] });
+
+      // Snapshot previous values
+      const previousRequests = queryClient.getQueryData<AbsenceRequest[]>(['absenceRequests']);
+      const previousRequest = queryClient.getQueryData<AbsenceRequest>(['absenceRequest', id]);
+
+      // Optimistically update list
+      if (previousRequests) {
+        queryClient.setQueryData<AbsenceRequest[]>(
+          ['absenceRequests'],
+          previousRequests.map((request) =>
+            request.id === id
+              ? {
+                  ...request,
+                  status: 'approved' as const,
+                  approvedBy: data.approvedBy,
+                  approvedAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : request
+          )
+        );
+      }
+
+      // Optimistically update single request
+      if (previousRequest) {
+        queryClient.setQueryData<AbsenceRequest>(['absenceRequest', id], {
+          ...previousRequest,
+          status: 'approved',
+          approvedBy: data.approvedBy,
+          approvedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      return { previousRequests, previousRequest };
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
@@ -148,7 +224,14 @@ export function useApproveAbsenceRequest() {
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
       toast.success('Abwesenheitsantrag genehmigt');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(['absenceRequests'], context.previousRequests);
+      }
+      if (context?.previousRequest) {
+        queryClient.setQueryData(['absenceRequest', variables.id], context.previousRequest);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -171,12 +254,61 @@ export function useRejectAbsenceRequest() {
 
       return response.data;
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['absenceRequests'] });
+      await queryClient.cancelQueries({ queryKey: ['absenceRequest', id] });
+
+      // Snapshot previous values
+      const previousRequests = queryClient.getQueryData<AbsenceRequest[]>(['absenceRequests']);
+      const previousRequest = queryClient.getQueryData<AbsenceRequest>(['absenceRequest', id]);
+
+      // Optimistically update list
+      if (previousRequests) {
+        queryClient.setQueryData<AbsenceRequest[]>(
+          ['absenceRequests'],
+          previousRequests.map((request) =>
+            request.id === id
+              ? {
+                  ...request,
+                  status: 'rejected' as const,
+                  rejectedBy: data.rejectedBy,
+                  rejectedAt: new Date().toISOString(),
+                  rejectionReason: data.reason,
+                  updatedAt: new Date().toISOString(),
+                }
+              : request
+          )
+        );
+      }
+
+      // Optimistically update single request
+      if (previousRequest) {
+        queryClient.setQueryData<AbsenceRequest>(['absenceRequest', id], {
+          ...previousRequest,
+          status: 'rejected',
+          rejectedBy: data.rejectedBy,
+          rejectedAt: new Date().toISOString(),
+          rejectionReason: data.reason,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      return { previousRequests, previousRequest };
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
       toast.success('Abwesenheitsantrag abgelehnt');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(['absenceRequests'], context.previousRequests);
+      }
+      if (context?.previousRequest) {
+        queryClient.setQueryData(['absenceRequest', variables.id], context.previousRequest);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -211,14 +343,39 @@ export function useDeleteAbsenceRequest() {
       console.log('✅ Delete successful, returning data:', response.data);
       return response.data;
     },
+    onMutate: async (params) => {
+      const id = typeof params === 'number' ? params : params.id;
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['absenceRequests'] });
+
+      // Snapshot previous value
+      const previousRequests = queryClient.getQueryData<AbsenceRequest[]>(['absenceRequests']);
+
+      // Optimistically remove from cache
+      if (previousRequests) {
+        queryClient.setQueryData<AbsenceRequest[]>(
+          ['absenceRequests'],
+          previousRequests.filter((request) => request.id !== id)
+        );
+      }
+
+      return { previousRequests };
+    },
     onSuccess: () => {
       console.log('✅✅✅ useDeleteAbsenceRequest onSuccess called!');
       queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
       toast.success('Abwesenheitsantrag gelöscht');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
       console.error('💥💥💥 useDeleteAbsenceRequest onError called!', error);
+
+      // Rollback on error
+      if (context?.previousRequests) {
+        queryClient.setQueryData(['absenceRequests'], context.previousRequests);
+      }
+
       toast.error(`Fehler: ${error.message}`);
     },
   });

@@ -99,9 +99,13 @@ export function ReportsPage() {
 
   // FIXED: Get aggregated stats when "Alle Mitarbeiter" is selected
   const aggregatedMonth = reportType === 'monthly' ? selectedMonth : undefined;
-  const { data: aggregatedStats } = useAggregatedOvertimeStats(selectedYear, aggregatedMonth);
+  const { data: aggregatedStats, isLoading: loadingAggregatedStats } = useAggregatedOvertimeStats(
+    selectedYear,
+    aggregatedMonth,
+    selectedUserId === 'all' // Only fetch when "Alle Mitarbeiter" is selected
+  );
 
-  const isLoading = loadingTimeEntries || loadingAbsences;
+  const isLoading = loadingTimeEntries || loadingAbsences || (selectedUserId === 'all' && loadingAggregatedStats);
 
   // Filter data by selected period
   const filteredTimeEntries = useMemo(() => {
@@ -202,24 +206,11 @@ export function ReportsPage() {
         : monthData.overtime;
     }
 
-    // Calculate absence credits for display breakdown (UI only)
-    const absenceCredits = filteredAbsences
-      .filter(a => a.status === 'approved')
-      .reduce((sum, a) => {
-        const days = a.days || 0;
-        // vacation, sick, overtime_comp → Count as worked
-        if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
-          return sum + (days * targetHoursPerDay);
-        }
-        return sum;
-      }, 0);
-
-    // Calculate unpaid leave reduction for display (UI only)
-    const unpaidLeaveDays = filteredAbsences
-      .filter(a => a.status === 'approved' && a.type === 'unpaid')
-      .reduce((sum, a) => sum + (a.days || 0), 0);
-
-    const unpaidLeaveReduction = unpaidLeaveDays * targetHoursPerDay;
+    // IMPORTANT: Backend already includes absence credits in actualHours!
+    // We DON'T calculate them here again (would be double-counting!)
+    // These are ONLY for UI display breakdown:
+    const absenceCredits = 0; // Backend handles this
+    const unpaidLeaveReduction = 0; // Backend handles this
 
     const targetVsActualPercent = targetHours > 0
       ? ((totalHours / targetHours) * 100).toFixed(1) + '%'
@@ -276,65 +267,13 @@ export function ReportsPage() {
         byUser[entry.userId].days += 1;
       });
 
-      // Calculate target hours per user using the SAME logic as single user view
+      // BEST PRACTICE: Use Backend overtime data (Single Source of Truth!)
+      // Backend already calculates everything (target, actual, credits, corrections)
       Object.keys(byUser).forEach((userId) => {
-        const user = users?.find((u) => u.id === parseInt(userId));
-        const userWeeklyHours = user?.weeklyHours || 40;
-        const userTargetHoursPerDay = userWeeklyHours / 5;
+        const userOvertimeData = allUsersOvertimeData?.find((o) => o.userId === parseInt(userId));
 
-        // Use same period bounds and hire date logic
-        const [year, month] = reportType === 'monthly'
-          ? selectedMonth.split('-').map(Number)
-          : [selectedYear, 1];
-
-        const monthStart = reportType === 'monthly'
-          ? new Date(year, month - 1, 1)
-          : new Date(year, 0, 1);
-
-        const monthEnd = reportType === 'monthly'
-          ? new Date(year, month, 0)
-          : new Date(year, 11, 31);
-
-        const userHireDate = user?.hireDate ? new Date(user.hireDate) : new Date('1900-01-01');
-        const userPeriodStart = userHireDate > monthStart ? userHireDate : monthStart;
-
-        const today = new Date();
-        const isCurrentPeriod = reportType === 'monthly'
-          ? (month === today.getMonth() + 1 && year === today.getFullYear())
-          : (year === today.getFullYear());
-        const userPeriodEnd = isCurrentPeriod ? today : monthEnd;
-
-        const userWorkingDays = countWorkingDays(userPeriodStart, userPeriodEnd);
-
-        // Get user's absences
-        const userAbsences = filteredAbsences.filter((a: any) => a.userId === parseInt(userId));
-
-        // BEST PRACTICE: Same logic as single user view
-        const userTargetHours = userWorkingDays * userTargetHoursPerDay;
-
-        // Calculate absence credits for this user
-        const userAbsenceCredits = userAbsences
-          .filter((a: any) => a.status === 'approved')
-          .reduce((sum: number, a: any) => {
-            const days = a.daysRequired || 0;
-            if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
-              return sum + (days * userTargetHoursPerDay);
-            }
-            return sum;
-          }, 0);
-
-        // Calculate unpaid leave reduction for this user
-        const userUnpaidDays = userAbsences
-          .filter((a: any) => a.status === 'approved' && a.type === 'unpaid')
-          .reduce((sum: number, a: any) => sum + (a.daysRequired || 0), 0);
-        const userUnpaidReduction = userUnpaidDays * userTargetHoursPerDay;
-
-        // Adjusted target and actual with credits
-        const userAdjustedTarget = userTargetHours - userUnpaidReduction;
-        const userActualWithCredits = byUser[parseInt(userId)].hours + userAbsenceCredits;
-
-        byUser[parseInt(userId)].targetHours = userAdjustedTarget;
-        byUser[parseInt(userId)].overtime = userActualWithCredits - userAdjustedTarget;
+        byUser[parseInt(userId)].targetHours = userOvertimeData?.targetHours || 0;
+        byUser[parseInt(userId)].overtime = userOvertimeData?.totalOvertime || 0;
       });
     }
 
@@ -701,18 +640,31 @@ export function ReportsPage() {
         </Card>
 
         {/* Statistics Cards - Best Practice Layout: Soll, Ist, Differenz */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Soll-Stunden (Target Hours) */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Soll-Stunden
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {formatHours(stats.targetHours)}
-                  </p>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <div className="flex justify-center items-center h-24">
+                    <LoadingSpinner />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Soll-Stunden (Target Hours) */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Soll-Stunden
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {formatHours(stats.targetHours)}
+                    </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {stats.unpaidLeaveReduction > 0
                       ? `Reduziert um ${formatHours(stats.unpaidLeaveReduction)} (unbez. Urlaub)`
@@ -737,8 +689,7 @@ export function ReportsPage() {
                     {formatHours(stats.actualHours)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formatHours(stats.totalHours)} gearbeitet
-                    {stats.absenceCredits > 0 && ` + ${formatHours(stats.absenceCredits)} Abwesenheit`}
+                    inkl. Korrekturen & Abwesenheiten
                   </p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -793,7 +744,8 @@ export function ReportsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </div>
+        )}
 
         {/* Monthly Hours Report */}
         <Card className="mb-6">

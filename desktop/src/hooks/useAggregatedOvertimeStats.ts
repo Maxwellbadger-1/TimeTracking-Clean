@@ -17,7 +17,7 @@ export interface AggregatedOvertimeStats {
 /**
  * Get aggregated overtime statistics for all users (Admin only)
  */
-export function useAggregatedOvertimeStats(year?: number, month?: string) {
+export function useAggregatedOvertimeStats(year?: number, month?: string, enabled: boolean = true) {
   const currentYear = year || new Date().getFullYear();
 
   return useQuery({
@@ -44,6 +44,7 @@ export function useAggregatedOvertimeStats(year?: number, month?: string) {
         userCount: 0,
       };
     },
+    enabled, // Only fetch when enabled
     retry: false,
     refetchOnWindowFocus: true, // Auto-refresh when window gets focus
     staleTime: 0, // Always consider data stale (fresh fetch every time)

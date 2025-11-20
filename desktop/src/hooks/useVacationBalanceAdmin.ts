@@ -125,11 +125,54 @@ export function useUpsertVacationBalance() {
 
       return response.data;
     },
+    onMutate: async (newBalance) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['vacation-balances'] });
+
+      // Snapshot previous value
+      const previousBalances = queryClient.getQueryData<VacationBalance[]>(['vacation-balances']);
+
+      // Optimistically add/update balance
+      if (previousBalances) {
+        const optimisticBalance: VacationBalance = {
+          id: Date.now(), // Temporary ID
+          userId: newBalance.userId,
+          year: newBalance.year,
+          entitlement: newBalance.entitlement,
+          carryover: newBalance.carryover,
+          taken: 0,
+          remaining: newBalance.entitlement + newBalance.carryover,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Check if balance already exists for this user/year
+        const existingIndex = previousBalances.findIndex(
+          (b) => b.userId === newBalance.userId && b.year === newBalance.year
+        );
+
+        if (existingIndex >= 0) {
+          // Update existing
+          const updated = [...previousBalances];
+          updated[existingIndex] = { ...updated[existingIndex], ...optimisticBalance };
+          queryClient.setQueryData<VacationBalance[]>(['vacation-balances'], updated);
+        } else {
+          // Add new
+          queryClient.setQueryData<VacationBalance[]>(['vacation-balances'], [...previousBalances, optimisticBalance]);
+        }
+      }
+
+      return { previousBalances };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
       toast.success('Urlaubskonto erfolgreich gespeichert');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousBalances) {
+        queryClient.setQueryData(['vacation-balances'], context.previousBalances);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -154,11 +197,62 @@ export function useUpdateVacationBalance() {
 
       return response.data;
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['vacation-balances'] });
+      await queryClient.cancelQueries({ queryKey: ['vacation-balances', id] });
+
+      // Snapshot previous values
+      const previousBalances = queryClient.getQueryData<VacationBalance[]>(['vacation-balances']);
+      const previousBalance = queryClient.getQueryData<VacationBalance>(['vacation-balances', id]);
+
+      // Optimistically update list
+      if (previousBalances) {
+        queryClient.setQueryData<VacationBalance[]>(
+          ['vacation-balances'],
+          previousBalances.map((balance) => {
+            if (balance.id === id) {
+              const updated = { ...balance, ...data, updatedAt: new Date().toISOString() };
+              // Recalculate remaining if entitlement/carryover/taken changed
+              if (data.entitlement !== undefined || data.carryover !== undefined || data.taken !== undefined) {
+                const entitlement = data.entitlement ?? balance.entitlement;
+                const carryover = data.carryover ?? balance.carryover;
+                const taken = data.taken ?? balance.taken;
+                updated.remaining = entitlement + carryover - taken;
+              }
+              return updated;
+            }
+            return balance;
+          })
+        );
+      }
+
+      // Optimistically update single balance
+      if (previousBalance) {
+        const updated = { ...previousBalance, ...data, updatedAt: new Date().toISOString() };
+        if (data.entitlement !== undefined || data.carryover !== undefined || data.taken !== undefined) {
+          const entitlement = data.entitlement ?? previousBalance.entitlement;
+          const carryover = data.carryover ?? previousBalance.carryover;
+          const taken = data.taken ?? previousBalance.taken;
+          updated.remaining = entitlement + carryover - taken;
+        }
+        queryClient.setQueryData<VacationBalance>(['vacation-balances', id], updated);
+      }
+
+      return { previousBalances, previousBalance };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
       toast.success('Urlaubskonto erfolgreich aktualisiert');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback on error
+      if (context?.previousBalances) {
+        queryClient.setQueryData(['vacation-balances'], context.previousBalances);
+      }
+      if (context?.previousBalance) {
+        queryClient.setQueryData(['vacation-balances', variables.id], context.previousBalance);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -180,11 +274,32 @@ export function useDeleteVacationBalance() {
 
       return response.data;
     },
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['vacation-balances'] });
+
+      // Snapshot previous value
+      const previousBalances = queryClient.getQueryData<VacationBalance[]>(['vacation-balances']);
+
+      // Optimistically remove from cache
+      if (previousBalances) {
+        queryClient.setQueryData<VacationBalance[]>(
+          ['vacation-balances'],
+          previousBalances.filter((balance) => balance.id !== id)
+        );
+      }
+
+      return { previousBalances };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
       toast.success('Urlaubskonto erfolgreich gelöscht');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousBalances) {
+        queryClient.setQueryData(['vacation-balances'], context.previousBalances);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });
@@ -209,11 +324,27 @@ export function useBulkInitializeVacationBalances() {
 
       return response.data;
     },
+    onMutate: async () => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['vacation-balances'] });
+
+      // Snapshot previous value
+      const previousBalances = queryClient.getQueryData<VacationBalance[]>(['vacation-balances']);
+
+      // Note: We don't optimistically add data here because we don't know
+      // which users will get balances. The invalidation in onSuccess will refetch.
+
+      return { previousBalances };
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
       toast.success(data?.message || 'Urlaubskonten erfolgreich initialisiert');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error (restore snapshot)
+      if (context?.previousBalances) {
+        queryClient.setQueryData(['vacation-balances'], context.previousBalances);
+      }
       toast.error(`Fehler: ${error.message}`);
     },
   });

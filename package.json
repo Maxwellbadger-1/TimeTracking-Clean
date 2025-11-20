@@ -14,7 +14,12 @@
     "build:desktop": "npm run tauri:build --workspace=desktop",
     "build": "npm run build:server && npm run build:desktop",
     "lint": "npm run lint --workspaces",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,rs}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md,rs}\"",
+    "test": "npm run test --workspaces",
+    "test:desktop": "npm run test --workspace=desktop",
+    "test:server": "npm run test --workspace=server",
+    "test:run": "npm run test:run --workspaces",
+    "test:coverage": "npm run test:coverage --workspaces"
   },
   "devDependencies": {
     "prettier": "^3.1.1"

@@ -1,2 +1,6 @@
 ./stop-dev.sh && sleep 3 && ./SIMPLE-START.sh
 
+npm run test:ui
+npm run test:run     # Tests einmal ausführen
+npm run test         # Tests im Watch-Mode
+npm run test:coverage # Coverage Report

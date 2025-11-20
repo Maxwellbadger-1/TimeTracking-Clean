@@ -11,6 +11,7 @@ import {
   formatDate,
 } from '../utils/timezone.js';
 import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
+import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -292,6 +293,17 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
      ON CONFLICT(userId, month)
      DO UPDATE SET targetHours = ?, actualHours = ?`
   ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
+
+  // CRITICAL: Sync Work Time Account with total overtime
+  // The Work Time Account shows the RUNNING BALANCE (sum of ALL months)
+  const totalOvertime = db.prepare(`
+    SELECT COALESCE(SUM(overtime), 0) as total
+    FROM overtime_balance
+    WHERE userId = ?
+  `).get(userId) as { total: number };
+
+  updateWorkTimeAccountBalance(userId, totalOvertime.total);
+  logger.debug({ userId, totalOvertime: totalOvertime.total }, '✅ Work Time Account synced');
 }
 
 /**
@@ -686,18 +698,12 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
       userCount: number;
     };
 
-    // Add corrections for this month
-    const correctionsQuery = `
-      SELECT COALESCE(SUM(hours), 0) as totalCorrections
-      FROM overtime_corrections
-      WHERE strftime('%Y-%m', date) = ?
-    `;
-    const corrections = db.prepare(correctionsQuery).get(month) as { totalCorrections: number };
-
+    // IMPORTANT: overtime_balance.actualHours ALREADY includes corrections!
+    // DON'T add them again (would be double-counting)
     return {
       totalTargetHours: baseStats.totalTargetHours || 0,
-      totalActualHours: (baseStats.totalActualHours || 0) + corrections.totalCorrections,
-      totalOvertime: (baseStats.totalOvertime || 0) + corrections.totalCorrections,
+      totalActualHours: baseStats.totalActualHours || 0,
+      totalOvertime: baseStats.totalOvertime || 0,
       userCount: baseStats.userCount || 0,
     };
   }
@@ -729,18 +735,12 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
     userCount: number;
   };
 
-  // Add corrections for this year
-  const correctionsQuery = `
-    SELECT COALESCE(SUM(hours), 0) as totalCorrections
-    FROM overtime_corrections
-    WHERE strftime('%Y', date) = ?
-  `;
-  const corrections = db.prepare(correctionsQuery).get(year.toString()) as { totalCorrections: number };
-
+  // IMPORTANT: overtime_balance.actualHours ALREADY includes corrections!
+  // DON'T add them again (would be double-counting)
   return {
     totalTargetHours: baseStats.totalTargetHours || 0,
-    totalActualHours: (baseStats.totalActualHours || 0) + corrections.totalCorrections,
-    totalOvertime: (baseStats.totalOvertime || 0) + corrections.totalCorrections,
+    totalActualHours: baseStats.totalActualHours || 0, // ✅ NO double-counting
+    totalOvertime: baseStats.totalOvertime || 0, // ✅ NO double-counting
     userCount: baseStats.userCount || 0,
   };
 }

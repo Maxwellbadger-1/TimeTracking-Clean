@@ -125,11 +125,52 @@ export function useUpdateWorkTimeAccountSettings() {
       if (!response.success) throw new Error(response.error);
       return response.data;
     },
+    onMutate: async ({ userId, settings }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['work-time-accounts', userId] });
+      await queryClient.cancelQueries({ queryKey: ['work-time-accounts', 'all'] });
+
+      // Snapshot previous values
+      const previousAccount = queryClient.getQueryData<WorkTimeAccount>(['work-time-accounts', userId]);
+      const previousAccounts = queryClient.getQueryData<WorkTimeAccount[]>(['work-time-accounts', 'all']);
+
+      // Optimistically update single account
+      if (previousAccount) {
+        queryClient.setQueryData<WorkTimeAccount>(['work-time-accounts', userId], {
+          ...previousAccount,
+          ...settings,
+          lastUpdated: new Date().toISOString(),
+        });
+      }
+
+      // Optimistically update all accounts list
+      if (previousAccounts) {
+        queryClient.setQueryData<WorkTimeAccount[]>(
+          ['work-time-accounts', 'all'],
+          previousAccounts.map((account) =>
+            account.userId === userId
+              ? { ...account, ...settings, lastUpdated: new Date().toISOString() }
+              : account
+          )
+        );
+      }
+
+      return { previousAccount, previousAccounts };
+    },
     onSuccess: (_data, variables) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['work-time-accounts', variables.userId] });
       queryClient.invalidateQueries({ queryKey: ['work-time-accounts', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['work-time-accounts', 'status'] });
+    },
+    onError: (_error, variables, context) => {
+      // Rollback on error
+      if (context?.previousAccount) {
+        queryClient.setQueryData(['work-time-accounts', variables.userId], context.previousAccount);
+      }
+      if (context?.previousAccounts) {
+        queryClient.setQueryData(['work-time-accounts', 'all'], context.previousAccounts);
+      }
     },
   });
 }

@@ -115,11 +115,47 @@ export function useCreateOvertimeCorrection() {
       if (!response.success) throw new Error(response.error);
       return response.data;
     },
+    onMutate: async (newCorrection) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['overtime', 'corrections'] });
+
+      // Snapshot previous value
+      const previousCorrections = queryClient.getQueryData<OvertimeCorrection[]>(['overtime', 'corrections']);
+
+      // Optimistically add new correction
+      if (previousCorrections) {
+        const optimisticCorrection: OvertimeCorrection = {
+          id: Date.now(), // Temporary ID
+          userId: newCorrection.userId,
+          hours: newCorrection.hours,
+          date: newCorrection.date,
+          reason: newCorrection.reason,
+          correctionType: newCorrection.correctionType,
+          createdBy: newCorrection.userId, // Temporary
+          approvedBy: null,
+          approvedAt: null,
+          createdAt: new Date().toISOString(),
+        };
+
+        queryClient.setQueryData<OvertimeCorrection[]>(
+          ['overtime', 'corrections'],
+          [...previousCorrections, optimisticCorrection]
+        );
+      }
+
+      return { previousCorrections };
+    },
     onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['overtime', 'corrections'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+      // Invalidate ALL overtime-related queries for immediate UI update (Berichte Tab + Arbeitszeitkonto)
+      queryClient.invalidateQueries({ queryKey: ['overtime'] }); // Matches: ['overtime', 'all', ...], ['overtime', 'aggregated', ...]
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] }); // Individual user overtime summary
       queryClient.invalidateQueries({ queryKey: ['work-time-accounts'] });
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCorrections) {
+        queryClient.setQueryData(['overtime', 'corrections'], context.previousCorrections);
+      }
     },
   });
 }
@@ -136,11 +172,34 @@ export function useDeleteOvertimeCorrection() {
       if (!response.success) throw new Error(response.error);
       return response.data;
     },
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['overtime', 'corrections'] });
+
+      // Snapshot previous value
+      const previousCorrections = queryClient.getQueryData<OvertimeCorrection[]>(['overtime', 'corrections']);
+
+      // Optimistically remove from cache
+      if (previousCorrections) {
+        queryClient.setQueryData<OvertimeCorrection[]>(
+          ['overtime', 'corrections'],
+          previousCorrections.filter((correction) => correction.id !== id)
+        );
+      }
+
+      return { previousCorrections };
+    },
     onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['overtime', 'corrections'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+      // Invalidate ALL overtime-related queries for immediate UI update (Berichte Tab + Arbeitszeitkonto)
+      queryClient.invalidateQueries({ queryKey: ['overtime'] }); // Matches: ['overtime', 'all', ...], ['overtime', 'aggregated', ...]
+      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] }); // Individual user overtime summary
       queryClient.invalidateQueries({ queryKey: ['work-time-accounts'] });
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCorrections) {
+        queryClient.setQueryData(['overtime', 'corrections'], context.previousCorrections);
+      }
     },
   });
 }

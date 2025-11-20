@@ -5,6 +5,7 @@ import {
   OvertimeCorrectionCreateInput,
   OvertimeCorrectionWithUser,
 } from '../types/index.js';
+import { updateMonthlyOvertime } from './overtimeService.js';
 
 /**
  * Overtime Corrections Service
@@ -80,6 +81,16 @@ export function createOvertimeCorrection(
       'Überstunden-Korrektur',
       `Es wurde eine Korrektur von ${input.hours > 0 ? '+' : ''}${input.hours.toFixed(2)}h vorgenommen. Grund: ${input.reason}`
     );
+
+    // CRITICAL: Recalculate overtime_balance for the affected month
+    const correctionMonth = input.date.substring(0, 7); // Extract "YYYY-MM"
+    try {
+      updateMonthlyOvertime(input.userId, correctionMonth);
+      logger.info({ userId: input.userId, month: correctionMonth }, '✅ Overtime recalculated after correction');
+    } catch (error) {
+      logger.error({ err: error, userId: input.userId, month: correctionMonth }, '❌ Failed to recalculate overtime after correction');
+      // Don't fail the correction creation, but log the error
+    }
 
     return correction;
   } catch (error) {
@@ -320,6 +331,16 @@ export function deleteOvertimeCorrection(id: number, deletedBy: number): void {
       'Überstunden-Korrektur gelöscht',
       `Eine Korrektur von ${correction.hours > 0 ? '+' : ''}${correction.hours.toFixed(2)}h wurde entfernt.`
     );
+
+    // CRITICAL: Recalculate overtime_balance for the affected month
+    const correctionMonth = correction.date.substring(0, 7); // Extract "YYYY-MM"
+    try {
+      updateMonthlyOvertime(correction.userId, correctionMonth);
+      logger.info({ userId: correction.userId, month: correctionMonth }, '✅ Overtime recalculated after correction deletion');
+    } catch (error) {
+      logger.error({ err: error, userId: correction.userId, month: correctionMonth }, '❌ Failed to recalculate overtime after correction deletion');
+      // Don't fail the deletion, but log the error
+    }
   } catch (error) {
     logger.error({ err: error, id }, '❌ Failed to delete overtime correction');
     throw error;

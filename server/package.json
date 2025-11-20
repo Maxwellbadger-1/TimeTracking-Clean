@@ -8,7 +8,11 @@
     "start": "node dist/server.js",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "db:reset": "tsx src/scripts/resetDatabase.ts",
-    "pkg:build": "npm run build && pkg dist/server.js --compress Brotli --targets node20-macos-arm64,node20-macos-x64,node20-win-x64,node20-linux-x64 --output ../desktop/src-tauri/binaries/timetracking-server"
+    "pkg:build": "npm run build && pkg dist/server.js --compress Brotli --targets node20-macos-arm64,node20-macos-x64,node20-win-x64,node20-linux-x64 --output ../desktop/src-tauri/binaries/timetracking-server",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "pkg": {
     "assets": [
@@ -44,9 +48,11 @@
     "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vitest/ui": "^4.0.8",
     "@yao-pkg/pkg": "^6.10.1",
     "eslint": "^8.56.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.8"
   }
 }
