@@ -42,6 +42,10 @@ import {
   useAllUsersOvertime,
 } from '../hooks';
 import { useAggregatedOvertimeStats } from '../hooks/useAggregatedOvertimeStats';
+import { WorkTimeAccountWidget } from '../components/worktime/WorkTimeAccountWidget';
+import { WorkTimeAccountHistory } from '../components/worktime/WorkTimeAccountHistory';
+import { OvertimeCorrectionModal } from '../components/corrections/OvertimeCorrectionModal';
+import { CorrectionsTable } from '../components/corrections/CorrectionsTable';
 import { formatHours, formatOvertimeHours } from '../utils/timeUtils';
 import { eachDayOfInterval, isWeekend } from 'date-fns';
 
@@ -65,6 +69,11 @@ export function ReportsPage() {
   const [showHistoricalExportModal, setShowHistoricalExportModal] = useState(false);
   const [historicalStartDate, setHistoricalStartDate] = useState(`${new Date().getFullYear()}-01-01`);
   const [historicalEndDate, setHistoricalEndDate] = useState(`${new Date().getFullYear()}-12-31`);
+
+  // Overtime Correction Modal State
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [correctionUserId, setCorrectionUserId] = useState<number | undefined>(undefined);
+  const [correctionUserName, setCorrectionUserName] = useState<string | undefined>(undefined);
 
   // Fetch data
   const { data: timeEntries, isLoading: loadingTimeEntries } = useTimeEntries(
@@ -942,6 +951,54 @@ export function ReportsPage() {
           </CardContent>
         </Card>
 
+        {/* Work Time Account & Corrections Section (Admin or specific user) */}
+        {selectedUserId !== 'all' && typeof selectedUserId === 'number' && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Work Time Account Widget */}
+              <WorkTimeAccountWidget
+                userId={selectedUserId}
+                isAdmin={currentUser.role === 'admin'}
+              />
+
+              {/* Work Time Account History */}
+              <WorkTimeAccountHistory
+                userId={selectedUserId}
+                months={12}
+              />
+            </div>
+
+            {/* Overtime Corrections Section */}
+            {currentUser.role === 'admin' && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Überstunden-Korrekturen</CardTitle>
+                    <Button
+                      onClick={() => {
+                        setCorrectionUserId(selectedUserId);
+                        const user = users?.find((u) => u.id === selectedUserId);
+                        setCorrectionUserName(user ? `${user.firstName} ${user.lastName}` : undefined);
+                        setShowCorrectionModal(true);
+                      }}
+                      size="sm"
+                    >
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Neue Korrektur
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CorrectionsTable
+                    userId={selectedUserId}
+                    isAdmin={true}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
         {/* Detailed Time Entries Table */}
         <Card className="mb-6">
           <CardHeader>
@@ -1113,6 +1170,18 @@ export function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Overtime Correction Modal */}
+      <OvertimeCorrectionModal
+        isOpen={showCorrectionModal}
+        onClose={() => {
+          setShowCorrectionModal(false);
+          setCorrectionUserId(undefined);
+          setCorrectionUserName(undefined);
+        }}
+        userId={correctionUserId}
+        userName={correctionUserName}
+      />
     </div>
   );
 }
