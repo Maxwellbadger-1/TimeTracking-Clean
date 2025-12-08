@@ -5,6 +5,48 @@ import { db } from '../database/connection.js';
  * Admin CRUD operations for managing employee vacation balances
  */
 
+/**
+ * Calculate pro-rata vacation days for mid-year hires
+ * @param hireDate - User's hire date (ISO string)
+ * @param vacationDaysPerYear - Annual vacation entitlement
+ * @param year - Year to calculate for
+ * @returns Pro-rata vacation days (rounded to 0.5 day precision)
+ */
+export function calculateProRataVacationDays(
+  hireDate: string,
+  vacationDaysPerYear: number,
+  year: number
+): number {
+  const hire = new Date(hireDate);
+  const hireYear = hire.getFullYear();
+
+  // If hired before this year, give full entitlement
+  if (hireYear < year) {
+    return vacationDaysPerYear;
+  }
+
+  // If hired after this year, give 0
+  if (hireYear > year) {
+    return 0;
+  }
+
+  // Hired during this year - calculate pro-rata
+  const endOfYear = new Date(year, 11, 31, 23, 59, 59); // Dec 31, end of day
+  const daysInYear = 365;
+
+  // Calculate days remaining (including hire date)
+  const daysRemaining = Math.max(
+    0,
+    Math.ceil((endOfYear.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  );
+
+  // Pro-rata: (days remaining / days in year) * annual entitlement
+  const proRata = (daysRemaining / daysInYear) * vacationDaysPerYear;
+
+  // Round to 0.5 day precision (German standard)
+  return Math.round(proRata * 2) / 2;
+}
+
 export interface VacationBalance {
   id: number;
   userId: number;
@@ -283,6 +325,22 @@ export function bulkInitializeVacationBalances(year: number): number {
       continue; // Skip if already exists
     }
 
+    // Get user's hire date for pro-rata calculation
+    const userDetails = db
+      .prepare('SELECT hireDate FROM users WHERE id = ?')
+      .get(user.id) as { hireDate: string } | undefined;
+
+    if (!userDetails?.hireDate) {
+      continue; // Skip if no hire date
+    }
+
+    // Calculate pro-rata entitlement based on hire date
+    const entitlement = calculateProRataVacationDays(
+      userDetails.hireDate,
+      user.vacationDaysPerYear,
+      year
+    );
+
     // Check previous year for carryover
     const previousYear = year - 1;
     const previousBalance = getVacationBalance(user.id, previousYear);
@@ -297,7 +355,7 @@ export function bulkInitializeVacationBalances(year: number): number {
       VALUES (?, ?, ?, ?, 0)
     `;
 
-    db.prepare(query).run(user.id, year, user.vacationDaysPerYear, carryover);
+    db.prepare(query).run(user.id, year, entitlement, carryover);
     count++;
   }
 

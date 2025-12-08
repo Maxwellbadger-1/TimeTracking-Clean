@@ -15,7 +15,7 @@ import {
   exportUserData,
   updatePrivacyConsent,
 } from '../services/userService.js';
-import { upsertVacationBalance } from '../services/vacationBalanceService.js';
+import { upsertVacationBalance, calculateProRataVacationDays } from '../services/vacationBalanceService.js';
 import { logAudit } from '../services/auditService.js';
 import {
   notifyVacationDaysAdjusted,
@@ -214,15 +214,25 @@ router.post(
       // Initialize vacation balance for current and next year
       const currentYear = new Date().getFullYear();
       try {
-        // Current year
+        // Use hire date or default to today if not provided
+        const hireDate = data.hireDate || new Date().toISOString().split('T')[0];
+
+        // Calculate pro-rata entitlement for current year based on hire date
+        const currentYearEntitlement = calculateProRataVacationDays(
+          hireDate,
+          data.vacationDaysPerYear || 30,
+          currentYear
+        );
+
+        // Current year (pro-rata for mid-year hires)
         upsertVacationBalance({
           userId: user.id,
           year: currentYear,
-          entitlement: data.vacationDaysPerYear || 30,
+          entitlement: currentYearEntitlement,
           carryover: 0,
         });
 
-        // Next year (for planning)
+        // Next year (full entitlement for planning)
         upsertVacationBalance({
           userId: user.id,
           year: currentYear + 1,
@@ -230,7 +240,9 @@ router.post(
           carryover: 0,
         });
 
-        console.log(`✅ Initialized vacation balances for user ${user.id} (years ${currentYear}, ${currentYear + 1})`);
+        console.log(`✅ Initialized vacation balances for user ${user.id}:`);
+        console.log(`   ${currentYear}: ${currentYearEntitlement} days (pro-rata)`);
+        console.log(`   ${currentYear + 1}: ${data.vacationDaysPerYear || 30} days (full year)`);
       } catch (error) {
         console.error('⚠️ Failed to initialize vacation balances:', error);
         // Don't fail user creation if vacation balance initialization fails
