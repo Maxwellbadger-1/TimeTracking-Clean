@@ -68,6 +68,42 @@ ssh ubuntu@129.159.8.19
 pm2 logs timetracking-server --lines 50
 ```
 
+### 🔧 Production Server Setup (WICHTIG!)
+
+**Environment Variables** - Der Server benötigt diese Variables für korrekten Betrieb:
+
+```bash
+# /home/ubuntu/TimeTracking-Clean/server/.env
+DATABASE_PATH=./database.db
+SESSION_SECRET=<secure-random-string>
+```
+
+**Deployment-Workflow** (`.github/workflows/deploy-server.yml`):
+- Setzt automatisch: `TZ=Europe/Berlin` (korrekte Zeitzone für Deutschland!)
+- Setzt automatisch: `NODE_ENV=production` (Production-Mode aktivieren)
+- Liest automatisch: `SESSION_SECRET` aus `.env` File
+
+**WICHTIG:** Wenn Server manuell neu gestartet wird:
+```bash
+# Korrekt (mit allen Environment Variables):
+cd /home/ubuntu/TimeTracking-Clean/server
+SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
+TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET pm2 start dist/server.js \
+  --name timetracking-server \
+  --cwd /home/ubuntu/TimeTracking-Clean/server \
+  --time \
+  --update-env
+pm2 save
+
+# FALSCH (ohne TZ/NODE_ENV = Zeitzone UTC + Dev-Mode):
+pm2 start dist/server.js
+```
+
+**Was passiert ohne diese Variables?**
+- ❌ Ohne `TZ=Europe/Berlin`: Zeitberechnungen nutzen UTC statt Deutschland-Zeit
+- ❌ Ohne `NODE_ENV=production`: Future-date time entries erlaubt (Dev-Mode)
+- ❌ Ohne `SESSION_SECRET`: Server startet nicht (Security-Requirement)
+
 ---
 
 ## Desktop App Releases
