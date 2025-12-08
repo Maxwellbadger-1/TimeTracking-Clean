@@ -326,6 +326,62 @@ gh run view <RUN_ID>
 gh run cancel <RUN_ID>
 ```
 
+#### **Problem 5: Windows fehlt in latest.json (Auto-Update funktioniert nicht!)**
+
+**Symptom:**
+- Binaries sind alle vorhanden (*.exe, *.msi)
+- ABER: latest.json enthält nur Linux + macOS, kein Windows
+- Windows-Clients können nicht automatisch updaten!
+
+**Ursache:**
+- Windows-Job failed mit "already_exists" Error beim Upload
+- Tauri Action schreibt Windows-Plattform nicht in latest.json
+- Race Condition bei parallelen Uploads
+
+**KRITISCH:** Ohne Windows in latest.json ist Auto-Update KAPUTT!
+
+**FIX:**
+```bash
+# 1. latest.json prüfen
+curl -sL "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/download/v1.X.Y/latest.json" \
+  | python3 -m json.tool | grep -E "(platforms|windows)"
+
+# 2. Wenn Windows fehlt → Release neu machen!
+# A) Release & Tag löschen
+gh release delete v1.X.Y --yes
+git push origin :refs/tags/v1.X.Y
+git tag -d v1.X.Y
+
+# B) Neu erstellen (siehe Schritt 4 im Release-Prozess)
+git tag v1.X.Y
+git push origin v1.X.Y
+gh release create v1.X.Y --title "..." --notes "..."
+
+# 3. Workflow abwarten (8-12 Min)
+
+# 4. latest.json erneut prüfen
+curl -sL "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/latest/download/latest.json" \
+  | python3 -m json.tool | grep -c "windows"
+# → Sollte mindestens 1 Windows-Plattform anzeigen!
+```
+
+**Erwartete Plattformen in latest.json:**
+```json
+{
+  "platforms": {
+    "windows-x86_64": { ... },           // ✅ MUSS vorhanden sein!
+    "darwin-x86_64": { ... },            // ✅ macOS Intel
+    "darwin-aarch64": { ... },           // ✅ macOS ARM (M1/M2)
+    "linux-x86_64": { ... }              // ✅ Linux
+  }
+}
+```
+
+**Warum ist das so kritisch?**
+- Tauri Updater nutzt latest.json um neue Versionen zu finden
+- Ohne Windows-Eintrag: Windows-Clients sehen kein Update
+- Benutzer müssen manuell herunterladen = Schlechte UX!
+
 ---
 
 ### 📋 RELEASE CHECKLIST (Für Copy-Paste)
@@ -341,8 +397,9 @@ gh run cancel <RUN_ID>
 ☐ 8. Build-Status geprüft (nach 2-3 Min)
 ☐ 9. Build abgeschlossen (nach 8-12 Min)
 ☐ 10. Binaries im Release vorhanden (*.dmg, *.exe, *.msi, *.AppImage, *.deb)
-☐ 11. latest.json vorhanden (für Auto-Update)
-☐ 12. Mindestens 1 Binary getestet (lokal installieren & starten)
+☐ 11. latest.json vorhanden UND enthält ALLE Plattformen (Windows, macOS, Linux)
+☐ 12. Auto-Update funktioniert (Windows muss in latest.json sein!)
+☐ 13. Mindestens 1 Binary getestet (lokal installieren & starten)
 ```
 
 ---
@@ -367,6 +424,15 @@ gh run cancel <RUN_ID>
    - Rust-Compilation für 4 Plattformen braucht Zeit
    - 8-12 Minuten sind NORMAL
    - Nicht vorzeitig canceln!
+
+5. **latest.json MUSS alle Plattformen enthalten**
+   - Windows-Job failed mit "already_exists" → Windows fehlt in latest.json
+   - Ohne Windows-Eintrag: Auto-Update kaputt für Windows-Clients!
+   - **LESSON:** IMMER latest.json prüfen nach Build:
+     ```bash
+     curl -sL "https://github.com/.../releases/latest/download/latest.json" | python3 -m json.tool | grep windows
+     ```
+   - Wenn Windows fehlt → Release neu machen!
 
 ---
 
