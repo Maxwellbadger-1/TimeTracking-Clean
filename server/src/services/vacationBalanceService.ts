@@ -60,7 +60,16 @@ export function getAllVacationBalances(filters?: {
 
   query += ' ORDER BY vb.year DESC, u.lastName ASC, u.firstName ASC';
 
-  return db.prepare(query).all(...params) as VacationBalance[];
+  const results = db.prepare(query).all(...params) as VacationBalance[];
+
+  // Ensure numbers are properly typed (SQLite sometimes returns strings)
+  return results.map(balance => ({
+    ...balance,
+    entitlement: Number(balance.entitlement) || 0,
+    carryover: Number(balance.carryover) || 0,
+    taken: Number(balance.taken) || 0,
+    remaining: Number(balance.remaining) || 0,
+  }));
 }
 
 /**

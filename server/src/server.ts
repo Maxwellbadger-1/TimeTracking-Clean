@@ -128,9 +128,10 @@ app.use(
 
 // General API rate limit: 600 requests per minute (Enterprise Standard)
 // GitHub uses 60/min unauthenticated, Stripe uses 1500/min, we're in the middle
+// DEVELOPMENT: 10,000/min for testing (no throttling)
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute (shorter window = more responsive)
-  max: 600, // 600 requests/minute (supports 50+ concurrent users comfortably)
+  max: isDevelopment ? 10000 : 600, // Higher for dev/testing
   standardHeaders: 'draft-7', // Use latest standard (RateLimit-* headers)
   legacyHeaders: false,
   skip: (req) => {
@@ -142,7 +143,7 @@ const apiLimiter = rateLimit({
       success: false,
       error: 'Rate limit exceeded. Please slow down your requests.',
       retryAfter: 60, // 1 minute
-      limit: 600,
+      limit: isDevelopment ? 10000 : 600,
       window: '1 minute',
       message: 'Too many requests. Please try again in a moment.'
     });
@@ -151,9 +152,10 @@ const apiLimiter = rateLimit({
 
 // Strict rate limit for login endpoint: 20 attempts per hour (Brute-force Protection)
 // Industry standard: Okta uses 600/min, but login should be much stricter
+// DEVELOPMENT: 1000/hour for testing (allows hundreds of test logins)
 const loginLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // 20 login attempts per hour (prevents brute-force)
+  max: isDevelopment ? 1000 : 20, // Higher for dev/testing
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
@@ -162,7 +164,7 @@ const loginLimiter = rateLimit({
       success: false,
       error: 'Too many login attempts. Please try again later.',
       retryAfter: 3600, // 1 hour
-      limit: 20,
+      limit: isDevelopment ? 1000 : 20,
       window: '1 hour',
       message: 'Account temporarily locked due to too many failed login attempts.'
     });
@@ -209,6 +211,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/holidays', holidaysRoutes);
 app.use('/api/overtime', overtimeRoutes);
 app.use('/api/vacation-balances', vacationBalanceRoutes);
+app.use('/api/vacation-balance', vacationBalanceRoutes); // Singular alias for compatibility
 app.use('/api/work-time-accounts', workTimeAccountsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/settings', settingsRoutes);

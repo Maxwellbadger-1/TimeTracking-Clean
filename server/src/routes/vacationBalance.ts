@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import {
   getAllVacationBalances,
-  getVacationBalanceById,
   upsertVacationBalance,
   updateVacationBalance,
   deleteVacationBalance,
@@ -61,33 +60,66 @@ router.get('/summary', requireAuth, requireAdmin, (req: Request, res: Response) 
 });
 
 /**
- * GET /api/vacation-balances/:id
- * Get vacation balance by ID
- * Admin only
+ * GET /api/vacation-balance/:userId
+ * Get vacation balance for a specific user (current year by default)
+ * Allows users to query with userId directly
  */
-router.get('/:id', requireAuth, requireAdmin, (req: Request, res: Response) => {
+router.get('/:userId', requireAuth, (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const userId = Number(req.params.userId);
+    const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
 
-    if (isNaN(id)) {
+    if (isNaN(userId)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid balance ID',
+        error: 'Invalid user ID',
       });
     }
 
-    const balance = getVacationBalanceById(id);
+    // Get balance for this user and year
+    const balances = getAllVacationBalances({ userId, year });
 
-    if (!balance) {
+    if (!balances || balances.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Vacation balance not found',
+        error: 'Vacation balance not found for this user',
       });
     }
+
+    // Return first balance (should be only one per user per year)
+    const balance = balances[0];
+
+    // Calculate available days (entitlement + carryover - taken)
+    // Ensure all values are numbers (SQLite sometimes returns strings)
+    const entitlement = Number(balance.entitlement) || 0;
+    const carryover = Number(balance.carryover) || 0;
+    const taken = Number(balance.taken) || 0;
+    const available = entitlement + carryover - taken;
+
+    const responseData = {
+      ...balance,
+      entitlement,
+      carryover,
+      taken,
+      available,
+    };
+
+    // DEBUG: Log types being sent
+    console.log('🔍 SERVER sending vacation balance types:', {
+      entitlement: typeof responseData.entitlement,
+      carryover: typeof responseData.carryover,
+      taken: typeof responseData.taken,
+      available: typeof responseData.available,
+      rawValues: {
+        entitlement: responseData.entitlement,
+        carryover: responseData.carryover,
+        taken: responseData.taken,
+      }
+    });
 
     res.json({
       success: true,
-      data: balance,
+      data: responseData,
     });
   } catch (error: unknown) {
     console.error('❌ Error fetching vacation balance:', error);

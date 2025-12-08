@@ -372,7 +372,7 @@ export function getOvertimeSummary(userId: number, year: number): OvertimeSummar
     .all(userId, `${year}-%`, hireDate) as WeeklyOvertime[];
 
   // Get monthly overtime (only from hireDate onwards)
-  const monthly = db
+  const monthlyRaw = db
     .prepare(
       `SELECT month, targetHours, actualHours, overtime
        FROM overtime_balance
@@ -380,6 +380,14 @@ export function getOvertimeSummary(userId: number, year: number): OvertimeSummar
        ORDER BY month DESC`
     )
     .all(userId, `${year}-%`, hireDate) as MonthlyOvertime[];
+
+  // Ensure all numbers are properly typed (SQLite sometimes returns strings)
+  const monthly = monthlyRaw.map(m => ({
+    month: m.month,
+    targetHours: Number(m.targetHours) || 0,
+    actualHours: Number(m.actualHours) || 0,
+    overtime: Number(m.overtime) || 0,
+  }));
 
   logger.debug({ monthlyCount: monthly.length }, '📊 Monthly data');
 

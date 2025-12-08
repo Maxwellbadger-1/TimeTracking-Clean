@@ -298,6 +298,20 @@ export function validateTimeEntryCreate(
     return;
   }
 
+  // Validate endTime > startTime
+  const [startHour, startMin] = data.startTime.split(':').map(Number);
+  const [endHour, endMin] = data.endTime.split(':').map(Number);
+  const startMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
+
+  if (endMinutes <= startMinutes) {
+    res.status(400).json({
+      success: false,
+      error: 'End time must be after start time',
+    });
+    return;
+  }
+
   // Break minutes validation
   if (data.breakMinutes !== undefined) {
     const breakMinutes = parseInt(data.breakMinutes);

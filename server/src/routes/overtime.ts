@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { db } from '../database/connection.js';
 import {
   getOvertimeBalance,
   getOvertimeByMonth,
@@ -269,6 +270,85 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get overtime stats',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/overtime/:userId
+ * Get detailed overtime data for a specific user
+ * Returns: { totalHours, targetHours, overtime, user: { weeklyHours, hireDate } }
+ */
+router.get(
+  '/:userId',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const isAdmin = req.session.user!.role === 'admin';
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Permission check: Admin can see all, Employee only own
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      // Get user data
+      const user = db
+        .prepare('SELECT weeklyHours, hireDate FROM users WHERE id = ?')
+        .get(userId) as { weeklyHours: number; hireDate: string } | undefined;
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      // Get overtime summary for current year
+      const currentYear = new Date().getFullYear();
+      const summary = getOvertimeSummary(userId, currentYear);
+
+      // Calculate total hours and target hours from monthly data
+      const totalHours = summary.monthly.reduce(
+        (sum, month) => sum + month.actualHours,
+        0
+      );
+      const targetHours = summary.monthly.reduce(
+        (sum, month) => sum + month.targetHours,
+        0
+      );
+
+      res.json({
+        success: true,
+        data: {
+          totalHours,
+          targetHours,
+          overtime: summary.totalOvertime,
+          user: {
+            weeklyHours: user.weeklyHours,
+            hireDate: user.hireDate,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error getting overtime data:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get overtime data',
       });
     }
   }

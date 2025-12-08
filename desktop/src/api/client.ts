@@ -17,13 +17,38 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  token?: string; // JWT token (returned on login)
 }
+
+// JWT Token Storage
+const TOKEN_KEY = 'timetracking_jwt_token';
 
 class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Store JWT token in localStorage
+   */
+  setToken(token: string): void {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+
+  /**
+   * Get JWT token from localStorage
+   */
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  /**
+   * Remove JWT token from localStorage (logout)
+   */
+  clearToken(): void {
+    localStorage.removeItem(TOKEN_KEY);
   }
 
   private async request<T>(
@@ -52,15 +77,23 @@ class ApiClient {
       console.log('🎯 Target Origin:', new URL(url).origin);
       console.log('🔀 Cross-Origin?', typeof window !== 'undefined' ? window.location.origin !== new URL(url).origin : false);
 
+      // Get JWT token and add Authorization header
+      const token = this.getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options?.headers as Record<string, string>),
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // CRITICAL: Use universalFetch (Tauri HTTP in Tauri, browser fetch in browser)
-      // credentials: 'include' is ESSENTIAL for session cookies to work cross-origin
+      // credentials: 'include' is kept for backwards compatibility with session-based auth
       const response = await universalFetch(url, {
         ...options,
-        credentials: 'include', // CRITICAL: Required for cookies on cross-origin requests (desktop app to server)
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
+        credentials: 'include', // Keep for backwards compatibility
+        headers,
       });
 
       console.log('📥📥📥 RESPONSE RECEIVED 📥📥📥');

@@ -197,6 +197,8 @@ router.post(
           error.message.includes('Invalid') ||
           error.message.includes('Cannot create') ||
           error.message.includes('Arbeitszeitgesetz') || // ArbZG violations
+          error.message.includes('Working time') || // Break rules
+          error.message.includes('Zeiterfassung vor') || // Before hire date
           error.message.includes('An diesem Tag hast du') // Absence conflicts
         ) {
           res.status(400).json({
@@ -318,6 +320,8 @@ router.put(
           error.message.includes('Invalid') ||
           error.message.includes('Cannot') ||
           error.message.includes('Arbeitszeitgesetz') || // ArbZG violations
+          error.message.includes('Working time') || // Break rules
+          error.message.includes('Zeiterfassung vor') || // Before hire date
           error.message.includes('An diesem Tag hast du') // Absence conflicts
         ) {
           res.status(400).json({

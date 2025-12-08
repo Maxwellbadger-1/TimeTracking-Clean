@@ -562,6 +562,7 @@ export function exportUserData(userId: number): GDPRDataExport {
       user,
       timeEntries,
       absenceRequests,
+      absences: absenceRequests, // Alias for backward compatibility
       overtimeBalance: {
         totalHours: overtimeStats?.totalYear || 0,
         lastUpdated: new Date().toISOString(),
@@ -572,7 +573,7 @@ export function exportUserData(userId: number): GDPRDataExport {
         totalDays: vacationBalance?.entitlement || 0,
         lastUpdated: new Date().toISOString(),
       },
-    };
+    } as any; // Use 'as any' to allow additional property
 
     logger.info({
       timeEntriesCount: timeEntries.length,

@@ -68,12 +68,17 @@ export function calculateHours(
 /**
  * Validate time entry data
  */
-export function validateTimeEntryData(data: {
-  date: string;
-  startTime: string;
-  endTime: string;
-  breakMinutes?: number;
-}): { valid: boolean; error?: string } {
+export function validateTimeEntryData(
+  data: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    breakMinutes?: number;
+  },
+  options?: {
+    allowFutureDates?: boolean;
+  }
+): { valid: boolean; error?: string } {
   // Check date format (YYYY-MM-DD)
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(data.date)) {
@@ -89,12 +94,16 @@ export function validateTimeEntryData(data: {
     return { valid: false, error: 'Invalid end time format (use HH:MM)' };
   }
 
-  // Check date is not in future
-  const entryDate = new Date(data.date);
-  const today = new Date();
-  today.setHours(23, 59, 59, 999); // End of today
-  if (entryDate > today) {
-    return { valid: false, error: 'Cannot create time entries for future dates' };
+  // Check date is not in future (unless explicitly allowed for testing/admin)
+  // In development mode, always allow future dates for testing
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  if (!options?.allowFutureDates && !isDevelopment) {
+    const entryDate = new Date(data.date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    if (entryDate > today) {
+      return { valid: false, error: 'Cannot create time entries for future dates' };
+    }
   }
 
   // Check break minutes
@@ -355,17 +364,23 @@ export function getTimeEntryById(id: number): TimeEntry | null {
  * Create new time entry
  */
 export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
+  // Get user data (needed for hire date check and admin role check)
+  const user = db.prepare('SELECT hireDate, role FROM users WHERE id = ?').get(data.userId) as
+    { hireDate: string; role: string } | undefined;
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Admins can create future dates (for testing purposes)
+  const isAdmin = user.role === 'admin';
+
   // Validate data
-  const validation = validateTimeEntryData(data);
+  const validation = validateTimeEntryData(data, { allowFutureDates: isAdmin });
   if (!validation.valid) {
     throw new Error(validation.error);
   }
 
   // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
-  const user = db.prepare('SELECT hireDate FROM users WHERE id = ?').get(data.userId) as { hireDate: string } | undefined;
-  if (!user) {
-    throw new Error('User not found');
-  }
 
   if (data.date < user.hireDate) {
     throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
@@ -487,9 +502,14 @@ export function updateTimeEntry(
 
   logger.debug({ merged }, '🔄 Merged data');
 
+  // Get user role (for future dates check)
+  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(existing.userId) as
+    { role: string } | undefined;
+  const isAdmin = user?.role === 'admin';
+
   // Validate merged data
   logger.debug('🔍 Validating merged data...');
-  const validation = validateTimeEntryData(merged);
+  const validation = validateTimeEntryData(merged, { allowFutureDates: isAdmin });
 
   if (!validation.valid) {
     logger.error({ error: validation.error }, '❌ VALIDATION FAILED');

@@ -36,6 +36,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (response.success && response.data) {
         console.log('✅ Login successful, setting user:', response.data);
+
+        // Store JWT token if provided
+        if (response.token) {
+          console.log('🔑 Storing JWT token');
+          apiClient.setToken(response.token);
+        }
+
         set({
           user: response.data, // Direct access, not response.data.user!
           isAuthenticated: true,
@@ -72,7 +79,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       // 1. Call logout endpoint to destroy session on server
       await apiClient.post('/auth/logout');
 
-      // 2. Clear local state IMMEDIATELY
+      // 2. Clear JWT token from localStorage
+      console.log('🔑 Clearing JWT token');
+      apiClient.clearToken();
+
+      // 3. Clear local state IMMEDIATELY
       // This ensures UI updates even if server call fails
       set({
         user: null,
@@ -81,7 +92,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: null,
       });
 
-      // 3. Force reload to clear any cached cookies in Tauri HTTP Plugin
+      // 4. Force reload to clear any cached cookies in Tauri HTTP Plugin
       // IMPORTANT: Tauri HTTP Plugin caches cookies, window reload clears them
       // This prevents stale cookie issues on re-login
       if (typeof window !== 'undefined') {
@@ -92,6 +103,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (error) {
       console.error('Logout error:', error);
+
+      // Clear JWT token anyway
+      apiClient.clearToken();
 
       // Clear state anyway (network errors shouldn't prevent logout)
       set({

@@ -4,6 +4,7 @@ import { authenticateUser } from '../services/authService.js';
 import { getUserById } from '../services/userService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { ApiResponse, SessionUser } from '../types/index.js';
+import { generateToken, verifyToken, extractTokenFromHeader } from '../utils/jwt.js';
 
 const router = Router();
 
@@ -43,12 +44,16 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
       return;
     }
 
-    // Set session
+    // Generate JWT token
+    const token = generateToken(result.user);
+
+    // Also set session for backwards compatibility (will be removed later)
     req.session.user = result.user;
 
     res.json({
       success: true,
       data: result.user,
+      token, // Return JWT token to client
       message: 'Login successful',
     });
   } catch (error) {
@@ -82,9 +87,43 @@ router.post('/logout', requireAuth, (req: Request, res: Response<ApiResponse>) =
 
 /**
  * GET /api/auth/session
- * Check current session
+ * Check current session (supports both JWT and session-based auth)
  */
 router.get('/session', (req: Request, res: Response<ApiResponse<SessionUser | null>>) => {
+  // Try JWT first
+  const authHeader = req.headers.authorization;
+  const token = extractTokenFromHeader(authHeader);
+
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload) {
+      // Valid JWT token - get fresh user data
+      const user = getUserById(payload.userId);
+      if (user) {
+        const sessionUser: SessionUser = {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          weeklyHours: user.weeklyHours,
+          vacationDaysPerYear: user.vacationDaysPerYear,
+          hireDate: user.hireDate,
+          privacyConsentAt: user.privacyConsentAt,
+        };
+
+        res.json({
+          success: true,
+          data: sessionUser,
+          message: 'Logged in',
+        });
+        return;
+      }
+    }
+  }
+
+  // Fallback to session-based auth (for backwards compatibility)
   if (!req.session?.user) {
     res.json({
       success: true,

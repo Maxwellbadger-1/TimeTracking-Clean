@@ -79,6 +79,7 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+  token?: string; // JWT token (optional, returned on login)
   pagination?: {
     page?: number;
     limit?: number;
