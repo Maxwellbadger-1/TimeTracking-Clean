@@ -67,6 +67,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [
   'tauri://localhost',
   'https://tauri.localhost',
+  'http://tauri.localhost',  // Tauri HTTP origin (Windows/Linux)
 ];
 
 app.use(cors({
@@ -75,6 +76,7 @@ app.use(cors({
         // Development: Strict origin list
         'tauri://localhost',
         'https://tauri.localhost',
+        'http://tauri.localhost',   // Tauri HTTP origin (Windows uses this!)
         'http://localhost:5173',  // Vite default
         'http://localhost:1420',  // Vite dev server (actual)
         'http://127.0.0.1:1420',  // Alternative IP
