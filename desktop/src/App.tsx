@@ -23,7 +23,6 @@ import { LogOut } from 'lucide-react';
 import { useGlobalKeyboardShortcuts } from './hooks';
 import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
 import { useDesktopNotifications } from './hooks/useDesktopNotifications';
-import DevToolPanel from './components/devtools/DevToolPanel';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
@@ -117,9 +116,6 @@ export default function App() {
 
       {/* Privacy Policy Modal (DSGVO) */}
       <PrivacyPolicyModal isOpen={showPrivacyModal} onAccept={handlePrivacyAccept} />
-
-      {/* Dev Tool Panel */}
-      <DevToolPanel />
     </>
   );
 }
