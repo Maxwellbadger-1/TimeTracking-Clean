@@ -24,6 +24,6 @@
     "typeRoots": ["./node_modules/@types"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", "../node_modules", "../server", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test"],
+  "exclude": ["node_modules", "../node_modules", "../server", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test", "src/devtools/**/*", "src/components/devtools/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
