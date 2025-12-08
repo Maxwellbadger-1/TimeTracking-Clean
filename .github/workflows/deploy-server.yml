@@ -60,14 +60,23 @@ jobs:
               exit 1
             fi
 
+            # Read SESSION_SECRET from .env file (created during initial setup)
+            echo "🔐 Loading SESSION_SECRET..."
+            SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
+            if [ -z "$SESSION_SECRET" ]; then
+              echo "❌ SESSION_SECRET not found in .env file!"
+              exit 1
+            fi
+
             # Restart PM2
             echo "🔄 Restarting PM2..."
             pm2 stop timetracking-server || true
             pm2 delete timetracking-server || true
-            pm2 start dist/server.js \
+            TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET pm2 start dist/server.js \
               --name timetracking-server \
               --cwd /home/ubuntu/TimeTracking-Clean/server \
-              --time
+              --time \
+              --update-env
             pm2 save
 
             # Wait for server to start

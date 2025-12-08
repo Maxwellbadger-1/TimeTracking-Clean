@@ -213,6 +213,12 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     startDate = hireDate;
   }
 
+  // Skip this month if user wasn't hired yet (hire date is after the month ends)
+  if (hireDate > endDate) {
+    logger.debug({ month, hireDate, endDate }, 'Skipping month - user not hired yet');
+    return;
+  }
+
   // Calculate working days between start and end (excludes weekends + holidays)
   const workingDays = countWorkingDaysBetween(startDate, endDate);
   const dailyHours = user.weeklyHours / 5; // 5-day work week

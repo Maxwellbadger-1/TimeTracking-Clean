@@ -54,3 +54,9 @@ desktop/src-tauri/WixTools/
 *.rpm
 *.AppImage
 GITHUB-SECRETS-VALUES.md
+
+# SSH Keys (NEVER commit!)
+.ssh/
+*.key
+*.pem
+ssh-key-*
