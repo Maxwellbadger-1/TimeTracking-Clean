@@ -2,10 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Download, RefreshCw, Trash2, Clock, Database } from 'lucide-react';
-import { universalFetch } from '../lib/tauriHttpClient';
-
-// Use environment variable for API URL (supports both dev and production)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { apiClient } from '../api/client';
 
 interface Backup {
   filename: string;
@@ -33,19 +30,11 @@ export default function BackupPage() {
   const { data: backups, isLoading } = useQuery<Backup[]>({
     queryKey: ['backups'],
     queryFn: async () => {
-      console.log('🔍 Fetching backups with universalFetch...');
-      const response = await universalFetch(`${API_BASE_URL}/backup`, {
-        method: 'GET',
-        credentials: 'include', // CRITICAL: Required for session cookies
-      });
-      console.log('📥 Backup response:', response);
-      if (!response.ok) {
-        console.error('❌ Backup fetch failed:', response.status, response.statusText);
-        throw new Error('Failed to fetch backups');
+      const response = await apiClient.get<Backup[]>('/backup');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch backups');
       }
-      const result = await response.json();
-      console.log('✅ Backup result:', result);
-      return result.data;
+      return response.data || [];
     },
   });
 
@@ -53,36 +42,22 @@ export default function BackupPage() {
   const { data: stats } = useQuery<BackupStats>({
     queryKey: ['backup-stats'],
     queryFn: async () => {
-      console.log('🔍 Fetching backup stats with universalFetch...');
-      const response = await universalFetch(`${API_BASE_URL}/backup/stats`, {
-        method: 'GET',
-        credentials: 'include', // CRITICAL: Required for session cookies
-      });
-      console.log('📥 Stats response:', response);
-      if (!response.ok) {
-        console.error('❌ Stats fetch failed:', response.status, response.statusText);
-        throw new Error('Failed to fetch stats');
+      const response = await apiClient.get<BackupStats>('/backup/stats');
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch stats');
       }
-      const result = await response.json();
-      console.log('✅ Stats result:', result);
-      return result.data;
+      return response.data;
     },
   });
 
   // Create backup mutation
   const createBackupMutation = useMutation({
     mutationFn: async () => {
-      console.log('🔍 Creating backup with universalFetch...');
-      const response = await universalFetch(`${API_BASE_URL}/backup`, {
-        method: 'POST',
-        credentials: 'include', // CRITICAL: Required for session cookies
-      });
-      console.log('📥 Create backup response:', response);
-      if (!response.ok) {
-        console.error('❌ Create backup failed:', response.status, response.statusText);
-        throw new Error('Failed to create backup');
+      const response = await apiClient.post('/backup');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create backup');
       }
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast.success('Backup erfolgreich erstellt!');
@@ -97,17 +72,11 @@ export default function BackupPage() {
   // Restore backup mutation
   const restoreBackupMutation = useMutation({
     mutationFn: async (filename: string) => {
-      console.log('🔍 Restoring backup with universalFetch:', filename);
-      const response = await universalFetch(`${API_BASE_URL}/backup/restore/${filename}`, {
-        method: 'POST',
-        credentials: 'include', // CRITICAL: Required for session cookies
-      });
-      console.log('📥 Restore backup response:', response);
-      if (!response.ok) {
-        console.error('❌ Restore backup failed:', response.status, response.statusText);
-        throw new Error('Failed to restore backup');
+      const response = await apiClient.post(`/backup/restore/${filename}`);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to restore backup');
       }
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast.success('Backup wiederhergestellt! Kein Neustart nötig - sofort einsatzbereit!');
@@ -123,17 +92,11 @@ export default function BackupPage() {
   // Delete backup mutation
   const deleteBackupMutation = useMutation({
     mutationFn: async (filename: string) => {
-      console.log('🔍 Deleting backup with universalFetch:', filename);
-      const response = await universalFetch(`${API_BASE_URL}/backup/${filename}`, {
-        method: 'DELETE',
-        credentials: 'include', // CRITICAL: Required for session cookies
-      });
-      console.log('📥 Delete backup response:', response);
-      if (!response.ok) {
-        console.error('❌ Delete backup failed:', response.status, response.statusText);
-        throw new Error('Failed to delete backup');
+      const response = await apiClient.delete(`/backup/${filename}`);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete backup');
       }
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast.success('Backup gelöscht');

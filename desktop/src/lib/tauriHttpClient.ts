@@ -18,9 +18,8 @@ interface FetchOptions extends RequestInit {
 /**
  * Universal fetch that works in both Tauri and browser
  *
- * CRITICAL: We use browser's native fetch() because it handles
- * cookies automatically. This works in both dev mode and production
- * Tauri builds.
+ * CRITICAL: Automatically adds JWT token from localStorage to Authorization header.
+ * This ensures all requests (including binary downloads) are authenticated.
  */
 export async function universalFetch(
   url: string | URL,
@@ -28,18 +27,33 @@ export async function universalFetch(
 ): Promise<Response> {
   const urlString = url.toString();
 
+  // Get JWT token from localStorage and add to headers
+  const TOKEN_KEY = 'timetracking_jwt_token';
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // Update options with headers including JWT
+  const fetchOptions: FetchOptions = {
+    ...options,
+    headers,
+  };
+
   // Log request
   debugLog({
     type: 'request',
     method: options.method || 'GET',
     url: urlString,
     data: options.body ? JSON.parse(options.body as string) : undefined,
-    message: `🌐 Making request (credentials: ${options.credentials})`,
+    message: `🌐 Making request (credentials: ${options.credentials}, JWT: ${token ? 'present' : 'none'})`,
   });
 
   try {
     // Use browser's native fetch which handles cookies correctly
-    const response = await fetch(url, options);
+    const response = await fetch(url, fetchOptions);
 
     // Read response
     const text = await response.text();
