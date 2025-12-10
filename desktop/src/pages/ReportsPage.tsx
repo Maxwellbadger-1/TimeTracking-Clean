@@ -234,20 +234,25 @@ export function ReportsPage() {
     }> = {};
 
     if (currentUser?.role === 'admin' && selectedUserId === 'all') {
+      // CRITICAL FIX: Initialize byUser with ALL active users FIRST
+      // This ensures all users appear in the table, even with 0 hours
+      users?.filter(u => u.isActive).forEach((user) => {
+        const userOvertime = allUsersOvertimeData?.find((o) => o.userId === user.id);
+        byUser[user.id] = {
+          name: `${user.firstName} ${user.lastName}`,
+          hours: 0,
+          days: 0,
+          overtime: userOvertime?.totalOvertime || 0,
+          targetHours: userOvertime?.targetHours || 0,
+        };
+      });
+
+      // THEN: Add time entries to the initialized users
       filteredTimeEntries.forEach((entry) => {
-        if (!byUser[entry.userId]) {
-          const user = users?.find((u) => u.id === entry.userId);
-          const userOvertime = allUsersOvertimeData?.find((o) => o.userId === entry.userId);
-          byUser[entry.userId] = {
-            name: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-            hours: 0,
-            days: 0,
-            overtime: userOvertime?.totalOvertime || 0,
-            targetHours: 0,
-          };
+        if (byUser[entry.userId]) {
+          byUser[entry.userId].hours += entry.hours || 0;
+          byUser[entry.userId].days += 1;
         }
-        byUser[entry.userId].hours += entry.hours || 0;
-        byUser[entry.userId].days += 1;
       });
 
       // BEST PRACTICE: Use Backend overtime data (Single Source of Truth!)

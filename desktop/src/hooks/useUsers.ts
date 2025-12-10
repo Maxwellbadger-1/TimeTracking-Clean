@@ -61,6 +61,10 @@ export function useUsers() {
 
       return response.data || [];
     },
+    staleTime: 0, // CRITICAL FIX: Always fetch fresh user list (no caching)
+    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes after unmount
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 }
 
