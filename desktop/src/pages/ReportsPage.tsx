@@ -925,7 +925,7 @@ export function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <CorrectionsTable
-                    userId={selectedUserId}
+                    userId={typeof selectedUserId === 'number' ? selectedUserId : undefined}
                     isAdmin={true}
                   />
                 </CardContent>
