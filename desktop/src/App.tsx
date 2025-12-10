@@ -23,11 +23,14 @@ import { LogOut } from 'lucide-react';
 import { useGlobalKeyboardShortcuts } from './hooks';
 import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
 import { useDesktopNotifications } from './hooks/useDesktopNotifications';
+import { SplashScreen } from './components/SplashScreen';
+import maxflowLogo from './assets/maxflow-logo.png';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
   const { currentView, setCurrentView } = useUIStore();
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Global Keyboard Shortcuts (Ctrl/Cmd + Number)
   useGlobalKeyboardShortcuts({
@@ -63,6 +66,11 @@ export default function App() {
     await checkSession();
   };
 
+  // Show splash screen on first load
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
   // Show loading spinner while checking session
   if (isLoading) {
     return (
@@ -82,12 +90,30 @@ export default function App() {
     <>
       <div className="flex flex-col h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
         {/* Top Header Bar */}
-        <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end px-6 gap-2">
-          <ThemeToggle />
-          <NotificationBell />
-          <Button variant="ghost" size="sm" onClick={logout}>
-            <LogOut className="w-4 h-4" />
-          </Button>
+        <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <img
+              src={maxflowLogo}
+              alt="Maxflow Software"
+              className="h-8 w-8 object-contain"
+            />
+            <div className="hidden sm:block">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Powered by</p>
+              <p className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                Maxflow Software
+              </p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <NotificationBell />
+            <Button variant="ghost" size="sm" onClick={logout}>
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </header>
 
         {/* Main Layout */}
