@@ -263,6 +263,11 @@ export function useMarkAllNotificationsRead() {
             return old.map((n) => ({ ...n, isRead: true })) as any;
           }
 
+          // Check if old has rows property (paginated response)
+          if (!old.rows || !Array.isArray(old.rows)) {
+            return old;
+          }
+
           return {
             ...old,
             rows: old.rows.map((n) => ({ ...n, isRead: true })),
@@ -321,6 +326,11 @@ export function useDeleteNotification() {
           // Handle both array (legacy) and paginated response
           if (Array.isArray(old)) {
             return old.filter((n) => n.id !== id) as any;
+          }
+
+          // Check if old has rows property (paginated response)
+          if (!old.rows || !Array.isArray(old.rows)) {
+            return old;
           }
 
           return {
