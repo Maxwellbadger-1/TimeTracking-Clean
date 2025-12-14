@@ -86,3 +86,7 @@ export {
   useGlobalKeyboardShortcuts,
   useModalKeyboardShortcuts,
 } from './useKeyboardShortcuts';
+
+// Auto-Updater
+export { useAutoUpdater } from './useAutoUpdater';
+export type { UpdateState } from './useAutoUpdater';

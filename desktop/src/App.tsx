@@ -23,7 +23,9 @@ import { LogOut } from 'lucide-react';
 import { useGlobalKeyboardShortcuts } from './hooks';
 import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
 import { useDesktopNotifications } from './hooks/useDesktopNotifications';
+import { useAutoUpdater } from './hooks/useAutoUpdater';
 import { SplashScreen } from './components/SplashScreen';
+import { UpdateNotification } from './components/ui/UpdateNotification';
 import maxflowLogo from './assets/maxflow-logo.png';
 
 export default function App() {
@@ -44,6 +46,9 @@ export default function App() {
 
   // Desktop Notifications (monitors DB notifications and triggers native desktop alerts)
   useDesktopNotifications(user?.id);
+
+  // Auto-Updater (checks for updates on app start)
+  const updater = useAutoUpdater();
 
   // Check session on mount
   useEffect(() => {
@@ -88,6 +93,17 @@ export default function App() {
   // Main App with Sidebar + Content Area
   return (
     <>
+      {/* Update Notification Banner (appears above everything when update available) */}
+      {updater.available && updater.update && (
+        <UpdateNotification
+          update={updater.update}
+          downloading={updater.downloading}
+          readyToInstall={updater.readyToInstall}
+          onDownload={() => updater.downloadAndInstall(updater.update!)}
+          onRestart={updater.restartApp}
+        />
+      )}
+
       <div className="flex flex-col h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
         {/* Top Header Bar */}
         <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
