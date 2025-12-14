@@ -69,9 +69,9 @@ const getIntensityColor = (hours: number, absences: AbsenceRequest[]) => {
     const isApproved = primaryAbsence.status === 'approved';
     const borderStyle = isApproved ? 'border-2' : 'border-2 border-dashed';
 
-    // Urlaub (vacation) - Emerald
+    // Urlaub (vacation) - Green
     if (primaryAbsence.type === 'vacation') {
-      return `bg-emerald-200 dark:bg-emerald-900/40 ${borderStyle} border-emerald-${isApproved ? '500' : '400'} dark:border-emerald-${isApproved ? '500' : '600'}`;
+      return `bg-green-200 dark:bg-green-900/40 ${borderStyle} border-green-${isApproved ? '500' : '400'} dark:border-green-${isApproved ? '500' : '600'}`;
     }
 
     // Krankmeldung (sick) - Red
@@ -79,14 +79,14 @@ const getIntensityColor = (hours: number, absences: AbsenceRequest[]) => {
       return `bg-red-200 dark:bg-red-900/40 ${borderStyle} border-red-${isApproved ? '500' : '400'} dark:border-red-${isApproved ? '500' : '600'}`;
     }
 
-    // Überstundenausgleich (overtime_comp) - Violet
+    // Überstundenausgleich (overtime_comp) - Purple
     if (primaryAbsence.type === 'overtime_comp') {
-      return `bg-violet-200 dark:bg-violet-900/40 ${borderStyle} border-violet-${isApproved ? '500' : '400'} dark:border-violet-${isApproved ? '500' : '600'}`;
+      return `bg-purple-200 dark:bg-purple-900/40 ${borderStyle} border-purple-${isApproved ? '500' : '400'} dark:border-purple-${isApproved ? '500' : '600'}`;
     }
 
-    // Unbezahlter Urlaub (unpaid) - Gray
+    // Unbezahlter Urlaub (unpaid) - Orange
     if (primaryAbsence.type === 'unpaid') {
-      return `bg-gray-300 dark:bg-gray-700/40 ${borderStyle} border-gray-${isApproved ? '500' : '400'} dark:border-gray-${isApproved ? '500' : '600'}`;
+      return `bg-orange-200 dark:bg-orange-900/40 ${borderStyle} border-orange-${isApproved ? '500' : '400'} dark:border-orange-${isApproved ? '500' : '600'}`;
     }
   }
 
@@ -388,49 +388,45 @@ export function YearCalendar({
             </div>
 
             {/* Abwesenheiten */}
-            <div className="flex items-center justify-end gap-3 flex-wrap">
-              <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Abwesenheiten:</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Abwesenheiten:</span>
 
-              {/* Urlaub Genehmigt - Emerald solid */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/40 border-2 border-emerald-500 dark:border-emerald-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">🏖️ Urlaub</span>
+                {/* Urlaub - Green */}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900/40 border-2 border-green-500 dark:border-green-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">🏖️ Urlaub</span>
+                </div>
+
+                {/* Krankmeldung - Red */}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40 border-2 border-red-500 dark:border-red-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">🤒 Krankmeldung</span>
+                </div>
+
+                {/* Überstundenausgleich - Purple */}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-purple-200 dark:bg-purple-900/40 border-2 border-purple-500 dark:border-purple-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">⏰ Überstunden-Ausgleich</span>
+                </div>
+
+                {/* Unbezahlter Urlaub - Orange */}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-orange-200 dark:bg-orange-900/40 border-2 border-orange-500 dark:border-orange-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">📅 Unbezahlt</span>
+                </div>
               </div>
 
-              {/* Urlaub Beantragt - Emerald dashed */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/40 border-2 border-dashed border-emerald-500 dark:border-emerald-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">🏖️ Urlaub (⏳)</span>
-              </div>
-
-              {/* Krankmeldung - Red (immer genehmigt) */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40 border-2 border-red-500 dark:border-red-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">🤒 Krankmeldung</span>
-              </div>
-
-              {/* Überstundenausgleich Genehmigt - Violet solid */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-violet-200 dark:bg-violet-900/40 border-2 border-violet-500 dark:border-violet-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">⏰ Überstunden-Ausgleich</span>
-              </div>
-
-              {/* Überstundenausgleich Beantragt - Violet dashed */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-violet-200 dark:bg-violet-900/40 border-2 border-dashed border-violet-500 dark:border-violet-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">⏰ Überstunden-Ausgleich (⏳)</span>
-              </div>
-
-              {/* Unbezahlter Urlaub Genehmigt - Gray solid */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-gray-300 dark:bg-gray-700/40 border-2 border-gray-500 dark:border-gray-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">📅 Unbezahlt</span>
-              </div>
-
-              {/* Unbezahlter Urlaub Beantragt - Gray dashed */}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-gray-300 dark:bg-gray-700/40 border-2 border-dashed border-gray-500 dark:border-gray-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">📅 Unbezahlt (⏳)</span>
+              {/* Status Legend */}
+              <div className="flex items-center justify-end gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-gray-200 dark:bg-gray-700 border-2 border-gray-500 dark:border-gray-500" />
+                  <span>Genehmigt</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-500 dark:border-gray-500" />
+                  <span>Beantragt</span>
+                </div>
               </div>
             </div>
           </div>

@@ -261,11 +261,13 @@ export function TeamCalendar({
 
                     if (absence) {
                       const colors = getEventColor(absence.type as any);
-                      colorClass = `${colors.bg} ${colors.border}`;
+                      const isApproved = absence.status === 'approved';
+                      const borderStyle = isApproved ? 'border-l-2' : 'border-l-2 border-dashed';
+                      colorClass = `${colors.bg} ${colors.border} ${borderStyle}`;
                       const typeLabel = getAbsenceTypeLabel(absence.type as any);
                       const statusLabel = getAbsenceStatusLabel(absence.status as any);
                       cellContent = (
-                        <div className={`w-full h-full ${colorClass} border-l-2 flex items-center justify-center`} title={`${typeLabel} (${statusLabel})`}>
+                        <div className={`w-full h-full ${colorClass} flex items-center justify-center`} title={`${typeLabel} (${statusLabel})`}>
                           <span className="text-xs">
                             {absence.type === 'vacation' && '🏖️'}
                             {absence.type === 'sick' && '🤒'}

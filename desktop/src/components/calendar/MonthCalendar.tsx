@@ -186,14 +186,9 @@ export function MonthCalendar({
                   {dayAbsences.filter(a => a.status !== 'rejected').slice(0, 2).map((absence, idx) => {
                     const isApproved = absence.status === 'approved';
 
-                    // Status-based colors (green for approved, orange for pending)
-                    const bgColor = isApproved
-                      ? 'bg-green-100 dark:bg-green-900/30'
-                      : 'bg-orange-100 dark:bg-orange-900/30';
-                    const textColor = isApproved
-                      ? 'text-green-800 dark:text-green-200'
-                      : 'text-orange-800 dark:text-orange-200';
-                    const statusIcon = isApproved ? '✅' : '⏳';
+                    // Type-based colors (professional standard like Google Calendar)
+                    const colors = getEventColor(absence.type as any);
+                    const borderStyle = isApproved ? 'border-2' : 'border-2 border-dashed';
 
                     const initials = getInitials(absence.firstName, absence.lastName, absence.userInitials);
                     const fullName = getFullName(absence.firstName, absence.lastName);
@@ -212,14 +207,14 @@ export function MonthCalendar({
                         key={idx}
                         className={`
                           px-2 py-1 rounded-md text-xs font-medium truncate flex items-center gap-1
-                          ${bgColor} ${textColor}
+                          ${colors.bg} ${colors.text} ${colors.border} ${borderStyle}
                         `}
                         title={`${fullName}: ${typeLabel} (${statusLabel})`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-bold">
                           {initials}
                         </span>
-                        {statusIcon} {typeEmoji} {typeLabel}
+                        {typeEmoji} {typeLabel}
                       </div>
                     );
                   })}

@@ -23,7 +23,7 @@ import { DateNavigation } from './DateNavigation';
 import { CalendarLegend } from './CalendarLegend';
 import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials } from '../../utils/userColors';
-import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
+import { getAbsenceTypeLabel, getEventColor } from '../../utils/calendarUtils';
 import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
 import type { TimeEntry, AbsenceRequest } from '../../types';
@@ -344,20 +344,12 @@ export function WeekCalendarColumns({
 
                             {/* Absence Banner - nur approved/pending, nicht rejected */}
                             {dayAbsences.filter(a => a.status !== 'rejected').map((absence, idx) => {
-                              console.log('🔥🔥🔥 WEEK CALENDAR COLUMNS ABSENCE DEBUG 🔥🔥🔥');
-                              console.log('📌 Absence ID:', absence.id);
-                              console.log('📌 Absence Type (RAW):', absence.type);
-                              console.log('📌 Absence Type (typeof):', typeof absence.type);
-
                               const isApproved = absence.status === 'approved';
-                              const bgColor = isApproved ? 'bg-green-100 dark:bg-green-900/30' : 'bg-orange-100 dark:bg-orange-900/30';
-                              const borderColor = isApproved ? 'border-green-400 dark:border-green-600' : 'border-orange-400 dark:border-orange-600';
-                              const textColor = isApproved ? 'text-green-800 dark:text-green-200' : 'text-orange-800 dark:text-orange-200';
-                              const statusIcon = isApproved ? '✅' : '⏳';
-                              const typeLabel = getAbsenceTypeLabel(absence.type as any);
 
-                              console.log('📊 Type Label from getAbsenceTypeLabel():', typeLabel);
-                              console.log('🔥🔥🔥 END WEEK CALENDAR COLUMNS ABSENCE DEBUG 🔥🔥🔥');
+                              // Type-based colors (professional standard like Google Calendar)
+                              const colors = getEventColor(absence.type as any);
+                              const borderStyle = isApproved ? 'border-2' : 'border-2 border-dashed';
+                              const typeLabel = getAbsenceTypeLabel(absence.type as any);
 
                               // Get emoji based on type
                               const typeEmoji =
@@ -367,8 +359,8 @@ export function WeekCalendarColumns({
                                 absence.type === 'unpaid' ? '📅' : '📋';
 
                               return (
-                                <div key={idx} className={`absolute top-${1 + idx * 8} left-1 right-1 z-5 p-1 ${bgColor} border ${borderColor} rounded text-[10px] font-medium ${textColor} text-center`}>
-                                  {statusIcon} {typeEmoji} {typeLabel}
+                                <div key={idx} className={`absolute top-${1 + idx * 8} left-1 right-1 z-5 p-1 ${colors.bg} ${colors.text} ${colors.border} ${borderStyle} rounded text-[10px] font-medium text-center`}>
+                                  {typeEmoji} {typeLabel}
                                 </div>
                               );
                             })}
