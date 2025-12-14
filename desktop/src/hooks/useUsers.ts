@@ -62,7 +62,6 @@ export function useUsers() {
       return response.data || [];
     },
     staleTime: 0, // CRITICAL FIX: Always fetch fresh user list (no caching)
-    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes after unmount
     refetchOnMount: true, // Refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
@@ -85,18 +84,24 @@ export function useUser(id: number) {
   });
 }
 
-// Get active employees only
+// Get active employees only (for team calendar)
+// Uses /users/active API (available for all authenticated users)
 export function useActiveEmployees() {
-  const { data: users, ...rest } = useUsers();
+  return useQuery({
+    queryKey: ['users', 'active'],
+    queryFn: async () => {
+      const response = await apiClient.get<User[]>('/users/active');
 
-  const activeEmployees = users?.filter(
-    (user) => user.isActive && user.role === 'employee'
-  ) || [];
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch active users');
+      }
 
-  return {
-    ...rest,
-    data: activeEmployees,
-  };
+      return response.data || [];
+    },
+    staleTime: 0, // Always fetch fresh
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
 }
 
 // Create user mutation (Admin only)

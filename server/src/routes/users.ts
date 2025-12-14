@@ -28,6 +28,35 @@ import type { ApiResponse, UserPublic, UserCreateInput } from '../types/index.js
 const router = Router();
 
 /**
+ * GET /api/users/active
+ * Get all active users (All authenticated users)
+ * For team calendar - employees can see active colleagues
+ * Returns minimal user info (name, department) - no sensitive data
+ */
+router.get(
+  '/active',
+  requireAuth,
+  (_req: Request, res: Response<ApiResponse<UserPublic[]>>) => {
+    try {
+      const users = getAllUsers();
+
+      // Filter only active users
+      const activeUsers = users.filter((u: UserPublic) => u.isActive);
+
+      res.json({
+        success: true,
+        data: activeUsers,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get active users',
+      });
+    }
+  }
+);
+
+/**
  * GET /api/users
  * Get all users (Admin only)
  */
