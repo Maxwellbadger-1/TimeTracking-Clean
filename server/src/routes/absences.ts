@@ -36,7 +36,7 @@ const router = Router();
 router.get(
   '/team',
   requireAuth,
-  (req: Request, res: Response<ApiResponse<AbsenceRequest[]>>) => {
+  (_req: Request, res: Response<ApiResponse<AbsenceRequest[]>>) => {
     try {
       const currentYear = new Date().getFullYear();
 
