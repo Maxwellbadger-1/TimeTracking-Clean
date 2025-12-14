@@ -4,6 +4,7 @@ export {
   useTimeEntry,
   useTodayTimeEntries,
   useWeekTimeEntries,
+  useMonthTimeEntries,
   useCreateTimeEntry,
   useUpdateTimeEntry,
   useDeleteTimeEntry,

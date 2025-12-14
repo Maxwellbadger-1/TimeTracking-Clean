@@ -10,6 +10,7 @@ import {
   useApproveAbsenceRequest,
   useRejectAbsenceRequest,
   useTodayTimeEntries,
+  useMonthTimeEntries,
   useAllUsersOvertime,
 } from '../../hooks';
 import { formatDateDE, calculateTotalHours, formatHours, formatOvertimeHours } from '../../utils';
@@ -25,6 +26,7 @@ export function AdminDashboard() {
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
   const { data: pendingRequests, isLoading: loadingRequests } = usePendingAbsenceRequests();
   const { data: todayEntries } = useTodayTimeEntries(0); // All entries for today
+  const { data: monthEntries } = useMonthTimeEntries(); // All entries for current month (all users)
   const { data: overtimeData, isLoading: loadingOvertime } = useAllUsersOvertime();
 
   // Mutations
@@ -43,11 +45,8 @@ export function AdminDashboard() {
     return acc;
   }, [] as number[]).length || 0;
 
-  // Calculate total hours this month
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-  const monthlyHours = todayEntries
-    ? calculateTotalHours(todayEntries.filter((e: TimeEntry) => e.date.startsWith(currentMonth)))
-    : 0;
+  // Calculate total hours this month (all users combined)
+  const monthlyHours = monthEntries ? calculateTotalHours(monthEntries) : 0;
 
   const handleApprove = async (requestId: number) => {
     setApprovingId(requestId);

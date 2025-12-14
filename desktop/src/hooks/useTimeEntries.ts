@@ -106,6 +106,26 @@ export function useWeekTimeEntries(userId: number) {
   });
 }
 
+// Get current month's time entries (all users or specific user)
+export function useMonthTimeEntries(userId?: number) {
+  const now = new Date();
+
+  // Calculate first day of month
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Calculate last day of month
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const startDate = firstDay.toISOString().split('T')[0];
+  const endDate = lastDay.toISOString().split('T')[0];
+
+  return useTimeEntries({
+    userId,
+    startDate,
+    endDate,
+  });
+}
+
 // Create time entry mutation
 export function useCreateTimeEntry() {
   const queryClient = useQueryClient();

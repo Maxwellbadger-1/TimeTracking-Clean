@@ -32,7 +32,13 @@ export default function App() {
   const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
   const { currentView, setCurrentView } = useUIStore();
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+
+  // Only show splash screen on first app load (not on logout/reload)
+  // sessionStorage persists during browser session but clears when app is closed
+  const [showSplash, setShowSplash] = useState(() => {
+    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
+    return hasSeenSplash !== 'true';
+  });
 
   // Global Keyboard Shortcuts (Ctrl/Cmd + Number)
   useGlobalKeyboardShortcuts({
@@ -73,7 +79,14 @@ export default function App() {
 
   // Show splash screen on first load
   if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+    return (
+      <SplashScreen
+        onComplete={() => {
+          sessionStorage.setItem('hasSeenSplash', 'true');
+          setShowSplash(false);
+        }}
+      />
+    );
   }
 
   // Show loading spinner while checking session
