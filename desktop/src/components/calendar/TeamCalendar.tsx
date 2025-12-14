@@ -52,16 +52,20 @@ export function TeamCalendar({
   // Fetch data
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
   const { data: allTimeEntries, isLoading: loadingEntries } = useTimeEntries(); // All entries
-  const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(); // All absences
 
-  // Filter absences based on role (PRIVACY!)
-  // Employees: Only APPROVED absences (no pending/rejected from colleagues)
-  // Admins: ALL absences (for management & approval)
+  // For team calendar: Use different API based on role
+  // Employees: GET /absences/team (only approved absences of all users)
+  // Admins: GET /absences (all absences for management)
+  const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(
+    isAdmin ? undefined : { forTeamCalendar: true } // Special flag to use /team endpoint
+  );
+
+  // For admin: Still filter to show all
+  // For employees: Already filtered by backend (/absences/team returns only approved)
   const filteredAbsences = useMemo(() => {
     if (!allAbsences) return [];
-    if (isAdmin) return allAbsences; // Admins see everything
-    return allAbsences.filter((absence: AbsenceRequest) => absence.status === 'approved'); // Employees see only approved
-  }, [allAbsences, isAdmin]);
+    return allAbsences;
+  }, [allAbsences]);
 
   // Get all days of current month including buffer for full weeks
   const monthStart = startOfMonth(currentMonth);

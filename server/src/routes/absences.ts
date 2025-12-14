@@ -28,6 +28,53 @@ import type { ApiResponse, AbsenceRequest } from '../types/index.js';
 const router = Router();
 
 /**
+ * GET /api/absences/team
+ * Get all approved absences for team calendar (All authenticated users)
+ * Returns only approved absences for privacy (employees don't see pending requests of colleagues)
+ * No pagination - returns all approved absences for current + next year
+ */
+router.get(
+  '/team',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse<AbsenceRequest[]>>) => {
+    try {
+      const currentYear = new Date().getFullYear();
+
+      // Get all approved absences for current and next year (no userId filter!)
+      const currentYearAbsences = getAbsenceRequestsPaginated({
+        userId: undefined, // ALL users!
+        status: 'approved', // Only approved (privacy!)
+        year: currentYear,
+        page: 1,
+        limit: 1000, // High limit to get all
+      });
+
+      const nextYearAbsences = getAbsenceRequestsPaginated({
+        userId: undefined,
+        status: 'approved',
+        year: currentYear + 1,
+        page: 1,
+        limit: 1000,
+      });
+
+      // Combine results
+      const allAbsences = [...currentYearAbsences.rows, ...nextYearAbsences.rows];
+
+      res.json({
+        success: true,
+        data: allAbsences,
+      });
+    } catch (error) {
+      console.error('❌ Error fetching team absences:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch team absences',
+      });
+    }
+  }
+);
+
+/**
  * GET /api/absences
  * Get paginated absence requests (Admin: all, Employee: own)
  * Query params:

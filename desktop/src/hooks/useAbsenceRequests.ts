@@ -10,6 +10,7 @@ export interface AbsenceRequestFilters {
   year?: number;
   page?: number;
   limit?: number;
+  forTeamCalendar?: boolean; // Use /absences/team endpoint (all approved absences)
 }
 
 interface CreateAbsenceRequestData {
@@ -46,6 +47,18 @@ export function useAbsenceRequests(filters?: AbsenceRequestFilters) {
   return useQuery({
     queryKey: ['absenceRequests', filters],
     queryFn: async () => {
+      // For team calendar: Use special endpoint that returns all approved absences
+      if (filters?.forTeamCalendar) {
+        const response = await apiClient.get<AbsenceRequest[]>('/absences/team');
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch team absences');
+        }
+
+        return response.data || [];
+      }
+
+      // Regular absence requests with filters
       const params = new URLSearchParams();
       if (filters?.userId) params.append('userId', filters.userId.toString());
       if (filters?.status) params.append('status', filters.status);
