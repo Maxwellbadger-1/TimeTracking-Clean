@@ -60,6 +60,15 @@ jobs:
               exit 1
             fi
 
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            NODE_ENV=production npm run migrate:prod || {
+              echo "❌ Migration failed! Deployment aborted."
+              echo "💡 Database backup available: server/database.backup.*.db"
+              exit 1
+            }
+            echo "✅ Migrations completed successfully"
+
             # Read SESSION_SECRET from .env file (created during initial setup)
             echo "🔐 Loading SESSION_SECRET..."
             SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)

@@ -18,11 +18,20 @@ target/
 .env.development.local
 
 # Database
+# Ignore all database files (production and development)
 *.db
 *.db-shm
 *.db-wal
-server/database.db
-server/database.backup.db
+
+# Specific database files to ignore
+server/database.db                      # Production database (Oracle Cloud)
+server/database.backup.db              # Production backup
+server/database/development.db         # Development database (local copy)
+server/database/development.backup.*.db # Development backups with timestamps
+
+# Keep migration and seed SQL files (these should be versioned)
+!server/database/migrations/*.sql
+!server/database/seeds/*.sql
 
 # IDE
 .vscode/

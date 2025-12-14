@@ -1,13 +1,14 @@
 import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { initializeDatabase } from './schema.js';
 import { createIndexes, verifyIndexes } from './indexes.js';
 import logger from '../utils/logger.js';
+import { databaseConfig } from '../config/database.js';
 
-// Database path: server/database.db
-// Use process.cwd() which points to server/ directory when running from server/
-const DB_PATH = join(process.cwd(), 'database.db');
+// Get database path based on NODE_ENV (development or production)
+const DB_PATH = databaseConfig.path;
+const env = process.env.NODE_ENV || 'development';
 
 // Ensure database directory exists
 const dbDir = dirname(DB_PATH);
@@ -15,7 +16,7 @@ if (!existsSync(dbDir)) {
   mkdirSync(dbDir, { recursive: true });
 }
 
-logger.info({ path: DB_PATH }, '📁 Database path');
+logger.info({ path: DB_PATH, environment: env }, '📁 Database path');
 
 // Store database instance in a wrapper object
 // This allows hot-swapping while preserving the reference
