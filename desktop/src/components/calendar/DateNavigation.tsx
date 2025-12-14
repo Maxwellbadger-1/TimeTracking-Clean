@@ -21,7 +21,6 @@ interface DateNavigationProps {
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
-  isAdmin?: boolean; // NEU: Team-Tab nur für Admins
 }
 
 export function DateNavigation({
@@ -32,7 +31,6 @@ export function DateNavigation({
   onPrevious,
   onNext,
   onToday,
-  isAdmin = true, // Default true für Rückwärtskompatibilität
 }: DateNavigationProps) {
   // Month/Year Dropdowns
   const currentMonth = currentDate.getMonth();
@@ -106,19 +104,17 @@ export function DateNavigation({
           >
             Jahr
           </button>
-          {/* Team-Tab nur für Admins */}
-          {isAdmin && (
-            <button
-              onClick={() => onViewModeChange('team')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                viewMode === 'team'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              Team
-            </button>
-          )}
+          {/* Team-Tab für alle (privacy-gefiltert in TeamCalendar) */}
+          <button
+            onClick={() => onViewModeChange('team')}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              viewMode === 'team'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Team
+          </button>
         </div>
       </div>
 

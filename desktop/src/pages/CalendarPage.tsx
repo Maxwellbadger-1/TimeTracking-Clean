@@ -91,24 +91,17 @@ export function CalendarPage() {
               />
             )}
 
-            {/* Team Calendar (Admin only) */}
+            {/* Team Calendar (All users - privacy-filtered for employees) */}
             {viewMode === 'team' && (
-              <>
-                {user.role === 'admin' ? (
-                  <TeamCalendar
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    onDayClick={(date, user) => {
-                      console.log('Day clicked:', date, 'User:', user);
-                      // TODO: Open user day detail modal
-                    }}
-                  />
-                ) : (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <p>Team-Kalender ist nur für Administratoren verfügbar.</p>
-                  </div>
-                )}
-              </>
+              <TeamCalendar
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                isAdmin={isAdmin}
+                onDayClick={(date, user) => {
+                  console.log('Day clicked:', date, 'User:', user);
+                  // TODO: Open user day detail modal
+                }}
+              />
             )}
           </>
         )}

@@ -190,7 +190,6 @@ export function WeekCalendarColumns({
         onToday={handleToday}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange || (() => {})}
-        isAdmin={isAdmin}
       />
 
       {/* User Filter - nur für Admins */}

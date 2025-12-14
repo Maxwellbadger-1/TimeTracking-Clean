@@ -92,7 +92,6 @@ export function MonthCalendar({
         onToday={handleToday}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange || (() => {})}
-        isAdmin={isAdmin}
       />
 
       {/* Legend */}

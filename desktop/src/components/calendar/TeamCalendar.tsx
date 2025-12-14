@@ -1,5 +1,5 @@
 /**
- * Team Calendar Component (Admin only)
+ * Team Calendar Component
  *
  * Inspired by Clockify Team Timeline
  * Features:
@@ -8,6 +8,8 @@
  * - Month view with all employees in rows
  * - Filter by department
  * - Color-coded absences
+ * - Privacy: Employees see only APPROVED absences (no pending/rejected)
+ * - Privacy: Admins see ALL absences (for management)
  */
 
 import { useState, useMemo } from 'react';
@@ -35,12 +37,14 @@ interface TeamCalendarProps {
   onDayClick?: (date: Date, user: User) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
+  isAdmin?: boolean; // Controls data visibility (employees see only approved absences)
 }
 
 export function TeamCalendar({
   onDayClick,
   viewMode = 'team',
   onViewModeChange,
+  isAdmin = false,
 }: TeamCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -49,6 +53,15 @@ export function TeamCalendar({
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
   const { data: allTimeEntries, isLoading: loadingEntries } = useTimeEntries(); // All entries
   const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(); // All absences
+
+  // Filter absences based on role (PRIVACY!)
+  // Employees: Only APPROVED absences (no pending/rejected from colleagues)
+  // Admins: ALL absences (for management & approval)
+  const filteredAbsences = useMemo(() => {
+    if (!allAbsences) return [];
+    if (isAdmin) return allAbsences; // Admins see everything
+    return allAbsences.filter((absence: AbsenceRequest) => absence.status === 'approved'); // Employees see only approved
+  }, [allAbsences, isAdmin]);
 
   // Get all days of current month including buffer for full weeks
   const monthStart = startOfMonth(currentMonth);
@@ -67,7 +80,7 @@ export function TeamCalendar({
   // Get unique departments
   const departments = useMemo(() => {
     if (!employees) return [];
-    const depts = new Set(employees.map((emp: User) => emp.department).filter(Boolean));
+    const depts = new Set(employees.map((emp: User) => emp.department).filter(Boolean) as string[]);
     return Array.from(depts);
   }, [employees]);
 
@@ -88,12 +101,12 @@ export function TeamCalendar({
     return map;
   }, [allTimeEntries]);
 
-  // Group absences by user and date
+  // Group absences by user and date (using filtered absences!)
   const absencesByUserAndDay = useMemo(() => {
-    if (!allAbsences) return new Map();
+    if (!filteredAbsences) return new Map();
 
     const map = new Map<number, Map<string, AbsenceRequest>>();
-    allAbsences.forEach((absence: AbsenceRequest) => {
+    filteredAbsences.forEach((absence: AbsenceRequest) => {
       const start = parseISO(absence.startDate);
       const end = parseISO(absence.endDate);
       const days = eachDayOfInterval({ start, end });
@@ -108,7 +121,7 @@ export function TeamCalendar({
       });
     });
     return map;
-  }, [allAbsences]);
+  }, [filteredAbsences]);
 
   const handlePrevious = () => {
     setCurrentMonth((prev) => addMonths(prev, -1));
