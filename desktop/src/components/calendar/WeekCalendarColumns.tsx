@@ -20,6 +20,7 @@ import {
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { DateNavigation } from './DateNavigation';
+import { CalendarLegend } from './CalendarLegend';
 import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials } from '../../utils/userColors';
 import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
@@ -202,6 +203,11 @@ export function WeekCalendarColumns({
           />
         </div>
       )}
+
+      {/* Legend */}
+      <div className="mb-6">
+        <CalendarLegend />
+      </div>
 
       {/* Calendar Container - SINGLE SCROLL CONTAINER */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-auto">

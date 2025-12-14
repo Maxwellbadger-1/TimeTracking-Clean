@@ -10,7 +10,7 @@
  * - View Mode Tabs
  */
 
-import { format, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
+import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface DateNavigationProps {
@@ -34,31 +34,6 @@ export function DateNavigation({
   onToday,
   isAdmin = true, // Default true für Rückwärtskompatibilität
 }: DateNavigationProps) {
-
-  // Quick Filter Functions
-  const handleQuickFilter = (filter: 'today' | 'thisWeek' | 'thisMonth' | 'thisYear') => {
-    const now = new Date();
-
-    switch (filter) {
-      case 'today':
-        onDateChange(now);
-        if (viewMode !== 'month') onViewModeChange('month');
-        break;
-      case 'thisWeek':
-        onDateChange(startOfWeek(now, { weekStartsOn: 1 }));
-        if (viewMode !== 'week') onViewModeChange('week');
-        break;
-      case 'thisMonth':
-        onDateChange(startOfMonth(now));
-        if (viewMode !== 'month') onViewModeChange('month');
-        break;
-      case 'thisYear':
-        onDateChange(startOfYear(now));
-        if (viewMode !== 'year') onViewModeChange('year');
-        break;
-    }
-  };
-
   // Month/Year Dropdowns
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -97,36 +72,8 @@ export function DateNavigation({
 
   return (
     <div className="space-y-4">
-      {/* Top Row: Quick Filters + View Tabs */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Quick Filters */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleQuickFilter('today')}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Heute
-          </button>
-          <button
-            onClick={() => handleQuickFilter('thisWeek')}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Diese Woche
-          </button>
-          <button
-            onClick={() => handleQuickFilter('thisMonth')}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Dieser Monat
-          </button>
-          <button
-            onClick={() => handleQuickFilter('thisYear')}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Dieses Jahr
-          </button>
-        </div>
-
+      {/* Top Row: View Mode Tabs Only */}
+      <div className="flex items-center justify-end gap-4 flex-wrap">
         {/* View Mode Tabs */}
         <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
