@@ -234,10 +234,11 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
           <div className="flex-1 text-sm text-gray-700 dark:text-gray-300">
             <p className="font-medium mb-1">Automatische Updates</p>
             <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
+              <li>Die App prüft automatisch beim Start nach Updates</li>
               <li>Updates werden über GitHub Releases verteilt</li>
-              <li>Alle Updates sind kryptografisch signiert</li>
+              <li>Alle Updates sind kryptografisch signiert für Sicherheit</li>
+              <li>Download läuft im Hintergrund - du kannst weiterarbeiten</li>
               <li>Die Anwendung startet nach dem Update automatisch neu</li>
-              <li>Nur Administratoren können Updates installieren</li>
             </ul>
           </div>
         </div>

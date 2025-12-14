@@ -14,11 +14,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile' as Tab, label: 'Profil', icon: User },
     { id: 'security' as Tab, label: 'Sicherheit', icon: Lock },
-    ...(currentUser?.role === 'admin'
-      ? [
-          { id: 'updates' as Tab, label: 'Updates', icon: Download },
-        ]
-      : []),
+    { id: 'updates' as Tab, label: 'Updates', icon: Download },
   ];
 
   return (
@@ -157,7 +153,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {activeTab === 'updates' && currentUser?.role === 'admin' && (
+          {activeTab === 'updates' && (
             <div>
               <UpdateChecker />
             </div>
