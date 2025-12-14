@@ -44,7 +44,7 @@ export function MonthCalendar({
   timeEntries = [],
   absences = [],
   holidays = [],
-  isAdmin = true,
+  isAdmin: _isAdmin = true,
   onDayClick,
   viewMode = 'month',
   onViewModeChange,
