@@ -79,14 +79,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       isValid = false;
     }
 
-    // Validate hireDate: cannot be in the future
-    if (hireDate) {
-      const today = getTodayDate();
-      if (hireDate > today) {
-        alert('Eintrittsdatum kann nicht in der Zukunft liegen');
-        isValid = false;
-      }
-    }
+    // No validation for hireDate - future dates are allowed for pre-creating employee accounts
+    // This is standard practice in HR systems for onboarding workflows
 
     // Validate endDate: must be after hireDate
     if (endDate && hireDate) {
@@ -275,7 +269,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               value={hireDate}
               onChange={(e) => setHireDate(e.target.value)}
               required
-              helperText="Ab diesem Datum werden Arbeitsstunden erfasst"
+              helperText="Ab diesem Datum werden Arbeitsstunden erfasst (zukünftige Daten erlaubt)"
             />
             <Input
               label="Austrittsdatum (optional)"
