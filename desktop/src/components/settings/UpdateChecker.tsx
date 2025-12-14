@@ -3,8 +3,13 @@ import { check, Update } from '@tauri-apps/plugin-updater';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
-import { AlertCircle, Download, RefreshCw } from 'lucide-react';
+import { AlertCircle, Download, RefreshCw, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Check if running in Tauri (desktop app) vs Browser
+function isTauriApp(): boolean {
+  return typeof window !== 'undefined' && '__TAURI__' in window;
+}
 
 interface UpdateCheckerProps {
   autoCheckOnMount?: boolean;
@@ -32,6 +37,14 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
 
   async function checkForUpdates() {
     if (checking || downloading) return;
+
+    // Check if running in Tauri environment
+    if (!isTauriApp()) {
+      toast.info('Update-Funktion nur in Desktop-App verfügbar', {
+        description: 'Du verwendest die Browser-Version. Updates sind nur in der installierten Desktop-App verfügbar.'
+      });
+      return;
+    }
 
     setChecking(true);
     setUpdateAvailable(false);
@@ -151,6 +164,8 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
     }
   }
 
+  const isDesktopApp = isTauriApp();
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-start justify-between mb-4">
@@ -161,10 +176,16 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Aktuelle Version: <span className="font-mono font-medium">{currentVersion}</span>
           </p>
+          {!isDesktopApp && (
+            <div className="flex items-center gap-2 mt-2 text-xs text-orange-600 dark:text-orange-400">
+              <Globe className="w-3 h-3" />
+              Browser-Modus (Updates nur in Desktop-App verfügbar)
+            </div>
+          )}
         </div>
         <button
           onClick={checkForUpdates}
-          disabled={checking || downloading}
+          disabled={checking || downloading || !isDesktopApp}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
