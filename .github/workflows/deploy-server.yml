@@ -76,6 +76,13 @@ jobs:
             }
             echo "✅ Overtime calculations updated"
 
+            # Setup automatic daily cron job (runs at 3 AM every day)
+            echo "⏰ Setting up automatic daily overtime recalculation..."
+            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+            mkdir -p /home/ubuntu/logs
+            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab -
+            echo "✅ Cron job configured (runs daily at 3 AM)"
+
             # Read SESSION_SECRET from .env file (created during initial setup)
             echo "🔐 Loading SESSION_SECRET..."
             SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
