@@ -52,7 +52,11 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
   for (const month of months) {
     // Calculate month boundaries
     const monthStart = new Date(month + '-01');
-    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    // CRITICAL: Use UTC to avoid timezone issues (DST can cause off-by-one errors)
+    const year = monthStart.getFullYear();
+    const monthIndex = monthStart.getMonth();
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate(); // Get last day number
+    const monthEnd = new Date(`${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
 
     // CRITICAL: Only count working days up to TODAY, not until month end!
     // This is how professional systems (Personio, DATEV) do it:

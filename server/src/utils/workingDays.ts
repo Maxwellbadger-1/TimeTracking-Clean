@@ -126,18 +126,23 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
   }
 
   let workingDays = 0;
-  const current = new Date(start);
 
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
+  // CRITICAL: Use UTC dates to avoid DST issues (timezone changes can skip days!)
+  // Create UTC dates at midnight
+  const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  for (let time = startUTC; time <= endUTC; time += MS_PER_DAY) {
+    const current = new Date(time);
+    const dayOfWeek = current.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
     const isHoliday = isPublicHoliday(current, holidays);
 
     if (!isWeekend && !isHoliday) {
       workingDays++;
     }
-
-    current.setDate(current.getDate() + 1);
   }
 
   return workingDays;
