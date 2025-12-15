@@ -61,8 +61,9 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
 
     // Calculate working days from (hire date or month start) to (today or month end)
     // IMPORTANT: Use countWorkingDaysBetween() for consistency - it excludes holidays!
+    // CRITICAL: Pass our DB instance so it uses the SAME database (not connection.ts!)
     const startDate = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
-    const workingDays = countWorkingDaysBetween(startDate, effectiveEnd);
+    const workingDays = countWorkingDaysBetween(startDate, effectiveEnd, db);
 
     const targetHoursPerDay = user.weeklyHours / 5;
     const targetHours = workingDays * targetHoursPerDay;

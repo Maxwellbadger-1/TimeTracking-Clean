@@ -66,10 +66,14 @@ export function calculateMonthlyTargetHours(weeklyHours: number, year: number, m
 /**
  * Get all public holidays for a given year from database
  * Returns array of holiday dates in 'YYYY-MM-DD' format
+ *
+ * @param year - Year to fetch holidays for
+ * @param dbInstance - Optional database instance (defaults to shared connection)
  */
-function getPublicHolidays(year: number): string[] {
+function getPublicHolidays(year: number, dbInstance?: any): string[] {
   try {
-    const holidays = db
+    const database = dbInstance || db;
+    const holidays = database
       .prepare('SELECT date FROM holidays WHERE date LIKE ? ORDER BY date')
       .all(`${year}-%`) as Array<{ date: string }>;
 
@@ -104,9 +108,10 @@ function formatDate(date: Date): string {
  *
  * @param fromDate - Start date (YYYY-MM-DD or Date)
  * @param toDate - End date (YYYY-MM-DD or Date)
+ * @param dbInstance - Optional database instance (defaults to shared connection)
  * @returns Number of working days
  */
-export function countWorkingDaysBetween(fromDate: string | Date, toDate: string | Date): number {
+export function countWorkingDaysBetween(fromDate: string | Date, toDate: string | Date, dbInstance?: any): number {
   const start = typeof fromDate === 'string' ? new Date(fromDate) : fromDate;
   const end = typeof toDate === 'string' ? new Date(toDate) : toDate;
 
@@ -116,7 +121,7 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
   const holidays: string[] = [];
 
   for (let year = startYear; year <= endYear; year++) {
-    holidays.push(...getPublicHolidays(year));
+    holidays.push(...getPublicHolidays(year, dbInstance));
   }
 
   let workingDays = 0;
