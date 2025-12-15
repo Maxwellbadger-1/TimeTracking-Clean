@@ -84,12 +84,15 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
       const actualHours = workedHours + absenceCredits;
       const overtime = actualHours - targetHours;
 
+      // Use UPSERT to update existing entries or create new ones
       db.prepare(`
         INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
         VALUES (?, ?, ?, ?)
-      `).run(userId, month, targetHours, actualHours);
+        ON CONFLICT(userId, month)
+        DO UPDATE SET targetHours = ?, actualHours = ?
+      `).run(userId, month, targetHours, actualHours, targetHours, actualHours);
 
-      console.log(`  ✅ Created entry for ${month}: Target=${targetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
+      console.log(`  ✅ Updated entry for ${month}: Target=${targetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
     }
   }
 }
@@ -107,28 +110,32 @@ const users = db
 console.log(`📊 Found ${users.length} active users\n`);
 
 let totalProcessed = 0;
-let totalEntriesCreated = 0;
+let totalUpdated = 0;
 
 for (const user of users) {
   console.log(`👤 Processing: ${user.firstName} ${user.lastName} (ID: ${user.id})`);
 
+  // Count existing entries before
   const beforeCount = db
     .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
     .get(user.id) as { count: number };
 
   ensureOvertimeBalanceEntries(user.id, currentMonth);
 
+  // Count entries after
   const afterCount = db
     .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
     .get(user.id) as { count: number };
 
   const created = afterCount.count - beforeCount.count;
-  totalEntriesCreated += created;
+  const updated = afterCount.count; // All entries were processed (created or updated)
+  totalUpdated += updated;
   totalProcessed++;
 
   if (created > 0) {
     console.log(`  📝 Created ${created} new month entries`);
   }
+  console.log(`  🔄 Processed ${updated} total month entries`);
 
   // Show current total overtime (actualHours - targetHours)
   const totalResult = db
@@ -140,6 +147,6 @@ for (const user of users) {
 
 console.log('✅ DONE!');
 console.log(`📊 Users processed: ${totalProcessed}`);
-console.log(`📝 Entries created: ${totalEntriesCreated}`);
+console.log(`🔄 Total entries updated: ${totalUpdated}`);
 
 db.close();
