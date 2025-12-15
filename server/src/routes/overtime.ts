@@ -12,6 +12,7 @@ import {
   getCurrentOvertimeStats,
   getOvertimeSummary,
   getAggregatedOvertimeStats,
+  ensureOvertimeBalanceEntries,
 } from '../services/overtimeService.js';
 import {
   createOvertimeCorrection,
@@ -762,6 +763,79 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get overtime summary',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/overtime/recalculate-all
+ * Recalculate overtime for all users (Admin only)
+ * This ensures all months from hire date to current month have overtime_balance entries
+ * CRITICAL: Use this if users show incorrect overtime (missing months)
+ */
+router.post(
+  '/recalculate-all',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const today = new Date();
+      const currentMonth = today.toISOString().substring(0, 7); // YYYY-MM
+
+      // Get all active users
+      const users = db
+        .prepare('SELECT id, firstName, lastName, hireDate FROM users WHERE deletedAt IS NULL')
+        .all() as Array<{ id: number; firstName: string; lastName: string; hireDate: string }>;
+
+      let totalProcessed = 0;
+      let totalEntriesCreated = 0;
+
+      console.log(`🔄 Recalculating overtime for ${users.length} users...`);
+
+      for (const user of users) {
+        // Get count before
+        const beforeCount = db
+          .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
+          .get(user.id) as { count: number };
+
+        // Ensure all months from hire date to current month
+        ensureOvertimeBalanceEntries(user.id, currentMonth);
+
+        // Get count after
+        const afterCount = db
+          .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
+          .get(user.id) as { count: number };
+
+        const created = afterCount.count - beforeCount.count;
+        totalEntriesCreated += created;
+
+        if (created > 0) {
+          console.log(
+            `✅ ${user.firstName} ${user.lastName}: Created ${created} missing months`
+          );
+        }
+
+        totalProcessed++;
+      }
+
+      console.log(`✅ Recalculation complete!`);
+      console.log(`   - Users processed: ${totalProcessed}`);
+      console.log(`   - Entries created: ${totalEntriesCreated}`);
+
+      res.json({
+        success: true,
+        data: {
+          usersProcessed: totalProcessed,
+          entriesCreated: totalEntriesCreated,
+          message: `Successfully recalculated overtime for ${totalProcessed} users. Created ${totalEntriesCreated} missing month entries.`,
+        },
+      });
+    } catch (error) {
+      console.error('Error recalculating overtime:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to recalculate overtime',
       });
     }
   }
