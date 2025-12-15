@@ -1,6 +1,7 @@
 import { db } from '../database/connection.js';
 import type { AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
+import { countWorkingDaysBetween } from '../utils/workingDays.js';
 
 /**
  * Absence Service
@@ -35,40 +36,16 @@ interface VacationBalance {
 
 /**
  * Calculate number of business days between two dates (excluding weekends)
+ * DEPRECATED: Use countWorkingDaysBetween() from workingDays.ts instead
+ * This function is kept for backwards compatibility but delegates to the canonical implementation
  */
 export function calculateBusinessDays(startDate: string, endDate: string): number {
   logger.debug('🔥🔥🔥 CALCULATE BUSINESS DAYS DEBUG 🔥🔥🔥');
   logger.debug({ startDate, endDate }, '📥 Input dates');
 
-  // Parse dates in local timezone (YYYY-MM-DD → local Date object)
-  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
-
-  logger.debug({ startYear, startMonth, startDay }, '📊 Parsed Start');
-  logger.debug({ endYear, endMonth, endDay }, '📊 Parsed End');
-
-  const start = new Date(startYear, startMonth - 1, startDay);
-  const end = new Date(endYear, endMonth - 1, endDay);
-
-  logger.debug({ startDate: start.toString() }, '📅 Start Date Object');
-  logger.debug({ endDate: end.toString() }, '📅 End Date Object');
-  logger.debug('📅 Start Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][start.getDay()]);
-  logger.debug('📅 End Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][end.getDay()]);
-
-  let count = 0;
-  const current = new Date(start);
-
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
-    logger.debug(`  📆 ${current.toISOString().split('T')[0]} = ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]} → ${isWeekday ? '✅ COUNT' : '❌ SKIP (weekend)'}`);
-
-    // 0 = Sunday, 6 = Saturday
-    if (isWeekday) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
+  // IMPORTANT: Delegate to countWorkingDaysBetween (SSOT)
+  // This ensures consistent holiday exclusion across the entire system
+  const count = countWorkingDaysBetween(startDate, endDate);
 
   logger.debug({ count }, '📊 TOTAL BUSINESS DAYS');
   logger.debug('🔥🔥🔥 END CALCULATE BUSINESS DAYS 🔥🔥🔥');
@@ -86,50 +63,16 @@ export function isHoliday(date: string): boolean {
 
 /**
  * Calculate vacation days (business days - holidays)
+ * DEPRECATED: Use countWorkingDaysBetween() from workingDays.ts instead
+ * This function is kept for backwards compatibility but delegates to the canonical implementation
  */
 export function calculateVacationDays(startDate: string, endDate: string): number {
   logger.debug('🔥🔥🔥 CALCULATE VACATION DAYS DEBUG 🔥🔥🔥');
   logger.debug({ startDate, endDate }, '📥 Input dates');
 
-  // Parse dates in local timezone (YYYY-MM-DD → local Date object)
-  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
-
-  logger.debug({ startYear, startMonth, startDay }, '📊 Parsed Start');
-  logger.debug({ endYear, endMonth, endDay }, '📊 Parsed End');
-
-  const start = new Date(startYear, startMonth - 1, startDay);
-  const end = new Date(endYear, endMonth - 1, endDay);
-
-  logger.debug({ startDate: start.toString() }, '📅 Start Date Object');
-  logger.debug({ endDate: end.toString() }, '📅 End Date Object');
-  logger.debug('📅 Start Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][start.getDay()]);
-  logger.debug('📅 End Day of Week: ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][end.getDay()]);
-
-  let count = 0;
-  const current = new Date(start);
-
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    // Format back to YYYY-MM-DD for holiday check
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const isHol = isHoliday(dateStr);
-    const shouldCount = !isWeekend && !isHol;
-
-    logger.debug(`  📆 ${dateStr} = ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]} → ${isWeekend ? '❌ SKIP (weekend)' : isHol ? '❌ SKIP (holiday)' : '✅ COUNT'}`);
-
-    // Only count weekdays that are not holidays
-    if (shouldCount) {
-      count++;
-    }
-
-    current.setDate(current.getDate() + 1);
-  }
+  // IMPORTANT: Delegate to countWorkingDaysBetween (SSOT)
+  // This ensures consistent holiday exclusion across the entire system
+  const count = countWorkingDaysBetween(startDate, endDate);
 
   logger.debug({ count }, '📊 TOTAL VACATION DAYS');
   logger.debug('🔥🔥🔥 END CALCULATE VACATION DAYS 🔥🔥🔥');

@@ -14,6 +14,10 @@ const __dirname = dirname(__filename);
 const dbPath = join(__dirname, '..', 'database.db');
 const db = new Database(dbPath);
 
+// Import working days utility (SSOT - Single Source of Truth)
+// This ensures holiday exclusion is consistent across the entire system
+import { countWorkingDaysBetween } from '../dist/utils/workingDays.js';
+
 // Same logic as in overtimeService.ts
 function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
   const user = db
@@ -52,15 +56,9 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
     const effectiveEnd = new Date(Math.min(monthEnd.getTime(), today.getTime()));
 
     // Calculate working days from (hire date or month start) to (today or month end)
-    let workingDays = 0;
+    // IMPORTANT: Use countWorkingDaysBetween() for consistency - it excludes holidays!
     const startDate = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
-
-    for (let d = new Date(startDate); d <= effectiveEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDays++;
-      }
-    }
+    const workingDays = countWorkingDaysBetween(startDate, effectiveEnd);
 
     const targetHoursPerDay = user.weeklyHours / 5;
     const targetHours = workingDays * targetHoursPerDay;
