@@ -73,9 +73,21 @@ export function calculateMonthlyTargetHours(weeklyHours: number, year: number, m
 function getPublicHolidays(year: number, dbInstance?: any): string[] {
   try {
     const database = dbInstance || db;
+
+    // DEBUG: Log which DB is being used
+    if (year === 2025) {
+      console.log(`🔍 [DEBUG] getPublicHolidays(${year}): Using ${dbInstance ? 'PASSED' : 'IMPORTED'} DB instance`);
+    }
+
     const holidays = database
       .prepare('SELECT date FROM holidays WHERE date LIKE ? ORDER BY date')
       .all(`${year}-%`) as Array<{ date: string }>;
+
+    // DEBUG: Log found holidays for Oktober
+    if (year === 2025 && holidays.some(h => h.date.startsWith('2025-10'))) {
+      console.log(`🔍 [DEBUG] Found ${holidays.filter(h => h.date.startsWith('2025-10')).length} holiday(s) in Oktober 2025:`,
+        holidays.filter(h => h.date.startsWith('2025-10')).map(h => h.date));
+    }
 
     return holidays.map(h => h.date);
   } catch (error) {
