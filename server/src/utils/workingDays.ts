@@ -138,6 +138,7 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
 
   let workingDays = 0;
   const current = new Date(start);
+  const debugOktober = start.getMonth() === 9 && start.getFullYear() === 2025; // Oktober = month 9
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
@@ -146,9 +147,18 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
 
     if (!isWeekend && !isHoliday) {
       workingDays++;
+      if (debugOktober) {
+        console.log(`  📅 Counted: ${formatDate(current)}`);
+      }
+    } else if (debugOktober) {
+      console.log(`  ❌ Skipped: ${formatDate(current)} (${isWeekend ? 'Weekend' : 'Holiday'})`);
     }
 
     current.setDate(current.getDate() + 1);
+  }
+
+  if (debugOktober) {
+    console.log(`  🔢 Total working days for Oktober 2025: ${workingDays}`);
   }
 
   return workingDays;
