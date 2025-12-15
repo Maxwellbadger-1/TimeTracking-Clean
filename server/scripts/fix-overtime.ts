@@ -63,7 +63,7 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
     // Get absence credits (approved vacation, sick, overtime_comp)
     const absenceResult = db
       .prepare(`
-        SELECT COALESCE(SUM(daysRequired), 0) as total
+        SELECT COALESCE(SUM(days), 0) as total
         FROM absence_requests
         WHERE userId = ?
           AND status = 'approved'
