@@ -36,15 +36,26 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
     current.setMonth(current.getMonth() + 1);
   }
 
+  // Get today's date (for calculating target hours only up to today, not until month end!)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Recalculate all months (ALWAYS update, even if entry exists)
   for (const month of months) {
     // Calculate month boundaries
     const monthStart = new Date(month + '-01');
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-    // Calculate working days
+    // CRITICAL: Only count working days up to TODAY, not until month end!
+    // This is how professional systems (Personio, DATEV) do it:
+    // "Overtime = What you SHOULD have worked BY TODAY - What you ACTUALLY worked BY TODAY"
+    const effectiveEnd = new Date(Math.min(monthEnd.getTime(), today.getTime()));
+
+    // Calculate working days from (hire date or month start) to (today or month end)
     let workingDays = 0;
-    for (let d = new Date(Math.max(monthStart.getTime(), hireDate.getTime())); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+    const startDate = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
+
+    for (let d = new Date(startDate); d <= effectiveEnd; d.setDate(d.getDate() + 1)) {
       const dayOfWeek = d.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         workingDays++;
