@@ -18,6 +18,9 @@ const db = new Database(dbPath);
 // This ensures holiday exclusion is consistent across the entire system
 import { countWorkingDaysBetween } from '../dist/utils/workingDays.js';
 
+// Import timezone utilities (CRITICAL: Use Europe/Berlin, NOT UTC!)
+import { getCurrentDate, getCurrentMonth } from '../dist/utils/timezone.js';
+
 // Same logic as in overtimeService.ts
 function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
   const user = db
@@ -41,7 +44,8 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
   }
 
   // Get today's date (for calculating target hours only up to today, not until month end!)
-  const today = new Date();
+  // CRITICAL: Use getCurrentDate() for Europe/Berlin timezone, NOT new Date() (which uses server timezone)!
+  const today = getCurrentDate();
   today.setHours(0, 0, 0, 0);
 
   // Recalculate all months (ALWAYS update, even if entry exists)
@@ -85,8 +89,26 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
       .get(userId, month, month, month, month) as { total: number };
     const absenceCredits = (absenceResult?.total || 0) * targetHoursPerDay;
 
+    // Get unpaid leave (REDUCES target hours, does NOT give credits!)
+    const unpaidLeaveResult = db
+      .prepare(`
+        SELECT COALESCE(SUM(days), 0) as total
+        FROM absence_requests
+        WHERE userId = ?
+          AND status = 'approved'
+          AND type = 'unpaid'
+          AND (
+            (strftime('%Y-%m', startDate) = ? OR strftime('%Y-%m', endDate) = ?)
+            OR (startDate < ? || '-01' AND endDate > ? || '-01')
+          )
+      `)
+      .get(userId, month, month, month, month) as { total: number };
+    const unpaidLeaveReduction = (unpaidLeaveResult?.total || 0) * targetHoursPerDay;
+
+    // IMPORTANT: Unpaid leave reduces target hours (user doesn't need to work those days)
+    const adjustedTargetHours = targetHours - unpaidLeaveReduction;
     const actualHours = workedHours + absenceCredits;
-    const overtime = actualHours - targetHours;
+    const overtime = actualHours - adjustedTargetHours;
 
     // UPSERT: Update existing entries or create new ones
     db.prepare(`
@@ -94,16 +116,16 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
       VALUES (?, ?, ?, ?)
       ON CONFLICT(userId, month)
       DO UPDATE SET targetHours = ?, actualHours = ?
-    `).run(userId, month, targetHours, actualHours, targetHours, actualHours);
+    `).run(userId, month, adjustedTargetHours, actualHours, adjustedTargetHours, actualHours);
 
-    console.log(`  ✅ Updated ${month}: Target=${targetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
+    console.log(`  ✅ Updated ${month}: Target=${adjustedTargetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
   }
 }
 
 console.log('🔧 Starting overtime recalculation...\n');
 
-const today = new Date();
-const currentMonth = today.toISOString().substring(0, 7);
+// CRITICAL: Use Europe/Berlin timezone for correct month calculation
+const currentMonth = getCurrentMonth();
 
 // Get all active users
 const users = db

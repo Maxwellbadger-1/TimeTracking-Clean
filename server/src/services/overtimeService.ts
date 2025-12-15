@@ -19,6 +19,148 @@ import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
  * Based on German labor law and industry best practices
  */
 
+/**
+ * Calculate absence credits for a specific month
+ * CRITICAL: Correctly handles absences spanning multiple months!
+ *
+ * Example: Vacation from Nov 25 - Dec 5
+ * - November: Credits Nov 25-30 (working days only)
+ * - December: Credits Dec 1-5 (working days only)
+ *
+ * @param userId - User ID
+ * @param month - Month in 'YYYY-MM' format
+ * @param dailyHours - Target hours per day (e.g., 8.0)
+ * @param hireDate - User's hire date (ISO string)
+ * @param endDate - End date for calculation (Date object, typically today or month end)
+ * @returns Total absence credit hours for the month
+ */
+function calculateAbsenceCreditsForMonth(
+  userId: number,
+  month: string,
+  dailyHours: number,
+  hireDate: string,
+  endDate: Date
+): number {
+  const monthStart = new Date(month + '-01');
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+  // Effective range: (month start OR hire date) to (month end OR endDate)
+  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(hireDate).getTime()));
+  const rangeEnd = new Date(Math.min(monthEnd.getTime(), endDate.getTime()));
+
+  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
+  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
+
+  // Get all approved absences that overlap with this month's range
+  // CRITICAL: Use proper date range query, NOT startDate LIKE 'YYYY-MM%'!
+  const absences = db.prepare(`
+    SELECT id, type, startDate, endDate, days
+    FROM absence_requests
+    WHERE userId = ?
+      AND status = 'approved'
+      AND type IN ('sick', 'vacation', 'overtime_comp')
+      AND startDate <= ?
+      AND endDate >= ?
+  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
+    id: number;
+    type: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+  }>;
+
+  if (absences.length === 0) {
+    return 0;
+  }
+
+  // For each absence, count only the days that fall within this month's range
+  let totalCreditDays = 0;
+
+  for (const absence of absences) {
+    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+
+    // Count working days in the overlap period
+    const daysInMonth = countWorkingDaysBetween(absenceStart, absenceEnd);
+    totalCreditDays += daysInMonth;
+
+    logger.debug({
+      absenceId: absence.id,
+      type: absence.type,
+      originalRange: `${absence.startDate} - ${absence.endDate}`,
+      monthRange: `${rangeStartStr} - ${rangeEndStr}`,
+      overlapRange: `${formatDate(absenceStart, 'yyyy-MM-dd')} - ${formatDate(absenceEnd, 'yyyy-MM-dd')}`,
+      daysInMonth
+    }, 'Absence credit calculation');
+  }
+
+  const totalCreditHours = totalCreditDays * dailyHours;
+
+  logger.debug({
+    month,
+    absencesCount: absences.length,
+    totalCreditDays,
+    dailyHours,
+    totalCreditHours
+  }, 'Total absence credits for month');
+
+  return totalCreditHours;
+}
+
+/**
+ * Calculate unpaid leave hours for a specific month
+ * Unpaid leave REDUCES target hours (user doesn't need to work those days)
+ *
+ * @param userId - User ID
+ * @param month - Month in 'YYYY-MM' format
+ * @param dailyHours - Target hours per day
+ * @param hireDate - User's hire date
+ * @param endDate - End date for calculation
+ * @returns Total unpaid leave hours to subtract from target
+ */
+function calculateUnpaidLeaveForMonth(
+  userId: number,
+  month: string,
+  dailyHours: number,
+  hireDate: string,
+  endDate: Date
+): number {
+  const monthStart = new Date(month + '-01');
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(hireDate).getTime()));
+  const rangeEnd = new Date(Math.min(monthEnd.getTime(), endDate.getTime()));
+
+  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
+  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
+
+  const absences = db.prepare(`
+    SELECT id, startDate, endDate
+    FROM absence_requests
+    WHERE userId = ?
+      AND status = 'approved'
+      AND type = 'unpaid'
+      AND startDate <= ?
+      AND endDate >= ?
+  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
+    id: number;
+    startDate: string;
+    endDate: string;
+  }>;
+
+  let totalUnpaidDays = 0;
+
+  for (const absence of absences) {
+    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+
+    const daysInMonth = countWorkingDaysBetween(absenceStart, absenceEnd);
+    totalUnpaidDays += daysInMonth;
+  }
+
+  return totalUnpaidDays * dailyHours;
+}
+
 interface DailyOvertime {
   date: string;
   targetHours: number;
@@ -242,37 +384,12 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     .get(userId, `${month}%`) as { total: number };
 
   // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
-  // Get approved absences for this month (only from hireDate onwards AND up to endDate!)
-  const endDateString = formatDate(endDate, 'yyyy-MM-dd');
-  const absenceCredits = db
-    .prepare(
-      `SELECT COALESCE(SUM(days * ?), 0) as total
-       FROM absence_requests
-       WHERE userId = ?
-         AND status = 'approved'
-         AND type IN ('sick', 'vacation', 'overtime_comp')
-         AND startDate LIKE ?
-         AND startDate >= ?
-         AND startDate <= ?`
-    )
-    .get(dailyHours, userId, `${month}%`, user.hireDate, endDateString) as { total: number };
+  // Uses centralized function that correctly handles multi-month absences
+  const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, dailyHours, user.hireDate, endDate);
 
   // Calculate unpaid leave reduction (reduces target hours)
-  // Only count unpaid leave from hireDate onwards AND up to endDate
-  const unpaidLeaveDays = db
-    .prepare(
-      `SELECT COALESCE(SUM(days), 0) as total
-       FROM absence_requests
-       WHERE userId = ?
-         AND status = 'approved'
-         AND type = 'unpaid'
-         AND startDate LIKE ?
-         AND startDate >= ?
-         AND startDate <= ?`
-    )
-    .get(userId, `${month}%`, user.hireDate, endDateString) as { total: number };
-
-  const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
+  // Uses centralized function that correctly handles multi-month absences
+  const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, dailyHours, user.hireDate, endDate);
 
   // Adjusted target hours (Soll minus unpaid leave)
   const adjustedTargetHours = targetHours - unpaidLeaveReduction;
@@ -281,11 +398,11 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   const overtimeCorrections = getTotalCorrectionsForUserInMonth(userId, month);
 
   // Actual hours WITH absence credits AND corrections
-  const actualHoursWithCredits = workedHours.total + absenceCredits.total + overtimeCorrections;
+  const actualHoursWithCredits = workedHours.total + absenceCredits + overtimeCorrections;
 
   logger.debug({
     workedHours: workedHours.total,
-    absenceCredits: absenceCredits.total,
+    absenceCredits,
     overtimeCorrections,
     unpaidLeaveReduction,
     adjustedTargetHours,
@@ -555,73 +672,46 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
 
     logger.debug({ month, workingDays, targetHours }, `📅 Month calculation`);
 
-    // Check if entry exists
-    const existing = db
-      .prepare('SELECT id FROM overtime_balance WHERE userId = ? AND month = ?')
-      .get(userId, month);
+    // CRITICAL: ALWAYS recalculate, even if entry exists!
+    // OLD BUG: if (!existing) only created new entries, never updated existing ones
+    // NEW: UPSERT pattern (INSERT or UPDATE) ensures values are always current
 
-    if (!existing) {
-      logger.debug({ month, targetHours }, `✨ Creating overtime_balance entry`);
+    // Calculate actual worked hours for this month
+    const workedHours = db
+      .prepare(
+        `SELECT COALESCE(SUM(hours), 0) as total
+         FROM time_entries
+         WHERE userId = ? AND date LIKE ?`
+      )
+      .get(userId, `${month}%`) as { total: number };
 
-      // Calculate actual worked hours for this month
-      const workedHours = db
-        .prepare(
-          `SELECT COALESCE(SUM(hours), 0) as total
-           FROM time_entries
-           WHERE userId = ? AND date LIKE ?`
-        )
-        .get(userId, `${month}%`) as { total: number };
+    // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
+    // Uses centralized function that correctly handles multi-month absences
+    const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, dailyHours, user.hireDate, endDate);
 
-      // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
-      // Only count absences from hireDate onwards AND up to today (not future)
-      const todayString = formatDate(endDate, 'yyyy-MM-dd'); // endDate is already capped at today
-      const absenceCredits = db
-        .prepare(
-          `SELECT COALESCE(SUM(days * ?), 0) as total
-           FROM absence_requests
-           WHERE userId = ?
-             AND status = 'approved'
-             AND type IN ('sick', 'vacation', 'overtime_comp')
-             AND startDate LIKE ?
-             AND startDate >= ?
-             AND startDate <= ?`
-        )
-        .get(dailyHours, userId, `${month}%`, user.hireDate, todayString) as { total: number };
+    // Calculate unpaid leave reduction
+    // Uses centralized function that correctly handles multi-month absences
+    const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, dailyHours, user.hireDate, endDate);
 
-      // Calculate unpaid leave reduction
-      // Only count unpaid leave from hireDate onwards AND up to today
-      const unpaidLeaveDays = db
-        .prepare(
-          `SELECT COALESCE(SUM(days), 0) as total
-           FROM absence_requests
-           WHERE userId = ?
-             AND status = 'approved'
-             AND type = 'unpaid'
-             AND startDate LIKE ?
-             AND startDate >= ?
-             AND startDate <= ?`
-        )
-        .get(userId, `${month}%`, user.hireDate, todayString) as { total: number };
+    const adjustedTargetHours = targetHours - unpaidLeaveReduction;
+    const actualHoursWithCredits = workedHours.total + absenceCredits;
 
-      const unpaidLeaveReduction = unpaidLeaveDays.total * dailyHours;
-      const adjustedTargetHours = targetHours - unpaidLeaveReduction;
-      const actualHoursWithCredits = workedHours.total + absenceCredits.total;
+    // UPSERT: Insert new entry or update existing one
+    db.prepare(
+      `INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(userId, month)
+       DO UPDATE SET targetHours = ?, actualHours = ?`
+    ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
 
-      // Insert the entry
-      db.prepare(
-        `INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
-         VALUES (?, ?, ?, ?)`
-      ).run(userId, month, adjustedTargetHours, actualHoursWithCredits);
-
-      logger.debug({
-        workedHours: workedHours.total,
-        absenceCredits: absenceCredits.total,
-        unpaidLeaveReduction,
-        adjustedTargetHours,
-        actualHoursWithCredits,
-        overtime: actualHoursWithCredits - adjustedTargetHours
-      }, `✅ Created entry`);
-    }
+    logger.debug({
+      workedHours: workedHours.total,
+      absenceCredits,
+      unpaidLeaveReduction,
+      adjustedTargetHours,
+      actualHoursWithCredits,
+      overtime: actualHoursWithCredits - adjustedTargetHours
+    }, `✅ Upserted entry for ${month}`);
   }
 }
 
