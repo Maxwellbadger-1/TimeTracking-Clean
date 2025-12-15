@@ -36,64 +36,58 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
     current.setMonth(current.getMonth() + 1);
   }
 
-  // Ensure entries exist for all months
+  // Recalculate all months (ALWAYS update, even if entry exists)
   for (const month of months) {
-    const existing = db
-      .prepare('SELECT id FROM overtime_balance WHERE userId = ? AND month = ?')
-      .get(userId, month);
+    // Calculate month boundaries
+    const monthStart = new Date(month + '-01');
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-    if (!existing) {
-      // Create entry with calculated overtime
-      const monthStart = new Date(month + '-01');
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-      // Calculate working days
-      let workingDays = 0;
-      for (let d = new Date(Math.max(monthStart.getTime(), hireDate.getTime())); d <= monthEnd; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-          workingDays++;
-        }
+    // Calculate working days
+    let workingDays = 0;
+    for (let d = new Date(Math.max(monthStart.getTime(), hireDate.getTime())); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        workingDays++;
       }
-
-      const targetHoursPerDay = user.weeklyHours / 5;
-      const targetHours = workingDays * targetHoursPerDay;
-
-      // Get actual hours (worked hours)
-      const workedResult = db
-        .prepare('SELECT COALESCE(SUM(hours), 0) as total FROM time_entries WHERE userId = ? AND date LIKE ?')
-        .get(userId, month + '%') as { total: number };
-      const workedHours = workedResult?.total || 0;
-
-      // Get absence credits (approved vacation, sick, overtime_comp)
-      const absenceResult = db
-        .prepare(`
-          SELECT COALESCE(SUM(daysRequired), 0) as total
-          FROM absence_requests
-          WHERE userId = ?
-            AND status = 'approved'
-            AND (type = 'vacation' OR type = 'sick' OR type = 'overtime_comp')
-            AND (
-              (strftime('%Y-%m', startDate) = ? OR strftime('%Y-%m', endDate) = ?)
-              OR (startDate < ? || '-01' AND endDate > ? || '-01')
-            )
-        `)
-        .get(userId, month, month, month, month) as { total: number };
-      const absenceCredits = (absenceResult?.total || 0) * targetHoursPerDay;
-
-      const actualHours = workedHours + absenceCredits;
-      const overtime = actualHours - targetHours;
-
-      // Use UPSERT to update existing entries or create new ones
-      db.prepare(`
-        INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(userId, month)
-        DO UPDATE SET targetHours = ?, actualHours = ?
-      `).run(userId, month, targetHours, actualHours, targetHours, actualHours);
-
-      console.log(`  ✅ Updated entry for ${month}: Target=${targetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
     }
+
+    const targetHoursPerDay = user.weeklyHours / 5;
+    const targetHours = workingDays * targetHoursPerDay;
+
+    // Get actual hours (worked hours)
+    const workedResult = db
+      .prepare('SELECT COALESCE(SUM(hours), 0) as total FROM time_entries WHERE userId = ? AND date LIKE ?')
+      .get(userId, month + '%') as { total: number };
+    const workedHours = workedResult?.total || 0;
+
+    // Get absence credits (approved vacation, sick, overtime_comp)
+    const absenceResult = db
+      .prepare(`
+        SELECT COALESCE(SUM(daysRequired), 0) as total
+        FROM absence_requests
+        WHERE userId = ?
+          AND status = 'approved'
+          AND (type = 'vacation' OR type = 'sick' OR type = 'overtime_comp')
+          AND (
+            (strftime('%Y-%m', startDate) = ? OR strftime('%Y-%m', endDate) = ?)
+            OR (startDate < ? || '-01' AND endDate > ? || '-01')
+          )
+      `)
+      .get(userId, month, month, month, month) as { total: number };
+    const absenceCredits = (absenceResult?.total || 0) * targetHoursPerDay;
+
+    const actualHours = workedHours + absenceCredits;
+    const overtime = actualHours - targetHours;
+
+    // UPSERT: Update existing entries or create new ones
+    db.prepare(`
+      INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(userId, month)
+      DO UPDATE SET targetHours = ?, actualHours = ?
+    `).run(userId, month, targetHours, actualHours, targetHours, actualHours);
+
+    console.log(`  ✅ Updated ${month}: Target=${targetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
   }
 }
 
