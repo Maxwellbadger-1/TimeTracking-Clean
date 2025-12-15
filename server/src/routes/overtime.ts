@@ -778,7 +778,7 @@ router.post(
   '/recalculate-all',
   requireAuth,
   requireAdmin,
-  (req: Request, res: Response<ApiResponse>) => {
+  (_req: Request, res: Response<ApiResponse>) => {
     try {
       const today = new Date();
       const currentMonth = today.toISOString().substring(0, 7); // YYYY-MM
