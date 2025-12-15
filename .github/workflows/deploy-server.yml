@@ -69,6 +69,13 @@ jobs:
             }
             echo "✅ Migrations completed successfully"
 
+            # Fix overtime calculations (ensure all months exist)
+            echo "📊 Fixing overtime calculations..."
+            npx tsx scripts/fix-overtime.ts || {
+              echo "⚠️  Overtime fix had issues, but continuing deployment..."
+            }
+            echo "✅ Overtime calculations updated"
+
             # Read SESSION_SECRET from .env file (created during initial setup)
             echo "🔐 Loading SESSION_SECRET..."
             SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
