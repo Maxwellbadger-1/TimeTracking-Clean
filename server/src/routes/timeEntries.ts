@@ -55,10 +55,13 @@ router.get(
         return;
       }
 
-      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      // Limit validation (default: 50, max: 1000)
+      // BEST PRACTICE: Use date range filtering (startDate/endDate) instead of high limits!
+      // Google Calendar approach: Load only visible date range + buffer
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
         res.status(400).json({
           success: false,
-          error: 'Invalid limit (must be 1-100)',
+          error: 'Invalid limit (must be 1-1000)',
         });
         return;
       }
