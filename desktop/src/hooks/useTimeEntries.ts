@@ -7,6 +7,7 @@ interface TimeEntryFilters {
   userId?: number;
   startDate?: string;
   endDate?: string;
+  limit?: number; // Max entries to fetch (default: 50, max: 10000)
 }
 
 interface CreateTimeEntryData {
@@ -41,6 +42,7 @@ export function useTimeEntries(filters?: TimeEntryFilters | number) {
       if (actualFilters?.userId) params.append('userId', actualFilters.userId.toString());
       if (actualFilters?.startDate) params.append('startDate', actualFilters.startDate);
       if (actualFilters?.endDate) params.append('endDate', actualFilters.endDate);
+      if (actualFilters?.limit) params.append('limit', actualFilters.limit.toString());
 
       const query = params.toString() ? `?${params.toString()}` : '';
       const response = await apiClient.get<TimeEntry[]>(`/time-entries${query}`);

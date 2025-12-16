@@ -38,6 +38,8 @@ interface MonthCalendarProps {
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
+  currentDate?: Date; // Controlled component: Date from parent (for API calls)
+  onDateChange?: (date: Date) => void; // Callback to parent when date changes
 }
 
 export function MonthCalendar({
@@ -48,8 +50,13 @@ export function MonthCalendar({
   onDayClick,
   viewMode = 'month',
   onViewModeChange,
+  currentDate: externalDate,
+  onDateChange,
 }: MonthCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Support both controlled (from parent) and uncontrolled (internal state) usage
+  const [internalDate, setInternalDate] = useState(new Date());
+  const currentMonth = externalDate || internalDate;
+  const setCurrentMonth = onDateChange || setInternalDate;
 
   const days = getDaysInMonth(currentMonth);
   const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];

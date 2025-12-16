@@ -16,14 +16,48 @@ import { useTimeEntries, useAbsenceRequests, useMultiYearHolidays } from '../hoo
 export function CalendarPage() {
   const { user } = useAuthStore();
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'year' | 'team'>('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   // Fetch data for calendar
   // For admin: fetch ALL data (no user filter) for team views
   // For employee: fetch only own data
+  //
+  // PROFESSIONAL APPROACH (Google Calendar Style):
+  // - Load ONLY data for visible date range + buffer (performance!)
+  // - Month view: Load current month ± 1 month (3 months total)
+  // - Year view: Load current year
+  // - React Query caches data automatically (navigation is fast!)
+  // - AVOID loading ALL historical data (10000+ entries) at once!
   const isAdmin = user?.role === 'admin';
   const userIdFilter = isAdmin ? undefined : user?.id;
 
-  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries(userIdFilter ? { userId: userIdFilter } : undefined);
+  // Calculate date range based on view mode (Google Calendar approach)
+  const { startDate, endDate } = (() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    if (viewMode === 'month' || viewMode === 'week') {
+      // Month/Week view: Load current month ± 1 month (3 months buffer)
+      const start = new Date(year, month - 1, 1); // Previous month
+      const end = new Date(year, month + 2, 0); // Next month (last day)
+      return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+      };
+    } else {
+      // Year/Team view: Load full year
+      return {
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      };
+    }
+  })();
+
+  const { data: timeEntries, isLoading: loadingEntries } = useTimeEntries({
+    userId: userIdFilter,
+    startDate,
+    endDate,
+  });
   const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter ? { userId: userIdFilter } : undefined);
   const { data: holidays, isLoading: loadingHolidays } = useMultiYearHolidays();
 
@@ -50,6 +84,8 @@ export function CalendarPage() {
                 isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
                 onDayClick={(date) => {
                   console.log('Day clicked:', date);
                   // TODO: Open day detail modal
