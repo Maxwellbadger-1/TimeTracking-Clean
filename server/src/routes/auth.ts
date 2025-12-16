@@ -44,17 +44,30 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
       return;
     }
 
-    // Generate JWT token
-    const token = generateToken(result.user);
+    // SECURITY: Regenerate session ID to prevent session fixation attacks (OWASP A07:2021)
+    // This creates a new session ID, making any pre-login session ID useless to attackers
+    req.session.regenerate((err) => {
+      if (err) {
+        logger.error({ err }, '❌ Session regeneration failed');
+        res.status(500).json({
+          success: false,
+          error: 'Login failed',
+        });
+        return;
+      }
 
-    // Also set session for backwards compatibility (will be removed later)
-    req.session.user = result.user;
+      // Generate JWT token
+      const token = generateToken(result.user);
 
-    res.json({
-      success: true,
-      data: result.user,
-      token, // Return JWT token to client
-      message: 'Login successful',
+      // Set session with new session ID
+      req.session.user = result.user;
+
+      res.json({
+        success: true,
+        data: result.user,
+        token, // Return JWT token to client
+        message: 'Login successful',
+      });
     });
   } catch (error) {
     res.status(500).json({

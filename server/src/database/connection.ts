@@ -88,10 +88,21 @@ export function getDatabase(): Database.Database {
 // This allows existing code that uses "db.prepare()" to work after hot-swap
 const dbProxy = new Proxy({} as Database.Database, {
   get(_target, prop) {
+    // CRITICAL: Auto-reconnect if database connection lost!
     if (!dbWrapper.instance) {
-      throw new Error('Database not initialized');
+      logger.error('❌ Database not initialized - attempting automatic reconnect...');
+      try {
+        dbWrapper.instance = initializeConnection();
+        logger.info('✅ Database reconnected successfully');
+      } catch (error) {
+        logger.fatal({ err: error }, '❌ FATAL: Cannot reconnect to database');
+        throw new Error('Database connection lost and reconnect failed. Server cannot continue.');
+      }
     }
-    const value = (dbWrapper.instance as any)[prop];
+
+    type DbMethod = keyof Database.Database;
+    const value = dbWrapper.instance[prop as DbMethod];
+
     // Bind methods to the current instance
     if (typeof value === 'function') {
       return value.bind(dbWrapper.instance);

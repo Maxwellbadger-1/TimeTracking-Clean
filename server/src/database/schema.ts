@@ -10,8 +10,22 @@ export function initializeDatabase(db: Database.Database): void {
   // Enable Foreign Keys
   db.pragma('foreign_keys = ON');
 
+  // CRITICAL: Verify foreign keys are actually enabled!
+  const fkStatus = db.pragma('foreign_keys', { simple: true }) as number;
+  if (fkStatus !== 1) {
+    throw new Error('❌ CRITICAL: Failed to enable foreign key constraints! Data integrity at risk!');
+  }
+  logger.info('✅ Foreign keys ENABLED and VERIFIED');
+
   // Enable WAL mode for multi-user support
   db.pragma('journal_mode = WAL');
+
+  // CRITICAL: Verify WAL mode is actually enabled!
+  const walMode = db.pragma('journal_mode', { simple: true }) as string;
+  if (walMode.toLowerCase() !== 'wal') {
+    throw new Error('❌ CRITICAL: Failed to enable WAL mode! Multi-user support unavailable!');
+  }
+  logger.info('✅ WAL mode ENABLED and VERIFIED');
 
   logger.info('📊 Initializing database schema...');
 

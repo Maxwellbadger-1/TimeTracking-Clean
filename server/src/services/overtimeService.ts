@@ -432,14 +432,23 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 /**
  * Master function: Update ALL overtime levels for a date
  * This is called from timeEntryService when entries are created/updated/deleted
+ *
+ * CRITICAL: Uses transaction to prevent race conditions and ensure atomicity.
+ * If one update fails, ALL updates are rolled back to maintain data consistency.
  */
 export function updateAllOvertimeLevels(userId: number, date: string): void {
   const month = date.substring(0, 7); // "2025-11"
 
-  // Update all 3 levels
-  updateDailyOvertime(userId, date);
-  updateWeeklyOvertime(userId, date);
-  updateMonthlyOvertime(userId, month);
+  // Wrap in transaction for atomicity (CRITICAL for data consistency!)
+  // This prevents race conditions when multiple time entries are created simultaneously
+  const transaction = db.transaction(() => {
+    updateDailyOvertime(userId, date);
+    updateWeeklyOvertime(userId, date);
+    updateMonthlyOvertime(userId, month);
+  });
+
+  // Execute transaction (all-or-nothing)
+  transaction();
 }
 
 /**
