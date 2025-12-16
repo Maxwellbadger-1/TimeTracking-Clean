@@ -50,7 +50,11 @@
     "category": "Productivity",
     "shortDescription": "Professional time tracking for organizations",
     "longDescription": "Stiftung der DPolG TimeTracker is a professional desktop application for tracking work hours, managing absences, and monitoring overtime. Built for organizations that need reliable, local-first time management.",
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "signingIdentity": "-",
+      "entitlements": null
+    }
   },
   "plugins": {
     "updater": {
