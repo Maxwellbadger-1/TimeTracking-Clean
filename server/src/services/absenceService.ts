@@ -2,6 +2,7 @@ import { db } from '../database/connection.js';
 import type { AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { countWorkingDaysBetween } from '../utils/workingDays.js';
+import { validateDateString } from '../utils/validation.js';
 
 /**
  * Absence Service
@@ -67,6 +68,10 @@ export function isHoliday(date: string): boolean {
  * This function is kept for backwards compatibility but delegates to the canonical implementation
  */
 export function calculateVacationDays(startDate: string, endDate: string): number {
+  // SECURITY: Validate date strings to prevent SQL injection and data corruption
+  validateDateString(startDate, 'startDate');
+  validateDateString(endDate, 'endDate');
+
   logger.debug('🔥🔥🔥 CALCULATE VACATION DAYS DEBUG 🔥🔥🔥');
   logger.debug({ startDate, endDate }, '📥 Input dates');
 

@@ -5,6 +5,7 @@ import { getUserById } from '../services/userService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { ApiResponse, SessionUser } from '../types/index.js';
 import { generateToken, verifyToken, extractTokenFromHeader } from '../utils/jwt.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -46,6 +47,9 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
 
     // SECURITY: Regenerate session ID to prevent session fixation attacks (OWASP A07:2021)
     // This creates a new session ID, making any pre-login session ID useless to attackers
+    // Store user outside callback for type safety (TypeScript doesn't know result.user still exists in callback scope)
+    const authenticatedUser = result.user;
+
     req.session.regenerate((err) => {
       if (err) {
         logger.error({ err }, '❌ Session regeneration failed');
@@ -57,14 +61,14 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
       }
 
       // Generate JWT token
-      const token = generateToken(result.user);
+      const token = generateToken(authenticatedUser);
 
       // Set session with new session ID
-      req.session.user = result.user;
+      req.session.user = authenticatedUser;
 
       res.json({
         success: true,
-        data: result.user,
+        data: authenticatedUser,
         token, // Return JWT token to client
         message: 'Login successful',
       });
