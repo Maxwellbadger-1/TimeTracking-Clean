@@ -129,6 +129,8 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
 
   // CRITICAL: Use UTC dates to avoid DST issues (timezone changes can skip days!)
   // Create UTC dates at midnight
+  // NOTE: Use LOCAL get*() methods when input dates are Berlin time (from parseDate())
+  // Use UTC getUTC*() methods only when input dates are ISO strings parsed as UTC
   const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
   const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 

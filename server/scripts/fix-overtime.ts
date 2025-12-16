@@ -4,22 +4,25 @@
  */
 
 import Database from 'better-sqlite3';
-import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = join(__dirname, '..', 'database.db');
+// Import database config to use correct database based on NODE_ENV
+import { databaseConfig } from '../dist/config/database.js';
+const dbPath = databaseConfig.path;
 const db = new Database(dbPath);
+
+console.log(`📁 Using database: ${dbPath}`);
 
 // Import working days utility (SSOT - Single Source of Truth)
 // This ensures holiday exclusion is consistent across the entire system
 import { countWorkingDaysBetween } from '../dist/utils/workingDays.js';
 
 // Import timezone utilities (CRITICAL: Use Europe/Berlin, NOT UTC!)
-import { getCurrentDate, getCurrentMonth } from '../dist/utils/timezone.js';
+import { getCurrentMonth, getTodayString, parseDate } from '../dist/utils/timezone.js';
 
 // Same logic as in overtimeService.ts
 function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
@@ -39,14 +42,17 @@ function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
   const current = new Date(hireDate.getFullYear(), hireDate.getMonth(), 1);
 
   while (current <= targetDate) {
-    months.push(current.toISOString().substring(0, 7));
+    // BUG FIX: Use local date methods, NOT toISOString() which gives UTC month!
+    // July 1 00:00 CEST = June 30 22:00 UTC → would give wrong month!
+    const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+    months.push(monthStr);
     current.setMonth(current.getMonth() + 1);
   }
 
   // Get today's date (for calculating target hours only up to today, not until month end!)
-  // CRITICAL: Use getCurrentDate() for Europe/Berlin timezone, NOT new Date() (which uses server timezone)!
-  const today = getCurrentDate();
-  today.setHours(0, 0, 0, 0);
+  // CRITICAL: Use getTodayString() + parseDate() for Europe/Berlin timezone!
+  // BUG FIX: .setHours(0,0,0,0) on getCurrentDate() causes timezone issues (shifts date by 1 day on dev!)
+  const today = parseDate(getTodayString());
 
   // Recalculate all months (ALWAYS update, even if entry exists)
   for (const month of months) {
