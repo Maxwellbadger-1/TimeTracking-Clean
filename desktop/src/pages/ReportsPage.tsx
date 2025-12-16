@@ -19,8 +19,6 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { toast } from 'sonner';
 import { universalFetch } from '../lib/tauriHttpClient';
 import { SERVER_BASE_URL } from '../api/client';
@@ -401,29 +399,48 @@ export function ReportsPage() {
       const csv = '\uFEFF' + [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
       console.log('📄 CSV Content Length:', csv.length);
 
-      console.log('🔌 Importing Tauri plugins...');
-      // Use Tauri's save dialog
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-      console.log('✅ Tauri plugins imported');
+      // Check if Tauri is available
+      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
 
-      console.log('💾 Opening save dialog...');
-      const filePath = await save({
-        defaultPath: `bericht_${periodLabel}.csv`,
-        filters: [{
-          name: 'CSV',
-          extensions: ['csv']
-        }]
-      });
-      console.log('📂 Selected file path:', filePath);
+      if (isTauriApp) {
+        console.log('🔌 Desktop-App: Using Tauri file save dialog...');
+        // Use Tauri's save dialog (Desktop App)
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+        console.log('✅ Tauri plugins imported');
 
-      if (filePath) {
-        console.log('✍️ Writing file...');
-        await writeTextFile(filePath, csv);
-        console.log('✅ File written successfully!');
-        alert('✅ CSV erfolgreich exportiert!');
+        console.log('💾 Opening save dialog...');
+        const filePath = await save({
+          defaultPath: `bericht_${periodLabel}.csv`,
+          filters: [{
+            name: 'CSV',
+            extensions: ['csv']
+          }]
+        });
+        console.log('📂 Selected file path:', filePath);
+
+        if (filePath) {
+          console.log('✍️ Writing file...');
+          await writeTextFile(filePath, csv);
+          console.log('✅ File written successfully!');
+          toast.success('✅ CSV erfolgreich exportiert!');
+        } else {
+          console.log('❌ User cancelled dialog');
+        }
       } else {
-        console.log('❌ User cancelled dialog');
+        console.log('🌐 Browser-Mode: Using browser download...');
+        // Fallback: Browser download (Browser/Dev Mode)
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `bericht_${periodLabel}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        console.log('✅ Browser download triggered');
+        toast.success('✅ CSV erfolgreich exportiert!');
       }
     } catch (error) {
       console.error('❌ CSV Export Error:', error);
@@ -467,17 +484,39 @@ export function ReportsPage() {
       const csvContent = await response.text();
       console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
-      // Use Tauri save dialog
-      const filePath = await save({
-        defaultPath: `DATEV_Export_${startDate}_${endDate}.csv`,
-        filters: [{
-          name: 'CSV',
-          extensions: ['csv']
-        }]
-      });
+      // Check if Tauri is available
+      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
 
-      if (filePath) {
-        await writeTextFile(filePath, csvContent);
+      if (isTauriApp) {
+        console.log('🔌 Desktop-App: Using Tauri file save dialog...');
+        // Use Tauri save dialog (Desktop App)
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+        const filePath = await save({
+          defaultPath: `DATEV_Export_${startDate}_${endDate}.csv`,
+          filters: [{
+            name: 'CSV',
+            extensions: ['csv']
+          }]
+        });
+
+        if (filePath) {
+          await writeTextFile(filePath, csvContent);
+          toast.success('✅ DATEV Export erfolgreich!');
+        }
+      } else {
+        console.log('🌐 Browser-Mode: Using browser download...');
+        // Fallback: Browser download (Browser/Dev Mode)
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `DATEV_Export_${startDate}_${endDate}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
         toast.success('✅ DATEV Export erfolgreich!');
       }
     } catch (error) {
@@ -519,18 +558,42 @@ export function ReportsPage() {
       const csvContent = await response.text();
       console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
-      // Use Tauri save dialog
+      // Check if Tauri is available
+      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
       const userPart = selectedUserId === 'all' ? '_All' : `_User${selectedUserId}`;
-      const filePath = await save({
-        defaultPath: `Historical_Export${userPart}_${historicalStartDate}_${historicalEndDate}.csv`,
-        filters: [{
-          name: 'CSV',
-          extensions: ['csv']
-        }]
-      });
+      const fileName = `Historical_Export${userPart}_${historicalStartDate}_${historicalEndDate}.csv`;
 
-      if (filePath) {
-        await writeTextFile(filePath, csvContent);
+      if (isTauriApp) {
+        console.log('🔌 Desktop-App: Using Tauri file save dialog...');
+        // Use Tauri save dialog (Desktop App)
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+        const filePath = await save({
+          defaultPath: fileName,
+          filters: [{
+            name: 'CSV',
+            extensions: ['csv']
+          }]
+        });
+
+        if (filePath) {
+          await writeTextFile(filePath, csvContent);
+          toast.success('✅ Historischer Export erfolgreich!');
+          setShowHistoricalExportModal(false); // Close modal on success
+        }
+      } else {
+        console.log('🌐 Browser-Mode: Using browser download...');
+        // Fallback: Browser download (Browser/Dev Mode)
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
         toast.success('✅ Historischer Export erfolgreich!');
         setShowHistoricalExportModal(false); // Close modal on success
       }
