@@ -5,7 +5,7 @@ import {
   validateAbsenceCreate,
   validateAbsenceUpdate,
 } from '../middleware/validation.js';
-import { absenceCreationLimiter } from '../server.js';
+import { absenceCreationLimiter } from '../middleware/rateLimits.js';
 import {
   getAbsenceRequestsPaginated,
   getAbsenceRequestById,

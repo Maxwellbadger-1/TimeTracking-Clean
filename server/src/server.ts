@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import logger from './utils/logger.js';
+import { apiLimiter, loginLimiter } from './middleware/rateLimits.js';
 import './database/connection.js'; // Initialize database
 import { seedDatabase } from './database/seed.js';
 import authRoutes from './routes/auth.js';
@@ -128,71 +128,7 @@ app.use(
 // - Uses Sliding Window for fairness
 // ========================================
 
-// General API rate limit: 600 requests per minute (Enterprise Standard)
-// GitHub uses 60/min unauthenticated, Stripe uses 1500/min, we're in the middle
-// DEVELOPMENT: 10,000/min for testing (no throttling)
-const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute (shorter window = more responsive)
-  max: isDevelopment ? 10000 : 600, // Higher for dev/testing
-  standardHeaders: 'draft-7', // Use latest standard (RateLimit-* headers)
-  legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for health check
-    return req.path === '/api/health';
-  },
-  handler: (_req, res) => {
-    res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded. Please slow down your requests.',
-      retryAfter: 60, // 1 minute
-      limit: isDevelopment ? 10000 : 600,
-      window: '1 minute',
-      message: 'Too many requests. Please try again in a moment.'
-    });
-  },
-});
-
-// Strict rate limit for login endpoint: 20 attempts per hour (Brute-force Protection)
-// Industry standard: Okta uses 600/min, but login should be much stricter
-// DEVELOPMENT: 1000/hour for testing (allows hundreds of test logins)
-const loginLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: isDevelopment ? 1000 : 20, // Higher for dev/testing
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins
-  handler: (_req, res) => {
-    res.status(429).json({
-      success: false,
-      error: 'Too many login attempts. Please try again later.',
-      retryAfter: 3600, // 1 hour
-      limit: isDevelopment ? 1000 : 20,
-      window: '1 hour',
-      message: 'Account temporarily locked due to too many failed login attempts.'
-    });
-  },
-});
-
-// Rate limit for absence creation: 30 per hour (DoS Protection)
-// Prevents database spam from malicious actors while allowing legitimate use
-// DEVELOPMENT: 1000/hour for testing
-export const absenceCreationLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: isDevelopment ? 1000 : 30,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  skipSuccessfulRequests: false, // Count all attempts to prevent abuse
-  handler: (_req, res) => {
-    res.status(429).json({
-      success: false,
-      error: 'Too many absence requests. Please try again later.',
-      retryAfter: 3600, // 1 hour
-      limit: isDevelopment ? 1000 : 30,
-      window: '1 hour',
-      message: 'Rate limit exceeded for absence creation. Please wait before creating more requests.'
-    });
-  },
-});
+// Rate limiters imported from middleware/rateLimits.ts
 
 // Apply rate limiters
 app.use('/api/', apiLimiter); // General API rate limit
