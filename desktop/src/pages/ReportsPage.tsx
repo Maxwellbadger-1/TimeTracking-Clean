@@ -74,11 +74,37 @@ export function ReportsPage() {
   const [correctionUserId, setCorrectionUserId] = useState<number | undefined>(undefined);
   const [correctionUserName, setCorrectionUserName] = useState<string | undefined>(undefined);
 
-  // Fetch data
+  // Calculate date range for data fetching (CRITICAL: Load ALL data for selected period!)
+  // PROBLEM: Without date range, API returns only 50 entries (pagination limit)
+  // SOLUTION: Always specify date range based on reportType (Google Calendar approach)
+  const { startDate, endDate } = useMemo(() => {
+    if (reportType === 'monthly') {
+      // Monthly report: Load full month
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0); // Last day of month
+      return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+      };
+    } else {
+      // Yearly report: Load full year
+      return {
+        startDate: `${selectedYear}-01-01`,
+        endDate: `${selectedYear}-12-31`,
+      };
+    }
+  }, [reportType, selectedMonth, selectedYear]);
+
+  // Fetch data with date range (CRITICAL FIX!)
   const { data: timeEntries, isLoading: loadingTimeEntries } = useTimeEntries(
     currentUser?.role === 'admin' && selectedUserId === 'all'
-      ? undefined
-      : { userId: selectedUserId === 'all' ? currentUser?.id || 0 : selectedUserId }
+      ? { startDate, endDate } // Admin viewing all: Load by date range only
+      : {
+          userId: selectedUserId === 'all' ? currentUser?.id || 0 : selectedUserId,
+          startDate,
+          endDate
+        }
   );
 
   const { data: absenceRequests, isLoading: loadingAbsences } = useAbsenceRequests(
