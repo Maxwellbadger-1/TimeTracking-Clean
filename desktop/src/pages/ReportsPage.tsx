@@ -118,7 +118,11 @@ export function ReportsPage() {
     selectedYear
   );
 
-  const { data: allUsersOvertimeData } = useAllUsersOvertime(selectedYear);
+  // CRITICAL FIX: Pass month parameter to get correct targetHours/actualHours for the selected period!
+  // For monthly reports: Pass selectedMonth (e.g. "2025-12")
+  // For yearly reports: Pass undefined (uses full year)
+  const allUsersOvertimeMonth = reportType === 'monthly' ? selectedMonth : undefined;
+  const { data: allUsersOvertimeData } = useAllUsersOvertime(selectedYear, allUsersOvertimeMonth);
 
   // FIXED: Get aggregated stats when "Alle Mitarbeiter" is selected
   const aggregatedMonth = reportType === 'monthly' ? selectedMonth : undefined;

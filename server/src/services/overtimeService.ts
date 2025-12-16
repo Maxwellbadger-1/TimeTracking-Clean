@@ -730,20 +730,36 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
  * This gives the CURRENT balance, not future projection
  * IMPORTANT: Only counts months from employee's hire date onwards!
  */
-export function getAllUsersOvertimeSummary(year: number) {
+export function getAllUsersOvertimeSummary(year: number, month?: string) {
   const today = getCurrentDate();
   const currentYear = today.getFullYear();
-
-  const startMonth = `${year}-01`;
-  const endMonth = year === currentYear
-    ? formatDate(today, 'yyyy-MM')
-    : `${year}-12`;
 
   // First, ensure all users have complete overtime_balance entries
   const users = db.prepare('SELECT id FROM users WHERE deletedAt IS NULL').all() as Array<{ id: number }>;
 
-  for (const user of users) {
-    ensureOvertimeBalanceEntries(user.id, endMonth);
+  // Determine date range based on parameters (monthly or yearly)
+  let startMonth: string;
+  let endMonth: string;
+
+  if (month) {
+    // Monthly report: Use specified month only
+    startMonth = month;
+    endMonth = month;
+
+    // Ensure overtime_balance exists for this month
+    for (const user of users) {
+      ensureOvertimeBalanceEntries(user.id, month);
+    }
+  } else {
+    // Yearly report: Full year or up to current month
+    startMonth = `${year}-01`;
+    endMonth = year === currentYear
+      ? formatDate(today, 'yyyy-MM')
+      : `${year}-12`;
+
+    for (const user of users) {
+      ensureOvertimeBalanceEntries(user.id, endMonth);
+    }
   }
 
   const query = `
@@ -752,6 +768,8 @@ export function getAllUsersOvertimeSummary(year: number) {
       u.firstName,
       u.lastName,
       u.email,
+      COALESCE(SUM(ob.targetHours), 0) as targetHours,
+      COALESCE(SUM(ob.actualHours), 0) as actualHours,
       COALESCE(SUM(ob.overtime), 0) as totalOvertime
     FROM users u
     LEFT JOIN overtime_balance ob ON u.id = ob.userId
@@ -768,6 +786,8 @@ export function getAllUsersOvertimeSummary(year: number) {
     firstName: string;
     lastName: string;
     email: string;
+    targetHours: number;
+    actualHours: number;
     totalOvertime: number;
   }>;
 }

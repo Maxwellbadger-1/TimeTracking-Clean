@@ -12,22 +12,27 @@ export interface OvertimeSummary {
   lastName: string;
   email: string;
   totalOvertime: number;
-  targetHours?: number; // Total target hours for the year
-  actualHours?: number; // Total actual hours for the year
+  targetHours: number; // Target hours for the selected period (month or year)
+  actualHours: number; // Actual hours for the selected period (month or year)
 }
 
 /**
  * Get overtime summary for all users (Admin only)
+ * @param year - Year to get data for (default: current year)
+ * @param month - Optional month in format "YYYY-MM" for monthly reports
  */
-export function useAllUsersOvertime(year?: number) {
+export function useAllUsersOvertime(year?: number, month?: string) {
   const currentYear = year || new Date().getFullYear();
 
   return useQuery({
-    queryKey: ['overtime', 'all', currentYear],
+    queryKey: ['overtime', 'all', currentYear, month],
     queryFn: async () => {
-      const response = await apiClient.get<OvertimeSummary[]>(
-        `/overtime/all?year=${currentYear}`
-      );
+      let url = `/overtime/all?year=${currentYear}`;
+      if (month) {
+        url += `&month=${month}`;
+      }
+
+      const response = await apiClient.get<OvertimeSummary[]>(url);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch overtime data');

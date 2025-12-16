@@ -163,6 +163,14 @@ router.get(
  * Query params:
  *   - year: Year to get data for (default: current year)
  */
+/**
+ * GET /api/overtime/all
+ * Get overtime summary for all users (Admin only)
+ * Query params:
+ *   - year: Year to get data for (default: current year)
+ *   - month: Optional month in format "YYYY-MM" for monthly reports
+ * Returns: userId, firstName, lastName, email, targetHours, actualHours, totalOvertime
+ */
 router.get(
   '/all',
   requireAuth,
@@ -173,6 +181,8 @@ router.get(
         ? parseInt(req.query.year as string)
         : new Date().getFullYear();
 
+      const month = req.query.month as string | undefined;
+
       if (isNaN(year) || year < 2000 || year > 2100) {
         res.status(400).json({
           success: false,
@@ -181,7 +191,15 @@ router.get(
         return;
       }
 
-      const allOvertime = getAllUsersOvertimeSummary(year);
+      if (month && !/^\d{4}-\d{2}$/.test(month)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid month format. Use YYYY-MM',
+        });
+        return;
+      }
+
+      const allOvertime = getAllUsersOvertimeSummary(year, month);
 
       res.json({
         success: true,
