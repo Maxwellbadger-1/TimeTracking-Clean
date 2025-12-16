@@ -104,7 +104,17 @@ export function ReportsPage() {
     selectedUserId === 'all' // Only fetch when "Alle Mitarbeiter" is selected
   );
 
-  const isLoading = loadingTimeEntries || loadingAbsences || (selectedUserId === 'all' && loadingAggregatedStats);
+  // CRITICAL FIX: Check not just loading state, but also data availability!
+  // Race condition: React Query might return isLoading=false with cached data,
+  // but overtimeData/aggregatedStats might still be undefined for current selection
+  // This causes stats to be calculated with 0 values initially → 0:00h flash in UI
+  const isLoading =
+    loadingTimeEntries ||
+    loadingAbsences ||
+    (selectedUserId === 'all' && loadingAggregatedStats) ||
+    !timeEntries || // Data not yet loaded
+    (selectedUserId === 'all' && !aggregatedStats) || // All users needs aggregated stats
+    (selectedUserId !== 'all' && typeof selectedUserId === 'number' && !overtimeData); // Single user needs overtime data
 
   // Filter data by selected period
   const filteredTimeEntries = useMemo(() => {
