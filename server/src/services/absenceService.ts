@@ -122,25 +122,25 @@ export function checkOverlappingAbsence(
   endDate: string,
   excludeId?: number
 ): AbsenceRequest | null {
+  // SIMPLIFIED OVERLAP LOGIC (Standard interval overlap formula)
+  // Two intervals [A_start, A_end] and [B_start, B_end] overlap if:
+  //   A_start <= B_end AND A_end >= B_start
+  // This handles ALL cases: partial overlap, full overlap, and containment
   const query = `
     SELECT *
     FROM absence_requests
     WHERE userId = ?
       AND id != ?
       AND status IN ('approved', 'pending')
-      AND (
-        (date(startDate) <= date(?) AND date(endDate) >= date(?))
-        OR (date(startDate) <= date(?) AND date(endDate) >= date(?))
-        OR (date(startDate) >= date(?) AND date(endDate) <= date(?))
-      )
+      AND date(startDate) <= date(?)
+      AND date(endDate) >= date(?)
   `;
 
   const absence = db.prepare(query).get(
     userId,
     excludeId || 0,
-    startDate, startDate,
-    endDate, endDate,
-    startDate, endDate
+    endDate,      // existing.startDate <= new.endDate
+    startDate     // existing.endDate >= new.startDate
   ) as AbsenceRequest | undefined;
 
   return absence || null;

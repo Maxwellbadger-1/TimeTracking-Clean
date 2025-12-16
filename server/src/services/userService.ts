@@ -55,6 +55,13 @@ export function getUserById(id: number): UserPublic | undefined {
  */
 export async function createUser(data: UserCreateInput): Promise<UserPublic> {
   try {
+    // VALIDATION: Weekly hours must be reasonable
+    // Min: 1 hour/week (part-time), Max: 80 hours/week (extreme case)
+    const weeklyHours = data.weeklyHours || 40;
+    if (weeklyHours < 1 || weeklyHours > 80) {
+      throw new Error(`Weekly hours must be between 1 and 80, got: ${weeklyHours}`);
+    }
+
     // Hash password
     const hashedPassword = await hashPassword(data.password);
 
@@ -74,7 +81,7 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
       data.lastName,
       data.role,
       data.department || null,
-      data.weeklyHours || 40,
+      weeklyHours, // Use validated weeklyHours
       data.vacationDaysPerYear || 30,
       data.hireDate || null,
       data.endDate || null,
@@ -146,6 +153,10 @@ export async function updateUser(
       values.push(data.department);
     }
     if (data.weeklyHours !== undefined) {
+      // VALIDATION: Weekly hours must be reasonable
+      if (data.weeklyHours < 1 || data.weeklyHours > 80) {
+        throw new Error(`Weekly hours must be between 1 and 80, got: ${data.weeklyHours}`);
+      }
       updates.push('weeklyHours = ?');
       values.push(data.weeklyHours);
     }
