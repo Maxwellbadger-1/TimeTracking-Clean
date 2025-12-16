@@ -5,6 +5,7 @@ import {
   validateAbsenceCreate,
   validateAbsenceUpdate,
 } from '../middleware/validation.js';
+import { absenceCreationLimiter } from '../server.js';
 import {
   getAbsenceRequestsPaginated,
   getAbsenceRequestById,
@@ -215,6 +216,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  absenceCreationLimiter, // Rate limiting: 30 per hour (DoS protection)
   validateAbsenceCreate,
   (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
     try {

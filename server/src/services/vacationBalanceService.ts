@@ -166,6 +166,29 @@ export function upsertVacationBalance(
     throw new Error('Carryover must be between 0 and 10 days');
   }
 
+  // VALIDATION: Check carryover against previous year's remaining balance
+  if (data.carryover > 0) {
+    const previousYear = data.year - 1;
+    const previousBalance = getVacationBalance(data.userId, previousYear);
+
+    if (previousBalance) {
+      const maxCarryover = Math.min(previousBalance.remaining, 5); // Max 5 days per German law
+      if (data.carryover > maxCarryover) {
+        throw new Error(
+          `Carryover cannot exceed previous year's remaining balance. ` +
+          `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days, ` +
+          `German law limit: 5 days)`
+        );
+      }
+    } else {
+      // No previous year balance → carryover should be 0
+      throw new Error(
+        `Cannot set carryover for ${data.year} because no vacation balance exists for ${previousYear}. ` +
+        `Create ${previousYear} balance first, or set carryover to 0.`
+      );
+    }
+  }
+
   // Check if user exists
   const user = db
     .prepare('SELECT id FROM users WHERE id = ?')
@@ -224,6 +247,29 @@ export function updateVacationBalance(
   if (data.carryover !== undefined) {
     if (data.carryover < 0 || data.carryover > 10) {
       throw new Error('Carryover must be between 0 and 10 days');
+    }
+
+    // VALIDATION: Check carryover against previous year's remaining balance
+    if (data.carryover > 0) {
+      const previousYear = existing.year - 1;
+      const previousBalance = getVacationBalance(existing.userId, previousYear);
+
+      if (previousBalance) {
+        const maxCarryover = Math.min(previousBalance.remaining, 5); // Max 5 days per German law
+        if (data.carryover > maxCarryover) {
+          throw new Error(
+            `Carryover cannot exceed previous year's remaining balance. ` +
+            `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days, ` +
+            `German law limit: 5 days)`
+          );
+        }
+      } else {
+        // No previous year balance → carryover should be 0
+        throw new Error(
+          `Cannot set carryover for ${existing.year} because no vacation balance exists for ${previousYear}. ` +
+          `Create ${previousYear} balance first, or set carryover to 0.`
+        );
+      }
     }
   }
 

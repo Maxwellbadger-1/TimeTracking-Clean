@@ -173,6 +173,27 @@ const loginLimiter = rateLimit({
   },
 });
 
+// Rate limit for absence creation: 30 per hour (DoS Protection)
+// Prevents database spam from malicious actors while allowing legitimate use
+// DEVELOPMENT: 1000/hour for testing
+export const absenceCreationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: isDevelopment ? 1000 : 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: false, // Count all attempts to prevent abuse
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many absence requests. Please try again later.',
+      retryAfter: 3600, // 1 hour
+      limit: isDevelopment ? 1000 : 30,
+      window: '1 hour',
+      message: 'Rate limit exceeded for absence creation. Please wait before creating more requests.'
+    });
+  },
+});
+
 // Apply rate limiters
 app.use('/api/', apiLimiter); // General API rate limit
 app.use('/api/auth/login', loginLimiter); // Strict login rate limit

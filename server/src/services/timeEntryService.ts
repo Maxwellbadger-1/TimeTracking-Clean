@@ -169,10 +169,19 @@ export function checkOverlap(
     const [existStartH, existStartM] = entry.startTime.split(':').map(Number);
     const [existEndH, existEndM] = entry.endTime.split(':').map(Number);
 
-    const newStart = newStartH * 60 + newStartM;
-    const newEnd = newEndH * 60 + newEndM;
-    const existStart = existStartH * 60 + existStartM;
-    const existEnd = existEndH * 60 + existEndM;
+    let newStart = newStartH * 60 + newStartM;
+    let newEnd = newEndH * 60 + newEndM;
+    let existStart = existStartH * 60 + existStartM;
+    let existEnd = existEndH * 60 + existEndM;
+
+    // EDGE CASE: Handle overnight shifts (e.g., 22:00-02:00)
+    // If end time < start time, it crosses midnight → add 24h (1440 min) to end time
+    if (newEnd < newStart) {
+      newEnd += 1440; // Overnight shift: 02:00 becomes 1440 + 120 = 1560 min
+    }
+    if (existEnd < existStart) {
+      existEnd += 1440; // Existing overnight shift
+    }
 
     // Check for overlap
     // Overlap if: (newStart < existEnd) AND (newEnd > existStart)
@@ -374,16 +383,16 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
   // Admins can create future dates (for testing purposes)
   const isAdmin = user.role === 'admin';
 
-  // Validate data
+  // PERFORMANCE: Check hire date FIRST (fail fast on cheap validation)
+  // Don't waste CPU on expensive validation if entry is before hire date
+  if (data.date < user.hireDate) {
+    throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
+  }
+
+  // Validate data (expensive validation after cheap checks)
   const validation = validateTimeEntryData(data, { allowFutureDates: isAdmin });
   if (!validation.valid) {
     throw new Error(validation.error);
-  }
-
-  // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
-
-  if (data.date < user.hireDate) {
-    throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
   }
 
   // Check for approved absence on this date
