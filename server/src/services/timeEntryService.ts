@@ -383,10 +383,20 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
   // Admins can create future dates (for testing purposes)
   const isAdmin = user.role === 'admin';
 
-  // PERFORMANCE: Check hire date FIRST (fail fast on cheap validation)
-  // Don't waste CPU on expensive validation if entry is before hire date
-  if (data.date < user.hireDate) {
-    throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
+  // BEST PRACTICE (HR Systems): Validate hire date FIRST (fail fast)
+  // SAP/Personio Standard: Effective start date must be >= hire date
+  // Prevents time entries before employment begins (data integrity)
+  if (user.hireDate) {
+    if (data.date < user.hireDate) {
+      throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
+    }
+
+    // CRITICAL: Also check if hire date is in the FUTURE
+    // Prevents creating entries for employees who haven't started yet
+    const today = new Date().toISOString().split('T')[0];
+    if (user.hireDate > today) {
+      throw new Error(`Mitarbeiter tritt erst am ${user.hireDate} ein. Zeiterfassung vorher nicht möglich. Bitte warten Sie bis zum Eintrittstag.`);
+    }
   }
 
   // Validate data (expensive validation after cheap checks)
@@ -511,10 +521,22 @@ export function updateTimeEntry(
 
   logger.debug({ merged }, '🔄 Merged data');
 
-  // Get user role (for future dates check)
-  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(existing.userId) as
-    { role: string } | undefined;
+  // Get user data (for future dates check AND hire date validation)
+  const user = db.prepare('SELECT role, hireDate FROM users WHERE id = ?').get(existing.userId) as
+    { role: string; hireDate: string | null } | undefined;
   const isAdmin = user?.role === 'admin';
+
+  // BEST PRACTICE: Validate hire date (same as createTimeEntry)
+  if (user?.hireDate) {
+    if (merged.date < user.hireDate) {
+      throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich.`);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (user.hireDate > today) {
+      throw new Error(`Mitarbeiter tritt erst am ${user.hireDate} ein. Zeiterfassung vorher nicht möglich.`);
+    }
+  }
 
   // Validate merged data
   logger.debug('🔍 Validating merged data...');
