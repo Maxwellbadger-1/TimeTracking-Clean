@@ -45,6 +45,7 @@ import { WorkTimeAccountHistory } from '../components/worktime/WorkTimeAccountHi
 import { OvertimeCorrectionModal } from '../components/corrections/OvertimeCorrectionModal';
 import { CorrectionsTable } from '../components/corrections/CorrectionsTable';
 import { formatHours, formatOvertimeHours } from '../utils/timeUtils';
+import { isTauri } from '../utils/tauri';
 
 type ReportType = 'monthly' | 'yearly';
 
@@ -404,7 +405,7 @@ export function ReportsPage() {
       console.log('📄 CSV Content Length:', csv.length);
 
       // Check if Tauri is available
-      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
+      const isTauriApp = isTauri();
 
       if (isTauriApp) {
         console.log('🔌 Desktop-App: Using Tauri file save dialog...');
@@ -489,7 +490,7 @@ export function ReportsPage() {
       console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
       // Check if Tauri is available
-      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
+      const isTauriApp = isTauri();
 
       if (isTauriApp) {
         console.log('🔌 Desktop-App: Using Tauri file save dialog...');
@@ -563,7 +564,7 @@ export function ReportsPage() {
       console.log('✅ Received CSV content:', csvContent.length, 'bytes');
 
       // Check if Tauri is available
-      const isTauriApp = typeof window !== 'undefined' && '__TAURI__' in window;
+      const isTauriApp = isTauri();
       const userPart = selectedUserId === 'all' ? '_All' : `_User${selectedUserId}`;
       const fileName = `Historical_Export${userPart}_${historicalStartDate}_${historicalEndDate}.csv`;
 

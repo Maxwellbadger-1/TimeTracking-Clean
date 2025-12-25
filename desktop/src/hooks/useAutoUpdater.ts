@@ -12,11 +12,7 @@ import { useState, useEffect } from 'react';
 import { check as checkUpdate, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { toast } from 'sonner';
-
-// Check if running in Tauri (desktop app) vs Browser
-function isTauriApp(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
+import { isTauri } from '../utils/tauri';
 
 export interface UpdateState {
   available: boolean;
@@ -42,7 +38,7 @@ export function useAutoUpdater() {
 
   const checkForUpdates = async () => {
     // Skip update check if not in Tauri environment (browser mode)
-    if (!isTauriApp()) {
+    if (!isTauri()) {
       console.log('⏭️ Skipping update check (not in Tauri environment)');
       return;
     }

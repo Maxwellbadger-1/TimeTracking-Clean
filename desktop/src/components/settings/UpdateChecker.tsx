@@ -5,11 +5,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
 import { AlertCircle, Download, RefreshCw, Globe } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Check if running in Tauri (desktop app) vs Browser
-function isTauriApp(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
+import { isTauri } from '../../utils/tauri';
 
 interface UpdateCheckerProps {
   autoCheckOnMount?: boolean;
@@ -39,7 +35,7 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
     if (checking || downloading) return;
 
     // Check if running in Tauri environment
-    if (!isTauriApp()) {
+    if (!isTauri()) {
       toast.info('Update-Funktion nur in Desktop-App verfügbar', {
         description: 'Du verwendest die Browser-Version. Updates sind nur in der installierten Desktop-App verfügbar.'
       });
@@ -164,7 +160,7 @@ export default function UpdateChecker({ autoCheckOnMount = false }: UpdateChecke
     }
   }
 
-  const isDesktopApp = isTauriApp();
+  const isDesktopApp = isTauri();
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
