@@ -58,11 +58,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setFirstNameError('');
     setLastNameError('');
 
-    // Validate email
-    if (!email.trim()) {
-      setEmailError('E-Mail ist erforderlich');
-      isValid = false;
-    } else if (!isValidEmail(email)) {
+    // Validate email (OPTIONAL - only validate if provided)
+    if (email.trim() && !isValidEmail(email)) {
       setEmailError('Ungültige E-Mail-Adresse');
       isValid = false;
     }
@@ -181,7 +178,6 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={emailError}
-            required
           />
         </div>
 

@@ -72,11 +72,8 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
       isValid = false;
     }
 
-    // Validate email
-    if (!email.trim()) {
-      setEmailError('E-Mail ist erforderlich');
-      isValid = false;
-    } else if (!isValidEmail(email)) {
+    // Validate email (OPTIONAL - only validate if provided)
+    if (email.trim() && !isValidEmail(email)) {
       setEmailError('Ungültige E-Mail-Adresse');
       isValid = false;
     }
@@ -200,7 +197,6 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={emailError}
-            required
           />
         </div>
 

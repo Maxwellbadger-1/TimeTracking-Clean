@@ -14,6 +14,7 @@ export interface User {
   endDate: string | null;
   status: 'active' | 'inactive';
   privacyConsentAt: string | null;
+  forcePasswordChange: number;
   createdAt: string;
   deletedAt: string | null;
 }

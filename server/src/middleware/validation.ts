@@ -24,14 +24,6 @@ export function validateUserCreate(
     return;
   }
 
-  if (!data.email?.trim()) {
-    res.status(400).json({
-      success: false,
-      error: 'Email is required',
-    });
-    return;
-  }
-
   if (!data.password) {
     res.status(400).json({
       success: false,
@@ -81,8 +73,8 @@ export function validateUserCreate(
     return;
   }
 
-  // Email validation
-  if (!data.email.includes('@')) {
+  // Email validation (OPTIONAL - only validate if provided)
+  if (data.email && !data.email.includes('@')) {
     res.status(400).json({
       success: false,
       error: 'Invalid email format',
