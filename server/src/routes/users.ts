@@ -14,6 +14,8 @@ import {
   emailExists,
   exportUserData,
   updatePrivacyConsent,
+  changeOwnPassword,
+  resetUserPassword,
 } from '../services/userService.js';
 import { upsertVacationBalance, calculateProRataVacationDays } from '../services/vacationBalanceService.js';
 import { logAudit } from '../services/auditService.js';
@@ -158,6 +160,62 @@ router.post(
       res.status(500).json({
         success: false,
         error: 'Failed to update privacy consent',
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/users/me/password
+ * Change own password (Self-Service)
+ * Requires current password for verification
+ * IMPORTANT: Must be BEFORE /:id route to avoid route collision
+ */
+router.patch(
+  '/me/password',
+  requireAuth,
+  async (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = req.session.user!.id;
+      const { currentPassword, newPassword } = req.body;
+
+      // Validation
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({
+          success: false,
+          error: 'Current password and new password are required',
+        });
+        return;
+      }
+
+      // Get IP address for audit log
+      const ipAddress = req.ip || req.socket.remoteAddress;
+
+      // Change password
+      const result = await changeOwnPassword(userId, currentPassword, newPassword, ipAddress);
+
+      if (!result.success) {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to change password',
+        });
+        return;
+      }
+
+      // Log audit
+      logAudit(userId, 'update', 'user', userId, {
+        action: 'password_changed_self_service',
+      });
+
+      res.json({
+        success: true,
+        message: 'Password changed successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error changing password:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to change password',
       });
     }
   }
@@ -563,6 +621,79 @@ router.patch(
       res.status(500).json({
         success: false,
         error: 'Failed to update user status',
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/users/:id/password
+ * Reset user password (Admin only)
+ * Can force user to change password on next login
+ */
+router.patch(
+  '/:id/password',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { newPassword, forceChange } = req.body;
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Validation
+      if (!newPassword) {
+        res.status(400).json({
+          success: false,
+          error: 'New password is required',
+        });
+        return;
+      }
+
+      const adminId = req.session.user!.id;
+
+      // Get IP address for audit log
+      const ipAddress = req.ip || req.socket.remoteAddress;
+
+      // Reset password
+      const result = await resetUserPassword(
+        adminId,
+        id,
+        newPassword,
+        forceChange !== false, // Default to true if not specified
+        ipAddress
+      );
+
+      if (!result.success) {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to reset password',
+        });
+        return;
+      }
+
+      // Log audit
+      logAudit(adminId, 'update', 'user', id, {
+        action: 'password_reset_by_admin',
+        forceChange: forceChange !== false,
+      });
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully',
+      });
+    } catch (error) {
+      console.error('❌ Error resetting password:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reset password',
       });
     }
   }

@@ -1,5 +1,5 @@
 import db from '../database/connection.js';
-import { hashPassword } from './authService.js';
+import { hashPassword, comparePassword, findUserById as findUserByIdWithPassword } from './authService.js';
 import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
 import { getVacationBalance } from './absenceService.js';
 import { getCurrentOvertimeStats } from './overtimeService.js';
@@ -598,5 +598,145 @@ export function exportUserData(userId: number): GDPRDataExport {
   } catch (error) {
     logger.error({ err: error, userId }, '❌ Error exporting user data');
     throw error;
+  }
+}
+
+/**
+ * PASSWORD MANAGEMENT
+ */
+
+/**
+ * Log password change to audit table
+ */
+function logPasswordChange(
+  userId: number,
+  changedBy: number,
+  changeType: 'self-service' | 'admin-reset',
+  ipAddress?: string
+): void {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO password_change_log (userId, changedBy, changeType, ipAddress)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    stmt.run(userId, changedBy, changeType, ipAddress || null);
+
+    logger.info({ userId, changedBy, changeType }, '✅ Password change logged');
+  } catch (error) {
+    logger.error({ err: error, userId, changedBy, changeType }, '❌ Error logging password change');
+    // Don't throw - logging failure shouldn't block password change
+  }
+}
+
+/**
+ * Change own password (Self-Service)
+ * Requires current password for verification
+ */
+export async function changeOwnPassword(
+  userId: number,
+  currentPassword: string,
+  newPassword: string,
+  ipAddress?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    logger.info({ userId }, '🔐 Self-service password change requested');
+
+    // Validation: New password length
+    if (!newPassword || newPassword.length < 10) {
+      return { success: false, error: 'New password must be at least 10 characters long' };
+    }
+
+    // Get user with password hash
+    const user = findUserByIdWithPassword(userId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await comparePassword(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      logger.warn({ userId }, '⚠️ Invalid current password provided');
+      return { success: false, error: 'Current password is incorrect' };
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password
+    const stmt = db.prepare(`
+      UPDATE users
+      SET password = ?, forcePasswordChange = 0
+      WHERE id = ? AND deletedAt IS NULL
+    `);
+
+    const result = stmt.run(hashedPassword, userId);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to update password' };
+    }
+
+    // Log password change
+    logPasswordChange(userId, userId, 'self-service', ipAddress);
+
+    logger.info({ userId }, '✅ Password changed successfully (self-service)');
+
+    return { success: true };
+  } catch (error) {
+    logger.error({ err: error, userId }, '❌ Error changing own password');
+    return { success: false, error: 'Failed to change password' };
+  }
+}
+
+/**
+ * Reset user password (Admin only)
+ * Can force user to change password on next login
+ */
+export async function resetUserPassword(
+  adminId: number,
+  targetUserId: number,
+  newPassword: string,
+  forceChange: boolean = true,
+  ipAddress?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    logger.info({ adminId, targetUserId, forceChange }, '🔐 Admin password reset requested');
+
+    // Validation: New password length
+    if (!newPassword || newPassword.length < 10) {
+      return { success: false, error: 'New password must be at least 10 characters long' };
+    }
+
+    // Check if target user exists
+    const targetUser = getUserById(targetUserId);
+    if (!targetUser) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password and forcePasswordChange flag
+    const stmt = db.prepare(`
+      UPDATE users
+      SET password = ?, forcePasswordChange = ?
+      WHERE id = ? AND deletedAt IS NULL
+    `);
+
+    const result = stmt.run(hashedPassword, forceChange ? 1 : 0, targetUserId);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to update password' };
+    }
+
+    // Log password change
+    logPasswordChange(targetUserId, adminId, 'admin-reset', ipAddress);
+
+    logger.info({ adminId, targetUserId, forceChange }, '✅ Password reset successfully (admin)');
+
+    return { success: true };
+  } catch (error) {
+    logger.error({ err: error, adminId, targetUserId }, '❌ Error resetting user password');
+    return { success: false, error: 'Failed to reset password' };
   }
 }

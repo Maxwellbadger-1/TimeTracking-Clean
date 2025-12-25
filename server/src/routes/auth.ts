@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateUser } from '../services/authService.js';
+import { authenticateUser, findUserById } from '../services/authService.js';
 import { getUserById } from '../services/userService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { ApiResponse, SessionUser } from '../types/index.js';
@@ -50,6 +50,10 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
     // Store user outside callback for type safety (TypeScript doesn't know result.user still exists in callback scope)
     const authenticatedUser = result.user;
 
+    // Check if user needs to change password (Admin Reset)
+    const fullUser = findUserById(authenticatedUser.id);
+    const forcePasswordChange = fullUser?.forcePasswordChange === 1;
+
     req.session.regenerate((err) => {
       if (err) {
         logger.error({ err }, '❌ Session regeneration failed');
@@ -65,6 +69,19 @@ router.post('/login', async (req: Request, res: Response<ApiResponse<SessionUser
 
       // Set session with new session ID
       req.session.user = authenticatedUser;
+
+      // If user must change password, include flag in response
+      if (forcePasswordChange) {
+        logger.info({ userId: authenticatedUser.id }, '⚠️ User must change password');
+        res.json({
+          success: true,
+          data: authenticatedUser,
+          token, // Return JWT token to client
+          message: 'Login successful',
+          forcePasswordChange: true, // Tell frontend to redirect to password change page
+        } as any);
+        return;
+      }
 
       res.json({
         success: true,

@@ -3,7 +3,7 @@ import logger from '../utils/logger.js';
 
 /**
  * Database Schema Definition
- * All 13 tables for TimeTracking System
+ * All 14 tables for TimeTracking System
  */
 
 export function initializeDatabase(db: Database.Database): void {
@@ -57,6 +57,16 @@ export function initializeDatabase(db: Database.Database): void {
       ALTER TABLE users ADD COLUMN privacyConsentAt TEXT;
     `);
     logger.info('✅ Added privacyConsentAt column to users table');
+  } catch (error) {
+    // Column already exists - ignore error
+  }
+
+  // Migration: Add forcePasswordChange column if it doesn't exist
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN forcePasswordChange INTEGER DEFAULT 0;
+    `);
+    logger.info('✅ Added forcePasswordChange column to users table');
   } catch (error) {
     // Column already exists - ignore error
   }
@@ -257,6 +267,20 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // 14. password_change_log table (Audit Trail for password changes)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_change_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      changedBy INTEGER NOT NULL,
+      changeType TEXT NOT NULL CHECK(changeType IN ('self-service', 'admin-reset')),
+      ipAddress TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (changedBy) REFERENCES users(id)
+    );
+  `);
+
   // Create indexes for performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_time_entries_userId ON time_entries(userId);
@@ -270,11 +294,13 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
     CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
+    CREATE INDEX IF NOT EXISTS idx_password_change_log_userId ON password_change_log(userId);
+    CREATE INDEX IF NOT EXISTS idx_password_change_log_changedBy ON password_change_log(changedBy);
   `);
 
   logger.info('✅ Database schema initialized successfully');
   logger.info('✅ WAL mode enabled for multi-user support');
   logger.info('✅ Foreign keys enabled');
-  logger.info('✅ All 13 tables created');
+  logger.info('✅ All 14 tables created');
   logger.info('✅ Indexes created for performance');
 }

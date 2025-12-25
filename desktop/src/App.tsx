@@ -14,6 +14,7 @@ import OvertimeManagementPage from './pages/OvertimeManagementPage';
 import BackupPage from './pages/BackupPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import ForcePasswordChangePage from './pages/ForcePasswordChangePage';
 import { Sidebar } from './components/layout/Sidebar';
 import { NotificationBell } from './components/notifications/NotificationBell';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -29,7 +30,7 @@ import { UpdateNotification } from './components/ui/UpdateNotification';
 import maxflowLogo from './assets/maxflow-logo.png';
 
 export default function App() {
-  const { user, isAuthenticated, isLoading, checkSession, logout } = useAuthStore();
+  const { user, isAuthenticated, isLoading, checkSession, logout, forcePasswordChange } = useAuthStore();
   const { currentView, setCurrentView } = useUIStore();
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
@@ -101,6 +102,11 @@ export default function App() {
   // Show login if not authenticated
   if (!isAuthenticated || !user) {
     return <Login />;
+  }
+
+  // Show force password change page if required (Admin Reset)
+  if (forcePasswordChange) {
+    return <ForcePasswordChangePage />;
   }
 
   // Main App with Sidebar + Content Area

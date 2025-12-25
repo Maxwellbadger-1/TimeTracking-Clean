@@ -7,12 +7,14 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  forcePasswordChange: boolean; // Set by admin password reset
 
   // Actions
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   clearError: () => void;
+  clearForcePasswordChange: () => void; // Clear after successful password change
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,12 +22,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
   error: null,
   isAuthenticated: false,
+  forcePasswordChange: false,
 
   login: async (username: string, password: string) => {
     set({ isLoading: true, error: null });
 
     try {
-      // Backend returns: { success: true, data: User, message: "..." }
+      // Backend returns: { success: true, data: User, message: "...", forcePasswordChange?: boolean }
       // NOT: { success: true, data: { user: User } }
       const response = await apiClient.post<User>('/auth/login', {
         username,
@@ -36,6 +39,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (response.success && response.data) {
         console.log('✅ Login successful, setting user:', response.data);
+
+        // Check if password change is forced (Admin Reset)
+        const forcePasswordChange = !!(response as any).forcePasswordChange;
+        if (forcePasswordChange) {
+          console.log('⚠️ Force password change required');
+        }
 
         // Store JWT token if provided
         if (response.token) {
@@ -48,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true,
           isLoading: false,
           error: null,
+          forcePasswordChange,
         });
         console.log('✅ Auth state updated, isAuthenticated: true');
         return true;
@@ -57,6 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           error: response.error || 'Login fehlgeschlagen',
           isLoading: false,
           isAuthenticated: false,
+          forcePasswordChange: false,
         });
         return false;
       }
@@ -67,6 +78,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: errorMessage,
         isLoading: false,
         isAuthenticated: false,
+        forcePasswordChange: false,
       });
       return false;
     }
@@ -90,6 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        forcePasswordChange: false,
       });
 
       // 4. Force reload to clear any cached cookies in Tauri HTTP Plugin
@@ -113,6 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        forcePasswordChange: false,
       });
 
       // Force reload even on error to clear cookies
@@ -154,5 +168,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  clearForcePasswordChange: () => {
+    set({ forcePasswordChange: false });
   },
 }));

@@ -19,11 +19,12 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Users, UserPlus, Search, Filter, Shield, UserCheck, UserX } from 'lucide-react';
+import { Users, UserPlus, Search, Filter, Shield, UserCheck, UserX, Key } from 'lucide-react';
 import { useUsers, useDeleteUser, useReactivateUser } from '../hooks';
 import type { User } from '../types';
 import { CreateUserModal } from '../components/users/CreateUserModal';
 import { EditUserModal } from '../components/users/EditUserModal';
+import { ResetPasswordModal } from '../components/users/ResetPasswordModal';
 
 export function UserManagementPage() {
   const { user: currentUser } = useAuthStore();
@@ -34,6 +35,7 @@ export function UserManagementPage() {
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ userId: number; userName: string } | null>(null);
 
   // Filter States
@@ -453,7 +455,7 @@ export function UserManagementPage() {
                                 Reaktivieren
                               </Button>
                             ) : (
-                              // Active user - show edit/delete buttons
+                              // Active user - show edit/reset password/delete buttons
                               <>
                                 <Button
                                   size="sm"
@@ -461,6 +463,14 @@ export function UserManagementPage() {
                                   onClick={() => setEditingUser(user)}
                                 >
                                   Bearbeiten
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setResetPasswordUser(user)}
+                                  title="Passwort zurücksetzen"
+                                >
+                                  <Key className="w-4 h-4" />
                                 </Button>
                                 {user.id !== currentUser.id && (
                                   <Button
@@ -514,6 +524,13 @@ export function UserManagementPage() {
           isOpen={!!editingUser}
           onClose={() => setEditingUser(null)}
           user={editingUser}
+        />
+      )}
+
+      {resetPasswordUser && (
+        <ResetPasswordModal
+          user={resetPasswordUser}
+          onClose={() => setResetPasswordUser(null)}
         />
       )}
 
