@@ -7,6 +7,7 @@ import {
   updateWorkTimeAccountSettings,
   getWorkTimeAccountHistory,
   getBalanceStatus,
+  calculateWorkTimeAccountLive,
 } from '../services/workTimeAccountService.js';
 import type { ApiResponse, WorkTimeAccountUpdateInput } from '../types/index.js';
 
@@ -61,6 +62,68 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get work time account',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/work-time-accounts/live
+ * Get work time account with LIVE balance calculation (no cache)
+ *
+ * Best Practice: Use this for Reports page to always show current data
+ * - Calculates currentBalance on-demand from overtime_balance table
+ * - Returns "now" as lastUpdated (always current)
+ *
+ * Query params:
+ *   - userId: User ID (required for admin, optional for employee)
+ */
+router.get(
+  '/live',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+      const requestedUserId = req.query.userId ? parseInt(req.query.userId as string) : req.session.user!.id;
+
+      // Validate userId
+      if (isNaN(requestedUserId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Admin can get any user's account, employee can only get their own
+      if (!isAdmin && requestedUserId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden',
+        });
+        return;
+      }
+
+      // Calculate LIVE balance (not cached)
+      const account = calculateWorkTimeAccountLive(requestedUserId);
+
+      if (!account) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: account,
+      });
+    } catch (error) {
+      console.error('Error calculating live work time account:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to calculate live work time account',
       });
     }
   }

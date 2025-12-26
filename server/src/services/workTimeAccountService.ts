@@ -385,6 +385,76 @@ export function getBalanceStatus(userId: number): BalanceStatus {
 }
 
 /**
+ * Calculate work time account balance LIVE (on-demand, no cache)
+ *
+ * Best Practice: Always show current, real-time data
+ * - Calculates currentBalance from overtime_balance table (sum of all monthly overtime)
+ * - Gets max/min settings from work_time_accounts table
+ * - No lastUpdated timestamp (always current)
+ *
+ * Use this instead of cached getWorkTimeAccountWithUser() for Reports page
+ */
+export function calculateWorkTimeAccountLive(userId: number): WorkTimeAccountWithUser | null {
+  try {
+    // Get user data
+    const user = db.prepare(`
+      SELECT firstName, lastName, email, weeklyHours, deletedAt
+      FROM users
+      WHERE id = ?
+    `).get(userId) as {
+      firstName: string;
+      lastName: string;
+      email: string;
+      weeklyHours: number;
+      deletedAt: string | null;
+    } | undefined;
+
+    if (!user || user.deletedAt) {
+      logger.warn({ userId }, '⚠️ User not found or deleted');
+      return null;
+    }
+
+    // Get or create work time account (for max/min settings)
+    const account = getOrCreateWorkTimeAccount(userId);
+
+    // Calculate LIVE balance from overtime_balance table
+    // currentBalance = sum of all monthly overtime values
+    const balanceResult = db.prepare(`
+      SELECT COALESCE(SUM(overtime), 0) as totalOvertime
+      FROM overtime_balance
+      WHERE userId = ?
+    `).get(userId) as { totalOvertime: number } | undefined;
+
+    const currentBalance = balanceResult?.totalOvertime || 0;
+
+    logger.info({
+      userId,
+      currentBalance,
+      cachedBalance: account.currentBalance,
+      delta: currentBalance - account.currentBalance,
+    }, '✅ Calculated live work time account balance');
+
+    return {
+      id: account.id,
+      userId: account.userId,
+      currentBalance, // LIVE calculated, not cached!
+      maxPlusHours: account.maxPlusHours,
+      maxMinusHours: account.maxMinusHours,
+      lastUpdated: new Date().toISOString(), // Always "now" for live calculation
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        weeklyHours: user.weeklyHours,
+      },
+    };
+  } catch (error) {
+    logger.error({ err: error, userId }, '❌ Failed to calculate live work time account');
+    throw error;
+  }
+}
+
+/**
  * Reset all work time accounts (admin only, for testing/migration)
  */
 export function resetAllWorkTimeAccounts(): void {

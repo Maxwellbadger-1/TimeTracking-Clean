@@ -1,6 +1,6 @@
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useWorkTimeAccount, useBalanceStatus } from '../../hooks/useWorkTimeAccounts';
+import { useWorkTimeAccountLive, useBalanceStatus } from '../../hooks/useWorkTimeAccounts';
 import {
   Clock,
   TrendingUp,
@@ -17,7 +17,7 @@ interface WorkTimeAccountWidgetProps {
 }
 
 export function WorkTimeAccountWidget({ userId }: WorkTimeAccountWidgetProps) {
-  const { data: account, isLoading: accountLoading } = useWorkTimeAccount(userId);
+  const { data: account, isLoading: accountLoading } = useWorkTimeAccountLive(userId);
   const { data: status, isLoading: statusLoading } = useBalanceStatus(userId);
 
   const isLoading = accountLoading || statusLoading;
@@ -207,10 +207,10 @@ export function WorkTimeAccountWidget({ userId }: WorkTimeAccountWidgetProps) {
         </div>
       )}
 
-      {/* Last Updated */}
+      {/* Live Data Indicator */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Zuletzt aktualisiert: {new Date(account.lastUpdated).toLocaleString('de-DE')}
+          Stand: {new Date().toLocaleDateString('de-DE')} (Live-Berechnung)
         </p>
       </div>
     </Card>

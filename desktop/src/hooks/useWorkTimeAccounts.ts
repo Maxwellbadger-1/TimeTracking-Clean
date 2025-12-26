@@ -54,6 +54,32 @@ export function useWorkTimeAccount(userId?: number) {
 }
 
 /**
+ * Get work time account with LIVE balance calculation (no cache)
+ *
+ * Best Practice: Use this in Reports page to always show current data
+ * - Calculates currentBalance on-demand from overtime_balance table
+ * - Always up-to-date, no stale cache
+ * - No "lastUpdated" timestamp displayed (always "now")
+ *
+ * @param userId - User ID to get account for (admin can specify, employee gets own)
+ */
+export function useWorkTimeAccountLive(userId?: number) {
+  return useQuery({
+    queryKey: ['work-time-accounts', 'live', userId],
+    queryFn: async () => {
+      const endpoint = userId ? `/work-time-accounts/live?userId=${userId}` : '/work-time-accounts/live';
+      const response = await apiClient.get<WorkTimeAccount>(endpoint);
+      if (!response.success) throw new Error(response.error);
+      return response.data;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    // Refetch more often since this is live data
+    staleTime: 30000, // 30 seconds
+  });
+}
+
+/**
  * Get all work time accounts (admin only)
  */
 export function useAllWorkTimeAccounts() {
