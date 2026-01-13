@@ -386,17 +386,21 @@ export function createAbsenceRequest(
   }
 
   // Calculate days - BEST PRACTICE (Personio, DATEV, SAP):
+  // ALL absence types respect individual work schedules!
   // Days with 0 hours in workSchedule do NOT count as working days!
   let days: number;
+
   if (data.type === 'vacation' || data.type === 'overtime_comp') {
-    logger.debug('📊 Calculating VACATION days (WorkSchedule-aware, excludes 0h days + weekends + holidays)...');
-    // Use countWorkingDaysForUser which respects individual work schedules
+    logger.debug('📊 Calculating VACATION/OVERTIME days (WorkSchedule-aware, excludes 0h days + weekends + holidays)...');
+    // Vacation & Overtime: Exclude holidays
     days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, db);
-    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days }, '📊 WorkSchedule-aware vacation days');
+    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (with holiday exclusion)');
   } else {
-    logger.debug('📊 Calculating BUSINESS days (excludes weekends only)...');
-    // Sick leave and unpaid: count business days only (exclude weekends)
-    days = calculateBusinessDays(data.startDate, data.endDate);
+    logger.debug('📊 Calculating SICK/UNPAID days (WorkSchedule-aware, excludes 0h days + weekends, INCLUDES holidays)...');
+    // Sick & Unpaid: Include holidays (user can be sick on holidays)
+    // BUT still respect individual work schedule!
+    days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, undefined); // undefined = no holiday exclusion
+    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (without holiday exclusion)');
   }
 
   logger.debug({ days }, '📊 CALCULATED DAYS');

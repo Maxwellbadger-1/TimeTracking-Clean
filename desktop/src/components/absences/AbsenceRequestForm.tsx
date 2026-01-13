@@ -268,10 +268,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
           </p>
           {selectedUser?.workSchedule && (
             <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              {type === 'vacation'
-                ? '⚠️ Tage mit 0h zählen nicht als Arbeitstage (Best Practice: Personio, DATEV, SAP)'
-                : 'Berechnung basierend auf deinem individuellen Wochenplan'
-              }
+              ⚠️ Tage mit 0h zählen nicht als Arbeitstage (Best Practice: Personio, DATEV, SAP)
             </p>
           )}
         </div>
