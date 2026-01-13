@@ -21,6 +21,7 @@ export interface User {
   lastName: string;
   role: 'admin' | 'employee';
   department: string | null;
+  position: string | null;
   weeklyHours: number;
   workSchedule: WorkSchedule | null; // NULL = use weeklyHours/5 fallback
   vacationDaysPerYear: number;
@@ -41,6 +42,7 @@ export interface UserCreateInput {
   lastName: string;
   role: 'admin' | 'employee';
   department?: string;
+  position?: string;
   weeklyHours?: number;
   workSchedule?: WorkSchedule | null; // Optional: Individual work schedule
   vacationDaysPerYear?: number;
@@ -57,6 +59,7 @@ export interface UserPublic {
   lastName: string;
   role: 'admin' | 'employee';
   department: string | null;
+  position: string | null;
   weeklyHours: number;
   workSchedule: WorkSchedule | null; // NULL = use weeklyHours/5 fallback
   vacationDaysPerYear: number;

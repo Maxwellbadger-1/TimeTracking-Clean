@@ -17,7 +17,7 @@ export function getAllUsers(): UserPublic[] {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
+             department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
              CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive
       FROM users
       ORDER BY createdAt DESC
@@ -42,7 +42,7 @@ export function getUserById(id: number): UserPublic | undefined {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
+             department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
              CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE id = ? AND deletedAt IS NULL
@@ -81,8 +81,8 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
     const stmt = db.prepare(`
       INSERT INTO users (
         username, email, password, firstName, lastName, role,
-        department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -93,6 +93,7 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
       data.lastName,
       data.role,
       data.department || null,
+      data.position || null,
       weeklyHours, // Use validated weeklyHours
       data.workSchedule ? JSON.stringify(data.workSchedule) : null,
       data.vacationDaysPerYear !== undefined ? data.vacationDaysPerYear : 30, // Allow 0 vacation days
@@ -147,7 +148,7 @@ export async function updateUser(
     }
     if (data.email !== undefined) {
       updates.push('email = ?');
-      values.push(data.email && data.email.trim() !== '' ? data.email : null); // Convert empty strings to NULL
+      values.push(data.email || null); // Convert empty/falsy values to NULL
     }
     if (data.firstName !== undefined) {
       updates.push('firstName = ?');
@@ -163,7 +164,11 @@ export async function updateUser(
     }
     if (data.department !== undefined) {
       updates.push('department = ?');
-      values.push(data.department);
+      values.push(data.department || null); // Convert empty/falsy values to NULL
+    }
+    if (data.position !== undefined) {
+      updates.push('position = ?');
+      values.push(data.position || null); // Convert empty/falsy values to NULL
     }
     if (data.weeklyHours !== undefined) {
       // VALIDATION: Weekly hours must be reasonable
@@ -187,7 +192,7 @@ export async function updateUser(
     }
     if (data.endDate !== undefined) {
       updates.push('endDate = ?');
-      values.push(data.endDate);
+      values.push(data.endDate || null); // Convert empty/falsy values to NULL
     }
     if (data.isActive !== undefined) {
       // isActive is stored as status field ('active' or 'inactive')
