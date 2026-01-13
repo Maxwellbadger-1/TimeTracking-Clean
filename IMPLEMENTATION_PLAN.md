@@ -463,5 +463,33 @@ Expected:
 
 ---
 
-**Last Updated:** 2026-01-07 (Implementation Complete)
-**Original Status:** Phase 1-3 Complete
+## 🔧 Post-Implementation Fixes (2026-01-13)
+
+### WorkSchedule System Completeness Audit
+
+**Issue**: Daily overtime calculation was still using old `calculateDailyTargetHours(weeklyHours)` instead of WorkSchedule-aware `getDailyTargetHours(user, date)`.
+
+**Files Changed**:
+- `server/src/services/overtimeService.ts` (Lines 252-275)
+  - Changed from manual SELECT query to `getUserById(userId)` to get full user object with workSchedule
+  - Replaced `calculateDailyTargetHours(user.weeklyHours)` → `getDailyTargetHours(user, date)`
+  - Removed unused `calculateDailyTargetHours` import
+
+**Result**: ✅ **100% WorkSchedule Coverage**
+- All 4 absence types (vacation, sick, overtime_comp, unpaid) use `countWorkingDaysForUser()`
+- All overtime calculations (daily, weekly, monthly) use `getDailyTargetHours()`
+- All exports (DATEV, general) use WorkSchedule-aware utilities
+- Frontend components display WorkSchedule-aware data
+
+**Best Practice Alignment (Personio, DATEV, SAP)**:
+- ✅ Days with 0 hours do NOT count as working days
+- ✅ Vacation/Overtime exclude holidays (can't take vacation on holiday)
+- ✅ Sick/Unpaid include holidays (can be sick on holiday)
+- ✅ Live overtime calculation (no cached balances)
+- ✅ Individual daily target hours respected
+
+---
+
+**Last Updated:** 2026-01-13 (WorkSchedule System 100% Complete)
+**Original Implementation:** 2026-01-07 (Phase 1-3)
+**Final Audit:** 2026-01-13 (System-wide WorkSchedule compliance verified)

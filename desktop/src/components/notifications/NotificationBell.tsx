@@ -68,7 +68,7 @@ export function NotificationBell() {
         return '✅';
       case 'absence_rejected':
         return '❌';
-      case 'absence_request':
+      case 'absence_requested': // ✅ FIXED: Backend sends 'absence_requested' (not 'absence_request')
         return '📅';
       default:
         return '🔔';

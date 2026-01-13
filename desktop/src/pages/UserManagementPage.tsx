@@ -28,7 +28,8 @@ import { ResetPasswordModal } from '../components/users/ResetPasswordModal';
 
 export function UserManagementPage() {
   const { user: currentUser } = useAuthStore();
-  const { data: users, isLoading } = useUsers();
+  // Admin-only page (always enabled)
+  const { data: users, isLoading } = useUsers(true);
   const deleteUser = useDeleteUser();
   const reactivateUser = useReactivateUser();
 

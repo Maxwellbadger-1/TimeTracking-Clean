@@ -58,7 +58,10 @@ export function CalendarPage() {
     startDate,
     endDate,
   });
-  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests(userIdFilter ? { userId: userIdFilter } : undefined);
+  // For calendars: Show ALL absences (pending + approved) for visibility
+  // Pending absences are shown with dashed border to differentiate from approved
+  // Rejected absences are filtered out in the calendar components
+  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests({ });
   const { data: holidays, isLoading: loadingHolidays } = useMultiYearHolidays();
 
   if (!user) return null;
@@ -82,6 +85,7 @@ export function CalendarPage() {
                 absences={absences || []}
                 holidays={holidays || []}
                 isAdmin={isAdmin}
+                currentUserId={user.id}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 currentDate={currentDate}
@@ -133,6 +137,7 @@ export function CalendarPage() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 isAdmin={isAdmin}
+                currentUserId={user.id}
                 onDayClick={(date, user) => {
                   console.log('Day clicked:', date, 'User:', user);
                   // TODO: Open user day detail modal

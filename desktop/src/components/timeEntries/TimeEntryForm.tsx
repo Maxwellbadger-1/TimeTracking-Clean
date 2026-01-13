@@ -23,7 +23,9 @@ interface TimeEntryFormProps {
 
 export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
   const { user } = useAuthStore();
-  const { data: users } = useUsers();
+  const isAdmin = user?.role === 'admin';
+  // Only admins need user list (enabled parameter prevents 403 for employees)
+  const { data: users } = useUsers(isAdmin);
   const createEntry = useCreateTimeEntry();
 
   // Form state

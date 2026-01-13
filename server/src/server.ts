@@ -23,7 +23,7 @@ import exportsRoutes from './routes/exports.js';
 import performanceRoutes from './routes/performance.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { performanceMonitor } from './middleware/performanceMonitor.js';
-import { startBackupScheduler } from './services/cronService.js';
+import { startBackupScheduler, startYearEndRolloverScheduler } from './services/cronService.js';
 import { initializeHolidays } from './services/holidayService.js';
 
 const app = express();
@@ -193,6 +193,9 @@ async function startServer() {
 
     // Start automated backup scheduler
     startBackupScheduler();
+
+    // Start year-end rollover scheduler (January 1st at 00:05 AM Europe/Berlin)
+    startYearEndRolloverScheduler();
 
     app.listen(PORT, '0.0.0.0', () => {
       logger.info('✅ TimeTracking Server started');

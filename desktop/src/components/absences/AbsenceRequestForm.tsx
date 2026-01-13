@@ -24,7 +24,8 @@ interface AbsenceRequestFormProps {
 
 export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps) {
   const { user } = useAuthStore();
-  const { data: users } = useUsers();
+  const isAdmin = user?.role === 'admin';
+  const { data: users } = useUsers(isAdmin);
   const createRequest = useCreateAbsenceRequest();
 
   // Form state

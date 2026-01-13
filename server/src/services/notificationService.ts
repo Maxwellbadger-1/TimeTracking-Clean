@@ -520,3 +520,41 @@ export function notifyWeeklyOvertimeLimitExceeded(
     );
   });
 }
+
+/**
+ * Notify employee when time entries were automatically deleted due to approved absence
+ * AUTO-DELETE NOTIFICATION (STRICT MODE)
+ */
+export function notifyTimeEntriesDeletedDueToAbsence(
+  userId: number,
+  absenceType: string,
+  startDate: string,
+  endDate: string,
+  deletedCount: number,
+  totalHours: number
+): void {
+  const typeLabels: Record<string, string> = {
+    vacation: 'Urlaub',
+    sick: 'Krankmeldung',
+    overtime_comp: 'Überstundenausgleich',
+    unpaid: 'Unbezahlter Urlaub',
+  };
+  const typeLabel = typeLabels[absenceType] || absenceType;
+
+  // Format hours (e.g., "8.5h" => "8:30h")
+  const hours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - hours) * 60);
+  const hoursFormatted = `${hours}:${String(minutes).padStart(2, '0')}h`;
+
+  const message =
+    `Dein ${typeLabel}-Antrag für ${startDate} bis ${endDate} wurde genehmigt. ` +
+    `${deletedCount} Zeiterfassung(en) (${hoursFormatted}) wurden automatisch gelöscht, ` +
+    `da Abwesenheiten Vorrang haben. Deine Überstunden wurden entsprechend angepasst.`;
+
+  createNotification(
+    userId,
+    'time_entries_deleted_due_to_absence',
+    'Zeiterfassungen automatisch gelöscht',
+    message
+  );
+}

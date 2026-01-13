@@ -2,6 +2,7 @@ import { db } from '../database/connection.js';
 import type { TimeEntry, AbsenceRequest } from '../types/index.js';
 import { updateAllOvertimeLevels } from './overtimeService.js';
 import { validateTimeEntryArbZG } from './arbeitszeitgesetzService.js';
+import { logAudit } from './auditService.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -126,13 +127,17 @@ export function validateTimeEntryData(
     };
   }
 
-  // Automatic break rule: > 6 hours requires at least 30 min break
+  // Automatic break rule: > 6 hours requires at least 30 min break (WARNING only, allow saving)
   const grossHours = calculateHours(data.startTime, data.endTime, 0);
   if (grossHours > 6 && breakMinutes < 30) {
-    return {
-      valid: false,
-      error: 'Working time over 6 hours requires at least 30 minutes break',
-    };
+    logger.warn({
+      date: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      grossHours,
+      breakMinutes
+    }, '⚠️ Arbeitszeitgesetz: Arbeitszeit > 6h mit weniger als 30 Min Pause');
+    // ALLOW: User can save anyway, but we log for compliance tracking
   }
 
   return { valid: true };
@@ -194,8 +199,11 @@ export function checkOverlap(
 }
 
 /**
- * Check if user has an approved absence on this date
+ * Check if user has an approved or pending absence on this date
  * Returns the absence if found, null otherwise
+ *
+ * STRICT MODE: Both approved AND pending absences block time entry creation
+ * Rationale: Prevent conflicts between absence requests and time tracking
  */
 export function checkAbsenceConflict(
   userId: number,
@@ -205,7 +213,7 @@ export function checkAbsenceConflict(
     SELECT *
     FROM absence_requests
     WHERE userId = ?
-      AND status = 'approved'
+      AND status IN ('approved', 'pending')
       AND date(?) BETWEEN date(startDate) AND date(endDate)
   `;
 
@@ -405,7 +413,7 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
     throw new Error(validation.error);
   }
 
-  // Check for approved absence on this date
+  // Check for approved/pending absence on this date (STRICT MODE)
   const absence = checkAbsenceConflict(data.userId, data.date);
   if (absence) {
     const typeLabels: Record<string, string> = {
@@ -415,7 +423,13 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
       unpaid: 'Unbezahlter Urlaub'
     };
     const typeLabel = typeLabels[absence.type] || absence.type;
-    throw new Error(`An diesem Tag hast du ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+
+    // Different error messages based on status
+    if (absence.status === 'approved') {
+      throw new Error(`An diesem Tag hast du genehmigten ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+    } else if (absence.status === 'pending') {
+      throw new Error(`Du hast für diesen Tag ${typeLabel} beantragt (${absence.startDate} - ${absence.endDate}, noch nicht genehmigt). Zeiterfassung erst nach Genehmigung/Ablehnung möglich. Bitte warte auf Entscheidung oder ziehe den Antrag zurück.`);
+    }
   }
 
   // Check for overlaps
@@ -545,7 +559,7 @@ export function updateTimeEntry(
 
   logger.debug('✅ Validation passed');
 
-  // Check for approved absence on this date
+  // Check for approved/pending absence on this date (STRICT MODE)
   logger.debug('🔍 Checking for absence conflicts...');
   const absence = checkAbsenceConflict(existing.userId, merged.date);
   if (absence) {
@@ -557,7 +571,13 @@ export function updateTimeEntry(
     };
     const typeLabel = typeLabels[absence.type] || absence.type;
     logger.error({ absence }, '❌ ABSENCE CONFLICT DETECTED');
-    throw new Error(`An diesem Tag hast du ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+
+    // Different error messages based on status
+    if (absence.status === 'approved') {
+      throw new Error(`An diesem Tag hast du genehmigten ${typeLabel} (${absence.startDate} - ${absence.endDate}). Zeiterfassung nicht möglich.`);
+    } else if (absence.status === 'pending') {
+      throw new Error(`Du hast für diesen Tag ${typeLabel} beantragt (${absence.startDate} - ${absence.endDate}, noch nicht genehmigt). Zeiterfassung erst nach Genehmigung/Ablehnung möglich. Bitte warte auf Entscheidung oder ziehe den Antrag zurück.`);
+    }
   }
 
   // Check for overlaps (excluding this entry)
@@ -802,4 +822,85 @@ export function getOvertimeBalance(
     | undefined;
 
   return result || null;
+}
+
+/**
+ * Delete all time entries during an absence period
+ * Called automatically when an absence request is approved
+ *
+ * @param userId - User ID
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
+ * @param approvedBy - Admin who approved the absence (for audit log)
+ * @returns Number of deleted entries and total hours
+ */
+export function deleteTimeEntriesDuringAbsence(
+  userId: number,
+  startDate: string,
+  endDate: string,
+  approvedBy: number
+): { deletedCount: number; totalHours: number } {
+  logger.info(
+    { userId, startDate, endDate },
+    '🗑️ Auto-deleting time entries during approved absence'
+  );
+
+  // Find all time entries in the date range
+  const query = `
+    SELECT id, date, hours
+    FROM time_entries
+    WHERE userId = ?
+      AND date >= ?
+      AND date <= ?
+  `;
+
+  const entries = db.prepare(query).all(userId, startDate, endDate) as Array<{
+    id: number;
+    date: string;
+    hours: number;
+  }>;
+
+  if (entries.length === 0) {
+    logger.info('ℹ️ No time entries found in absence period');
+    return { deletedCount: 0, totalHours: 0 };
+  }
+
+  const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
+  logger.info(
+    { count: entries.length, totalHours },
+    '📊 Found time entries to delete'
+  );
+
+  // Delete each entry and create audit log
+  const deleteQuery = 'DELETE FROM time_entries WHERE id = ?';
+  const stmt = db.prepare(deleteQuery);
+
+  for (const entry of entries) {
+    stmt.run(entry.id);
+
+    // Create audit log entry
+    logAudit(approvedBy, 'delete', 'time_entry', entry.id, {
+      reason: 'absence_approved',
+      date: entry.date,
+      hours: entry.hours,
+      userId,
+    });
+  }
+
+  // Update overtime levels for affected dates
+  const uniqueDates = [...new Set(entries.map(e => e.date))];
+  for (const date of uniqueDates) {
+    try {
+      updateAllOvertimeLevels(userId, date);
+    } catch (error) {
+      logger.warn({ err: error, date }, '⚠️ Error updating overtime levels');
+    }
+  }
+
+  logger.info(
+    { deletedCount: entries.length, totalHours },
+    '✅ Auto-delete completed'
+  );
+
+  return { deletedCount: entries.length, totalHours };
 }

@@ -60,9 +60,9 @@ export function WeekCalendarColumns({
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  // Admin: useUsers() für alle Mitarbeiter
-  // Employee: Nicht laden (403 Error!)
-  const { data: users } = isAdmin ? useUsers() : { data: [] };
+  // Admin: Load all users for selection
+  // Employee: Query disabled (prevents 403)
+  const { data: users } = useUsers(isAdmin);
   const usersList = users || [];
 
   // Get week days (Monday - Sunday)
@@ -119,11 +119,18 @@ export function WeekCalendarColumns({
     return grouped;
   }, [timeEntries]);
 
-  // Group absences by user and day
+  // PRIVACY FILTERING (DSGVO-compliant)
+  // Employee: Show ONLY own absences in Month/Week/Year calendars
+  // Admin: Show all absences
+  const filteredAbsences = isAdmin
+    ? absences
+    : absences.filter(a => a.userId === currentUserId);
+
+  // Group absences by user and day (using filtered absences!)
   const absencesByUserAndDay = useMemo(() => {
     const grouped: Record<number, Record<string, AbsenceRequest[]>> = {};
 
-    absences.forEach((absence) => {
+    filteredAbsences.forEach((absence) => {
       if (!grouped[absence.userId]) {
         grouped[absence.userId] = {};
       }
@@ -143,7 +150,7 @@ export function WeekCalendarColumns({
     });
 
     return grouped;
-  }, [absences, weekDays]);
+  }, [filteredAbsences, weekDays]);
 
   // Current time indicator position
   const now = new Date();

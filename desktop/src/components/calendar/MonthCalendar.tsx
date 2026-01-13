@@ -35,6 +35,7 @@ interface MonthCalendarProps {
   absences?: AbsenceRequest[];
   holidays?: Array<{ date: string; name: string }>;
   isAdmin?: boolean;
+  currentUserId?: number; // Current user's ID for privacy filtering
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
@@ -46,7 +47,8 @@ export function MonthCalendar({
   timeEntries = [],
   absences = [],
   holidays = [],
-  isAdmin: _isAdmin = true,
+  isAdmin = false,
+  currentUserId,
   onDayClick,
   viewMode = 'month',
   onViewModeChange,
@@ -61,6 +63,13 @@ export function MonthCalendar({
   const days = getDaysInMonth(currentMonth);
   const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+  // PRIVACY FILTERING (DSGVO-compliant)
+  // Employee: Show ONLY own absences in Month/Week/Year calendars
+  // Admin: Show all absences
+  const filteredAbsences = isAdmin
+    ? absences
+    : absences.filter(a => a.userId === currentUserId);
+
   // Group time entries by date
   const entriesByDate = timeEntries.reduce((acc, entry) => {
     acc[entry.date] = acc[entry.date] || [];
@@ -68,8 +77,8 @@ export function MonthCalendar({
     return acc;
   }, {} as Record<string, TimeEntry[]>);
 
-  // Group absences by date
-  const absencesByDate = absences.reduce((acc, absence) => {
+  // Group absences by date (using filtered absences!)
+  const absencesByDate = filteredAbsences.reduce((acc, absence) => {
     const start = new Date(absence.startDate);
     const end = new Date(absence.endDate);
     let current = start;

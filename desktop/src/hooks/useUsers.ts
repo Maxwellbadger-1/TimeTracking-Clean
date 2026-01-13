@@ -52,21 +52,28 @@ export function useCurrentUser() {
 }
 
 // Get all users (Admin only)
-export function useUsers() {
+// enabled: Only fetch when user is admin (prevents unnecessary 403 errors for employees)
+export function useUsers(enabled: boolean = true) {
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       const response = await apiClient.get<User[]>('/users');
 
+      // If 403 Forbidden (employee trying to access admin endpoint), return empty array silently
       if (!response.success) {
+        if (response.error?.includes('Forbidden') || response.error?.includes('Admin')) {
+          return []; // Employees don't need user list
+        }
         throw new Error(response.error || 'Failed to fetch users');
       }
 
       return response.data || [];
     },
+    enabled, // Control when query runs (prevent unnecessary API calls)
     staleTime: 0, // CRITICAL FIX: Always fetch fresh user list (no caching)
     refetchOnMount: true, // Refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when window regains focus
+    retry: false, // Don't retry on 403 errors
   });
 }
 

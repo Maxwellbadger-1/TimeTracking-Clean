@@ -1,9 +1,6 @@
 import { db } from '../database/connection.js';
 import { startOfWeek, endOfWeek } from 'date-fns';
-import {
-  calculateDailyTargetHours,
-  getDailyTargetHours,
-} from '../utils/workingDays.js';
+import { getDailyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 import {
   getCurrentDate,
@@ -213,6 +210,7 @@ interface MonthlyOvertime {
   targetHours: number;
   actualHours: number;
   overtime: number;
+  carryoverFromPreviousYear?: number; // For January: Carried over from previous year
 }
 
 interface OvertimeSummary {
@@ -250,10 +248,8 @@ function getWeekDateRange(date: string): { startDate: string; endDate: string } 
  * Called automatically when time entries are created/updated/deleted
  */
 export function updateDailyOvertime(userId: number, date: string): void {
-  // Get user's weekly hours and hire date
-  const user = db
-    .prepare('SELECT weeklyHours, hireDate FROM users WHERE id = ?')
-    .get(userId) as { weeklyHours: number; hireDate: string } | undefined;
+  // Get full user object with workSchedule for WorkSchedule-aware calculation
+  const user = getUserById(userId);
 
   if (!user) {
     logger.error({ userId }, 'updateDailyOvertime: User not found');
@@ -273,7 +269,8 @@ export function updateDailyOvertime(userId: number, date: string): void {
     return;
   }
 
-  const dailyTarget = calculateDailyTargetHours(user.weeklyHours);
+  // ✅ FIXED: WorkSchedule-aware daily target calculation (respects individual schedules)
+  const dailyTarget = getDailyTargetHours(user, date);
 
   // Calculate actual hours for the day
   const actualHours = db
@@ -977,6 +974,140 @@ export function hasEnoughOvertime(userId: number, requestedHours: number): boole
   const currentYear = getCurrentYear();
   const summary = getOvertimeSummary(userId, currentYear);
   return summary.totalOvertime >= requestedHours;
+}
+
+/**
+ * YEAR-END ROLLOVER FUNCTIONS
+ * Used for automatic year-end transfer of overtime hours
+ */
+
+/**
+ * Get total overtime balance at year-end (December 31st)
+ *
+ * PROFESSIONAL STANDARD (Personio, DATEV, SAP):
+ * - Calculate sum of ALL monthly overtime in the year
+ * - This is the balance that will be carried over to next year
+ *
+ * @param userId User ID
+ * @param year Year to calculate (e.g., 2025)
+ * @returns Total overtime hours at year-end
+ */
+export function getYearEndOvertimeBalance(userId: number, year: number): number {
+  const summary = getOvertimeSummary(userId, year);
+  return summary.totalOvertime;
+}
+
+/**
+ * Initialize overtime balance for January of new year with carryover
+ *
+ * PROFESSIONAL STANDARD (Personio, DATEV, SAP):
+ * - Create January entry with carryover from previous year
+ * - Target hours = 0 (no work expected yet)
+ * - Actual hours = carryover (starting balance)
+ * - This ensures January shows correct starting balance
+ *
+ * CRITICAL: This function is called AUTOMATICALLY by yearEndRolloverService
+ *
+ * @param userId User ID
+ * @param year New year (e.g., 2026)
+ * @param carryoverHours Overtime hours from previous year (can be negative!)
+ */
+export function initializeOvertimeBalanceForNewYear(
+  userId: number,
+  year: number,
+  carryoverHours: number
+): void {
+  const januaryMonth = `${year}-01`;
+
+  logger.info({ userId, year, carryoverHours }, '🎊 Initializing overtime balance for new year');
+
+  // Check if January entry already exists
+  const existing = db
+    .prepare('SELECT id FROM overtime_balance WHERE userId = ? AND month = ?')
+    .get(userId, januaryMonth) as { id: number } | undefined;
+
+  if (existing) {
+    // Update existing entry with carryover
+    db.prepare(`
+      UPDATE overtime_balance
+      SET carryoverFromPreviousYear = ?
+      WHERE userId = ? AND month = ?
+    `).run(carryoverHours, userId, januaryMonth);
+
+    logger.info({ userId, januaryMonth }, '✅ Updated existing January entry with carryover');
+  } else {
+    // Create new January entry
+    // Target hours = 0, Actual hours = 0, Carryover = balance from previous year
+    db.prepare(`
+      INSERT INTO overtime_balance (userId, month, targetHours, actualHours, carryoverFromPreviousYear)
+      VALUES (?, ?, 0, 0, ?)
+    `).run(userId, januaryMonth, carryoverHours);
+
+    logger.info({ userId, januaryMonth }, '✅ Created January entry with carryover');
+  }
+}
+
+/**
+ * Bulk initialize overtime balances for ALL active users for new year
+ *
+ * PROFESSIONAL STANDARD (Personio, DATEV, SAP):
+ * - Called automatically by cron job at midnight on January 1st
+ * - Processes ALL active employees
+ * - Transfers overtime balance from previous year
+ * - Creates audit log entries for compliance
+ *
+ * CRITICAL: This function uses SQLite transactions!
+ * If one user fails, ALL updates are rolled back (data integrity!)
+ *
+ * @param year New year (e.g., 2026)
+ * @returns Number of users processed
+ */
+export function bulkInitializeOvertimeBalancesForNewYear(year: number): number {
+  const previousYear = year - 1;
+
+  logger.info({ year, previousYear }, '🎊🎊🎊 BULK YEAR-END OVERTIME ROLLOVER STARTED 🎊🎊🎊');
+
+  // Get all active users
+  const users = db
+    .prepare('SELECT id FROM users WHERE deletedAt IS NULL AND status = "active"')
+    .all() as Array<{ id: number }>;
+
+  logger.info({ count: users.length }, `📋 Found ${users.length} active users`);
+
+  let processedCount = 0;
+
+  // Process each user in a transaction (all-or-nothing!)
+  const transaction = db.transaction(() => {
+    for (const user of users) {
+      try {
+        // Get year-end balance from previous year
+        const carryoverHours = getYearEndOvertimeBalance(user.id, previousYear);
+
+        logger.info(
+          { userId: user.id, carryoverHours, previousYear },
+          `💼 User ${user.id}: ${carryoverHours > 0 ? '+' : ''}${carryoverHours.toFixed(2)}h carryover`
+        );
+
+        // Initialize new year with carryover
+        initializeOvertimeBalanceForNewYear(user.id, year, carryoverHours);
+
+        processedCount++;
+      } catch (error: unknown) {
+        logger.error(
+          { userId: user.id, error: error instanceof Error ? error.message : String(error) },
+          `❌ Failed to rollover overtime for user ${user.id}`
+        );
+        throw error; // Rollback transaction
+      }
+    }
+  });
+
+  // Execute transaction
+  transaction();
+
+  logger.info({ processedCount, year }, `✅✅✅ BULK ROLLOVER COMPLETED: ${processedCount} users processed`);
+
+  return processedCount;
 }
 
 /**

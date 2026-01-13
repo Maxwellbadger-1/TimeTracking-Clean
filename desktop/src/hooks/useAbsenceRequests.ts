@@ -153,7 +153,12 @@ export function useCreateAbsenceRequest() {
       return { previousRequests };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
+      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches (including filtered ones)
+      queryClient.invalidateQueries({
+        queryKey: ['absenceRequests'],
+        exact: false,
+        refetchType: 'all'
+      });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
 
       // Different message based on type
@@ -232,7 +237,12 @@ export function useApproveAbsenceRequest() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
+      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
+      queryClient.invalidateQueries({
+        queryKey: ['absenceRequests'],
+        exact: false,
+        refetchType: 'all'
+      });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
       queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
       toast.success('Abwesenheitsantrag genehmigt');
@@ -309,7 +319,12 @@ export function useRejectAbsenceRequest() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
+      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
+      queryClient.invalidateQueries({
+        queryKey: ['absenceRequests'],
+        exact: false,
+        refetchType: 'all'
+      });
       toast.success('Abwesenheitsantrag abgelehnt');
     },
     onError: (error: Error, variables, context) => {
@@ -375,7 +390,12 @@ export function useDeleteAbsenceRequest() {
     },
     onSuccess: () => {
       console.log('✅✅✅ useDeleteAbsenceRequest onSuccess called!');
-      queryClient.invalidateQueries({ queryKey: ['absenceRequests'] });
+      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
+      queryClient.invalidateQueries({
+        queryKey: ['absenceRequests'],
+        exact: false,
+        refetchType: 'all'
+      });
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
       toast.success('Abwesenheitsantrag gelöscht');
     },

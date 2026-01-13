@@ -53,7 +53,8 @@ type ReportType = 'monthly' | 'yearly';
 
 export function ReportsPage() {
   const { user: currentUser } = useAuthStore();
-  const { data: users } = useUsers();
+  const isAdmin = currentUser?.role === 'admin';
+  const { data: users } = useUsers(isAdmin);
 
   // Filter States
   const [reportType, setReportType] = useState<ReportType>('monthly');

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { Notification } from '../types';
 import { toast } from 'sonner';
@@ -65,7 +65,7 @@ export function useNotifications(userId: number, options: UseNotificationsOption
       };
     },
     enabled: !!userId,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 5000, // Refetch every 5 seconds (real-time for pending absence requests)
   });
 }
 
@@ -78,6 +78,41 @@ export function useUnreadNotifications(userId: number) {
     data: data?.rows || [],
     count: data?.pagination.total || 0,
   };
+}
+
+// Get infinite notifications with pagination
+export function useInfiniteNotifications(userId: number, unreadOnly = false) {
+  return useInfiniteQuery({
+    queryKey: ['notifications', userId, { unreadOnly, infinite: true }],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params = new URLSearchParams({
+        page: pageParam.toString(),
+        limit: '20',
+      });
+
+      if (unreadOnly) {
+        params.append('unreadOnly', 'true');
+      }
+
+      const response = await apiClient.get<NotificationResponse>(
+        `/notifications?${params}`
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch notifications');
+      }
+
+      return response.data || {
+        rows: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+      };
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
+    initialPageParam: 1,
+    enabled: !!userId,
+    refetchInterval: 5000, // Real-time updates
+  });
 }
 
 // Mark notification as read mutation
@@ -158,8 +193,12 @@ export function useMarkNotificationRead() {
     },
     onSettled: () => {
       console.log('🟡 [READ] onSettled: Invalidating queries for refetch');
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // CRITICAL FIX: Immediately refetch all notification queries
+      queryClient.invalidateQueries({
+        queryKey: ['notifications'],
+        exact: false,
+        refetchType: 'all'
+      });
     },
   });
 }
@@ -225,8 +264,12 @@ export function useMarkNotificationUnread() {
       toast.error('Fehler beim Markieren als ungelesen');
     },
     onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // CRITICAL FIX: Immediately refetch all notification queries
+      queryClient.invalidateQueries({
+        queryKey: ['notifications'],
+        exact: false,
+        refetchType: 'all'
+      });
     },
   });
 }
@@ -290,8 +333,12 @@ export function useMarkAllNotificationsRead() {
       toast.success('Alle Benachrichtigungen als gelesen markiert');
     },
     onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // CRITICAL FIX: Immediately refetch all notification queries
+      queryClient.invalidateQueries({
+        queryKey: ['notifications'],
+        exact: false,
+        refetchType: 'all'
+      });
     },
   });
 }
@@ -357,8 +404,12 @@ export function useDeleteNotification() {
       toast.error('Fehler beim Löschen der Benachrichtigung');
     },
     onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // CRITICAL FIX: Immediately refetch all notification queries
+      queryClient.invalidateQueries({
+        queryKey: ['notifications'],
+        exact: false,
+        refetchType: 'all'
+      });
     },
   });
 }

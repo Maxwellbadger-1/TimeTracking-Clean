@@ -38,6 +38,7 @@ interface TeamCalendarProps {
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
   isAdmin?: boolean; // Controls data visibility (employees see only approved absences)
+  currentUserId?: number; // Current user's ID for privacy filtering
 }
 
 export function TeamCalendar({
@@ -45,6 +46,7 @@ export function TeamCalendar({
   viewMode = 'team',
   onViewModeChange,
   isAdmin = false,
+  currentUserId,
 }: TeamCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -60,12 +62,26 @@ export function TeamCalendar({
     isAdmin ? undefined : { forTeamCalendar: true } // Special flag to use /team endpoint
   );
 
-  // For admin: Still filter to show all
-  // For employees: Already filtered by backend (/absences/team returns only approved)
+  // PRIVACY FILTERING (DSGVO-compliant)
+  // Admin: Show ALL absences (approved + pending) for all users (not rejected)
+  // Employee: Show approved absences from others + all own absences (approved/pending/sick)
   const filteredAbsences = useMemo(() => {
     if (!allAbsences) return [];
-    return allAbsences;
-  }, [allAbsences]);
+
+    if (isAdmin) {
+      // Admin: Show approved + pending (not rejected)
+      return allAbsences.filter(a => a.status !== 'rejected');
+    } else {
+      // Employee: Show approved from others + all own absences
+      return allAbsences.filter(a => {
+        const isOwnAbsence = a.userId === currentUserId;
+        const isApproved = a.status === 'approved';
+
+        // Show if: own absence (any status) OR approved absence from others
+        return isOwnAbsence || isApproved;
+      });
+    }
+  }, [allAbsences, isAdmin, currentUserId]);
 
   // Get all days of current month including buffer for full weeks
   const monthStart = startOfMonth(currentMonth);

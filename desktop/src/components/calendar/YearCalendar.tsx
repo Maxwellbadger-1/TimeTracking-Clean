@@ -120,9 +120,9 @@ export function YearCalendar({
   const [currentYear, setCurrentYear] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  // Admin: useUsers() für alle Mitarbeiter
-  // Employee: Nicht laden (403 Error!)
-  const { data: users } = isAdmin ? useUsers() : { data: [] };
+  // Admin: Load all users for selection
+  // Employee: Query disabled (prevents 403)
+  const { data: users } = useUsers(isAdmin);
   const usersList = users || [];
 
   // Get year boundaries
@@ -155,10 +155,17 @@ export function YearCalendar({
     return activeUsers;
   }, [usersList, selectedUserId, isAdmin, currentUserId, timeEntries]);
 
+  // PRIVACY FILTERING (DSGVO-compliant)
+  // Employee: Show ONLY own absences in Month/Week/Year calendars
+  // Admin: Show all absences
+  const filteredAbsences = isAdmin
+    ? absences
+    : absences.filter(a => a.userId === currentUserId);
+
   // Helper function to calculate data for a specific user
   const calculateUserData = (userId: number) => {
     const userEntries = timeEntries.filter(e => e.userId === userId);
-    const userAbsences = absences.filter(a => a.userId === userId);
+    const userAbsences = filteredAbsences.filter(a => a.userId === userId);
 
     // Calculate hours per day
     const hoursByDay = new Map<string, number>();

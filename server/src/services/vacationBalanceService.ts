@@ -388,11 +388,13 @@ export function bulkInitializeVacationBalances(year: number): number {
     );
 
     // Check previous year for carryover
+    // PROFESSIONAL STANDARD: Transfer ALL remaining vacation days (unlimited!)
+    // NO expiry date - vacation days remain valid indefinitely
     const previousYear = year - 1;
     const previousBalance = getVacationBalance(user.id, previousYear);
     const carryover =
       previousBalance && previousBalance.remaining > 0
-        ? Math.min(previousBalance.remaining, 5) // Max 5 days carryover
+        ? previousBalance.remaining // Transfer ALL days
         : 0;
 
     // Create balance

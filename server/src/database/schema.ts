@@ -228,6 +228,16 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // Migration: Add carryoverFromPreviousYear column if it doesn't exist (for year-end rollover)
+  try {
+    db.exec(`
+      ALTER TABLE overtime_balance ADD COLUMN carryoverFromPreviousYear REAL DEFAULT 0;
+    `);
+    logger.info('✅ Added carryoverFromPreviousYear column to overtime_balance table (Year-End Rollover)');
+  } catch (error) {
+    // Column already exists - ignore error
+  }
+
   // 5a. overtime_daily table (DAILY overtime tracking)
   db.exec(`
     CREATE TABLE IF NOT EXISTS overtime_daily (

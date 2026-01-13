@@ -32,6 +32,7 @@ type DateRangePreset = 'today' | 'this-week' | 'last-week' | 'this-month' | 'las
 
 export function TimeEntriesPage() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
 
   // Filter States (moved up for use in infinite query)
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('this-month');
@@ -43,7 +44,7 @@ export function TimeEntriesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Fetch users for employee filter (admin only)
-  const { data: users } = useUsers();
+  const { data: users } = useUsers(isAdmin);
 
   // Calculate date range based on preset (moved up for use in infinite query)
   const getDateRange = (): { start: string; end: string } => {

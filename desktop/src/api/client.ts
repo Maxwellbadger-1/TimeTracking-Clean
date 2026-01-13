@@ -140,8 +140,13 @@ class ApiClient {
           message: `❌ API Error: ${data.error || `HTTP ${response.status}`}`,
         });
 
-        // Show toast notification for errors (except 401 Unauthorized - handled by auth store)
-        if (response.status !== 401) {
+        // Show toast notification for errors (except special cases)
+        // SUPPRESS: 401 Unauthorized (handled by auth store)
+        // SUPPRESS: 403 on /users endpoint (employees calling admin-only endpoint is expected)
+        const is403OnUsers = response.status === 403 && endpoint === '/users';
+        const shouldShowToast = response.status !== 401 && !is403OnUsers;
+
+        if (shouldShowToast) {
           toast.error(data.error || `Server-Fehler: ${response.status}`, {
             description: 'Die Anfrage konnte nicht verarbeitet werden.',
           });

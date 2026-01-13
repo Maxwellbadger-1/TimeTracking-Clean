@@ -31,7 +31,8 @@ import { AbsenceRequestForm } from '../components/absences/AbsenceRequestForm';
 
 export function AbsencesPage() {
   const { user: currentUser } = useAuthStore();
-  const { data: users } = useUsers();
+  const isAdmin = currentUser?.role === 'admin';
+  const { data: users } = useUsers(isAdmin);
 
   // Fetch absence requests
   const { data: absenceRequests, isLoading } = useAbsenceRequests(

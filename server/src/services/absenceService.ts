@@ -599,12 +599,13 @@ export function updateAbsenceRequest(
 
 /**
  * Approve absence request
+ * AUTOMATICALLY deletes conflicting time entries during the absence period
  */
-export function approveAbsenceRequest(
+export async function approveAbsenceRequest(
   id: number,
   approvedBy: number,
   adminNote?: string
-): AbsenceRequest {
+): Promise<AbsenceRequest> {
   const request = getAbsenceRequestById(id);
   if (!request) {
     throw new Error('Absence request not found');
@@ -625,6 +626,29 @@ export function approveAbsenceRequest(
 
   // Update balances
   updateBalancesAfterApproval(id);
+
+  // AUTO-DELETE conflicting time entries (STRICT MODE)
+  // Import at runtime to avoid circular dependency
+  const { deleteTimeEntriesDuringAbsence } = await import('./timeEntryService.js');
+  const deleteResult = deleteTimeEntriesDuringAbsence(
+    request.userId,
+    request.startDate,
+    request.endDate,
+    approvedBy
+  );
+
+  // Send notification about deleted time entries (if any)
+  if (deleteResult.deletedCount > 0) {
+    const { notifyTimeEntriesDeletedDueToAbsence } = await import('./notificationService.js');
+    notifyTimeEntriesDeletedDueToAbsence(
+      request.userId,
+      request.type,
+      request.startDate,
+      request.endDate,
+      deleteResult.deletedCount,
+      deleteResult.totalHours
+    );
+  }
 
   // Return updated request
   const updated = getAbsenceRequestById(id);

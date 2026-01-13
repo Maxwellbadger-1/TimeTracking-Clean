@@ -67,12 +67,12 @@ export {
 export {
   useNotifications,
   useUnreadNotifications,
+  useInfiniteNotifications,
   useMarkNotificationRead,
   useMarkNotificationUnread,
   useMarkAllNotificationsRead,
   useDeleteNotification,
 } from './useNotifications';
-export { useInfiniteNotifications } from './useInfiniteNotifications';
 
 // Holidays
 export {

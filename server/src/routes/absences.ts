@@ -23,6 +23,7 @@ import {
   notifyAbsenceCancelled,
   notifyAbsenceRequested,
 } from '../services/notificationService.js';
+import { getUserById } from '../services/userService.js';
 import { logAudit } from '../services/auditService.js';
 import type { ApiResponse, AbsenceRequest } from '../types/index.js';
 
@@ -237,7 +238,12 @@ router.post(
 
       // Notify admins about new absence request (only if employee created it)
       if (!isAdmin || (isAdmin && data.userId && data.userId !== req.session.user!.id)) {
-        const employeeName = `${req.session.user!.firstName} ${req.session.user!.lastName}`;
+        // CRITICAL FIX: Get ACTUAL employee's name (not admin's name!)
+        const employee = getUserById(userId);
+        if (!employee) {
+          throw new Error('Employee not found for notification');
+        }
+        const employeeName = `${employee.firstName} ${employee.lastName}`;
         notifyAbsenceRequested(
           employeeName,
           request.type,
@@ -379,7 +385,7 @@ router.post(
   '/:id/approve',
   requireAuth,
   requireAdmin,
-  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+  async (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -393,8 +399,8 @@ router.post(
 
       const { adminNote } = req.body;
 
-      // Approve request
-      const request = approveAbsenceRequest(
+      // Approve request (async - may auto-delete conflicting time entries)
+      const request = await approveAbsenceRequest(
         id,
         req.session.user!.id,
         adminNote
