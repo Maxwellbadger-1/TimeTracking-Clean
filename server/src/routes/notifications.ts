@@ -63,13 +63,15 @@ router.get(
 
       res.json({
         success: true,
-        data: transformedRows,
-        pagination: {
-          page: result.page,
-          limit: result.limit,
-          total: result.total,
-          totalPages: result.totalPages,
-          hasMore: result.hasMore,
+        data: {
+          rows: transformedRows,
+          pagination: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            totalPages: result.totalPages,
+            hasMore: result.hasMore,
+          },
         },
       });
     } catch (error) {

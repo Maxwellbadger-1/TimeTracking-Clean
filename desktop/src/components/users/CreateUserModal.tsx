@@ -212,11 +212,12 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
           <Input
             name="email"
-            label="E-Mail"
-            type="email"
+            label="E-Mail (Optional)"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={emailError}
+            placeholder="beispiel@firma.de"
           />
         </div>
 
