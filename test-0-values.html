@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test 0-Werte Problem</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Test: 0 Wochenstunden Problem</h1>
+
+    <div class="test">
+        <h2>Test 1: parseFloat("0")</h2>
+        <pre id="test1"></pre>
+    </div>
+
+    <div class="test">
+        <h2>Test 2: Aktuelle Logik (VORHER)</h2>
+        <pre id="test2"></pre>
+    </div>
+
+    <div class="test">
+        <h2>Test 3: Neue Logik (NACHHER)</h2>
+        <pre id="test3"></pre>
+    </div>
+
+    <div class="test">
+        <h2>Test 4: Live-Test mit Backend</h2>
+        <button onclick="testBackend()">User mit 0h anlegen</button>
+        <pre id="test4">Klicke Button um zu testen...</pre>
+    </div>
+
+    <script>
+        // Test 1: parseFloat Behaviour
+        document.getElementById('test1').textContent =
+            `parseFloat("0") = ${parseFloat("0")}\n` +
+            `parseFloat("0") === 0 ? ${parseFloat("0") === 0}\n` +
+            `parseFloat("") = ${parseFloat("")}\n` +
+            `isNaN(parseFloat("")) = ${isNaN(parseFloat(""))}`;
+
+        // Test 2: OLD LOGIC
+        function oldLogic(weeklyHours) {
+            return weeklyHours !== '' ? parseFloat(weeklyHours) : 40;
+        }
+
+        document.getElementById('test2').textContent =
+            `oldLogic("0") = ${oldLogic("0")} (erwartet: 0)\n` +
+            `oldLogic("") = ${oldLogic("")} (erwartet: 40)\n` +
+            `oldLogic("40") = ${oldLogic("40")} (erwartet: 40)`;
+
+        // Test 3: NEW LOGIC
+        function newLogic(weeklyHours) {
+            return weeklyHours === '' ? 40 : parseFloat(weeklyHours) || 0;
+        }
+
+        document.getElementById('test3').textContent =
+            `newLogic("0") = ${newLogic("0")} (erwartet: 0) ${newLogic("0") === 0 ? '✅' : '❌'}\n` +
+            `newLogic("") = ${newLogic("")} (erwartet: 40) ${newLogic("") === 40 ? '✅' : '❌'}\n` +
+            `newLogic("40") = ${newLogic("40")} (erwartet: 40) ${newLogic("40") === 40 ? '✅' : '❌'}`;
+
+        // Test 4: Backend Test
+        async function testBackend() {
+            const output = document.getElementById('test4');
+            output.textContent = 'Testing...';
+
+            try {
+                // Login
+                const loginRes = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' }),
+                    credentials: 'include'
+                });
+
+                if (!loginRes.ok) {
+                    output.textContent = 'Login failed!';
+                    return;
+                }
+
+                // Create user with 0 hours
+                const createRes = await fetch('http://localhost:3000/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: 'test0h_' + Date.now(),
+                        password: 'test12345678',
+                        firstName: 'Test',
+                        lastName: 'Zero',
+                        email: '',
+                        role: 'employee',
+                        weeklyHours: 0,
+                        vacationDaysPerYear: 0,
+                        hireDate: '2026-01-09'
+                    }),
+                    credentials: 'include'
+                });
+
+                const result = await createRes.json();
+
+                output.textContent =
+                    `Status: ${createRes.status}\n` +
+                    `Success: ${result.success}\n` +
+                    `weeklyHours: ${result.data?.weeklyHours} (erwartet: 0)\n` +
+                    `vacationDays: ${result.data?.vacationDaysPerYear} (erwartet: 0)\n\n` +
+                    `${result.data?.weeklyHours === 0 ? '✅ PASS' : '❌ FAIL'}\n\n` +
+                    JSON.stringify(result, null, 2);
+
+            } catch (err) {
+                output.textContent = 'Error: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

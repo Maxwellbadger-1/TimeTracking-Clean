@@ -1,0 +1,502 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - img "Maxflow Software" [ref=e6]
+        - generic [ref=e7]:
+          - paragraph [ref=e8]: Powered by
+          - paragraph [ref=e9]: Maxflow Software
+      - generic [ref=e10]:
+        - button "Toggle theme" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - button "Benachrichtigungen" [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+        - button [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+    - generic [ref=e23]:
+      - complementary [ref=e24]:
+        - generic [ref=e25]:
+          - heading "TimeTracker" [level=1] [ref=e26]
+          - paragraph [ref=e27]: System Administrator
+          - paragraph [ref=e28]: Administrator
+        - navigation [ref=e29]:
+          - button "Dashboard" [ref=e30] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e37]: Dashboard
+          - button "Kalender" [ref=e38] [cursor=pointer]:
+            - img [ref=e40]
+            - generic [ref=e42]: Kalender
+          - button "Zeiterfassung" [ref=e43] [cursor=pointer]:
+            - img [ref=e45]
+            - generic [ref=e48]: Zeiterfassung
+          - button "Abwesenheiten" [ref=e49] [cursor=pointer]:
+            - img [ref=e51]
+            - generic [ref=e54]: Abwesenheiten
+          - button "Benachrichtigungen" [ref=e55] [cursor=pointer]:
+            - img [ref=e57]
+            - generic [ref=e60]: Benachrichtigungen
+          - button "Mitarbeiter" [ref=e61] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e68]: Mitarbeiter
+          - button "Urlaubskonten" [ref=e69] [cursor=pointer]:
+            - img [ref=e71]
+            - generic [ref=e75]: Urlaubskonten
+          - button "Überstunden" [ref=e76] [cursor=pointer]:
+            - img [ref=e78]
+            - generic [ref=e81]: Überstunden
+          - button "Berichte" [ref=e82] [cursor=pointer]:
+            - img [ref=e84]
+            - generic [ref=e87]: Berichte
+          - button "Backups" [ref=e88] [cursor=pointer]:
+            - img [ref=e90]
+            - generic [ref=e94]: Backups
+          - button "Einstellungen" [ref=e95] [cursor=pointer]:
+            - img [ref=e97]
+            - generic [ref=e100]: Einstellungen
+        - button "Abmelden" [ref=e102] [cursor=pointer]:
+          - img [ref=e103]
+          - text: Abmelden
+      - main [ref=e106]:
+        - main [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]:
+              - heading "Benutzerverwaltung" [level=1] [ref=e111]
+              - paragraph [ref=e112]: Mitarbeiter anlegen, bearbeiten und verwalten
+            - button "Neuer Benutzer" [ref=e113] [cursor=pointer]:
+              - img [ref=e114]
+              - text: Neuer Benutzer
+          - generic [ref=e117]:
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - paragraph [ref=e122]: Gesamt
+                - paragraph [ref=e123]: "24"
+              - img [ref=e125]
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - paragraph [ref=e134]: Admins
+                - paragraph [ref=e135]: "1"
+              - img [ref=e137]
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - paragraph [ref=e143]: Mitarbeiter
+                - paragraph [ref=e144]: "23"
+              - img [ref=e146]
+            - generic [ref=e152]:
+              - generic [ref=e153]:
+                - paragraph [ref=e154]: Aktiv
+                - paragraph [ref=e155]: "22"
+              - img [ref=e157]
+            - generic [ref=e163]:
+              - generic [ref=e164]:
+                - paragraph [ref=e165]: Inaktiv
+                - paragraph [ref=e166]: "2"
+              - img [ref=e168]
+          - generic [ref=e173]:
+            - heading "Suche & Filter" [level=3] [ref=e175]
+            - generic [ref=e177]:
+              - generic [ref=e179]:
+                - img [ref=e180]
+                - textbox "Name, E-Mail, Benutzername..." [ref=e184]
+              - combobox [ref=e186] [cursor=pointer]:
+                - option "Alle Rollen" [selected]
+                - option "Nur Admins"
+                - option "Nur Mitarbeiter"
+              - combobox [ref=e188] [cursor=pointer]:
+                - option "Nur Aktive" [selected]
+                - option "Alle (inkl. Archiv)"
+                - option "🗄️ Nur Archiv (Gelöscht)"
+              - combobox [ref=e190] [cursor=pointer]:
+                - option "Alle Abteilungen" [selected]
+                - option "IT"
+          - generic [ref=e191]:
+            - heading "Benutzer (22)" [level=3] [ref=e193]
+            - table [ref=e196]:
+              - rowgroup [ref=e197]:
+                - row "Name E-Mail Rolle Abteilung Mitarbeiter seit Status Stunden/Woche Aktionen" [ref=e198]:
+                  - columnheader "Name" [ref=e199]
+                  - columnheader "E-Mail" [ref=e200]
+                  - columnheader "Rolle" [ref=e201]
+                  - columnheader "Abteilung" [ref=e202]
+                  - columnheader "Mitarbeiter seit" [ref=e203]
+                  - columnheader "Status" [ref=e204]
+                  - columnheader "Stunden/Woche" [ref=e205]
+                  - columnheader "Aktionen" [ref=e206]
+              - rowgroup [ref=e207]:
+                - row "System Administrator @admin admin@timetracking.local Administrator IT 14.12.2025 Aktiv 40h Bearbeiten" [ref=e208]:
+                  - cell "System Administrator @admin" [ref=e209]:
+                    - generic [ref=e211]:
+                      - generic [ref=e212]: System Administrator
+                      - generic [ref=e213]: "@admin"
+                  - cell "admin@timetracking.local" [ref=e214]
+                  - cell "Administrator" [ref=e215]
+                  - cell "IT" [ref=e216]
+                  - cell "14.12.2025" [ref=e217]
+                  - cell "Aktiv" [ref=e218]
+                  - cell "40h" [ref=e219]
+                  - cell "Bearbeiten" [ref=e220]:
+                    - generic [ref=e221]:
+                      - button "Bearbeiten" [ref=e222] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e223] [cursor=pointer]:
+                        - img [ref=e224]
+                - row "Test Employee @test test@test.com Mitarbeiter - 01.07.2025 Aktiv 30h Bearbeiten Löschen" [ref=e228]:
+                  - cell "Test Employee @test" [ref=e229]:
+                    - generic [ref=e231]:
+                      - generic [ref=e232]: Test Employee
+                      - generic [ref=e233]: "@test"
+                  - cell "test@test.com" [ref=e234]
+                  - cell "Mitarbeiter" [ref=e235]
+                  - cell "-" [ref=e236]
+                  - cell "01.07.2025" [ref=e237]
+                  - cell "Aktiv" [ref=e238]
+                  - cell "30h" [ref=e239]
+                  - cell "Bearbeiten Löschen" [ref=e240]:
+                    - generic [ref=e241]:
+                      - button "Bearbeiten" [ref=e242] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e243] [cursor=pointer]:
+                        - img [ref=e244]
+                      - button "Löschen" [ref=e248] [cursor=pointer]
+                - row "Future Hire @future-hire futurehire@test.com Mitarbeiter - 08.02.2026 Aktiv 40h Bearbeiten Löschen" [ref=e249]:
+                  - cell "Future Hire @future-hire" [ref=e250]:
+                    - generic [ref=e252]:
+                      - generic [ref=e253]: Future Hire
+                      - generic [ref=e254]: "@future-hire"
+                  - cell "futurehire@test.com" [ref=e255]
+                  - cell "Mitarbeiter" [ref=e256]
+                  - cell "-" [ref=e257]
+                  - cell "08.02.2026" [ref=e258]
+                  - cell "Aktiv" [ref=e259]
+                  - cell "40h" [ref=e260]
+                  - cell "Bearbeiten Löschen" [ref=e261]:
+                    - generic [ref=e262]:
+                      - button "Bearbeiten" [ref=e263] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e264] [cursor=pointer]:
+                        - img [ref=e265]
+                      - button "Löschen" [ref=e269] [cursor=pointer]
+                - row "Zero Hours @zero-hours-user zero@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e270]:
+                  - cell "Zero Hours @zero-hours-user" [ref=e271]:
+                    - generic [ref=e273]:
+                      - generic [ref=e274]: Zero Hours
+                      - generic [ref=e275]: "@zero-hours-user"
+                  - cell "zero@test.com" [ref=e276]
+                  - cell "Mitarbeiter" [ref=e277]
+                  - cell "-" [ref=e278]
+                  - cell "08.01.2026" [ref=e279]
+                  - cell "Aktiv" [ref=e280]
+                  - cell "40h" [ref=e281]
+                  - cell "Bearbeiten Löschen" [ref=e282]:
+                    - generic [ref=e283]:
+                      - button "Bearbeiten" [ref=e284] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e285] [cursor=pointer]:
+                        - img [ref=e286]
+                      - button "Löschen" [ref=e290] [cursor=pointer]
+                - row "Decimal Hours @decimal-hours decimal@test.com Mitarbeiter - 08.01.2026 Aktiv 19h Bearbeiten Löschen" [ref=e291]:
+                  - cell "Decimal Hours @decimal-hours" [ref=e292]:
+                    - generic [ref=e294]:
+                      - generic [ref=e295]: Decimal Hours
+                      - generic [ref=e296]: "@decimal-hours"
+                  - cell "decimal@test.com" [ref=e297]
+                  - cell "Mitarbeiter" [ref=e298]
+                  - cell "-" [ref=e299]
+                  - cell "08.01.2026" [ref=e300]
+                  - cell "Aktiv" [ref=e301]
+                  - cell "19h" [ref=e302]
+                  - cell "Bearbeiten Löschen" [ref=e303]:
+                    - generic [ref=e304]:
+                      - button "Bearbeiten" [ref=e305] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e306] [cursor=pointer]:
+                        - img [ref=e307]
+                      - button "Löschen" [ref=e311] [cursor=pointer]
+                - row "Hans Müller @hans.mueller hans.mueller@test.de Mitarbeiter - 01.01.2025 Aktiv 30h Bearbeiten Löschen" [ref=e312]:
+                  - cell "Hans Müller @hans.mueller" [ref=e313]:
+                    - generic [ref=e315]:
+                      - generic [ref=e316]: Hans Müller
+                      - generic [ref=e317]: "@hans.mueller"
+                  - cell "hans.mueller@test.de" [ref=e318]
+                  - cell "Mitarbeiter" [ref=e319]
+                  - cell "-" [ref=e320]
+                  - cell "01.01.2025" [ref=e321]
+                  - cell "Aktiv" [ref=e322]
+                  - cell "30h" [ref=e323]
+                  - cell "Bearbeiten Löschen" [ref=e324]:
+                    - generic [ref=e325]:
+                      - button "Bearbeiten" [ref=e326] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e327] [cursor=pointer]:
+                        - img [ref=e328]
+                      - button "Löschen" [ref=e332] [cursor=pointer]
+                - row "Edit NoEmail @edit-no-email Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e333]:
+                  - cell "Edit NoEmail @edit-no-email" [ref=e334]:
+                    - generic [ref=e336]:
+                      - generic [ref=e337]: Edit NoEmail
+                      - generic [ref=e338]: "@edit-no-email"
+                  - cell [ref=e339]
+                  - cell "Mitarbeiter" [ref=e340]
+                  - cell "-" [ref=e341]
+                  - cell "08.01.2026" [ref=e342]
+                  - cell "Aktiv" [ref=e343]
+                  - cell "40h" [ref=e344]
+                  - cell "Bearbeiten Löschen" [ref=e345]:
+                    - generic [ref=e346]:
+                      - button "Bearbeiten" [ref=e347] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e348] [cursor=pointer]:
+                        - img [ref=e349]
+                      - button "Löschen" [ref=e353] [cursor=pointer]
+                - row "Müller O'Brien-Özdemir @special-chars special@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e354]:
+                  - cell "Müller O'Brien-Özdemir @special-chars" [ref=e355]:
+                    - generic [ref=e357]:
+                      - generic [ref=e358]: Müller O'Brien-Özdemir
+                      - generic [ref=e359]: "@special-chars"
+                  - cell "special@test.com" [ref=e360]
+                  - cell "Mitarbeiter" [ref=e361]
+                  - cell "-" [ref=e362]
+                  - cell "08.01.2026" [ref=e363]
+                  - cell "Aktiv" [ref=e364]
+                  - cell "40h" [ref=e365]
+                  - cell "Bearbeiten Löschen" [ref=e366]:
+                    - generic [ref=e367]:
+                      - button "Bearbeiten" [ref=e368] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e369] [cursor=pointer]:
+                        - img [ref=e370]
+                      - button "Löschen" [ref=e374] [cursor=pointer]
+                - row "test test @testtest Mitarbeiter - 25.12.2025 Aktiv 40h Bearbeiten Löschen" [ref=e375]:
+                  - cell "test test @testtest" [ref=e376]:
+                    - generic [ref=e378]:
+                      - generic [ref=e379]: test test
+                      - generic [ref=e380]: "@testtest"
+                  - cell [ref=e381]
+                  - cell "Mitarbeiter" [ref=e382]
+                  - cell "-" [ref=e383]
+                  - cell "25.12.2025" [ref=e384]
+                  - cell "Aktiv" [ref=e385]
+                  - cell "40h" [ref=e386]
+                  - cell "Bearbeiten Löschen" [ref=e387]:
+                    - generic [ref=e388]:
+                      - button "Bearbeiten" [ref=e389] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e390] [cursor=pointer]:
+                        - img [ref=e391]
+                      - button "Löschen" [ref=e395] [cursor=pointer]
+                - row "Test Test @Test2 Mitarbeiter - 07.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e396]:
+                  - cell "Test Test @Test2" [ref=e397]:
+                    - generic [ref=e399]:
+                      - generic [ref=e400]: Test Test
+                      - generic [ref=e401]: "@Test2"
+                  - cell [ref=e402]
+                  - cell "Mitarbeiter" [ref=e403]
+                  - cell "-" [ref=e404]
+                  - cell "07.01.2026" [ref=e405]
+                  - cell "Aktiv" [ref=e406]
+                  - cell "40h" [ref=e407]
+                  - cell "Bearbeiten Löschen" [ref=e408]:
+                    - generic [ref=e409]:
+                      - button "Bearbeiten" [ref=e410] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e411] [cursor=pointer]:
+                        - img [ref=e412]
+                      - button "Löschen" [ref=e416] [cursor=pointer]
+                - row "Test Test @Test Mitarbeiter - 07.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e417]:
+                  - cell "Test Test @Test" [ref=e418]:
+                    - generic [ref=e420]:
+                      - generic [ref=e421]: Test Test
+                      - generic [ref=e422]: "@Test"
+                  - cell [ref=e423]
+                  - cell "Mitarbeiter" [ref=e424]
+                  - cell "-" [ref=e425]
+                  - cell "07.01.2026" [ref=e426]
+                  - cell "Aktiv" [ref=e427]
+                  - cell "40h" [ref=e428]
+                  - cell "Bearbeiten Löschen" [ref=e429]:
+                    - generic [ref=e430]:
+                      - button "Bearbeiten" [ref=e431] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e432] [cursor=pointer]:
+                        - img [ref=e433]
+                      - button "Löschen" [ref=e437] [cursor=pointer]
+                - row "SwitchSchedule User @switch-schedule switch@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e438]:
+                  - cell "SwitchSchedule User @switch-schedule" [ref=e439]:
+                    - generic [ref=e441]:
+                      - generic [ref=e442]: SwitchSchedule User
+                      - generic [ref=e443]: "@switch-schedule"
+                  - cell "switch@test.com" [ref=e444]
+                  - cell "Mitarbeiter" [ref=e445]
+                  - cell "-" [ref=e446]
+                  - cell "08.01.2026" [ref=e447]
+                  - cell "Aktiv" [ref=e448]
+                  - cell "40h" [ref=e449]
+                  - cell "Bearbeiten Löschen" [ref=e450]:
+                    - generic [ref=e451]:
+                      - button "Bearbeiten" [ref=e452] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e453] [cursor=pointer]:
+                        - img [ref=e454]
+                      - button "Löschen" [ref=e458] [cursor=pointer]
+                - row "ChangeToZero User @change-to-zero changezero@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e459]:
+                  - cell "ChangeToZero User @change-to-zero" [ref=e460]:
+                    - generic [ref=e462]:
+                      - generic [ref=e463]: ChangeToZero User
+                      - generic [ref=e464]: "@change-to-zero"
+                  - cell "changezero@test.com" [ref=e465]
+                  - cell "Mitarbeiter" [ref=e466]
+                  - cell "-" [ref=e467]
+                  - cell "08.01.2026" [ref=e468]
+                  - cell "Aktiv" [ref=e469]
+                  - cell "40h" [ref=e470]
+                  - cell "Bearbeiten Löschen" [ref=e471]:
+                    - generic [ref=e472]:
+                      - button "Bearbeiten" [ref=e473] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e474] [cursor=pointer]:
+                        - img [ref=e475]
+                      - button "Löschen" [ref=e479] [cursor=pointer]
+                - row "RemoveEmail User @remove-email-user remove@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e480]:
+                  - cell "RemoveEmail User @remove-email-user" [ref=e481]:
+                    - generic [ref=e483]:
+                      - generic [ref=e484]: RemoveEmail User
+                      - generic [ref=e485]: "@remove-email-user"
+                  - cell "remove@test.com" [ref=e486]
+                  - cell "Mitarbeiter" [ref=e487]
+                  - cell "-" [ref=e488]
+                  - cell "08.01.2026" [ref=e489]
+                  - cell "Aktiv" [ref=e490]
+                  - cell "40h" [ref=e491]
+                  - cell "Bearbeiten Löschen" [ref=e492]:
+                    - generic [ref=e493]:
+                      - button "Bearbeiten" [ref=e494] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e495] [cursor=pointer]:
+                        - img [ref=e496]
+                      - button "Löschen" [ref=e500] [cursor=pointer]
+                - row "First User @duplicate-test first@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e501]:
+                  - cell "First User @duplicate-test" [ref=e502]:
+                    - generic [ref=e504]:
+                      - generic [ref=e505]: First User
+                      - generic [ref=e506]: "@duplicate-test"
+                  - cell "first@test.com" [ref=e507]
+                  - cell "Mitarbeiter" [ref=e508]
+                  - cell "-" [ref=e509]
+                  - cell "08.01.2026" [ref=e510]
+                  - cell "Aktiv" [ref=e511]
+                  - cell "40h" [ref=e512]
+                  - cell "Bearbeiten Löschen" [ref=e513]:
+                    - generic [ref=e514]:
+                      - button "Bearbeiten" [ref=e515] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e516] [cursor=pointer]:
+                        - img [ref=e517]
+                      - button "Löschen" [ref=e521] [cursor=pointer]
+                - row "PartTime User @parttime-user parttime@test.com Mitarbeiter - 08.01.2026 Aktiv 20h Bearbeiten Löschen" [ref=e522]:
+                  - cell "PartTime User @parttime-user" [ref=e523]:
+                    - generic [ref=e525]:
+                      - generic [ref=e526]: PartTime User
+                      - generic [ref=e527]: "@parttime-user"
+                  - cell "parttime@test.com" [ref=e528]
+                  - cell "Mitarbeiter" [ref=e529]
+                  - cell "-" [ref=e530]
+                  - cell "08.01.2026" [ref=e531]
+                  - cell "Aktiv" [ref=e532]
+                  - cell "20h" [ref=e533]
+                  - cell "Bearbeiten Löschen" [ref=e534]:
+                    - generic [ref=e535]:
+                      - button "Bearbeiten" [ref=e536] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e537] [cursor=pointer]:
+                        - img [ref=e538]
+                      - button "Löschen" [ref=e542] [cursor=pointer]
+                - row "NoEmail2 User @no-email-2 Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e543]:
+                  - cell "NoEmail2 User @no-email-2" [ref=e544]:
+                    - generic [ref=e546]:
+                      - generic [ref=e547]: NoEmail2 User
+                      - generic [ref=e548]: "@no-email-2"
+                  - cell [ref=e549]
+                  - cell "Mitarbeiter" [ref=e550]
+                  - cell "-" [ref=e551]
+                  - cell "08.01.2026" [ref=e552]
+                  - cell "Aktiv" [ref=e553]
+                  - cell "40h" [ref=e554]
+                  - cell "Bearbeiten Löschen" [ref=e555]:
+                    - generic [ref=e556]:
+                      - button "Bearbeiten" [ref=e557] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e558] [cursor=pointer]:
+                        - img [ref=e559]
+                      - button "Löschen" [ref=e563] [cursor=pointer]
+                - row "NoEmail1 User @no-email-1 Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e564]:
+                  - cell "NoEmail1 User @no-email-1" [ref=e565]:
+                    - generic [ref=e567]:
+                      - generic [ref=e568]: NoEmail1 User
+                      - generic [ref=e569]: "@no-email-1"
+                  - cell [ref=e570]
+                  - cell "Mitarbeiter" [ref=e571]
+                  - cell "-" [ref=e572]
+                  - cell "08.01.2026" [ref=e573]
+                  - cell "Aktiv" [ref=e574]
+                  - cell "40h" [ref=e575]
+                  - cell "Bearbeiten Löschen" [ref=e576]:
+                    - generic [ref=e577]:
+                      - button "Bearbeiten" [ref=e578] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e579] [cursor=pointer]:
+                        - img [ref=e580]
+                      - button "Löschen" [ref=e584] [cursor=pointer]
+                - row "NoEmail User @no-email-user Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e585]:
+                  - cell "NoEmail User @no-email-user" [ref=e586]:
+                    - generic [ref=e588]:
+                      - generic [ref=e589]: NoEmail User
+                      - generic [ref=e590]: "@no-email-user"
+                  - cell [ref=e591]
+                  - cell "Mitarbeiter" [ref=e592]
+                  - cell "-" [ref=e593]
+                  - cell "08.01.2026" [ref=e594]
+                  - cell "Aktiv" [ref=e595]
+                  - cell "40h" [ref=e596]
+                  - cell "Bearbeiten Löschen" [ref=e597]:
+                    - generic [ref=e598]:
+                      - button "Bearbeiten" [ref=e599] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e600] [cursor=pointer]:
+                        - img [ref=e601]
+                      - button "Löschen" [ref=e605] [cursor=pointer]
+                - row "MaxValues User @max-values-user maxvalues@test.com Mitarbeiter - 08.01.2026 Aktiv 60h Bearbeiten Löschen" [ref=e606]:
+                  - cell "MaxValues User @max-values-user" [ref=e607]:
+                    - generic [ref=e609]:
+                      - generic [ref=e610]: MaxValues User
+                      - generic [ref=e611]: "@max-values-user"
+                  - cell "maxvalues@test.com" [ref=e612]
+                  - cell "Mitarbeiter" [ref=e613]
+                  - cell "-" [ref=e614]
+                  - cell "08.01.2026" [ref=e615]
+                  - cell "Aktiv" [ref=e616]
+                  - cell "60h" [ref=e617]
+                  - cell "Bearbeiten Löschen" [ref=e618]:
+                    - generic [ref=e619]:
+                      - button "Bearbeiten" [ref=e620] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e621] [cursor=pointer]:
+                        - img [ref=e622]
+                      - button "Löschen" [ref=e626] [cursor=pointer]
+                - row "Normal User @normal-user normal@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e627]:
+                  - cell "Normal User @normal-user" [ref=e628]:
+                    - generic [ref=e630]:
+                      - generic [ref=e631]: Normal User
+                      - generic [ref=e632]: "@normal-user"
+                  - cell "normal@test.com" [ref=e633]
+                  - cell "Mitarbeiter" [ref=e634]
+                  - cell "-" [ref=e635]
+                  - cell "08.01.2026" [ref=e636]
+                  - cell "Aktiv" [ref=e637]
+                  - cell "40h" [ref=e638]
+                  - cell "Bearbeiten Löschen" [ref=e639]:
+                    - generic [ref=e640]:
+                      - button "Bearbeiten" [ref=e641] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e642] [cursor=pointer]:
+                        - img [ref=e643]
+                      - button "Löschen" [ref=e647] [cursor=pointer]
+                - row "Alexander-Maximilian-Sebastian von-der-Schulenburg-Wolfsburg @longname-user longname@test.com Mitarbeiter - 08.01.2026 Aktiv 40h Bearbeiten Löschen" [ref=e648]:
+                  - cell "Alexander-Maximilian-Sebastian von-der-Schulenburg-Wolfsburg @longname-user" [ref=e649]:
+                    - generic [ref=e651]:
+                      - generic [ref=e652]: Alexander-Maximilian-Sebastian von-der-Schulenburg-Wolfsburg
+                      - generic [ref=e653]: "@longname-user"
+                  - cell "longname@test.com" [ref=e654]
+                  - cell "Mitarbeiter" [ref=e655]
+                  - cell "-" [ref=e656]
+                  - cell "08.01.2026" [ref=e657]
+                  - cell "Aktiv" [ref=e658]
+                  - cell "40h" [ref=e659]
+                  - cell "Bearbeiten Löschen" [ref=e660]:
+                    - generic [ref=e661]:
+                      - button "Bearbeiten" [ref=e662] [cursor=pointer]
+                      - button "Passwort zurücksetzen" [ref=e663] [cursor=pointer]:
+                        - img [ref=e664]
+                      - button "Löschen" [ref=e668] [cursor=pointer]
+  - region "Notifications alt+T"
+```

@@ -16,6 +16,8 @@ import db from '../database/connection.js';
 import type { User, TimeEntry, AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { format } from 'date-fns';
+import { getDailyTargetHours } from '../utils/workingDays.js';
+import { getUserById } from './userService.js';
 
 /**
  * DATEV CSV Export
@@ -63,7 +65,12 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
     logger.debug({ userCount: users.length }, 'Users loaded');
 
     for (const user of users) {
-      const dailyTargetHours = user.weeklyHours / 5;
+      // Get full user object with workSchedule for accurate daily target hours
+      const fullUser = getUserById(user.id);
+      if (!fullUser) {
+        logger.warn({ userId: user.id }, '⚠️ User not found, skipping');
+        continue;
+      }
 
       // Get time entries for this user in date range
       const timeEntries = db.prepare(`
@@ -86,6 +93,9 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
 
       // Add time entries
       for (const entry of timeEntries) {
+        // CRITICAL: Use getDailyTargetHours() to respect individual work schedules
+        // For part-time employees with unequal distribution (Mo 8h, Fr 2h), this gives correct daily target
+        const dailyTargetHours = getDailyTargetHours(fullUser, entry.date);
         const overtime = entry.hours - dailyTargetHours;
 
         rows.push([

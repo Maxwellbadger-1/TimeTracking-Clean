@@ -222,10 +222,23 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
 
         {/* Preview */}
         {previewHours > 0 && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm text-blue-900 dark:text-blue-200">
+          <div className={`p-3 rounded-lg ${
+            previewHours > 24
+              ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20'
+          }`}>
+            <p className={`text-sm ${
+              previewHours > 24
+                ? 'text-red-900 dark:text-red-200'
+                : 'text-blue-900 dark:text-blue-200'
+            }`}>
               <strong>Arbeitszeit:</strong> {formatHours(previewHours)}
             </p>
+            {previewHours > 24 && (
+              <p className="text-xs text-red-800 dark:text-red-300 mt-1">
+                ⚠️ Achtung: Maximale Arbeitszeit pro Tag ist 24 Stunden!
+              </p>
+            )}
           </div>
         )}
 

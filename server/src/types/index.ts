@@ -1,3 +1,16 @@
+// Work Schedule Types (Flexible Arbeitszeitmodelle)
+export interface WorkSchedule {
+  monday: number;    // Hours for Monday (0-24)
+  tuesday: number;   // Hours for Tuesday (0-24)
+  wednesday: number; // Hours for Wednesday (0-24)
+  thursday: number;  // Hours for Thursday (0-24)
+  friday: number;    // Hours for Friday (0-24)
+  saturday: number;  // Hours for Saturday (0-24)
+  sunday: number;    // Hours for Sunday (0-24)
+}
+
+export type DayName = keyof WorkSchedule;
+
 // User Types
 export interface User {
   id: number;
@@ -9,6 +22,7 @@ export interface User {
   role: 'admin' | 'employee';
   department: string | null;
   weeklyHours: number;
+  workSchedule: WorkSchedule | null; // NULL = use weeklyHours/5 fallback
   vacationDaysPerYear: number;
   hireDate: string;
   endDate: string | null;
@@ -28,6 +42,7 @@ export interface UserCreateInput {
   role: 'admin' | 'employee';
   department?: string;
   weeklyHours?: number;
+  workSchedule?: WorkSchedule | null; // Optional: Individual work schedule
   vacationDaysPerYear?: number;
   hireDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD (optional)
@@ -43,6 +58,7 @@ export interface UserPublic {
   role: 'admin' | 'employee';
   department: string | null;
   weeklyHours: number;
+  workSchedule: WorkSchedule | null; // NULL = use weeklyHours/5 fallback
   vacationDaysPerYear: number;
   hireDate: string;
   endDate: string | null;

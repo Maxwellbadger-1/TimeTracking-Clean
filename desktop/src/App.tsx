@@ -27,6 +27,8 @@ import { useDesktopNotifications } from './hooks/useDesktopNotifications';
 import { useAutoUpdater } from './hooks/useAutoUpdater';
 import { SplashScreen } from './components/SplashScreen';
 import { UpdateNotification } from './components/ui/UpdateNotification';
+import { OfflineBanner } from './components/ui/OfflineBanner';
+import { ConnectionStatusIndicator } from './components/ui/ConnectionStatusIndicator';
 import maxflowLogo from './assets/maxflow-logo.png';
 
 export default function App() {
@@ -112,6 +114,9 @@ export default function App() {
   // Main App with Sidebar + Content Area
   return (
     <>
+      {/* Offline Banner (appears above everything when offline/server unreachable) */}
+      <OfflineBanner />
+
       {/* Update Notification Banner (appears above everything when update available) */}
       {updater.available && updater.update && (
         <UpdateNotification
@@ -143,6 +148,7 @@ export default function App() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            <ConnectionStatusIndicator />
             <ThemeToggle />
             <NotificationBell />
             <Button variant="ghost" size="sm" onClick={logout}>

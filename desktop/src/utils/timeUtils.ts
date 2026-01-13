@@ -1,4 +1,4 @@
-import type { TimeEntry } from '../types';
+import type { TimeEntry, WorkSchedule, DayName } from '../types';
 
 /**
  * Calculate hours from start time, end time, and break minutes
@@ -203,4 +203,122 @@ export function calculateExpectedHours(
   }
 
   return businessDays * dailyHours;
+}
+
+/**
+ * Calculate absence hours based on user's individual work schedule
+ * If user has workSchedule, use actual hours for each day
+ * Otherwise fall back to weeklyHours / 5
+ *
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
+ * @param workSchedule - User's work schedule (optional)
+ * @param weeklyHours - User's weekly hours (fallback if no workSchedule)
+ * @returns Total hours for the absence period
+ *
+ * @example
+ * // User with workSchedule: Mo=8h, Tu=0h, We=6h, Th=8h, Fr=8h
+ * calculateAbsenceHoursWithWorkSchedule('2025-01-13', '2025-01-15', workSchedule, 30)
+ * // Mo=8h, Tu=0h, We=6h → 14h (not 24h!)
+ */
+export function calculateAbsenceHoursWithWorkSchedule(
+  startDate: string,
+  endDate: string,
+  workSchedule: WorkSchedule | null | undefined,
+  weeklyHours: number
+): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const dayNames: DayName[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  let totalHours = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    const dayName = dayNames[dayOfWeek];
+
+    // Skip weekends (unless workSchedule specifies hours)
+    if (workSchedule) {
+      // Use individual work schedule
+      totalHours += workSchedule[dayName] || 0;
+    } else {
+      // Fallback: weeklyHours / 5 for Mo-Fr, 0 for Sa-Su
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        totalHours += weeklyHours / 5;
+      }
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return Math.round(totalHours * 100) / 100;
+}
+
+/**
+ * Count working days based on user's individual work schedule
+ *
+ * Best Practice (Personio, DATEV, SAP):
+ * - Days with 0 hours do NOT count as working days
+ * - Only days with hours > 0 count as working days
+ *
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
+ * @param workSchedule - User's work schedule (optional)
+ * @param weeklyHours - User's weekly hours (fallback if no workSchedule)
+ * @returns Number of working days (not hours!)
+ *
+ * @example
+ * // User with workSchedule: Mo=8h, Tu=0h, We=6h, Th=8h, Fr=8h
+ * // Date range: Mo 13.01. - Fr 17.01.2025 (5 calendar days)
+ * countWorkingDaysForUser('2025-01-13', '2025-01-17', workSchedule, 30)
+ * // → 4 working days (Tu is NOT counted because 0h)
+ *
+ * @example
+ * // User WITHOUT workSchedule, 40h week
+ * // Date range: Mo 13.01. - Fr 17.01.2025 (5 calendar days)
+ * countWorkingDaysForUser('2025-01-13', '2025-01-17', null, 40)
+ * // → 5 working days (standard Mo-Fr counting)
+ */
+export function countWorkingDaysForUser(
+  startDate: string,
+  endDate: string,
+  workSchedule: WorkSchedule | null | undefined,
+  weeklyHours: number
+): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const dayNames: DayName[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  let workingDays = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    const dayName = dayNames[dayOfWeek];
+
+    if (workSchedule) {
+      // Use individual work schedule - only count days with hours > 0
+      const hoursForDay = workSchedule[dayName] || 0;
+      if (hoursForDay > 0) {
+        workingDays++;
+      }
+      // Days with 0 hours do NOT count as working days!
+    } else {
+      // Fallback: Standard Mo-Fr counting (exclude weekends)
+      // SPECIAL CASE: weeklyHours=0 → 0 working days
+      if (weeklyHours > 0) {
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        if (!isWeekend) {
+          workingDays++;
+        }
+      }
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return workingDays;
 }

@@ -4,9 +4,10 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { WorkScheduleEditor } from './WorkScheduleEditor';
 import { useUpdateUser } from '../../hooks';
 import { isValidEmail, getTodayDate } from '../../utils';
-import type { User } from '../../types';
+import type { User, WorkSchedule } from '../../types';
 
 interface EditUserModalProps {
   isOpen: boolean;
@@ -18,12 +19,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const updateUser = useUpdateUser();
 
   // Form state - Initialize with user data
-  const [email, setEmail] = useState(user.email);
+  const [email, setEmail] = useState(user.email || ''); // Handle NULL email
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
   const [role, setRole] = useState<'admin' | 'employee'>(user.role);
-  const [weeklyHours, setWeeklyHours] = useState(String(user.weeklyHours || 40));
-  const [vacationDays, setVacationDays] = useState(String(user.vacationDaysPerYear || 30));
+  const [weeklyHours, setWeeklyHours] = useState(String(user.weeklyHours ?? 40));
+  const [workSchedule, setWorkSchedule] = useState<WorkSchedule | null>(user.workSchedule || null);
+  const [vacationDays, setVacationDays] = useState(String(user.vacationDaysPerYear ?? 30));
   const [department, setDepartment] = useState(user.department || '');
   const [position, setPosition] = useState(user.position || '');
   const [isActive, setIsActive] = useState(user.isActive);
@@ -37,12 +39,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
   // Update form when user changes
   useEffect(() => {
-    setEmail(user.email);
+    setEmail(user.email || ''); // Handle NULL email
     setFirstName(user.firstName);
     setLastName(user.lastName);
     setRole(user.role);
-    setWeeklyHours(String(user.weeklyHours || 40));
-    setVacationDays(String(user.vacationDaysPerYear || 30));
+    setWeeklyHours(String(user.weeklyHours ?? 40));
+    setWorkSchedule(user.workSchedule || null);
+    setVacationDays(String(user.vacationDaysPerYear ?? 30));
     setDepartment(user.department || '');
     setPosition(user.position || '');
     setIsActive(user.isActive);
@@ -59,7 +62,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setLastNameError('');
 
     // Validate email (OPTIONAL - only validate if provided)
-    if (email.trim() && !isValidEmail(email)) {
+    if (email && email.trim() && !isValidEmail(email)) {
       setEmailError('Ungültige E-Mail-Adresse');
       isValid = false;
     }
@@ -103,12 +106,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     console.log('endDate state:', endDate);
 
     const updateData = {
-      email: email.trim(),
+      email: email && email.trim() !== '' ? email.trim() : undefined, // Convert empty string to undefined
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       role,
-      weeklyHours: parseInt(weeklyHours) || 40,
-      vacationDaysPerYear: parseInt(vacationDays) || 30,
+      weeklyHours: weeklyHours === '' ? 40 : parseFloat(weeklyHours) || 0, // Explicit: empty = 40, else parse (0 is valid!)
+      workSchedule: workSchedule !== null ? workSchedule : null, // Explicitly send NULL to clear workSchedule
+      vacationDaysPerYear: vacationDays === '' ? 30 : parseInt(vacationDays) || 0, // Explicit: empty = 30, else parse (0 is valid!)
       department: department.trim() || undefined,
       position: position.trim() || undefined,
       isActive,
@@ -133,12 +137,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
   const handleClose = () => {
     // Reset to original values
-    setEmail(user.email);
+    setEmail(user.email || ''); // Handle NULL email
     setFirstName(user.firstName);
     setLastName(user.lastName);
     setRole(user.role);
-    setWeeklyHours(String(user.weeklyHours || 40));
-    setVacationDays(String(user.vacationDaysPerYear || 30));
+    setWeeklyHours(String(user.weeklyHours ?? 40));
+    setWorkSchedule(user.workSchedule || null);
+    setVacationDays(String(user.vacationDaysPerYear ?? 30));
     setDepartment(user.department || '');
     setPosition(user.position || '');
     setHireDate(user.hireDate || getTodayDate());
@@ -173,6 +178,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
           </div>
 
           <Input
+            name="email"
             label="E-Mail"
             type="email"
             value={email}
@@ -189,6 +195,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <Input
+              name="firstName"
               label="Vorname"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -196,6 +203,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               required
             />
             <Input
+              name="lastName"
               label="Nachname"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -238,16 +246,19 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               required
             />
             <Input
+              name="weeklyHours"
               label="Wochenstunden"
               type="number"
-              min="1"
+              min="0"
               max="60"
               step="0.5"
               value={weeklyHours}
               onChange={(e) => setWeeklyHours(e.target.value)}
               required
+              helperText="0h = Aushilfe (alle Stunden = Überstunden)"
             />
             <Input
+              name="vacationDays"
               label="Urlaubstage/Jahr"
               type="number"
               min="0"
@@ -258,8 +269,16 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             />
           </div>
 
+          {/* Individual Work Schedule */}
+          <WorkScheduleEditor
+            value={workSchedule}
+            weeklyHours={weeklyHours === '' ? 40 : (parseFloat(weeklyHours) || 0)}
+            onChange={setWorkSchedule}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <Input
+              name="hireDate"
               label="Eintrittsdatum"
               type="date"
               value={hireDate}
@@ -268,6 +287,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               helperText="Ab diesem Datum werden Arbeitsstunden erfasst (zukünftige Daten erlaubt)"
             />
             <Input
+              name="endDate"
               label="Austrittsdatum (optional)"
               type="date"
               value={endDate}

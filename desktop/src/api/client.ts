@@ -1,6 +1,7 @@
 // API Client for communicating with backend server
 import { universalFetch } from '../lib/tauriHttpClient';
 import { debugLog } from '../components/DebugPanel';
+import { toast } from 'sonner';
 
 // DEVELOPMENT: Use localhost
 // PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
@@ -139,6 +140,13 @@ class ApiClient {
           message: `❌ API Error: ${data.error || `HTTP ${response.status}`}`,
         });
 
+        // Show toast notification for errors (except 401 Unauthorized - handled by auth store)
+        if (response.status !== 401) {
+          toast.error(data.error || `Server-Fehler: ${response.status}`, {
+            description: 'Die Anfrage konnte nicht verarbeitet werden.',
+          });
+        }
+
         return {
           success: false,
           error: data.error || `HTTP error! status: ${response.status}`,
@@ -155,6 +163,12 @@ class ApiClient {
         url: url,
         message: `💥 Network Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         data: { error: error instanceof Error ? error.toString() : 'Unknown error' },
+      });
+
+      // Show toast notification for network errors
+      const errorMessage = error instanceof Error ? error.message : 'Netzwerkfehler';
+      toast.error('Verbindungsfehler', {
+        description: `${errorMessage}. Bitte überprüfen Sie Ihre Verbindung.`,
       });
 
       return {

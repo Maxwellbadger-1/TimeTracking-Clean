@@ -224,15 +224,32 @@ export function EditTimeEntryModal({ isOpen, onClose, entry }: EditTimeEntryModa
 
         {/* Hours Preview */}
         {hoursPreview !== null && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className={`rounded-lg p-4 ${
+            hoursPreview > 24
+              ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <span className={`text-sm font-medium ${
+                hoursPreview > 24
+                  ? 'text-red-900 dark:text-red-100'
+                  : 'text-blue-900 dark:text-blue-100'
+              }`}>
                 Arbeitsstunden:
               </span>
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <span className={`text-xl font-bold ${
+                hoursPreview > 24
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-blue-600 dark:text-blue-400'
+              }`}>
                 {formatHours(hoursPreview)}
               </span>
             </div>
+            {hoursPreview > 24 && (
+              <p className="text-xs text-red-800 dark:text-red-300 mt-2">
+                ⚠️ Achtung: Maximale Arbeitszeit pro Tag ist 24 Stunden!
+              </p>
+            )}
           </div>
         )}
 

@@ -91,3 +91,7 @@ export {
 // Auto-Updater
 export { useAutoUpdater } from './useAutoUpdater';
 export type { UpdateState } from './useAutoUpdater';
+
+// Connection Status
+export { useConnectionStatus } from './useConnectionStatus';
+export type { ConnectionStatus, ConnectionState } from './useConnectionStatus';

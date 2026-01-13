@@ -119,10 +119,10 @@ export function validateTimeEntryData(
     return { valid: false, error: 'End time must be after start time' };
   }
 
-  if (hours > 16) {
+  if (hours > 24) {
     return {
       valid: false,
-      error: 'Working time cannot exceed 16 hours per day (including breaks)',
+      error: 'Working time cannot exceed 24 hours per day (including breaks)',
     };
   }
 
@@ -432,6 +432,7 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
   );
 
   // ✅ ArbZG Validation (Arbeitszeitgesetz §3-5)
+  // ⚠️ CHANGED: Validation now returns WARNINGS only, never blocks creation
   logger.debug('🏛️ Running ArbZG validation for new time entry...');
   const arbzgValidation = validateTimeEntryArbZG({
     userId: data.userId,
@@ -442,16 +443,11 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
     breakMinutes: data.breakMinutes || 0,
   });
 
-  if (!arbzgValidation.valid) {
-    logger.warn({ errors: arbzgValidation.errors }, '❌ ArbZG Validation FAILED');
-    // Throw first error (most critical)
-    throw new Error(arbzgValidation.errors[0]);
-  }
-
+  // Log warnings (but don't block entry creation)
   if (arbzgValidation.warnings.length > 0) {
-    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings');
+    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings (entry will be created)');
     // Warnings are logged but don't block creation
-    // Frontend can check for warnings in response
+    // Frontend can display warnings to user via toast notifications
   }
 
   // Insert entry
@@ -591,6 +587,7 @@ export function updateTimeEntry(
   logger.debug({ hours }, '✅ Hours calculated');
 
   // ✅ ArbZG Validation (Arbeitszeitgesetz §3-5)
+  // ⚠️ CHANGED: Validation now returns WARNINGS only, never blocks update
   logger.debug('🏛️ Running ArbZG validation for updated time entry...');
   const arbzgValidation = validateTimeEntryArbZG({
     userId: existing.userId,
@@ -602,13 +599,11 @@ export function updateTimeEntry(
     excludeEntryId: id, // Exclude this entry from overlap checks
   });
 
-  if (!arbzgValidation.valid) {
-    logger.warn({ errors: arbzgValidation.errors }, '❌ ArbZG Validation FAILED');
-    throw new Error(arbzgValidation.errors[0]);
-  }
-
+  // Log warnings (but don't block entry update)
   if (arbzgValidation.warnings.length > 0) {
-    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings');
+    logger.warn({ warnings: arbzgValidation.warnings }, '⚠️ ArbZG Warnings (entry will be updated)');
+    // Warnings are logged but don't block update
+    // Frontend can display warnings to user via toast notifications
   }
 
   // Build update query

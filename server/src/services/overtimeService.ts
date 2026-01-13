@@ -2,7 +2,7 @@ import { db } from '../database/connection.js';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import {
   calculateDailyTargetHours,
-  countWorkingDaysBetween,
+  getDailyTargetHours,
 } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 import {
@@ -12,6 +12,7 @@ import {
 } from '../utils/timezone.js';
 import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
+import { getUserById } from './userService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -22,6 +23,7 @@ import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 /**
  * Calculate absence credits for a specific month
  * CRITICAL: Correctly handles absences spanning multiple months!
+ * NOW SUPPORTS: Individual work schedules (workSchedule)
  *
  * Example: Vacation from Nov 25 - Dec 5
  * - November: Credits Nov 25-30 (working days only)
@@ -29,7 +31,6 @@ import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
  *
  * @param userId - User ID
  * @param month - Month in 'YYYY-MM' format
- * @param dailyHours - Target hours per day (e.g., 8.0)
  * @param hireDate - User's hire date (ISO string)
  * @param endDate - End date for calculation (Date object, typically today or month end)
  * @returns Total absence credit hours for the month
@@ -37,7 +38,6 @@ import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 function calculateAbsenceCreditsForMonth(
   userId: number,
   month: string,
-  dailyHours: number,
   hireDate: string,
   endDate: Date
 ): number {
@@ -73,16 +73,36 @@ function calculateAbsenceCreditsForMonth(
     return 0;
   }
 
-  // For each absence, count only the days that fall within this month's range
-  let totalCreditDays = 0;
+  // Get user for workSchedule
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // For each absence, calculate credit hours using individual work schedule
+  let totalCreditHours = 0;
 
   for (const absence of absences) {
     const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
-    // Count working days in the overlap period
-    const daysInMonth = countWorkingDaysBetween(absenceStart, absenceEnd);
-    totalCreditDays += daysInMonth;
+    // Iterate through each day and sum getDailyTargetHours()
+    let absenceHours = 0;
+    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue;
+
+      // Check if holiday
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue;
+
+      // Add daily target hours (respects workSchedule!)
+      absenceHours += getDailyTargetHours(user, d);
+    }
+
+    totalCreditHours += absenceHours;
 
     logger.debug({
       absenceId: absence.id,
@@ -90,17 +110,13 @@ function calculateAbsenceCreditsForMonth(
       originalRange: `${absence.startDate} - ${absence.endDate}`,
       monthRange: `${rangeStartStr} - ${rangeEndStr}`,
       overlapRange: `${formatDate(absenceStart, 'yyyy-MM-dd')} - ${formatDate(absenceEnd, 'yyyy-MM-dd')}`,
-      daysInMonth
-    }, 'Absence credit calculation');
+      absenceHours
+    }, 'Absence credit calculation (workSchedule-aware)');
   }
-
-  const totalCreditHours = totalCreditDays * dailyHours;
 
   logger.debug({
     month,
     absencesCount: absences.length,
-    totalCreditDays,
-    dailyHours,
     totalCreditHours
   }, 'Total absence credits for month');
 
@@ -110,10 +126,10 @@ function calculateAbsenceCreditsForMonth(
 /**
  * Calculate unpaid leave hours for a specific month
  * Unpaid leave REDUCES target hours (user doesn't need to work those days)
+ * NOW SUPPORTS: Individual work schedules (workSchedule)
  *
  * @param userId - User ID
  * @param month - Month in 'YYYY-MM' format
- * @param dailyHours - Target hours per day
  * @param hireDate - User's hire date
  * @param endDate - End date for calculation
  * @returns Total unpaid leave hours to subtract from target
@@ -121,7 +137,6 @@ function calculateAbsenceCreditsForMonth(
 function calculateUnpaidLeaveForMonth(
   userId: number,
   month: string,
-  dailyHours: number,
   hireDate: string,
   endDate: Date
 ): number {
@@ -148,17 +163,35 @@ function calculateUnpaidLeaveForMonth(
     endDate: string;
   }>;
 
-  let totalUnpaidDays = 0;
+  // Get user for workSchedule
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  let totalUnpaidHours = 0;
 
   for (const absence of absences) {
     const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
-    const daysInMonth = countWorkingDaysBetween(absenceStart, absenceEnd);
-    totalUnpaidDays += daysInMonth;
+    // Iterate through each day and sum getDailyTargetHours()
+    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue;
+
+      // Check if holiday
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue;
+
+      // Add daily target hours (respects workSchedule!)
+      totalUnpaidHours += getDailyTargetHours(user, d);
+    }
   }
 
-  return totalUnpaidDays * dailyHours;
+  return totalUnpaidHours;
 }
 
 interface DailyOvertime {
@@ -265,10 +298,8 @@ export function updateDailyOvertime(userId: number, date: string): void {
  * Called automatically after daily overtime is updated
  */
 export function updateWeeklyOvertime(userId: number, date: string): void {
-  // Get user's weekly hours and hire date
-  const user = db
-    .prepare('SELECT weeklyHours, hireDate FROM users WHERE id = ?')
-    .get(userId) as { weeklyHours: number; hireDate: string } | undefined;
+  // Get user with workSchedule support
+  const user = getUserById(userId);
 
   if (!user) {
     logger.error({ userId }, 'updateWeeklyOvertime: User not found');
@@ -296,10 +327,21 @@ export function updateWeeklyOvertime(userId: number, date: string): void {
   // Adjust start date if hire date is mid-week
   const actualStartDate = startDate < user.hireDate ? user.hireDate : startDate;
 
-  // Count working days from actualStartDate to endDate
-  const workingDays = countWorkingDaysBetween(actualStartDate, endDate);
-  const dailyHours = user.weeklyHours / 5;
-  const targetHours = Math.round((dailyHours * workingDays) * 100) / 100;
+  // Calculate target hours using individual work schedule
+  // Iterate through each working day and sum getDailyTargetHours()
+  let targetHours = 0;
+  for (let d = new Date(actualStartDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    if (isWeekend) continue;
+
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
+    const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+    if (isHoliday) continue;
+
+    targetHours += getDailyTargetHours(user, d);
+  }
+  targetHours = Math.round(targetHours * 100) / 100;
 
   // Calculate actual hours for the week
   const actualHours = db
@@ -325,10 +367,8 @@ export function updateWeeklyOvertime(userId: number, date: string): void {
  * Already exists in timeEntryService.ts - we just call it
  */
 export function updateMonthlyOvertime(userId: number, month: string): void {
-  // Get user's weekly hours and hire date
-  const user = db
-    .prepare('SELECT weeklyHours, hireDate FROM users WHERE id = ?')
-    .get(userId) as { weeklyHours: number; hireDate: string } | undefined;
+  // Get user with workSchedule support
+  const user = getUserById(userId);
 
   if (!user) {
     throw new Error(`User not found: ${userId}`);
@@ -361,18 +401,28 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     return;
   }
 
-  // Calculate working days between start and end (excludes weekends + holidays)
-  const workingDays = countWorkingDaysBetween(startDate, endDate);
-  const dailyHours = user.weeklyHours / 5; // 5-day work week
-  const targetHours = Math.round((dailyHours * workingDays) * 100) / 100;
+  // Calculate target hours using individual work schedule
+  // Iterate through each working day and sum getDailyTargetHours()
+  let targetHours = 0;
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    if (isWeekend) continue;
+
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
+    const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+    if (isHoliday) continue;
+
+    targetHours += getDailyTargetHours(user, d);
+  }
+  targetHours = Math.round(targetHours * 100) / 100;
 
   logger.debug({
     month,
     startDate: formatDate(startDate, 'yyyy-MM-dd'),
     endDate: formatDate(endDate, 'yyyy-MM-dd'),
-    workingDays,
     targetHours
-  }, `📅 updateMonthlyOvertime`);
+  }, `📅 updateMonthlyOvertime (workSchedule-aware)`);
 
   // Calculate actual worked hours for the month
   const workedHours = db
@@ -385,11 +435,13 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 
   // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
   // Uses centralized function that correctly handles multi-month absences
-  const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, dailyHours, user.hireDate, endDate);
+  // NOW SUPPORTS: Individual work schedules (workSchedule)
+  const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, user.hireDate, endDate);
 
   // Calculate unpaid leave reduction (reduces target hours)
   // Uses centralized function that correctly handles multi-month absences
-  const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, dailyHours, user.hireDate, endDate);
+  // NOW SUPPORTS: Individual work schedules (workSchedule)
+  const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, user.hireDate, endDate);
 
   // Adjusted target hours (Soll minus unpaid leave)
   const adjustedTargetHours = targetHours - unpaidLeaveReduction;
@@ -627,10 +679,8 @@ export function getCurrentOvertimeStats(userId: number) {
 export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string): void {
   logger.debug({ userId, upToMonth }, '🔥 ensureOvertimeBalanceEntries called');
 
-  // Get user's hire date and weekly hours
-  const user = db
-    .prepare('SELECT hireDate, weeklyHours FROM users WHERE id = ?')
-    .get(userId) as { hireDate: string; weeklyHours: number } | undefined;
+  // Get user with workSchedule support
+  const user = getUserById(userId);
 
   if (!user) {
     throw new Error(`User not found: ${userId}`);
@@ -674,12 +724,23 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
       startDate = hireDate;
     }
 
-    // Calculate working days (excludes weekends + holidays)
-    const workingDays = countWorkingDaysBetween(startDate, endDate);
-    const dailyHours = user.weeklyHours / 5; // 5-day work week
-    const targetHours = Math.round((dailyHours * workingDays) * 100) / 100;
+    // Calculate target hours using individual work schedule
+    // Iterate through each working day and sum getDailyTargetHours()
+    let targetHours = 0;
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue;
 
-    logger.debug({ month, workingDays, targetHours }, `📅 Month calculation`);
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue;
+
+      targetHours += getDailyTargetHours(user, d);
+    }
+    targetHours = Math.round(targetHours * 100) / 100;
+
+    logger.debug({ month, targetHours }, `📅 Month calculation (workSchedule-aware)`);
 
     // CRITICAL: ALWAYS recalculate, even if entry exists!
     // OLD BUG: if (!existing) only created new entries, never updated existing ones
@@ -696,11 +757,13 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
 
     // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
     // Uses centralized function that correctly handles multi-month absences
-    const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, dailyHours, user.hireDate, endDate);
+    // NOW SUPPORTS: Individual work schedules (workSchedule)
+    const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, user.hireDate, endDate);
 
     // Calculate unpaid leave reduction
     // Uses centralized function that correctly handles multi-month absences
-    const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, dailyHours, user.hireDate, endDate);
+    // NOW SUPPORTS: Individual work schedules (workSchedule)
+    const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, user.hireDate, endDate);
 
     const adjustedTargetHours = targetHours - unpaidLeaveReduction;
     const actualHoursWithCredits = workedHours.total + absenceCredits;

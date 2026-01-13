@@ -1,5 +1,18 @@
 // Shared types for Desktop App
 
+// Work Schedule Types (Flexible Arbeitszeitmodelle)
+export interface WorkSchedule {
+  monday: number;    // Hours for Monday (0-24)
+  tuesday: number;   // Hours for Tuesday (0-24)
+  wednesday: number; // Hours for Wednesday (0-24)
+  thursday: number;  // Hours for Thursday (0-24)
+  friday: number;    // Hours for Friday (0-24)
+  saturday: number;  // Hours for Saturday (0-24)
+  sunday: number;    // Hours for Sunday (0-24)
+}
+
+export type DayName = keyof WorkSchedule;
+
 export interface User {
   id: number;
   username: string;
@@ -10,6 +23,7 @@ export interface User {
   department: string | null;
   position?: string | null;
   weeklyHours: number;
+  workSchedule?: WorkSchedule | null; // NULL = use weeklyHours/5 fallback
   vacationDaysPerYear: number;
   hireDate: string; // Eintrittsdatum (YYYY-MM-DD)
   endDate?: string | null; // Austrittsdatum (optional)

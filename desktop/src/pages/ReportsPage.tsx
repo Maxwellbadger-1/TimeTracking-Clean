@@ -13,6 +13,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -32,6 +33,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
+import { MonthPicker } from '../components/ui/MonthPicker';
 import {
   useTimeEntries,
   useAbsenceRequests,
@@ -684,23 +686,27 @@ export function ReportsPage() {
 
               {/* Month or Year Selector */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {reportType === 'monthly' ? 'Monat' : 'Jahr'}
-                </label>
                 {reportType === 'monthly' ? (
-                  <Input
-                    type="month"
+                  <MonthPicker
                     value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    onChange={setSelectedMonth}
+                    label="Monat"
+                    min="2020-01"
+                    max={format(new Date(), 'yyyy-MM')}
                   />
                 ) : (
-                  <Input
-                    type="number"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    min={2020}
-                    max={2030}
-                  />
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Jahr
+                    </label>
+                    <Input
+                      type="number"
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      min={2020}
+                      max={2030}
+                    />
+                  </>
                 )}
               </div>
 

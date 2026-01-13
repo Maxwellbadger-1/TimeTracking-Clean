@@ -460,9 +460,59 @@ router.get(
 );
 
 /**
+ * GET /api/overtime/current
+ * Get current overtime stats for all 4 levels (today, thisWeek, thisMonth, totalYear)
+ * Returns: { today: 2.5, thisWeek: 5.0, thisMonth: 8.57, totalYear: 48.57 }
+ * IMPORTANT: This route MUST be before /:userId to avoid "current" being matched as a userId param
+ */
+router.get(
+  '/current',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+      const userId = req.query.userId
+        ? parseInt(req.query.userId as string)
+        : req.session.user!.id;
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Permission check: Admin can see all, Employee only own
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this overtime data',
+        });
+        return;
+      }
+
+      const stats = getCurrentOvertimeStats(userId);
+
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      console.error('Error getting current overtime stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get current overtime stats',
+      });
+    }
+  }
+);
+
+/**
  * GET /api/overtime/:userId
  * Get detailed overtime data for a specific user
  * Returns: { totalHours, targetHours, overtime, user: { weeklyHours, hireDate } }
+ * IMPORTANT: This route MUST be after /current and other specific routes
  */
 router.get(
   '/:userId',
@@ -533,54 +583,6 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get overtime data',
-      });
-    }
-  }
-);
-
-/**
- * GET /api/overtime/current
- * Get current overtime stats for all 4 levels (today, thisWeek, thisMonth, totalYear)
- * Returns: { today: 2.5, thisWeek: 5.0, thisMonth: 8.57, totalYear: 48.57 }
- */
-router.get(
-  '/current',
-  requireAuth,
-  (req: Request, res: Response<ApiResponse>) => {
-    try {
-      const isAdmin = req.session.user!.role === 'admin';
-      const userId = req.query.userId
-        ? parseInt(req.query.userId as string)
-        : req.session.user!.id;
-
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-        });
-        return;
-      }
-
-      // Permission check: Admin can see all, Employee only own
-      if (!isAdmin && userId !== req.session.user!.id) {
-        res.status(403).json({
-          success: false,
-          error: 'You do not have permission to view this overtime data',
-        });
-        return;
-      }
-
-      const stats = getCurrentOvertimeStats(userId);
-
-      res.json({
-        success: true,
-        data: stats,
-      });
-    } catch (error) {
-      console.error('Error getting current overtime stats:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get current overtime stats',
       });
     }
   }

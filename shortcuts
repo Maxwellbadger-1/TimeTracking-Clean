@@ -8,3 +8,17 @@ npm run test:coverage # Coverage Report
 release:
 claude.md überprüfen - da steht workflow
 
+Test123
+Test12345
+
+/plugin marketplace add anthropics/claude-code
+
+und ich kann immer noch kein mitarbeiter mit 0 stunden und 0 urlaub erstellen. wenn ich auf speichern klicke wird er automatisch mit
+  40 stunden und 30 Urlaub gespeichert. erstelle einen plan wie du mit playwright alle funktionen mit user ersellung und bearbeitung
+  durchtesten kannst
+──────────────────────────────────
+
+
+> ist nun urlaub, krankmeldung , überstundenausgleich und unbezahlter urlaub im backend und frontend perfekt auf das neue individuelle wochenplan
+  system ausgerichtet und das alte system mit dem wo die stunden gleichmäßig über die woche verteilt werden noch vorhanden? vergleiche es auch mit
+  den profiprogrammen 

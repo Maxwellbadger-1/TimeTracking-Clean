@@ -14,6 +14,8 @@ export {
   isCurrentWeek,
   getDayName,
   calculateExpectedHours,
+  calculateAbsenceHoursWithWorkSchedule,
+  countWorkingDaysForUser,
 } from './timeUtils';
 
 // Validation utilities

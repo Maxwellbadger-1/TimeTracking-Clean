@@ -153,17 +153,11 @@ export function validateUserUpdate(
     }
   }
 
-  // Email validation (if provided)
-  if (data.email !== undefined) {
-    if (!data.email.trim()) {
-      res.status(400).json({
-        success: false,
-        error: 'Email cannot be empty',
-      });
-      return;
-    }
-
-    if (!data.email.includes('@')) {
+  // Email validation (if provided) - ALLOW empty strings (email is optional)
+  if (data.email !== undefined && data.email !== null) {
+    const trimmedEmail = data.email.trim();
+    // Only validate format if email is NON-EMPTY
+    if (trimmedEmail !== '' && !trimmedEmail.includes('@')) {
       res.status(400).json({
         success: false,
         error: 'Invalid email format',

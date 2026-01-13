@@ -12,7 +12,8 @@ import {
   isValidDate,
   isValidDateRange,
   getDateRangeError,
-  calculateExpectedHours,
+  calculateAbsenceHoursWithWorkSchedule,
+  countWorkingDaysForUser,
   formatOvertimeHours,
 } from '../../utils';
 
@@ -45,19 +46,38 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   const [endDateError, setEndDateError] = useState('');
   const [reasonError, setReasonError] = useState('');
 
-  // Calculate required days (simple business days calculation without holidays)
+  // Calculate required days & hours based on user's work schedule
   const [requiredDays, setRequiredDays] = useState(1);
+  const [requiredHours, setRequiredHours] = useState(8);
+
+  // Get selected user's data for work schedule
+  const selectedUser = users?.find(u => u.id === selectedUserId);
 
   useEffect(() => {
-    if (isValidDate(startDate) && isValidDate(endDate) && isValidDateRange(startDate, endDate)) {
-      // Simple calculation: divide expected hours by 8
-      const expectedHours = calculateExpectedHours(startDate, endDate, 8);
-      const days = Math.ceil(expectedHours / 8);
+    if (isValidDate(startDate) && isValidDate(endDate) && isValidDateRange(startDate, endDate) && selectedUser) {
+      // Calculate hours based on individual work schedule
+      const hours = calculateAbsenceHoursWithWorkSchedule(
+        startDate,
+        endDate,
+        selectedUser.workSchedule,
+        selectedUser.weeklyHours
+      );
+      setRequiredHours(hours);
+
+      // Calculate days - BEST PRACTICE (Personio, DATEV, SAP):
+      // Days with 0 hours do NOT count as working days!
+      const days = countWorkingDaysForUser(
+        startDate,
+        endDate,
+        selectedUser.workSchedule,
+        selectedUser.weeklyHours
+      );
       setRequiredDays(days);
     } else {
       setRequiredDays(1);
+      setRequiredHours(8);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedUser]);
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -94,7 +114,6 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
     // Validate overtime compensation
     if (type === 'overtime_comp') {
-      const requiredHours = requiredDays * 8;
       if (requiredHours > overtimeHours) {
         setEndDateError(`Du hast nur ${formatOvertimeHours(overtimeHours)} Überstunden verfügbar`);
         isValid = false;
@@ -241,12 +260,20 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
           />
         </div>
 
-        {/* Required Days Preview */}
+        {/* Required Days & Hours Preview */}
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-900 dark:text-blue-200">
             <strong>Erforderlich:</strong> {requiredDays} {requiredDays === 1 ? 'Tag' : 'Tage'}
-            {type === 'overtime_comp' && ` (${requiredDays * 8}h)`}
+            {type === 'overtime_comp' && ` (${requiredHours}h)`}
           </p>
+          {selectedUser?.workSchedule && (
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+              {type === 'vacation'
+                ? '⚠️ Tage mit 0h zählen nicht als Arbeitstage (Best Practice: Personio, DATEV, SAP)'
+                : 'Berechnung basierend auf deinem individuellen Wochenplan'
+              }
+            </p>
+          )}
         </div>
 
         {/* Balance Info */}

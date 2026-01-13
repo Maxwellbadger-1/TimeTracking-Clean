@@ -4,8 +4,10 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { WorkScheduleEditor } from './WorkScheduleEditor';
 import { useCreateUser } from '../../hooks';
 import { isValidEmail, getTodayDate } from '../../utils';
+import type { WorkSchedule } from '../../types';
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState<'admin' | 'employee'>('employee');
   const [weeklyHours, setWeeklyHours] = useState('40');
+  const [workSchedule, setWorkSchedule] = useState<WorkSchedule | null>(null);
   const [vacationDays, setVacationDays] = useState('30');
   const [department, setDepartment] = useState('');
   const [position, setPosition] = useState('');
@@ -104,6 +107,17 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     }
 
     try {
+      // DEBUG LOGGING
+      console.log('🔥 CREATE USER DEBUG:');
+      console.log('  weeklyHours INPUT:', weeklyHours, 'type:', typeof weeklyHours);
+      console.log('  vacationDays INPUT:', vacationDays, 'type:', typeof vacationDays);
+
+      const parsedWeeklyHours = weeklyHours === '' ? 40 : parseFloat(weeklyHours) || 0;
+      const parsedVacationDays = vacationDays === '' ? 30 : parseInt(vacationDays) || 0;
+
+      console.log('  weeklyHours PARSED:', parsedWeeklyHours);
+      console.log('  vacationDays PARSED:', parsedVacationDays);
+
       await createUser.mutateAsync({
         username: username.trim(),
         password,
@@ -111,8 +125,9 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         role,
-        weeklyHours: parseInt(weeklyHours) || 40,
-        vacationDaysPerYear: parseInt(vacationDays) || 30,
+        weeklyHours: parsedWeeklyHours,
+        workSchedule: workSchedule || undefined,
+        vacationDaysPerYear: parsedVacationDays,
         department: department.trim() || undefined,
         position: position.trim() || undefined,
         hireDate,
@@ -135,6 +150,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     setLastName('');
     setRole('employee');
     setWeeklyHours('40');
+    setWorkSchedule(null);
     setVacationDays('30');
     setDepartment('');
     setPosition('');
@@ -161,6 +177,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
           </h3>
 
           <Input
+            name="username"
             label="Benutzername"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -171,6 +188,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <Input
+              name="password"
               label="Passwort"
               type="password"
               value={password}
@@ -181,6 +199,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
               autoComplete="new-password"
             />
             <Input
+              name="confirmPassword"
               label="Passwort bestätigen"
               type="password"
               value={confirmPassword}
@@ -192,6 +211,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
           </div>
 
           <Input
+            name="email"
             label="E-Mail"
             type="email"
             value={email}
@@ -208,6 +228,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <Input
+              name="firstName"
               label="Vorname"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -215,6 +236,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
               required
             />
             <Input
+              name="lastName"
               label="Nachname"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -257,16 +279,19 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
               required
             />
             <Input
+              name="weeklyHours"
               label="Wochenstunden"
               type="number"
-              min="1"
+              min="0"
               max="60"
               step="0.5"
               value={weeklyHours}
               onChange={(e) => setWeeklyHours(e.target.value)}
               required
+              helperText="0h = Aushilfe (alle Stunden = Überstunden)"
             />
             <Input
+              name="vacationDays"
               label="Urlaubstage/Jahr"
               type="number"
               min="0"
@@ -277,7 +302,15 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
             />
           </div>
 
+          {/* Individual Work Schedule */}
+          <WorkScheduleEditor
+            value={workSchedule}
+            weeklyHours={weeklyHours === '' ? 40 : (parseFloat(weeklyHours) || 0)}
+            onChange={setWorkSchedule}
+          />
+
           <Input
+            name="hireDate"
             label="Eintrittsdatum"
             type="date"
             value={hireDate}

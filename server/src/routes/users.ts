@@ -286,8 +286,8 @@ router.post(
         return;
       }
 
-      // Check if email exists
-      if (emailExists(data.email)) {
+      // Check if email exists (only if email is provided)
+      if (data.email && emailExists(data.email)) {
         res.status(409).json({
           success: false,
           error: 'Email already exists',

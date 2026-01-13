@@ -71,6 +71,84 @@ export function initializeDatabase(db: Database.Database): void {
     // Column already exists - ignore error
   }
 
+  // Migration: Add workSchedule column if it doesn't exist (Flexible Arbeitszeitmodelle)
+  // Format: JSON string {"monday":8,"tuesday":8,"wednesday":8,"thursday":8,"friday":2,"saturday":0,"sunday":0}
+  // NULL = Fallback to weeklyHours/5 (for backward compatibility)
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN workSchedule TEXT DEFAULT NULL;
+    `);
+    logger.info('✅ Added workSchedule column to users table (Flexible Arbeitszeitmodelle)');
+  } catch (error) {
+    // Column already exists - ignore error
+  }
+
+  // Migration: Make email column nullable (email is optional)
+  // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+  try {
+    // Check if migration is needed
+    const tableInfo = db.pragma('table_info(users)') as Array<{ name: string; notnull: number }>;
+    const emailColumn = tableInfo.find(col => col.name === 'email');
+
+    if (emailColumn && emailColumn.notnull === 1) {
+      logger.info('🔄 Migrating users table to make email optional...');
+
+      // Temporarily disable foreign keys for migration
+      db.pragma('foreign_keys = OFF');
+
+      db.exec(`
+        BEGIN TRANSACTION;
+
+        -- Create new table with email as optional
+        CREATE TABLE users_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE,
+          password TEXT NOT NULL,
+          firstName TEXT NOT NULL,
+          lastName TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('admin', 'employee')),
+          department TEXT,
+          weeklyHours REAL NOT NULL DEFAULT 40,
+          vacationDaysPerYear INTEGER DEFAULT 30,
+          hireDate TEXT NOT NULL DEFAULT (date('now')),
+          endDate TEXT,
+          status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+          privacyConsentAt TEXT,
+          forcePasswordChange INTEGER DEFAULT 0,
+          workSchedule TEXT DEFAULT NULL,
+          createdAt TEXT DEFAULT (datetime('now')),
+          deletedAt TEXT
+        );
+
+        -- Copy all data
+        INSERT INTO users_new
+        SELECT id, username, email, password, firstName, lastName, role,
+               department, weeklyHours, vacationDaysPerYear, hireDate, endDate,
+               status, privacyConsentAt, forcePasswordChange, workSchedule,
+               createdAt, deletedAt
+        FROM users;
+
+        -- Drop old table
+        DROP TABLE users;
+
+        -- Rename new table
+        ALTER TABLE users_new RENAME TO users;
+
+        COMMIT;
+      `);
+
+      // Re-enable foreign keys
+      db.pragma('foreign_keys = ON');
+
+      logger.info('✅ Email column is now optional (nullable)');
+    }
+  } catch (error: any) {
+    // Ensure foreign keys are re-enabled even if migration fails
+    db.pragma('foreign_keys = ON');
+    logger.warn({ err: error }, '⚠️ Email migration failed or already applied');
+  }
+
   // 2. time_entries table
   db.exec(`
     CREATE TABLE IF NOT EXISTS time_entries (

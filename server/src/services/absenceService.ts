@@ -1,8 +1,9 @@
 import { db } from '../database/connection.js';
 import type { AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
-import { countWorkingDaysBetween } from '../utils/workingDays.js';
+import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName } from '../utils/workingDays.js';
 import { validateDateString } from '../utils/validation.js';
+import { getUserById } from './userService.js';
 
 /**
  * Absence Service
@@ -364,7 +365,9 @@ export function createAbsenceRequest(
   logger.debug({ data }, '📥 Input data');
 
   // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
-  const user = db.prepare('SELECT hireDate FROM users WHERE id = ?').get(data.userId) as { hireDate: string } | undefined;
+  // Fetch user with workSchedule for WorkSchedule-aware day counting
+  const user = db.prepare('SELECT hireDate, weeklyHours, workSchedule FROM users WHERE id = ?').get(data.userId) as
+    { hireDate: string; weeklyHours: number; workSchedule: string | null } | undefined;
   if (!user) {
     throw new Error('User not found');
   }
@@ -373,18 +376,23 @@ export function createAbsenceRequest(
     throw new Error(`Abwesenheit vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
   }
 
+  // Parse workSchedule from JSON
+  const workSchedule = user.workSchedule ? JSON.parse(user.workSchedule) : null;
+
   // Validate dates
   const validation = validateAbsenceDates(data);
   if (!validation.valid) {
     throw new Error(validation.error);
   }
 
-  // Calculate days
+  // Calculate days - BEST PRACTICE (Personio, DATEV, SAP):
+  // Days with 0 hours in workSchedule do NOT count as working days!
   let days: number;
   if (data.type === 'vacation' || data.type === 'overtime_comp') {
-    logger.debug('📊 Calculating VACATION days (excludes weekends + holidays)...');
-    // Exclude weekends and holidays
-    days = calculateVacationDays(data.startDate, data.endDate);
+    logger.debug('📊 Calculating VACATION days (WorkSchedule-aware, excludes 0h days + weekends + holidays)...');
+    // Use countWorkingDaysForUser which respects individual work schedules
+    days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, db);
+    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days }, '📊 WorkSchedule-aware vacation days');
   } else {
     logger.debug('📊 Calculating BUSINESS days (excludes weekends only)...');
     // Sick leave and unpaid: count business days only (exclude weekends)
@@ -445,13 +453,14 @@ export function createAbsenceRequest(
   // For overtime compensation: check if user has enough overtime
   if (data.type === 'overtime_comp') {
     logger.debug('🔥🔥🔥 OVERTIME COMP VALIDATION DEBUG 🔥🔥🔥');
-    logger.debug({ userId: data.userId, days }, '📌 Parameters');
+    logger.debug({ userId: data.userId, days, startDate: data.startDate, endDate: data.endDate }, '📌 Parameters');
 
     const overtimeHours = getTotalOvertimeHours(data.userId);
     logger.debug({ overtimeHours }, '📊 overtimeHours from getTotalOvertimeHours()');
 
-    const requiredHours = days * 8; // Assume 8h per day
-    logger.debug({ overtimeHours, requiredHours, hasEnough: overtimeHours >= requiredHours }, '📊 Comparison');
+    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
+    const requiredHours = calculateAbsenceCredits(data.userId, data.startDate, data.endDate);
+    logger.debug({ overtimeHours, requiredHours, hasEnough: overtimeHours >= requiredHours }, '📊 Comparison (using work schedule)');
     logger.debug('🔥🔥🔥 END OVERTIME COMP VALIDATION 🔥🔥🔥');
 
     if (overtimeHours < requiredHours) {
@@ -676,6 +685,60 @@ export function deleteAbsenceRequest(id: number): void {
 }
 
 /**
+ * Calculate absence credit hours using individual work schedule
+ * Iterates through each working day and sums getDailyTargetHours()
+ *
+ * @param userId - User ID
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
+ * @returns Total credit hours for the absence period
+ *
+ * @example
+ * // Hans: Mo=8h, Fr=2h, Urlaub Fr 07.02.2025
+ * calculateAbsenceCredits(hans.id, "2025-02-07", "2025-02-07")
+ * // → 2h (not 8h average!)
+ */
+function calculateAbsenceCredits(userId: number, startDate: string, endDate: string): number {
+  logger.debug('🔥🔥🔥 CALCULATE ABSENCE CREDITS 🔥🔥🔥');
+  logger.debug({ userId, startDate, endDate }, '📥 Input');
+
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  let totalHours = 0;
+
+  // Iterate through each day in the period
+  for (let d = new Date(startDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // Skip weekends
+    if (isWeekend) {
+      continue;
+    }
+
+    // Check if day is a holiday
+    const dateStr = d.toISOString().split('T')[0];
+    const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+    if (isHoliday) {
+      continue;
+    }
+
+    // Add daily target hours
+    const dailyHours = getDailyTargetHours(user, d);
+    logger.debug({ date: dateStr, dayName: getDayName(d), dailyHours }, '📊 Daily hours');
+    totalHours += dailyHours;
+  }
+
+  logger.debug({ totalHours }, '📊 TOTAL ABSENCE CREDITS');
+  logger.debug('🔥🔥🔥 END CALCULATE ABSENCE CREDITS 🔥🔥🔥');
+
+  return Math.round(totalHours * 100) / 100;
+}
+
+/**
  * Update balances after approval (vacation balance, overtime, sick leave time entries)
  */
 function updateBalancesAfterApproval(requestId: number): void {
@@ -691,7 +754,9 @@ function updateBalancesAfterApproval(requestId: number): void {
     updateVacationTaken(request.userId, year, request.days);
   } else if (request.type === 'overtime_comp') {
     // Deduct from overtime balance
-    const hoursToDeduct = request.days * 8; // 8 hours per day
+    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
+    const hoursToDeduct = calculateAbsenceCredits(request.userId, request.startDate, request.endDate);
+    logger.info({ userId: request.userId, hoursToDeduct, startDate: request.startDate, endDate: request.endDate }, '✅ Overtime comp: Deducting hours based on work schedule');
     deductOvertimeHours(request.userId, hoursToDeduct);
   }
   // Note: Sick days don't need any balance updates here
@@ -718,7 +783,9 @@ function revertBalancesAfterDeletion(requestId: number): void {
     updateVacationTaken(request.userId, year, -request.days);
   } else if (request.type === 'overtime_comp') {
     // Add back to overtime balance
-    const hoursToAdd = request.days * 8;
+    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
+    const hoursToAdd = calculateAbsenceCredits(request.userId, request.startDate, request.endDate);
+    logger.info({ userId: request.userId, hoursToAdd, startDate: request.startDate, endDate: request.endDate }, '♻️ Overtime comp reverting: Adding hours back based on work schedule');
     deductOvertimeHours(request.userId, -hoursToAdd);
   } else if (request.type === 'sick') {
     // Delete automatic time entries for sick days

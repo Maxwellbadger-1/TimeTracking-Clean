@@ -17,13 +17,18 @@ export function getAllUsers(): UserPublic[] {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
+             department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
              CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive
       FROM users
       ORDER BY createdAt DESC
     `);
 
-    return stmt.all() as UserPublic[];
+    const users = stmt.all() as any[];
+    // Parse workSchedule JSON
+    return users.map(user => ({
+      ...user,
+      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
+    })) as UserPublic[];
   } catch (error) {
     logger.error({ err: error }, '❌ Error getting all users');
     throw error;
@@ -37,13 +42,20 @@ export function getUserById(id: number): UserPublic | undefined {
   try {
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
-             department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
+             department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt,
              CASE WHEN status = 'active' THEN 1 ELSE 0 END as isActive
       FROM users
       WHERE id = ? AND deletedAt IS NULL
     `);
 
-    return stmt.get(id) as UserPublic | undefined;
+    const user = stmt.get(id) as any;
+    if (!user) return undefined;
+
+    // Parse workSchedule JSON
+    return {
+      ...user,
+      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
+    } as UserPublic;
   } catch (error) {
     logger.error({ err: error, userId: id }, '❌ Error getting user by ID');
     throw error;
@@ -56,10 +68,10 @@ export function getUserById(id: number): UserPublic | undefined {
 export async function createUser(data: UserCreateInput): Promise<UserPublic> {
   try {
     // VALIDATION: Weekly hours must be reasonable
-    // Min: 1 hour/week (part-time), Max: 80 hours/week (extreme case)
-    const weeklyHours = data.weeklyHours || 40;
-    if (weeklyHours < 1 || weeklyHours > 80) {
-      throw new Error(`Weekly hours must be between 1 and 80, got: ${weeklyHours}`);
+    // Min: 0 hours/week (Aushilfen - all hours = overtime), Max: 80 hours/week (extreme case)
+    const weeklyHours = data.weeklyHours !== undefined ? data.weeklyHours : 40;
+    if (weeklyHours < 0 || weeklyHours > 80) {
+      throw new Error(`Weekly hours must be between 0 and 80, got: ${weeklyHours}`);
     }
 
     // Hash password
@@ -69,20 +81,21 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
     const stmt = db.prepare(`
       INSERT INTO users (
         username, email, password, firstName, lastName, role,
-        department, weeklyHours, vacationDaysPerYear, hireDate, endDate, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        department, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
       data.username,
-      data.email,
+      data.email && data.email.trim() !== '' ? data.email : null, // Convert empty strings to NULL
       hashedPassword,
       data.firstName,
       data.lastName,
       data.role,
       data.department || null,
       weeklyHours, // Use validated weeklyHours
-      data.vacationDaysPerYear || 30,
+      data.workSchedule ? JSON.stringify(data.workSchedule) : null,
+      data.vacationDaysPerYear !== undefined ? data.vacationDaysPerYear : 30, // Allow 0 vacation days
       data.hireDate || null,
       data.endDate || null,
       'active'
@@ -134,7 +147,7 @@ export async function updateUser(
     }
     if (data.email !== undefined) {
       updates.push('email = ?');
-      values.push(data.email);
+      values.push(data.email && data.email.trim() !== '' ? data.email : null); // Convert empty strings to NULL
     }
     if (data.firstName !== undefined) {
       updates.push('firstName = ?');
@@ -154,11 +167,15 @@ export async function updateUser(
     }
     if (data.weeklyHours !== undefined) {
       // VALIDATION: Weekly hours must be reasonable
-      if (data.weeklyHours < 1 || data.weeklyHours > 80) {
-        throw new Error(`Weekly hours must be between 1 and 80, got: ${data.weeklyHours}`);
+      if (data.weeklyHours < 0 || data.weeklyHours > 80) {
+        throw new Error(`Weekly hours must be between 0 and 80, got: ${data.weeklyHours}`);
       }
       updates.push('weeklyHours = ?');
       values.push(data.weeklyHours);
+    }
+    if (data.workSchedule !== undefined) {
+      updates.push('workSchedule = ?');
+      values.push(data.workSchedule ? JSON.stringify(data.workSchedule) : null);
     }
     if (data.vacationDaysPerYear !== undefined) {
       updates.push('vacationDaysPerYear = ?');
@@ -468,6 +485,11 @@ export function usernameExists(username: string, excludeId?: number): boolean {
  */
 export function emailExists(email: string, excludeId?: number): boolean {
   try {
+    // Empty or null emails should not be checked (email is optional)
+    if (!email || email.trim() === '') {
+      return false;
+    }
+
     let stmt;
     if (excludeId) {
       // Check ALL users (including deleted) to respect UNIQUE constraint

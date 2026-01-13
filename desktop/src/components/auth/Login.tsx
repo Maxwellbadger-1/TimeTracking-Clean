@@ -73,6 +73,7 @@ export function Login() {
           <CardContent className="space-y-4">
             <Input
               type="text"
+              name="username"
               label="Benutzername"
               placeholder="Ihr Benutzername"
               value={username}
@@ -85,6 +86,7 @@ export function Login() {
 
             <Input
               type="password"
+              name="password"
               label="Passwort"
               placeholder="Ihr Passwort"
               value={password}
