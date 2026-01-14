@@ -10,6 +10,10 @@ import {
 import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 import { getUserById } from './userService.js';
+import {
+  deleteEarnedTransactionsForDate,
+  recordOvertimeEarned
+} from './overtimeTransactionService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -484,6 +488,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
  *
  * CRITICAL: Uses transaction to prevent race conditions and ensure atomicity.
  * If one update fails, ALL updates are rolled back to maintain data consistency.
+ *
+ * NEW: Also updates overtime_transactions for transaction-based tracking
  */
 export function updateAllOvertimeLevels(userId: number, date: string): void {
   const month = date.substring(0, 7); // "2025-11"
@@ -494,10 +500,66 @@ export function updateAllOvertimeLevels(userId: number, date: string): void {
     updateDailyOvertime(userId, date);
     updateWeeklyOvertime(userId, date);
     updateMonthlyOvertime(userId, month);
+    updateOvertimeTransactionsForDate(userId, date); // NEW!
   });
 
   // Execute transaction (all-or-nothing)
   transaction();
+}
+
+/**
+ * Update overtime_transactions for a specific date
+ *
+ * PROFESSIONAL STANDARD (SAP SuccessFactors, Personio):
+ * - Recalculates daily overtime (Soll/Ist difference)
+ * - Creates/updates transaction record
+ * - Handles holidays (0h Soll) and no time entries (-Xh Minusstunden)
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD)
+ */
+function updateOvertimeTransactionsForDate(userId: number, date: string): void {
+  // Get user for workSchedule-aware calculation
+  const user = getUserById(userId);
+  if (!user) {
+    logger.error({ userId }, 'updateOvertimeTransactionsForDate: User not found');
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  // Check if date is before hire date
+  if (date < user.hireDate) {
+    logger.debug({ userId, date, hireDate: user.hireDate }, 'Skipped: Date before hire date');
+    return;
+  }
+
+  // Calculate target hours (respects holidays and workSchedule!)
+  const targetHours = getDailyTargetHours(user, date);
+
+  // Calculate actual hours
+  const actualHours = db.prepare(`
+    SELECT COALESCE(SUM(hours), 0) as total
+    FROM time_entries
+    WHERE userId = ? AND date = ?
+  `).get(userId, date) as { total: number };
+
+  // Calculate overtime
+  const overtime = actualHours.total - targetHours;
+
+  // Delete existing earned transactions for this date
+  deleteEarnedTransactionsForDate(userId, date);
+
+  // Record new transaction (if not 0)
+  if (overtime !== 0) {
+    recordOvertimeEarned(userId, date, overtime);
+  }
+
+  logger.debug({
+    userId,
+    date,
+    targetHours,
+    actualHours: actualHours.total,
+    overtime
+  }, 'Updated overtime transaction');
 }
 
 /**

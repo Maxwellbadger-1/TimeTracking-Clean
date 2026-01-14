@@ -13,6 +13,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "migrate:prod": "tsx scripts/migrate.ts prod",
     "migrate:create": "tsx scripts/migrate.ts create",
+    "migrate:overtime": "tsx src/scripts/migrateOvertimeToTransactions.ts",
     "seed": "tsx scripts/seed.ts",
     "seed:reset": "tsx scripts/seed.ts --reset",
     "seed-test-data": "tsx src/scripts/seedTestData.ts",

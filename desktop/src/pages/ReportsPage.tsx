@@ -44,6 +44,7 @@ import {
 import { useAggregatedOvertimeStats } from '../hooks/useAggregatedOvertimeStats';
 import { WorkTimeAccountWidget } from '../components/worktime/WorkTimeAccountWidget';
 import { WorkTimeAccountHistory } from '../components/worktime/WorkTimeAccountHistory';
+import { OvertimeTransactions } from '../components/worktime/OvertimeTransactions';
 import { OvertimeCorrectionModal } from '../components/corrections/OvertimeCorrectionModal';
 import { CorrectionsTable } from '../components/corrections/CorrectionsTable';
 import { formatHours, formatOvertimeHours } from '../utils/timeUtils';
@@ -1016,6 +1017,12 @@ export function ReportsPage() {
               <WorkTimeAccountHistory
                 userId={selectedUserId}
                 months={12}
+              />
+
+              {/* Overtime Transactions (NEW!) */}
+              <OvertimeTransactions
+                userId={selectedUserId}
+                limit={100}
               />
             </div>
 

@@ -615,6 +615,47 @@ export async function approveAbsenceRequest(
     throw new Error('Only pending requests can be approved');
   }
 
+  // VALIDATION: Check overtime balance for overtime_comp
+  if (request.type === 'overtime_comp') {
+    const {
+      hasSufficientOvertimeBalance,
+      getOvertimeBalance
+    } = await import('./overtimeTransactionService.js');
+
+    const { getWorkTimeAccountWithUser } = await import('./workTimeAccountService.js');
+
+    const account = getWorkTimeAccountWithUser(request.userId);
+    const hoursRequired = request.days * (request.daysRequired || 0); // Calculate hours from days
+
+    // Get user to calculate hours correctly
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(request.userId) as any;
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Import utility function
+    const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
+    const actualHoursRequired = calculateAbsenceHoursWithWorkSchedule(
+      request.startDate,
+      request.endDate,
+      user.workSchedule ? JSON.parse(user.workSchedule) : null,
+      user.weeklyHours
+    );
+
+    const currentBalance = getOvertimeBalance(request.userId);
+
+    if (!hasSufficientOvertimeBalance(request.userId, actualHoursRequired, account?.maxMinusHours || -20)) {
+      const balanceAfter = currentBalance - actualHoursRequired;
+      throw new Error(
+        `Unzureichendes Überstunden-Guthaben. ` +
+        `Aktuell: ${currentBalance.toFixed(2)}h, ` +
+        `Benötigt: ${actualHoursRequired.toFixed(2)}h, ` +
+        `Nach Abbau: ${balanceAfter.toFixed(2)}h, ` +
+        `Limit: ${account?.maxMinusHours || -20}h`
+      );
+    }
+  }
+
   // Update request status
   const query = `
     UPDATE absence_requests
@@ -626,6 +667,34 @@ export async function approveAbsenceRequest(
 
   // Update balances
   updateBalancesAfterApproval(id);
+
+  // NEW: Record overtime compensation transaction
+  if (request.type === 'overtime_comp') {
+    const { recordOvertimeCompensation } = await import('./overtimeTransactionService.js');
+    const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(request.userId) as any;
+    const hoursToDeduct = calculateAbsenceHoursWithWorkSchedule(
+      request.startDate,
+      request.endDate,
+      user.workSchedule ? JSON.parse(user.workSchedule) : null,
+      user.weeklyHours
+    );
+
+    recordOvertimeCompensation(
+      request.userId,
+      request.startDate,
+      hoursToDeduct,
+      id,
+      `Überstunden-Ausgleich ${request.startDate} - ${request.endDate}`
+    );
+
+    // Update work_time_accounts balance
+    const { updateWorkTimeAccountBalance } = await import('./workTimeAccountService.js');
+    const { getOvertimeBalance } = await import('./overtimeTransactionService.js');
+    const newBalance = getOvertimeBalance(request.userId);
+    updateWorkTimeAccountBalance(request.userId, newBalance);
+  }
 
   // AUTO-DELETE conflicting time entries (STRICT MODE)
   // Import at runtime to avoid circular dependency

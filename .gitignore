@@ -69,3 +69,8 @@ GITHUB-SECRETS-VALUES.md
 *.key
 *.pem
 ssh-key-*
+.env.ssh
+
+# Backups (NEVER commit production data!)
+backups/
+*.backup.db

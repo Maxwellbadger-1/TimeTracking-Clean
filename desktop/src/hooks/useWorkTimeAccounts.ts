@@ -200,3 +200,42 @@ export function useUpdateWorkTimeAccountSettings() {
     },
   });
 }
+
+/**
+ * Get overtime transactions (transaction-based tracking)
+ *
+ * PROFESSIONAL STANDARD: Immutable audit trail of all overtime changes
+ * Like SAP SuccessFactors, Personio, DATEV
+ */
+export function useOvertimeTransactions(userId?: number, year?: number, limit?: number) {
+  return useQuery({
+    queryKey: ['overtime-transactions', userId, year, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      if (year) params.append('year', year.toString());
+      if (limit) params.append('limit', limit.toString());
+
+      const endpoint = `/overtime/transactions${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await apiClient.get<{
+        transactions: Array<{
+          id: number;
+          userId: number;
+          date: string;
+          type: 'earned' | 'compensation' | 'correction' | 'carryover';
+          hours: number;
+          description: string | null;
+          referenceType: string | null;
+          referenceId: number | null;
+          createdAt: string;
+          createdBy: number | null;
+        }>;
+        currentBalance: number;
+        userId: number;
+      }>(endpoint);
+      if (!response.success) throw new Error(response.error);
+      return response.data;
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+}

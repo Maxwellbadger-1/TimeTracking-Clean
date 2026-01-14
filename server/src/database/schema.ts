@@ -365,7 +365,29 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
-  // 14. password_change_log table (Audit Trail for password changes)
+  // 14. overtime_transactions table (Transaction-based overtime tracking)
+  // PROFESSIONAL STANDARD (SAP SuccessFactors, Personio, DATEV):
+  // - Immutable audit trail for all overtime changes
+  // - Separate transactions for earned, compensation, corrections
+  // - Enables "Arbeitszeitkonto" (German working time account) compliance
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS overtime_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('earned', 'compensation', 'correction', 'carryover')),
+      hours REAL NOT NULL,
+      description TEXT,
+      referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system')),
+      referenceId INTEGER,
+      createdAt TEXT DEFAULT (datetime('now')),
+      createdBy INTEGER,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (createdBy) REFERENCES users(id)
+    );
+  `);
+
+  // 15. password_change_log table (Audit Trail for password changes)
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_change_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -392,6 +414,9 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
     CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
+    CREATE INDEX IF NOT EXISTS idx_overtime_transactions_userId ON overtime_transactions(userId);
+    CREATE INDEX IF NOT EXISTS idx_overtime_transactions_date ON overtime_transactions(date);
+    CREATE INDEX IF NOT EXISTS idx_overtime_transactions_type ON overtime_transactions(type);
     CREATE INDEX IF NOT EXISTS idx_password_change_log_userId ON password_change_log(userId);
     CREATE INDEX IF NOT EXISTS idx_password_change_log_changedBy ON password_change_log(changedBy);
   `);

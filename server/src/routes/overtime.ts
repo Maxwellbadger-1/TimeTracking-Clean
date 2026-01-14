@@ -861,4 +861,68 @@ router.post(
   }
 );
 
+/**
+ * GET /api/overtime/transactions
+ * Get overtime transactions (transaction-based overtime tracking)
+ * Query params:
+ *   - userId: User ID (admin can specify, employee gets own)
+ *   - year: Year filter (optional)
+ *   - limit: Number of transactions (default: 50)
+ */
+router.get(
+  '/transactions',
+  requireAuth,
+  async (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const isAdmin = req.session.user!.role === 'admin';
+      const userId = isAdmin && req.query.userId
+        ? parseInt(req.query.userId as string)
+        : req.session.user!.id;
+      const year = req.query.year
+        ? parseInt(req.query.year as string)
+        : undefined;
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string)
+        : 50;
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      // Permission check
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view these transactions',
+        });
+        return;
+      }
+
+      const { getOvertimeHistory, getOvertimeBalance } = await import('../services/overtimeTransactionService.js');
+
+      const transactions = getOvertimeHistory(userId, year, limit);
+      const currentBalance = getOvertimeBalance(userId);
+
+      res.json({
+        success: true,
+        data: {
+          transactions,
+          currentBalance,
+          userId,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting overtime transactions:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get overtime transactions',
+      });
+    }
+  }
+);
+
 export default router;

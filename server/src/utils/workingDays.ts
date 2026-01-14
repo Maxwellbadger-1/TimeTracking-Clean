@@ -34,11 +34,16 @@ export function getDayName(date: Date | string): DayName {
  * Get daily target hours for a specific user and date
  * Uses workSchedule if available, otherwise falls back to weeklyHours/5
  *
+ * CRITICAL: Holidays always return 0h target! (Feiertag = Arbeitsfrei)
+ *
  * @param user - User object with weeklyHours and optional workSchedule
  * @param date - Date string (YYYY-MM-DD) or Date object
  * @returns Target hours for this specific day (0-24)
  *
  * @example
+ * // Holiday check (FIRST!)
+ * getDailyTargetHours(user, "2026-01-01") // Neujahr → 0h
+ *
  * // User with workSchedule: Mo=8h, Fr=2h
  * getDailyTargetHours(hans, "2025-02-07") // Friday → 2h
  * getDailyTargetHours(hans, "2025-02-03") // Monday → 8h
@@ -47,6 +52,13 @@ export function getDayName(date: Date | string): DayName {
  * getDailyTargetHours(user, "2025-02-03") // → 8h (40/5)
  */
 export function getDailyTargetHours(user: UserPublic, date: Date | string): number {
+  // CRITICAL: Check for holidays FIRST! (Feiertag = 0h Soll-Arbeitszeit)
+  const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+  const holiday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
+  if (holiday) {
+    return 0;
+  }
+
   // If user has individual work schedule, use it
   if (user.workSchedule) {
     const dayName = getDayName(date);
@@ -60,6 +72,66 @@ export function getDailyTargetHours(user: UserPublic, date: Date | string): numb
   }
 
   return Math.round((user.weeklyHours / 5) * 100) / 100;
+}
+
+/**
+ * Calculate total hours for an absence period (vacation, sick, overtime_comp)
+ * Respects workSchedule, holidays, and weekends
+ *
+ * CRITICAL: Used for overtime_comp validation and transaction recording!
+ *
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
+ * @param workSchedule - Individual work schedule (optional)
+ * @param weeklyHours - Fallback if no workSchedule
+ * @returns Total hours for the absence period
+ *
+ * @example
+ * // User with workSchedule: Fr=2h
+ * calculateAbsenceHoursWithWorkSchedule('2026-01-02', '2026-01-02', {friday: 2}, 18)
+ * // → 2h (Friday only)
+ *
+ * // User without workSchedule: 40h/week
+ * calculateAbsenceHoursWithWorkSchedule('2026-01-06', '2026-01-10', null, 40)
+ * // → 40h (5 days × 8h)
+ */
+export function calculateAbsenceHoursWithWorkSchedule(
+  startDate: string,
+  endDate: string,
+  workSchedule: Record<DayName, number> | null,
+  weeklyHours: number
+): number {
+  let totalHours = 0;
+  const start = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
+
+  // Iterate through each day in the range
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    const dayOfWeek = d.getDay();
+    const dayName = DAY_NAMES[dayOfWeek];
+
+    // Skip weekends
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      continue;
+    }
+
+    // Check for holiday (Feiertag = 0h)
+    const holiday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
+    if (holiday) {
+      continue;
+    }
+
+    // Calculate hours for this day
+    if (workSchedule) {
+      totalHours += workSchedule[dayName] || 0;
+    } else {
+      // Fallback: weeklyHours / 5
+      totalHours += Math.round((weeklyHours / 5) * 100) / 100;
+    }
+  }
+
+  return Math.round(totalHours * 100) / 100;
 }
 
 /**
