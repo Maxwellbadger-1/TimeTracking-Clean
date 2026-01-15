@@ -71,6 +71,14 @@ export function getDailyTargetHours(user: UserPublic, date: Date | string): numb
     return 0;
   }
 
+  // CRITICAL: Check for weekends! (Sa/So = 0h for standard 5-day week)
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const dayOfWeek = d.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    // Sunday or Saturday = no target hours for standard workers
+    return 0;
+  }
+
   return Math.round((user.weeklyHours / 5) * 100) / 100;
 }
 
