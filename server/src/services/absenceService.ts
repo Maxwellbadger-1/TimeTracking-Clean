@@ -4,6 +4,7 @@ import logger from '../utils/logger.js';
 import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName } from '../utils/workingDays.js';
 import { validateDateString } from '../utils/validation.js';
 import { getUserById } from './userService.js';
+import { getOvertimeBalance } from './overtimeTransactionService.js';
 
 /**
  * Absence Service
@@ -459,8 +460,9 @@ export function createAbsenceRequest(
     logger.debug('🔥🔥🔥 OVERTIME COMP VALIDATION DEBUG 🔥🔥🔥');
     logger.debug({ userId: data.userId, days, startDate: data.startDate, endDate: data.endDate }, '📌 Parameters');
 
-    const overtimeHours = getTotalOvertimeHours(data.userId);
-    logger.debug({ overtimeHours }, '📊 overtimeHours from getTotalOvertimeHours()');
+    // PROFESSIONAL: Use transaction-based balance (like SAP SuccessFactors, Personio, DATEV)
+    const overtimeHours = getOvertimeBalance(data.userId);
+    logger.debug({ overtimeHours }, '📊 overtimeHours from transaction-based system');
 
     // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
     const requiredHours = calculateAbsenceCredits(data.userId, data.startDate, data.endDate);
@@ -625,7 +627,6 @@ export async function approveAbsenceRequest(
     const { getWorkTimeAccountWithUser } = await import('./workTimeAccountService.js');
 
     const account = getWorkTimeAccountWithUser(request.userId);
-    const hoursRequired = request.days * (request.daysRequired || 0); // Calculate hours from days
 
     // Get user to calculate hours correctly
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(request.userId) as any;
@@ -1034,35 +1035,9 @@ function updateVacationTaken(userId: number, year: number, days: number): void {
   db.prepare(query).run(days, userId, year);
 }
 
-/**
- * Get total overtime hours for a user (with hireDate filtering)
- */
-function getTotalOvertimeHours(userId: number): number {
-  logger.debug('🔍 getTotalOvertimeHours - START');
-  logger.debug({ userId }, 'userId');
-
-  // Get user's hireDate
-  const user = db
-    .prepare('SELECT hireDate FROM users WHERE id = ?')
-    .get(userId) as { hireDate: string } | undefined;
-
-  const hireDate = user?.hireDate || '1900-01-01';
-  logger.debug({ hireDate }, 'hireDate');
-
-  const query = `
-    SELECT COALESCE(SUM(overtime), 0) as total
-    FROM overtime_balance
-    WHERE userId = ? AND month >= strftime('%Y-%m', ?)
-  `;
-
-  logger.debug({ query, params: [userId, hireDate] }, 'SQL');
-
-  const result = db.prepare(query).get(userId, hireDate) as { total: number };
-  logger.debug({ result }, 'Result');
-  logger.debug({ total: result.total }, '🔍 getTotalOvertimeHours - END, returning');
-
-  return result.total;
-}
+// REMOVED: getTotalOvertimeHours() - replaced by overtimeTransactionService.getOvertimeBalance()
+// This function used the OLD monthly aggregation system (overtime_balance table).
+// All validation now uses the NEW transaction-based system for consistency.
 
 /**
  * Deduct overtime hours

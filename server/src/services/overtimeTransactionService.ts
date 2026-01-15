@@ -16,7 +16,6 @@
 
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
-import { formatDate } from '../utils/timezone.js';
 
 export interface OvertimeTransaction {
   id: number;

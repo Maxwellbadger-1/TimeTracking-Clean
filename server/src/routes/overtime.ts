@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { db } from '../database/connection.js';
 import {
-  getOvertimeBalance,
+  getOvertimeBalanceLEGACY,
   getOvertimeByMonth,
   getAllUsersOvertimeSummary,
   getOvertimeStats,
@@ -26,8 +26,15 @@ import type { ApiResponse, OvertimeCorrectionCreateInput } from '../types/index.
 const router = Router();
 
 /**
+ * @deprecated LEGACY ENDPOINT - Use /api/overtime/transactions instead
+ *
  * GET /api/overtime/balance
  * Get overtime balance for current user or specific user (admin)
+ *
+ * DEPRECATION NOTICE: This endpoint uses the old monthly aggregation system.
+ * For professional transaction-based tracking (like SAP SuccessFactors, Personio, DATEV),
+ * please migrate to: GET /api/overtime/transactions
+ *
  * Query params:
  *   - year: Year to get balance for (default: current year)
  *   - userId: User ID (admin only, default: current user)
@@ -70,7 +77,9 @@ router.get(
         return;
       }
 
-      const balance = getOvertimeBalance(userId, year);
+      // LEGACY: Using old monthly aggregation system
+      // TODO: Migrate to transaction-based endpoint /api/overtime/transactions
+      const balance = getOvertimeBalanceLEGACY(userId, year);
 
       res.json({
         success: true,
@@ -87,8 +96,14 @@ router.get(
 );
 
 /**
+ * @deprecated LEGACY ENDPOINT - Use /api/overtime/transactions instead
+ *
  * GET /api/overtime/month/:userId/:month
  * Get overtime for a specific month
+ *
+ * DEPRECATION NOTICE: This endpoint uses the old monthly aggregation system.
+ * For transaction-based tracking, use: GET /api/overtime/transactions?year=YYYY
+ *
  * Params:
  *   - userId: User ID
  *   - month: Month in format "YYYY-MM"
@@ -268,8 +283,14 @@ router.get(
 );
 
 /**
+ * @deprecated LEGACY ENDPOINT - Use /api/overtime/transactions instead
+ *
  * GET /api/overtime/stats
- * Get overtime statistics for current user (LEGACY - use /current)
+ * Get overtime statistics for current user
+ *
+ * DEPRECATION NOTICE: This endpoint uses the old monthly aggregation system.
+ * For transaction-based tracking, use: GET /api/overtime/transactions
+ *
  * Returns: total, currentMonth, lastMonth, trend
  */
 router.get(

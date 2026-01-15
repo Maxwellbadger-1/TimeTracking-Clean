@@ -8,12 +8,13 @@ import {
   formatDate,
 } from '../utils/timezone.js';
 import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
-import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 import { getUserById } from './userService.js';
 import {
   deleteEarnedTransactionsForDate,
-  recordOvertimeEarned
+  recordOvertimeEarned,
+  getOvertimeBalance
 } from './overtimeTransactionService.js';
+import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -248,8 +249,13 @@ function getWeekDateRange(date: string): { startDate: string; endDate: string } 
 }
 
 /**
+ * @deprecated LEGACY: Old daily aggregation system
+ * Use overtimeTransactionService.updateOvertimeTransactionsForDate() for transaction-based tracking
+ *
  * Update DAILY overtime for a specific date
  * Called automatically when time entries are created/updated/deleted
+ *
+ * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateDailyOvertime(userId: number, date: string): void {
   // Get full user object with workSchedule for WorkSchedule-aware calculation
@@ -295,8 +301,13 @@ export function updateDailyOvertime(userId: number, date: string): void {
 }
 
 /**
+ * @deprecated LEGACY: Old weekly aggregation system
+ * Transaction-based system provides better granularity
+ *
  * Update WEEKLY overtime for a specific week
  * Called automatically after daily overtime is updated
+ *
+ * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateWeeklyOvertime(userId: number, date: string): void {
   // Get user with workSchedule support
@@ -363,9 +374,13 @@ export function updateWeeklyOvertime(userId: number, date: string): void {
 }
 
 /**
+ * @deprecated LEGACY: Old monthly aggregation system
+ * Transaction-based system is now the primary source of truth
+ *
  * Update MONTHLY overtime for a specific month
  * Called automatically after weekly overtime is updated
- * Already exists in timeEntryService.ts - we just call it
+ *
+ * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateMonthlyOvertime(userId: number, month: string): void {
   // Get user with workSchedule support
@@ -470,41 +485,46 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
      DO UPDATE SET targetHours = ?, actualHours = ?`
   ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
 
-  // CRITICAL: Sync Work Time Account with total overtime
-  // The Work Time Account shows the RUNNING BALANCE (sum of ALL months)
-  const totalOvertime = db.prepare(`
-    SELECT COALESCE(SUM(overtime), 0) as total
-    FROM overtime_balance
-    WHERE userId = ?
-  `).get(userId) as { total: number };
-
-  updateWorkTimeAccountBalance(userId, totalOvertime.total);
-  logger.debug({ userId, totalOvertime: totalOvertime.total }, '✅ Work Time Account synced');
+  // REMOVED: Old Work Time Account sync (now handled by transaction-based system)
+  // Work Time Account is now ONLY updated from overtimeTransactionService for consistency
+  // See: absenceService.ts:696 for the single source of truth
 }
 
 /**
  * Master function: Update ALL overtime levels for a date
  * This is called from timeEntryService when entries are created/updated/deleted
  *
+ * PROFESSIONAL STANDARD (SAP SuccessFactors, Personio, DATEV):
+ * - Transaction-based overtime tracking as primary system
+ * - Old aggregation tables (daily, weekly, monthly) maintained for legacy reports
+ * - Work Time Account synced from transaction-based balance (single source of truth)
+ *
  * CRITICAL: Uses transaction to prevent race conditions and ensure atomicity.
  * If one update fails, ALL updates are rolled back to maintain data consistency.
- *
- * NEW: Also updates overtime_transactions for transaction-based tracking
  */
 export function updateAllOvertimeLevels(userId: number, date: string): void {
   const month = date.substring(0, 7); // "2025-11"
 
   // Wrap in transaction for atomicity (CRITICAL for data consistency!)
-  // This prevents race conditions when multiple time entries are created simultaneously
   const transaction = db.transaction(() => {
+    // NEW SYSTEM: Transaction-based tracking (PRIMARY)
+    updateOvertimeTransactionsForDate(userId, date);
+
+    // OLD SYSTEM: Legacy aggregation tables (for backward compatibility)
     updateDailyOvertime(userId, date);
     updateWeeklyOvertime(userId, date);
     updateMonthlyOvertime(userId, month);
-    updateOvertimeTransactionsForDate(userId, date); // NEW!
   });
 
   // Execute transaction (all-or-nothing)
   transaction();
+
+  // Sync Work Time Account with transaction-based balance (outside transaction)
+  // This ensures Work Time Account always reflects the current transaction-based balance
+  const currentBalance = getOvertimeBalance(userId);
+  updateWorkTimeAccountBalance(userId, currentBalance);
+
+  logger.debug({ userId, date, balance: currentBalance }, '✅ Work Time Account synced from transactions');
 }
 
 /**
@@ -1175,12 +1195,20 @@ export function bulkInitializeOvertimeBalancesForNewYear(year: number): number {
 /**
  * LEGACY COMPATIBILITY FUNCTIONS
  * These are kept for backwards compatibility with old API endpoints
+ *
+ * @deprecated Use overtimeTransactionService.getOvertimeBalance() for NEW transaction-based system
  */
 
-export function getOvertimeBalance(userId: number, year: number) {
+/**
+ * @deprecated LEGACY: Uses old overtime_balance table. Use overtimeTransactionService.getOvertimeBalance() instead.
+ */
+export function getOvertimeBalanceLEGACY(userId: number, year: number) {
   return getOvertimeSummary(userId, year);
 }
 
+/**
+ * @deprecated LEGACY: Uses old monthly system. Use transaction-based system instead.
+ */
 export function getOvertimeByMonth(userId: number, month: string) {
   const monthlyData = getMonthlyOvertime(userId, month);
   if (!monthlyData) {
@@ -1189,6 +1217,9 @@ export function getOvertimeByMonth(userId: number, month: string) {
   return monthlyData;
 }
 
+/**
+ * @deprecated LEGACY: Uses old monthly system. Use transaction-based system instead.
+ */
 export function getOvertimeStats(userId: number) {
   return getCurrentOvertimeStats(userId);
 }

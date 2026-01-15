@@ -1,16 +1,16 @@
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useWorkTimeAccountHistory } from '../../hooks/useWorkTimeAccounts';
+import { useOvertimeHistory } from '../../hooks/useOvertimeReports';
 import { TrendingUp, TrendingDown, Calendar, AlertCircle } from 'lucide-react';
 import { formatHours } from '../../utils/timeUtils';
 
 interface WorkTimeAccountHistoryProps {
-  userId?: number;
+  userId: number;
   months?: number;
 }
 
 export function WorkTimeAccountHistory({ userId, months = 12 }: WorkTimeAccountHistoryProps) {
-  const { data: history, isLoading, error } = useWorkTimeAccountHistory(userId, months);
+  const { data: history, isLoading, error } = useOvertimeHistory(userId, months);
 
   if (isLoading) {
     return (
@@ -86,7 +86,10 @@ export function WorkTimeAccountHistory({ userId, months = 12 }: WorkTimeAccountH
                 Monat
               </th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Überstunden
+                Verdient
+              </th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Ausgleich
               </th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Änderung
@@ -115,37 +118,34 @@ export function WorkTimeAccountHistory({ userId, months = 12 }: WorkTimeAccountH
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-right">
-                  <span
-                    className={`font-medium ${
-                      entry.overtime > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : entry.overtime < 0
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {entry.overtime > 0 ? '+' : ''}
-                    {formatHours(entry.overtime)}
+                  <span className="font-medium text-green-600 dark:text-green-400">
+                    {entry.earned > 0 ? '+' : ''}
+                    {formatHours(entry.earned)}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-right">
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    {formatHours(entry.compensation)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {entry.delta > 0 ? (
+                    {entry.balanceChange > 0 ? (
                       <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    ) : entry.delta < 0 ? (
+                    ) : entry.balanceChange < 0 ? (
                       <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
                     ) : null}
                     <span
                       className={`font-medium ${
-                        entry.delta > 0
+                        entry.balanceChange > 0
                           ? 'text-green-600 dark:text-green-400'
-                          : entry.delta < 0
+                          : entry.balanceChange < 0
                           ? 'text-red-600 dark:text-red-400'
                           : 'text-gray-600 dark:text-gray-400'
                       }`}
                     >
-                      {entry.delta > 0 ? '+' : ''}
-                      {formatHours(entry.delta)}
+                      {entry.balanceChange > 0 ? '+' : ''}
+                      {formatHours(entry.balanceChange)}
                     </span>
                   </div>
                 </td>
@@ -174,18 +174,18 @@ export function WorkTimeAccountHistory({ userId, months = 12 }: WorkTimeAccountH
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Gesamt Überstunden
+              Gesamt Verdient
             </p>
-            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {formatHours(history.reduce((sum, e) => sum + e.overtime, 0))}
+            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+              +{formatHours(history.reduce((sum, e) => sum + e.earned, 0))}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Durchschnitt/Monat
+              Gesamt Ausgleich
             </p>
-            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {formatHours(history.reduce((sum, e) => sum + e.overtime, 0) / history.length)}
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">
+              {formatHours(history.reduce((sum, e) => sum + e.compensation, 0))}
             </p>
           </div>
           <div>

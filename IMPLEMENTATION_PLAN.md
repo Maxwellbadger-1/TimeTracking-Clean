@@ -493,3 +493,48 @@ Expected:
 **Last Updated:** 2026-01-13 (WorkSchedule System 100% Complete)
 **Original Implementation:** 2026-01-07 (Phase 1-3)
 **Final Audit:** 2026-01-13 (System-wide WorkSchedule compliance verified)
+
+---
+
+## ✅ UI MIGRATION COMPLETED (2026-01-15)
+
+### Phase 1: Backend Report Service ✅
+- Created `/server/src/services/reportService.ts` with transaction-based logic
+- Created `/server/src/routes/reports.ts` with new endpoints:
+  - `GET /api/reports/overtime/user/:userId?year=&month=`
+  - `GET /api/reports/overtime/history/:userId?months=`
+- Registered routes in `server.ts`
+- Server restarted successfully
+
+### Phase 2: Frontend Components ✅
+- Created `/desktop/src/hooks/useOvertimeReports.ts` custom hook
+- Created `/desktop/src/components/reports/OvertimeSummaryCards.tsx` (3 clear metrics)
+- Created `/desktop/src/components/reports/OvertimeUserTable.tsx` (sortable table)
+- Created `/desktop/src/components/reports/OvertimeHistoryChart.tsx` (visual history)
+
+### Phase 3: ReportsPage Rebuild ✅
+- **Rebuilt `/desktop/src/pages/ReportsPage.tsx` from scratch**
+- **BEFORE:** 1246 lines of complex logic
+- **AFTER:** 294 lines clean code (~76% reduction!)
+- Uses new transaction-based API exclusively
+- Clear separation: All Users view vs Single User view
+- Removed all legacy overtime calculations
+
+### Phase 4: WorkTimeAccountHistory Update ✅
+- Updated `/desktop/src/components/worktime/WorkTimeAccountHistory.tsx`
+- Now uses `useOvertimeHistory()` from new API
+- Shows clear breakdown: Verdient, Ausgleich, Änderung, Saldo
+- Removed legacy `useWorkTimeAccountHistory` hook
+
+### DEPRECATED ENDPOINTS (Marked for removal):
+- `/api/overtime/summary/:userId/:year` → Use `/api/reports/overtime/user/:userId?year=`
+- `/api/work-time-accounts/history` → Use `/api/reports/overtime/history/:userId?months=`
+
+### MIGRATION STATUS:
+✅ Backend API complete
+✅ Frontend components complete  
+✅ ReportsPage rebuilt
+✅ WorkTimeAccountHistory updated
+⏳ CSV/DATEV export (to be implemented with backend data)
+⏳ Testing with production data
+
