@@ -7,15 +7,22 @@ import { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { OvertimeReportSummary } from '../../hooks/useOvertimeReports';
 
+interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
 interface OvertimeUserTableProps {
   reports: OvertimeReportSummary[];
+  users: User[];
   onUserClick?: (userId: number) => void;
 }
 
 type SortField = 'name' | 'target' | 'actual' | 'overtime';
 type SortDirection = 'asc' | 'desc';
 
-export function OvertimeUserTable({ reports, onUserClick }: OvertimeUserTableProps) {
+export function OvertimeUserTable({ reports, users, onUserClick }: OvertimeUserTableProps) {
   const [sortField, setSortField] = useState<SortField>('overtime');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -45,10 +52,13 @@ export function OvertimeUserTable({ reports, onUserClick }: OvertimeUserTablePro
       let bValue: number | string = 0;
 
       switch (sortField) {
-        case 'name':
-          aValue = a.userId;
-          bValue = b.userId;
+        case 'name': {
+          const userA = users.find((u) => u.id === a.userId);
+          const userB = users.find((u) => u.id === b.userId);
+          aValue = userA ? `${userA.firstName} ${userA.lastName}` : `User ${a.userId}`;
+          bValue = userB ? `${userB.firstName} ${userB.lastName}` : `User ${b.userId}`;
           break;
+        }
         case 'target':
           aValue = a.summary.targetHours;
           bValue = b.summary.targetHours;
@@ -69,7 +79,7 @@ export function OvertimeUserTable({ reports, onUserClick }: OvertimeUserTablePro
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [reports, sortField, sortDirection]);
+  }, [reports, users, sortField, sortDirection]);
 
   // Sort icon component
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -132,7 +142,10 @@ export function OvertimeUserTable({ reports, onUserClick }: OvertimeUserTablePro
                   }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                    User {report.userId}
+                    {(() => {
+                      const user = users.find((u) => u.id === report.userId);
+                      return user ? `${user.firstName} ${user.lastName}` : `User ${report.userId}`;
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
                     {formatHours(report.summary.targetHours)}

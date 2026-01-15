@@ -227,6 +227,7 @@ export function ReportsPage() {
               <CardContent>
                 <OvertimeUserTable
                   reports={reports}
+                  users={users || []}
                   onUserClick={(userId) => setSelectedUserId(userId)}
                 />
               </CardContent>

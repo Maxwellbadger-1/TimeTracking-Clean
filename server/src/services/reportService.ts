@@ -57,10 +57,18 @@ export function getUserOvertimeReport(
   }
 
   // Date range
+  const today = new Date().toISOString().split('T')[0];
   const startDate = month ? `${year}-${String(month).padStart(2, '0')}-01` : `${year}-01-01`;
-  const endDate = month
+
+  // CRITICAL: Never calculate into the future!
+  let endDate = month
     ? new Date(year, month, 0).toISOString().split('T')[0]  // Last day of month
     : `${year}-12-31`;
+
+  // Cap endDate to today (don't calculate future target hours!)
+  if (endDate > today) {
+    endDate = today;
+  }
 
   // Don't include dates before hire date
   const effectiveStartDate = startDate < user.hireDate ? user.hireDate : startDate;
