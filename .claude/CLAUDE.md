@@ -8,6 +8,77 @@
 
 ---
 
+# 📚 CORE DOCUMENTATION (VOR BEGINN LESEN!)
+
+**Diese Dokumente IMMER VOR Arbeitsbeginn konsultieren!**
+
+## Haupt-Dokumentation (Reihenfolge!)
+
+1. **[PROJECT_STATUS.md](../PROJECT_STATUS.md)** (~400 lines)
+   - **ZWECK:** Quick context loading - Aktueller Projekt-Status
+   - **WANN:** START JEDER SESSION (schneller Überblick)
+   - **INHALT:** Health Indicators, Current Sprint, Dependencies, Metrics
+   - **UPDATE:** Wöchentlich (Quick Stats), täglich (Sprint)
+
+2. **[ARCHITECTURE.md](../ARCHITECTURE.md)** (~850 lines)
+   - **ZWECK:** WIE das System gebaut ist
+   - **WANN:** Vor technischen Änderungen (Backend, Frontend, Deployment)
+   - **INHALT:** Tech Stack, Building Blocks, Runtime View, ADRs
+   - **UPDATE:** Bei Architektur-Änderungen
+
+3. **[PROJECT_SPEC.md](../PROJECT_SPEC.md)** (~1500 lines)
+   - **ZWECK:** WAS das System tut
+   - **WANN:** Vor Feature-Implementierung, bei Requirements
+   - **INHALT:** Requirements, API Spec, Data Model, Workflows
+   - **UPDATE:** Bei Feature-Änderungen, API-Erweiterungen
+
+4. **[CHANGELOG.md](../CHANGELOG.md)** (~300 lines)
+   - **ZWECK:** Version History (Keep a Changelog format)
+   - **WANN:** Nach jedem Release, bei Bug-Recherche
+   - **INHALT:** Alle Changes ab v1.0.0, Semantic Versioning
+   - **UPDATE:** Bei jedem Release (MINOR/PATCH)
+
+5. **[ENV.md](../ENV.md)** (~429 lines)
+   - **ZWECK:** Environment Configuration Guide
+   - **WANN:** Bei Deployment, Server-Setup, Scripts
+   - **INHALT:** .env structure, SSH config, troubleshooting
+   - **UPDATE:** Bei neuen Environment Variables
+
+## Workflow: Dokumentation & AI Context
+
+**CRITICAL:** Diese Struktur ermöglicht effiziente AI-Entwicklung!
+
+### START JEDER SESSION
+```
+1. Read PROJECT_STATUS.md  (aktueller Stand)
+2. Read CHANGELOG.md        (letzte Änderungen)
+3. Read relevante Sections aus ARCHITECTURE.md oder PROJECT_SPEC.md
+```
+
+### BEI FEATURES/FIXES
+```
+1. Read PROJECT_SPEC.md → Requirements & API
+2. Read ARCHITECTURE.md → Tech Stack & Patterns
+3. Implementieren
+4. Update PROJECT_STATUS.md (Sprint-Items)
+```
+
+### BEI RELEASES
+```
+1. Update CHANGELOG.md (neue Version)
+2. Update PROJECT_STATUS.md (Deployment)
+3. Create GitHub Release
+```
+
+### BEI ARCHITEKTUR-ÄNDERUNGEN
+```
+1. Update ARCHITECTURE.md (ADRs, Building Blocks)
+2. Update PROJECT_SPEC.md (wenn API/Requirements betroffen)
+3. Update CHANGELOG.md (Breaking Changes?)
+```
+
+---
+
 # 🎯 KERN-PRINZIPIEN
 
 ## 1. KEINE REGRESSION
@@ -1016,6 +1087,6 @@ const useUIStore = create((set) => ({
 
 ---
 
-**Version:** 1.2
-**Letzte Aktualisierung:** 2025-11-12
+**Version:** 1.3
+**Letzte Aktualisierung:** 2026-01-15
 **Status:** ✅ AKTIV
