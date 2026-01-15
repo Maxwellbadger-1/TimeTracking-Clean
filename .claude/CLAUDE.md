@@ -1,1092 +1,471 @@
-# TimeTracking System - Claude AI Development Guidelines
+# TimeTracking System - AI Development Guidelines
 
-**Projekt:** Multi-User Zeiterfassungssystem
-**Typ:** Tauri Desktop-App + Backend Server
-**Version:** 1.2
-**CI/CD:** ✅ GitHub Actions (Auto-Deploy)
-**Letzte Aktualisierung:** 2025-11-12
+**Version:** 2.0
+**Last Updated:** 2026-01-15
+**Purpose:** AI-friendly development guidelines for efficient context loading
 
 ---
 
-# 📚 CORE DOCUMENTATION (VOR BEGINN LESEN!)
+# 📚 CORE DOCS - Definition & Hierarchy
 
-**Diese Dokumente IMMER VOR Arbeitsbeginn konsultieren!**
+## Was sind "Core Docs"?
 
-## Haupt-Dokumentation (Reihenfolge!)
+**"Core Docs" = Die 5 Haupt-Dokumentationen des Projekts:**
 
-1. **[PROJECT_STATUS.md](../PROJECT_STATUS.md)** (~400 lines)
-   - **ZWECK:** Quick context loading - Aktueller Projekt-Status
-   - **WANN:** START JEDER SESSION (schneller Überblick)
-   - **INHALT:** Health Indicators, Current Sprint, Dependencies, Metrics
-   - **UPDATE:** Wöchentlich (Quick Stats), täglich (Sprint)
+1. **PROJECT_STATUS.md** (~400 lines) - Aktueller Projektstatus
+2. **ARCHITECTURE.md** (~850 lines) - WIE das System gebaut ist
+3. **PROJECT_SPEC.md** (~1500 lines) - WAS das System tut
+4. **CHANGELOG.md** (~300 lines) - Version History
+5. **ENV.md** (~429 lines) - Environment Configuration
 
-2. **[ARCHITECTURE.md](../ARCHITECTURE.md)** (~850 lines)
-   - **ZWECK:** WIE das System gebaut ist
-   - **WANN:** Vor technischen Änderungen (Backend, Frontend, Deployment)
-   - **INHALT:** Tech Stack, Building Blocks, Runtime View, ADRs
-   - **UPDATE:** Bei Architektur-Änderungen
+**Wenn User sagt "lies Core Docs" oder "Core Docs" erwähnt** → Er meint diese 5 Dateien!
 
-3. **[PROJECT_SPEC.md](../PROJECT_SPEC.md)** (~1500 lines)
-   - **ZWECK:** WAS das System tut
-   - **WANN:** Vor Feature-Implementierung, bei Requirements
-   - **INHALT:** Requirements, API Spec, Data Model, Workflows
-   - **UPDATE:** Bei Feature-Änderungen, API-Erweiterungen
+## 🔍 Decision Tree: Welches Doc wann lesen?
 
-4. **[CHANGELOG.md](../CHANGELOG.md)** (~300 lines)
-   - **ZWECK:** Version History (Keep a Changelog format)
-   - **WANN:** Nach jedem Release, bei Bug-Recherche
-   - **INHALT:** Alle Changes ab v1.0.0, Semantic Versioning
-   - **UPDATE:** Bei jedem Release (MINOR/PATCH)
-
-5. **[ENV.md](../ENV.md)** (~429 lines)
-   - **ZWECK:** Environment Configuration Guide
-   - **WANN:** Bei Deployment, Server-Setup, Scripts
-   - **INHALT:** .env structure, SSH config, troubleshooting
-   - **UPDATE:** Bei neuen Environment Variables
-
-## Workflow: Dokumentation & AI Context
-
-**CRITICAL:** Diese Struktur ermöglicht effiziente AI-Entwicklung!
-
-### START JEDER SESSION
 ```
-1. Read PROJECT_STATUS.md  (aktueller Stand)
-2. Read CHANGELOG.md        (letzte Änderungen)
-3. Read relevante Sections aus ARCHITECTURE.md oder PROJECT_SPEC.md
+START JEDER SESSION
+└─ Read: PROJECT_STATUS.md (Quick Stats, Current Sprint)
+└─ Read: CHANGELOG.md (Recent Changes)
+
+FEATURE ENTWICKLUNG
+└─ Read: PROJECT_SPEC.md (Requirements, API Spec, Data Model)
+└─ Read: ARCHITECTURE.md (Tech Stack, Patterns, ADRs)
+
+BUG FIX
+└─ Read: PROJECT_STATUS.md (Known Issues)
+└─ Read: CHANGELOG.md (When was it last working?)
+└─ Read: ARCHITECTURE.md (System behavior)
+
+DEPLOYMENT / SCRIPTS
+└─ Read: ENV.md (Environment Config, SSH, Scripts)
+└─ Read: ARCHITECTURE.md (Deployment View)
+
+ARCHITECTURE CHANGE
+└─ Read: ARCHITECTURE.md (ADRs, Building Blocks)
+└─ Update: ARCHITECTURE.md + PROJECT_SPEC.md (if API changed)
+
+RELEASE
+└─ Update: CHANGELOG.md (New version entry)
+└─ Update: PROJECT_STATUS.md (Deployment status)
+└─ Follow: Release Checklist (siehe unten)
 ```
 
-### BEI FEATURES/FIXES
-```
-1. Read PROJECT_SPEC.md → Requirements & API
-2. Read ARCHITECTURE.md → Tech Stack & Patterns
-3. Implementieren
-4. Update PROJECT_STATUS.md (Sprint-Items)
-```
+## 🧠 AI Context Loading Strategy
 
-### BEI RELEASES
-```
-1. Update CHANGELOG.md (neue Version)
-2. Update PROJECT_STATUS.md (Deployment)
-3. Create GitHub Release
-```
+**Best Practice:** Load docs in this order for optimal context:
 
-### BEI ARCHITEKTUR-ÄNDERUNGEN
-```
-1. Update ARCHITECTURE.md (ADRs, Building Blocks)
-2. Update PROJECT_SPEC.md (wenn API/Requirements betroffen)
-3. Update CHANGELOG.md (Breaking Changes?)
-```
+1. **Quick Context** (30 sec): PROJECT_STATUS.md Sections 1-3
+2. **Task Context** (2-5 min): Relevante Sections aus PROJECT_SPEC.md oder ARCHITECTURE.md
+3. **Details On-Demand**: ENV.md, CHANGELOG.md nur wenn gebraucht
+
+**Warum diese Struktur?**
+- **Guidelines (CLAUDE.md)**: WIE entwickeln (Prozesse, Rules, Workflows)
+- **Core Docs**: WAS/WIE gebaut ist (Specs, Architecture, Status)
+- **Klare Trennung**: Keine Redundanz, effizientes Context Loading
 
 ---
 
 # 🎯 KERN-PRINZIPIEN
 
-## 1. KEINE REGRESSION
-Funktionierende Features dürfen NIEMALS kaputt gehen!
+## 1. NO REGRESSION
 
-**Vor JEDER Änderung:**
-1. Plan erstellen → User Review → Implementation
-2. Tests schreiben & ausführen
-3. Manuelle Prüfung (Happy Path + Edge Cases)
+**Funktionierende Features dürfen NIEMALS kaputt gehen!**
+
+Vor JEDER Änderung:
+1. ✅ Plan erstellen → User Review → Implementation
+2. ✅ Tests schreiben & ausführen
+3. ✅ Manuelle Prüfung (Happy Path + Edge Cases)
 
 ## 2. PLAN-FIRST APPROACH
-- ❌ **NIEMALS** direkt coden
+
+- ❌ **NIEMALS** direkt coden ohne Plan
 - ✅ **IMMER** Plan mit User reviewen
 - ✅ Bei Komplexität: "think hard" nutzen
 
-## 3. IMPLEMENTATION_PLAN.md PFLICHT
-- VOR Beginn lesen
-- WÄHREND aktualisieren
-- NACH Abschluss committen
+## 3. DOCUMENTATION-FIRST
+
+- ✅ Core Docs VOR Arbeitsbeginn lesen
+- ✅ Core Docs WÄHREND Arbeit aktualisieren
+- ✅ Commit Message erklärt WARUM, nicht nur WAS
 
 ---
 
-# 🚀 CI/CD WORKFLOW (Vollautomatisch)
+# ⚡ CRITICAL RULES (Must-Know!)
 
-## Production Deployment (Oracle Cloud)
-
-**Trigger:** `git push origin main` (wenn `server/**` geändert)
-
-```bash
-# Lokale Änderung
-vim server/src/server.ts
-
-# Committen & Pushen
-git add server/
-git commit -m "fix: Bug XYZ"
-git push origin main
-
-# → GitHub Actions deployed automatisch!
-# → Status: https://github.com/user/repo/actions
-```
-
-**Was passiert automatisch:**
-1. TypeScript Type Check
-2. Security Audit
-3. SSH zu Oracle Cloud (129.159.8.19)
-4. Database Backup
-5. `npm ci && npm run build`
-6. PM2 Zero-Downtime Restart
-7. Health Check
-
-**Monitoring:**
-```bash
-# Health Check
-http://129.159.8.19:3000/api/health
-
-# Server Logs (SSH)
-ssh ubuntu@129.159.8.19
-pm2 logs timetracking-server --lines 50
-```
-
-### 🔧 Production Server Setup (WICHTIG!)
-
-**Environment Variables** - Der Server benötigt diese Variables für korrekten Betrieb:
-
-```bash
-# /home/ubuntu/TimeTracking-Clean/server/.env
-DATABASE_PATH=./database.db
-SESSION_SECRET=<secure-random-string>
-```
-
-**Deployment-Workflow** (`.github/workflows/deploy-server.yml`):
-- Setzt automatisch: `TZ=Europe/Berlin` (korrekte Zeitzone für Deutschland!)
-- Setzt automatisch: `NODE_ENV=production` (Production-Mode aktivieren)
-- Liest automatisch: `SESSION_SECRET` aus `.env` File
-
-**WICHTIG:** Wenn Server manuell neu gestartet wird:
-```bash
-# Korrekt (mit allen Environment Variables):
-cd /home/ubuntu/TimeTracking-Clean/server
-SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
-TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET pm2 start dist/server.js \
-  --name timetracking-server \
-  --cwd /home/ubuntu/TimeTracking-Clean/server \
-  --time \
-  --update-env
-pm2 save
-
-# FALSCH (ohne TZ/NODE_ENV = Zeitzone UTC + Dev-Mode):
-pm2 start dist/server.js
-```
-
-**Was passiert ohne diese Variables?**
-- ❌ Ohne `TZ=Europe/Berlin`: Zeitberechnungen nutzen UTC statt Deutschland-Zeit
-- ❌ Ohne `NODE_ENV=production`: Future-date time entries erlaubt (Dev-Mode)
-- ❌ Ohne `SESSION_SECRET`: Server startet nicht (Security-Requirement)
-
----
-
-## Desktop App Releases
-
-### 🚨 KRITISCHSTE REGEL: TypeScript MUSS kompilieren!
-
-**WARUM SO WICHTIG?**
-- Tauri Workflow: `npm run build` (TypeScript) → DANN Rust-Build → DANN Binaries
-- TypeScript-Fehler = Workflow stoppt SOFORT = **NUR Source Code im Release, KEINE Binaries!**
-- **DAS** war das Problem, das immer wieder auftrat!
-
-**LÖSUNG:**
-```bash
-# VOR jedem Release IMMER testen:
-cd desktop && npx tsc --noEmit
-
-# Wenn Fehler → ERST fixen, DANN Release!
-```
-
----
-
-### ✅ KOMPLETTER RELEASE-PROZESS (Step-by-Step)
-
-**Wenn User sagt: "mach release"** → EXAKT diese Schritte befolgen:
-
-#### **Schritt 1: PRE-CHECKS (PFLICHT!)**
-
-```bash
-# A) TypeScript Compilation Check
-cd /Users/maximilianfegg/Desktop/TimeTracking-Clean/desktop
-npx tsc --noEmit
-# → MUSS ohne Fehler durchlaufen! Sonst STOP!
-
-# B) Alle Änderungen committed?
-git status
-# → "working tree clean" = ✅
-# → Änderungen vorhanden = ERST committen!
-```
-
-**Häufigste Fehlerquellen (aus Erfahrung):**
-- ❌ Import von gelöschten Dateien (z.B. DevTools)
-- ❌ Fehlende Properties in Types
-- ❌ Unvollständige File-Edits (z.B. durch sed-Fehler)
-
-**FIX bei TypeScript-Fehlern:**
-1. File aus Git wiederherstellen: `git show HEAD^:path/to/file.tsx`
-2. Vorsichtig editieren (NIEMALS mit sed/awk!)
-3. Erneut testen: `npx tsc --noEmit`
-
-#### **Schritt 2: VERSION BUMP**
-
-**3 Files ändern (immer alle 3!):**
-
-```bash
-# 1. desktop/package.json
-{
-  "version": "1.X.Y"  // MINOR oder PATCH bumpen
-}
-
-# 2. desktop/src-tauri/Cargo.toml
-[package]
-version = "1.X.Y"
-
-# 3. desktop/src-tauri/tauri.conf.json
-{
-  "version": "1.X.Y"
-}
-```
-
-**Semantic Versioning:**
-- `1.0.X → 1.0.X+1` = PATCH (Bugfix)
-- `1.X.0 → 1.X+1.0` = MINOR (Neue Features)
-- `X.0.0 → X+1.0.0` = MAJOR (Breaking Changes)
-
-#### **Schritt 3: COMMIT & PUSH**
-
-```bash
-# Version Bump committen
-git add desktop/package.json desktop/src-tauri/Cargo.toml desktop/src-tauri/tauri.conf.json
-git commit -m "chore: Bump version to v1.X.Y"
-git push origin main
-```
-
-#### **Schritt 4: RELEASE ERSTELLEN**
-
-**WICHTIG:** Tag → Release → Workflow (diese Reihenfolge!)
-
-```bash
-# 1. Tag erstellen
-git tag v1.X.Y
-
-# 2. Tag pushen (triggert Workflow!)
-git push origin v1.X.Y
-
-# 3. GitHub Release erstellen (für Release Notes)
-gh release create v1.X.Y \
-  --title "TimeTracking System v1.X.Y - [Feature Name]" \
-  --notes "$(cat <<'EOF'
-# TimeTracking System v1.X.Y
-
-## 🎯 New Features
-- Feature 1
-- Feature 2
-
-## 🐛 Bug Fixes
-- Fix 1
-- Fix 2
-
-## 📋 Usage
-\`\`\`bash
-# Installation instructions
-\`\`\`
-
----
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
-```
-
-**Alternative (wenn gh release create den Tag automatisch erstellt):**
-```bash
-# Release erstellen (erstellt auch automatisch den Tag)
-gh release create v1.X.Y \
-  --title "..." \
-  --notes "..."
-# → Workflow wird automatisch getriggert
-```
-
-#### **Schritt 5: BUILD MONITORING (PFLICHT!)**
-
-```bash
-# 1. Workflow-Status checken (sofort nach Release-Erstellung)
-gh run list --workflow="release.yml" --limit 1
-# → Status: "in_progress" = ✅
-
-# 2. Nach 2-3 Minuten: Detaillierte Status-Prüfung
-gh run view <RUN_ID>
-# → Alle 4 Jobs müssen "*" (in_progress) oder "✓" (completed) haben
-# → "X" (failed) = Problem!
-
-# 3. Bei Fehlern: Log prüfen
-gh run view <RUN_ID> --log | grep -E "(Error|error|failed)"
-
-# 4. Nach 8-12 Minuten: Workflow sollte fertig sein
-gh run list --workflow="release.yml" --limit 1
-# → Status: "completed" = ✅
-```
-
-**Erwartete Build-Zeiten:**
-- TypeScript Build: ~1 Minute
-- Rust Builds (parallel, 4 Plattformen): ~7-10 Minuten
-- Binary Upload: ~1 Minute
-- **GESAMT: 8-12 Minuten**
-
-#### **Schritt 6: SUCCESS VERIFICATION (PFLICHT!)**
-
-**KRITISCH:** Release muss BINARIES enthalten, nicht nur Source Code!
-
-```bash
-# Release-Seite öffnen
-open "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/tag/v1.X.Y"
-
-# ODER: Assets per CLI prüfen
-gh release view v1.X.Y --json assets --jq '.assets[].name'
-```
-
-**Erwartete Files (ALLE müssen vorhanden sein!):**
-- ✅ `*.dmg` (macOS Universal Binary - Intel + ARM)
-- ✅ `*.exe` (Windows Executable)
-- ✅ `*.msi` (Windows Installer)
-- ✅ `*.AppImage` (Linux Portable)
-- ✅ `*.deb` (Linux Debian Package)
-- ✅ `latest.json` (Tauri Auto-Update Manifest)
-
-**Wenn NUR `Source code (zip/tar.gz)` vorhanden:**
-- ❌ **BUILD HAT VERSAGT!**
-- → GitHub hat nur automatisch Source-Archive erstellt
-- → Workflow hatte TypeScript/Rust-Fehler
-- → Siehe "Schritt 7: Troubleshooting"
-
----
-
-### 🔧 TROUBLESHOOTING
-
-#### **Problem 1: Release enthält nur Source Code, keine Binaries**
-
-**Ursache:** TypeScript-Compilation ist fehlgeschlagen
-
-**FIX:**
-```bash
-# 1. Workflow-Logs prüfen
-gh run view <RUN_ID> --log | grep -A 20 "error TS"
-
-# 2. TypeScript-Fehler lokal fixen
-cd desktop && npx tsc --noEmit
-# → Fehler anschauen und fixen
-
-# 3. Release & Tag löschen, neu erstellen
-gh release delete v1.X.Y --yes
-git push origin :refs/tags/v1.X.Y
-git tag -d v1.X.Y
-
-# 4. Fix committen & pushen
-git add -A
-git commit -m "fix: TypeScript compilation errors"
-git push origin main
-
-# 5. Release erneut erstellen (siehe Schritt 4)
-```
-
-#### **Problem 2: TypeScript-Fehler durch gelöschte/umbenannte Dateien**
-
-**Beispiel:** DevTools wurden gelöscht, aber Imports existieren noch
-
-**FIX:**
-```bash
-# 1. Alle Referenzen finden
-grep -r "devtools\|DevTool" desktop/src/
-
-# 2. Imports entfernen (VORSICHTIG mit Edit-Tool!)
-# - Imports löschen
-# - Usages löschen
-# - JSX-Blöcke löschen
-
-# 3. Test
-npx tsc --noEmit
-```
-
-#### **Problem 3: File wurde durch sed/awk beschädigt**
-
-**Symptom:** File hat zu wenige Zeilen oder fehlt Syntax
-
-**FIX:**
-```bash
-# File aus Git wiederherstellen
-git show HEAD:desktop/src/pages/SettingsPage.tsx > desktop/src/pages/SettingsPage.tsx
-
-# ODER: Aus früherem Commit
-git show <COMMIT_SHA>:path/to/file.tsx > path/to/file.tsx
-```
-
-#### **Problem 4: Build läuft > 15 Minuten**
-
-**Ursache:** Workflow hängt oder ist sehr langsam
-
-**FIX:**
-```bash
-# 1. Status checken
-gh run view <RUN_ID>
-
-# 2. Wenn "in_progress" zu lange:
-#    - GitHub Actions können langsam sein (normal bis 20 Min)
-#    - Abwarten oder Workflow canceln & neu starten
-
-# 3. Workflow canceln (nur wenn wirklich nötig!)
-gh run cancel <RUN_ID>
-```
-
-#### **Problem 5: Windows fehlt in latest.json (Auto-Update funktioniert nicht!)**
-
-**Symptom:**
-- Binaries sind alle vorhanden (*.exe, *.msi)
-- ABER: latest.json enthält nur Linux + macOS, kein Windows
-- Windows-Clients können nicht automatisch updaten!
-
-**Ursache:**
-- Windows-Job failed mit "already_exists" Error beim Upload
-- Tauri Action schreibt Windows-Plattform nicht in latest.json
-- Race Condition bei parallelen Uploads
-
-**KRITISCH:** Ohne Windows in latest.json ist Auto-Update KAPUTT!
-
-**FIX:**
-```bash
-# 1. latest.json prüfen
-curl -sL "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/download/v1.X.Y/latest.json" \
-  | python3 -m json.tool | grep -E "(platforms|windows)"
-
-# 2. Wenn Windows fehlt → Release neu machen!
-# A) Release & Tag löschen
-gh release delete v1.X.Y --yes
-git push origin :refs/tags/v1.X.Y
-git tag -d v1.X.Y
-
-# B) Neu erstellen (siehe Schritt 4 im Release-Prozess)
-git tag v1.X.Y
-git push origin v1.X.Y
-gh release create v1.X.Y --title "..." --notes "..."
-
-# 3. Workflow abwarten (8-12 Min)
-
-# 4. latest.json erneut prüfen
-curl -sL "https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/latest/download/latest.json" \
-  | python3 -m json.tool | grep -c "windows"
-# → Sollte mindestens 1 Windows-Plattform anzeigen!
-```
-
-**Erwartete Plattformen in latest.json:**
-```json
-{
-  "platforms": {
-    "windows-x86_64": { ... },           // ✅ MUSS vorhanden sein!
-    "darwin-x86_64": { ... },            // ✅ macOS Intel
-    "darwin-aarch64": { ... },           // ✅ macOS ARM (M1/M2)
-    "linux-x86_64": { ... }              // ✅ Linux
-  }
-}
-```
-
-**Warum ist das so kritisch?**
-- Tauri Updater nutzt latest.json um neue Versionen zu finden
-- Ohne Windows-Eintrag: Windows-Clients sehen kein Update
-- Benutzer müssen manuell herunterladen = Schlechte UX!
-
----
-
-### 📋 RELEASE CHECKLIST (Für Copy-Paste)
-
-```
-☐ 1. TypeScript kompiliert ohne Fehler (npx tsc --noEmit)
-☐ 2. Alle Änderungen committed (git status clean)
-☐ 3. Version in 3 Files gebumpt
-☐ 4. Version-Commit erstellt & gepusht
-☐ 5. Tag erstellt & gepusht (git tag v1.X.Y && git push origin v1.X.Y)
-☐ 6. GitHub Release erstellt (gh release create)
-☐ 7. Workflow gestartet (gh run list)
-☐ 8. Build-Status geprüft (nach 2-3 Min)
-☐ 9. Build abgeschlossen (nach 8-12 Min)
-☐ 10. Binaries im Release vorhanden (*.dmg, *.exe, *.msi, *.AppImage, *.deb)
-☐ 11. latest.json vorhanden UND enthält ALLE Plattformen (Windows, macOS, Linux)
-☐ 12. Auto-Update funktioniert (Windows muss in latest.json sein!)
-☐ 13. Mindestens 1 Binary getestet (lokal installieren & starten)
-```
-
----
-
-### 🎯 WICHTIGSTE ERKENNTNISSE (Aus diesem Release v1.1.0)
-
-1. **TypeScript-Fehler = Kein Release**
-   - DevTools-Imports waren nicht vollständig entfernt
-   - Workflow failed bei `npm run build`
-   - **LESSON:** IMMER lokal testen: `npx tsc --noEmit`
-
-2. **File-Corruption durch sed**
-   - `sed` kann Files beschädigen wenn Patterns nicht exakt matchen
-   - SettingsPage.tsx hatte nur 19 statt 332 Zeilen
-   - **LESSON:** Nur Edit-Tool nutzen, NIEMALS sed/awk!
-
-3. **Richtige Reihenfolge**
-   - ✅ Commit → Push → Tag → Push Tag → Release
-   - ❌ NICHT: Tag vor Commit, Release vor Tag
-
-4. **Geduld bei Builds**
-   - Rust-Compilation für 4 Plattformen braucht Zeit
-   - 8-12 Minuten sind NORMAL
-   - Nicht vorzeitig canceln!
-
-5. **latest.json MUSS alle Plattformen enthalten**
-   - Windows-Job failed mit "already_exists" → Windows fehlt in latest.json
-   - Ohne Windows-Eintrag: Auto-Update kaputt für Windows-Clients!
-   - **LESSON:** IMMER latest.json prüfen nach Build:
-     ```bash
-     curl -sL "https://github.com/.../releases/latest/download/latest.json" | python3 -m json.tool | grep windows
-     ```
-   - Wenn Windows fehlt → Release neu machen!
-
----
-
-# 🗄️ DATABASE REGELN
-
-## Eine Datenbank (PFLICHT!)
-- ✅ Nur: `server/database.db`
-- ❌ NIEMALS weitere DB-Dateien
-
-## WAL Mode (Multi-User)
-```typescript
-db.pragma('journal_mode = WAL');
-```
-
-## Prepared Statements (SQL Injection Schutz)
-```typescript
-// ✅ RICHTIG
-const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-
-// ❌ FALSCH
-const user = db.prepare(`SELECT * FROM users WHERE id = ${userId}`).get();
-```
-
-## Soft Delete
-```sql
-UPDATE users SET deletedAt = datetime('now') WHERE id = ?;
--- NICHT: DELETE FROM users WHERE id = ?;
-```
-
----
-
-# 💻 CODE-QUALITÄT
-
-## TypeScript Strict Mode (PFLICHT!)
-- ❌ **NIEMALS** `any` verwenden
-- ✅ `unknown` wenn Typ unklar
-- ✅ Type Guards nutzen
-
-## Defensive Programming
-```typescript
-// ✅ RICHTIG - Optional Chaining + Defaults
-const totalHours = timeEntries
-  ?.filter(e => e.userId === userId)
-  ?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0;
-
-// ❌ FALSCH - Crash bei undefined
-const totalHours = timeEntries
-  .filter(e => e.userId === userId)
-  .reduce((sum, entry) => sum + entry.hours, 0);
-```
-
-## Error Handling (PFLICHT!)
-```typescript
-async function createUser(data: UserData): Promise<User> {
-  try {
-    // Validation
-    if (!data.email?.trim()) {
-      throw new Error('Email required');
-    }
-
-    // Business Logic
-    const user = await db.createUser(data);
-    if (!user) throw new Error('Failed to create user');
-
-    return user;
-  } catch (error) {
-    console.error('❌ Error:', error);
-    throw error; // Re-throw für API Handler
-  }
-}
-```
-
----
-
-# 🖥️ TAURI DESKTOP-APP (KRITISCH!)
-
-## Architektur
-- Desktop-Apps (Windows .exe, macOS .app, Linux .AppImage) = Clients
-- Server (Node.js + SQLite) = Zentrale Datenhaltung
-- Multi-User: Mehrere Apps → Ein Server
-
-## API-Calls & Session-Management (KRITISCH!)
-
-**PROBLEM:** Browser `fetch()` sendet keine Session-Cookies bei Cross-Origin!
-
-**LÖSUNG:** `universalFetch` verwenden!
+## 🔒 TypeScript Strict Mode (PFLICHT!)
 
 ```typescript
-// ❌ FALSCH - Session-Cookies gehen verloren
-const response = await fetch('http://localhost:3000/api/exports/datev', {
-  credentials: 'include'
-});
+// ❌ NIEMALS
+const data: any = response.data;
 
-// ✅ RICHTIG - Korrekte Cookie-Handhabung
+// ✅ IMMER
+const data: unknown = response.data;
+if (isValidData(data)) { /* Type Guard */ }
+```
+
+**Regel:** Null Type Guards verwenden, kein `any`, optional chaining überall!
+
+## 🖥️ Tauri Session Management (KRITISCH!)
+
+```typescript
+// ❌ FALSCH - Session Cookies gehen verloren
+await fetch('http://localhost:3000/api/...', { credentials: 'include' });
+
+// ✅ RICHTIG - Nutze universalFetch
 import { universalFetch } from '../lib/tauriHttpClient';
-
-const response = await universalFetch('http://localhost:3000/api/exports/datev', {
-  credentials: 'include',
-  headers: { 'Content-Type': 'application/json' }
-});
+await universalFetch('http://localhost:3000/api/...', { credentials: 'include' });
 ```
 
-**Warum `universalFetch`?**
-- Nutzt Tauri HTTP Plugin in Desktop-App
-- Nutzt Browser `fetch()` im Browser (fallback)
-- Handled Session-Cookies korrekt bei Cross-Origin
-- Definiert in `src/lib/tauriHttpClient.ts`
+**Warum?** Browser `fetch()` sendet keine Cookies bei Tauri Cross-Origin!
+**Details:** ARCHITECTURE.md → Section "Tauri HTTP Client"
 
-**REGEL:** Wenn du `await fetch(` siehst → SOFORT ersetzen mit `universalFetch`!
+## 📊 Überstunden-Berechnung (BUSINESS-CRITICAL!)
 
-## apiClient (Bereits konfiguriert!)
-
-Der `apiClient` nutzt bereits `universalFetch` mit `credentials: 'include'`:
-
-```typescript
-// src/api/client.ts
-const response = await universalFetch(url, {
-  ...options,
-  credentials: 'include', // ✅ Bereits konfiguriert!
-  headers: {
-    'Content-Type': 'application/json',
-    ...options?.headers,
-  },
-});
-```
-
-**ABER:** Direkte `universalFetch` Calls brauchen manuelles `credentials: 'include'`!
-
-## VERBOTE
-- ❌ Browser-APIs (window.open, alert, confirm)
-- ❌ localStorage für sensible Daten
-- ❌ Direct `fetch()` (immer `universalFetch`!)
-- ❌ Browser Notifications (Tauri Notifications nutzen!)
-
----
-
-# 📊 ÜBERSTUNDEN-BERECHNUNG (Best Practice)
-
-**KRITISCH:** Diese Regeln entsprechen HR-Systemen (Personio, DATEV, SAP)
-
-## Grundformel (UNVERÄNDERLICH!)
 ```
 Überstunden = Ist-Stunden - Soll-Stunden
 ```
 
-**NIEMALS anders berechnen!** Standard in ALLEN professionellen Systemen.
+**Grundregeln (HR-System-Kompatibel):**
+1. **Referenz-Datum:** IMMER heute (nicht Ende Monat!)
+2. **Krankheit/Urlaub:** Als gearbeitete Stunden zählen (Gutschrift!)
+3. **Unbezahlter Urlaub:** Reduziert Soll-Stunden (keine Gutschrift)
+4. **Live-Berechnung:** ON-DEMAND berechnen, NIE cachen!
 
-## Referenz-Datum (IMMER HEUTE!)
-```typescript
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+**Details:** PROJECT_SPEC.md → Section 6.2 "Overtime Calculation"
 
-// Arbeits tage FROM hireDate TO today (BEIDE inklusive!)
-const workingDays = countWorkingDaysBetween(hireDate, today);
+## 🗄️ Database Rules
+
+1. **One Database:** Nur `server/database.db` (NIEMALS weitere DBs!)
+2. **WAL Mode:** `db.pragma('journal_mode = WAL')` für Multi-User
+3. **Prepared Statements:** SQL Injection Schutz (PFLICHT!)
+4. **Soft Delete:** `UPDATE ... SET deletedAt = NOW()` statt `DELETE`
+
+**Details:** ARCHITECTURE.md → Section "Data Layer"
+
+## 🚀 CI/CD & Production
+
+### Environment Variables (CRITICAL!)
+
+Server benötigt diese Variables für korrekten Betrieb:
+
+```bash
+TZ=Europe/Berlin                  # Deutsche Zeitzone (Überstunden!)
+NODE_ENV=production               # Production Mode
+SESSION_SECRET=<secure-random>    # Cookie Encryption
 ```
 
-**Beispiel:**
-- Eintritt: 07.11.2025 (Donnerstag)
-- Heute: 11.11.2025 (Montag)
-- Arbeitstage: 3 (Do, Fr, Mo)
-- Soll: 3 × 8h = 24h
-- Ist: 0h
-- **Überstunden: 0h - 24h = -24h** ✅
+**Warum kritisch?**
+- ❌ Ohne `TZ=Europe/Berlin`: Zeitberechnungen nutzen UTC → falsche Überstunden!
+- ❌ Ohne `NODE_ENV=production`: Future-date time entries erlaubt (Dev-Mode)
+- ❌ Ohne `SESSION_SECRET`: Server startet nicht
 
-## Live-Berechnung (PFLICHT!)
+**Details:** ENV.md → Section "Production Server Setup"
 
-**Überstunden IMMER ON-DEMAND berechnen!**
+### Deployment Workflow
 
-```typescript
-// ✅ RICHTIG - Live-Berechnung
-const targetHours = calculateTargetHours(user.weeklyHours, user.hireDate);
-const actualHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
-const overtime = actualHours - targetHours;
+**Auto-Deploy:** `git push origin main` (wenn `server/**` geändert)
 
-// ❌ FALSCH - Database Cache (kann veraltet sein!)
-const overtime = overtimeData?.totalOvertime;
+```bash
+# Workflow triggered automatisch:
+1. TypeScript Type Check
+2. Security Audit
+3. SSH zu Oracle Cloud
+4. Database Backup
+5. Build & PM2 Restart
+6. Health Check
 ```
 
-## UI Display-Regeln (PFLICHT!)
-
-**3 separate Metriken zeigen:**
-
-```tsx
-<Card>Soll-Stunden: 24:00h</Card>
-<Card>Ist-Stunden: 0:00h</Card>
-<Card>Überstunden (Differenz): -24:00h</Card>
-```
-
-**Layout Best Practice:**
-1. **Soll** (Target) - Gray, Clock Icon, Subtitle: "Stand: [Datum]"
-2. **Ist** (Actual) - Blue, CheckCircle Icon, Subtitle: "[%] vom Soll"
-3. **Überstunden** (Diff) - Green/Red, TrendingUp/AlertCircle Icon, Subtitle: "Ist - Soll"
-
-## Arbeitstage-Berechnung
-
-```typescript
-export function countWorkingDaysBetween(from: Date, to: Date): number {
-  let workingDays = 0;
-
-  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const isHoliday = holidays.includes(formatDate(d));
-
-    if (!isWeekend && !isHoliday) {
-      workingDays++;
-    }
-  }
-
-  return workingDays;
-}
-```
-
-## Zeitformatierung
-
-```typescript
-// Mit Vorzeichen (für Überstunden)
-function formatOvertimeHours(hours: number): string {
-  const sign = hours >= 0 ? '+' : '';
-  const h = Math.floor(Math.abs(hours));
-  const m = Math.round((Math.abs(hours) - h) * 60);
-  return `${sign}${h}:${String(m).padStart(2, '0')}h`;
-}
-
-// Ohne Vorzeichen (für Soll/Ist)
-function formatHours(hours: number): string {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}:${String(m).padStart(2, '0')}h`;
-}
-```
+**Monitor:** http://129.159.8.19:3000/api/health
 
 ---
 
-# 🏖️ ABWESENHEITS-GUTSCHRIFT (Best Practice)
+# 🔄 WORKFLOWS (Kompakt)
 
-**WICHTIGSTE REGEL:** "Krank/Urlaub = Gearbeitet"
+## Session Start (3 Steps)
 
-## Grundprinzip (Personio, DATEV, SAP)
-```
-Kranke/Urlaubstage dürfen NIEMALS zu Minusstunden führen!
-```
-
-## Implementierung
-
-### 1. Soll-Stunden (Target)
-```typescript
-const targetHours = workingDays × targetHoursPerDay;
-
-// Unbezahlter Urlaub REDUZIERT Soll!
-const unpaidDays = absences.filter(a => a.type === 'unpaid').reduce(...);
-const adjustedTargetHours = targetHours - (unpaidDays × targetHoursPerDay);
+```bash
+1. Read: PROJECT_STATUS.md (Current Sprint, Health)
+2. Read: CHANGELOG.md (Recent Changes)
+3. Read: Relevante Section aus ARCHITECTURE.md oder PROJECT_SPEC.md
 ```
 
-### 2. Ist-Stunden (Actual)
-```typescript
-const workedHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
+## Feature Development
 
-// Abwesenheits-Gutschrift addieren!
-const absenceCredits = absences
-  .filter(a => a.status === 'approved')
-  .reduce((sum, a) => {
-    const days = a.daysRequired || 0;
-    // Krankheit, Urlaub, Überstunden-Ausgleich → Gutschrift
-    if (a.type === 'vacation' || a.type === 'sick' || a.type === 'overtime_comp') {
-      return sum + (days × targetHoursPerDay);
-    }
-    // Unbezahlter Urlaub → KEINE Gutschrift
-    return sum;
-  }, 0);
-
-const actualHours = workedHours + absenceCredits;
+```bash
+1. Read: PROJECT_SPEC.md (Requirements für Feature)
+2. Read: ARCHITECTURE.md (Tech Patterns, ADRs)
+3. Plan erstellen → User Review
+4. Implementieren (Tests + Docs)
+5. Update: PROJECT_STATUS.md (Sprint Items completed)
 ```
 
-### 3. Überstunden
-```typescript
-const overtime = actualHours - adjustedTargetHours;
+## Bug Fix
+
+```bash
+1. Read: CHANGELOG.md (Wann funktionierte es?)
+2. Read: ARCHITECTURE.md (System Behavior)
+3. Reproduzieren → Root Cause finden
+4. Fix implementieren (mit Test!)
+5. Update: CHANGELOG.md (Fixed section im Unreleased)
 ```
 
-## Beispiele
+## Release (Desktop App)
 
-### Beispiel 1: Krankheit
-```
-Woche: 5 Arbeitstage (Mo-Fr)
-Mo, Di: Gearbeitet (16h)
-Mi, Do, Fr: Krank (3 Tage)
+```bash
+# Pre-Checks (PFLICHT!)
+1. cd desktop && npx tsc --noEmit  # MUSS ohne Fehler laufen!
+2. git status                       # MUSS clean sein
 
-RICHTIG:
-Soll: 5 × 8h = 40h
-Ist: 16h + (3 × 8h) = 40h  // Kranken-Gutschrift!
-Überstunden: 40h - 40h = 0h ✅
+# Version Bump (3 Files!)
+3. desktop/package.json            → version: "1.X.Y"
+4. desktop/src-tauri/Cargo.toml    → version = "1.X.Y"
+5. desktop/src-tauri/tauri.conf.json → version: "1.X.Y"
+
+# Release erstellen
+6. git commit -m "chore: Bump version to v1.X.Y"
+7. git push origin main
+8. git tag v1.X.Y && git push origin v1.X.Y
+9. gh release create v1.X.Y --title "..." --notes "..."
+
+# Verification (nach 8-12 Min)
+10. Check: *.dmg, *.exe, *.msi, *.AppImage, *.deb vorhanden
+11. Check: latest.json enthält Windows + macOS + Linux!
+
+# Documentation Updates
+12. Update: CHANGELOG.md (neue Version mit Changes)
+13. Update: PROJECT_STATUS.md (Recent Deployments)
 ```
 
-### Beispiel 2: Unbezahlter Urlaub
-```
-Woche: 5 Arbeitstage
-Mo-Mi: Gearbeitet (24h)
-Do, Fr: Unbezahlter Urlaub (2 Tage)
+**KRITISCH:** `latest.json` MUSS alle Plattformen enthalten, sonst Auto-Update kaputt!
 
-RICHTIG:
-Soll: (5 - 2) × 8h = 24h  // Unbezahlt REDUZIERT Soll!
-Ist: 24h  // KEINE Gutschrift
-Überstunden: 24h - 24h = 0h ✅
-```
+**Details & Troubleshooting:** Siehe CLAUDE.md.backup (alte Version) oder frag User
 
 ---
 
-# 🎨 UI/UX REGELN
+# 🚫 VERBOTE (Never Do!)
 
-## Tailwind CSS (PFLICHT!)
-```tsx
-// ✅ RICHTIG
-<button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-  Speichern
-</button>
-
-// ❌ FALSCH - Inline Styles
-<button style={{ padding: '8px 16px', background: '#2563eb' }}>
-  Speichern
-</button>
-```
-
-## Dark Mode Support (IMMER!)
-```tsx
-<div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-  Content
-</div>
-```
-
-## Loading & Error States (PFLICHT!)
-```tsx
-function Component() {
-  const { data, isLoading, error } = useQuery(...);
-
-  if (isLoading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage error={error} />;
-  if (!data?.length) return <EmptyState />;
-
-  return <DataTable data={data} />;
-}
-```
-
----
-
-# 🌐 API DESIGN
-
-## RESTful Endpoints
-```typescript
-GET    /api/users              // Liste
-GET    /api/users/:id          // Einzeln
-POST   /api/users              // Erstellen
-PUT    /api/users/:id          // Update (vollständig)
-PATCH  /api/users/:id          // Update (partial)
-DELETE /api/users/:id          // Löschen
-```
-
-## Response-Struktur (PFLICHT!)
-```typescript
-// Success
-res.json({
-  success: true,
-  data: result
-});
-
-// Error
-res.status(400).json({
-  success: false,
-  error: 'Error message'
-});
-```
-
-## HTTP Status Codes
-```
-200 OK              // GET, PUT, PATCH
-201 Created         // POST
-204 No Content      // DELETE
-400 Bad Request     // Validation Error
-401 Unauthorized    // Not logged in
-403 Forbidden       // Logged in, no permission
-404 Not Found       // Resource doesn't exist
-500 Server Error    // Unexpected error
-```
-
----
-
-# 🔒 SICHERHEIT
-
-## Authentication & Authorization
-```typescript
-// Passwort Hashing
-import bcrypt from 'bcrypt';
-const hashedPassword = await bcrypt.hash(password, 10);
-
-// Session Configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: true,      // HTTPS only
-    sameSite: 'strict',
-    maxAge: 24 * 60 * 60 * 1000 // 24h
-  }
-}));
-
-// Auth Middleware
-const requireAuth = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-};
-
-// Role-based Access
-const requireAdmin = (req, res, next) => {
-  if (req.session.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  next();
-};
-```
-
-## Input Validation (PFLICHT!)
-```typescript
-// Backend
-app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
-  const { email, password } = req.body;
-
-  // Validation
-  if (!email?.trim() || !email.includes('@')) {
-    return res.status(400).json({ error: 'Invalid email' });
-  }
-
-  if (!password || password.length < 8) {
-    return res.status(400).json({ error: 'Password too short' });
-  }
-
-  // ... rest
-});
-```
-
----
-
-# 📦 STATE MANAGEMENT
-
-## TanStack Query für Server-State (PFLICHT!)
-```typescript
-export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const response = await apiClient.get('/users');
-      if (!response.success) throw new Error(response.error);
-      return response.data;
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-}
-```
-
-## Zustand für UI-State (PFLICHT!)
-```typescript
-import { create } from 'zustand';
-
-const useUIStore = create((set) => ({
-  sidebarOpen: true,
-  currentView: 'dashboard',
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setCurrentView: (view) => set({ currentView: view }),
-}));
-```
-
----
-
-# 🚫 VERBOTE (NIEMALS TUN!)
-
-## Code
-- ❌ `any` Type verwenden
-- ❌ Code kopieren/duplizieren (DRY!)
-- ❌ Inline Styles (Tailwind nutzen!)
-- ❌ console.log in Production
-- ❌ Hardcoded Values
+## Code Quality
+- ❌ `any` Type verwenden → `unknown` + Type Guards nutzen
+- ❌ Code duplizieren → DRY Principle
+- ❌ Inline Styles → Tailwind CSS nutzen
+- ❌ `console.log` in Production → Entfernen vor Commit
+- ❌ Hardcoded Values → Environment Variables oder Config
 
 ## Database
-- ❌ Neue DB-Dateien erstellen
-- ❌ SQL Injection (IMMER Prepared Statements!)
-- ❌ Hard Delete (Soft Delete nutzen!)
+- ❌ Neue DB-Files erstellen → Nur `server/database.db`!
+- ❌ SQL Injection → IMMER Prepared Statements
+- ❌ Hard Delete → Soft Delete (`deletedAt`)
+- ❌ WAL Mode vergessen → Multi-User funktioniert nicht
 
 ## Workflow
-- ❌ Direkt coden ohne Plan
-- ❌ Auf main branch arbeiten
-- ❌ Commits ohne Beschreibung
-- ❌ Mergen ohne Testing
+- ❌ Direkt coden ohne Plan → IMMER Plan-First!
+- ❌ Auf `main` branch arbeiten → Feature-Branch nutzen
+- ❌ Commits ohne Message → Beschreibung PFLICHT
+- ❌ Mergen ohne Testing → Tests & Manual Check
 
-## Sicherheit
-- ❌ Passwörter Klartext
-- ❌ Input nicht validieren
-- ❌ Auth/Authorization vergessen
-- ❌ Session-Secrets hardcoden
+## Security
+- ❌ Passwörter Klartext → bcrypt Hashing
+- ❌ Input nicht validieren → XSS/SQL Injection Gefahr
+- ❌ Auth/Authorization vergessen → Unauthorized Access
+- ❌ Session-Secrets hardcoden → .env nutzen
 
----
-
-# ✅ PRE-COMMIT CHECKLISTE
-
-**Vor JEDEM Commit:**
-- [ ] TypeScript kompiliert ohne Fehler
-- [ ] Keine `any` Types
-- [ ] Error Handling implementiert
-- [ ] Null-Checks vorhanden
-- [ ] Dark Mode Styles
-- [ ] Responsive Design
-- [ ] Loading/Error States
-- [ ] Debug console.logs entfernt
-- [ ] Keine hardcoded Secrets
-- [ ] Prepared Statements
-- [ ] Input Validation (Backend + Frontend)
-- [ ] Manuell getestet
-- [ ] Browser Console: Keine Errors
+## Tauri/Desktop
+- ❌ Browser APIs nutzen → Tauri APIs verwenden
+- ❌ `fetch()` direkt → `universalFetch` nutzen!
+- ❌ localStorage für sensible Daten → Tauri Secure Storage
 
 ---
 
-# 📊 PROJEKT-SPEZIFISCH
+# ✅ QUALITY GATES
 
-## Tech Stack (NICHT ÄNDERN!)
-- **Frontend:** React 18 + TypeScript + Vite + TanStack Query + Zustand + Tailwind
-- **Backend:** Node.js 20 + Express + TypeScript + SQLite
-- **Database:** SQLite mit WAL Mode
-- **Real-time:** WebSocket (ws library)
-- **Desktop:** Tauri v2
+## Pre-Commit Checklist
+
+```bash
+# TypeScript & Code Quality
+☐ npx tsc --noEmit                # Keine TypeScript Fehler
+☐ Keine `any` Types               # unknown + Type Guards
+☐ Error Handling implementiert    # try/catch, null checks
+☐ Optional Chaining genutzt       # obj?.prop, arr?.[0]
+
+# UI/UX
+☐ Dark Mode Styles                # dark:bg-gray-800
+☐ Responsive Design               # sm:, md:, lg: breakpoints
+☐ Loading/Error States            # isLoading, error handling
+
+# Security & Best Practices
+☐ Debug console.logs entfernt     # Keine Logs in Production
+☐ Keine hardcoded Secrets         # .env nutzen
+☐ Prepared Statements             # SQL Injection Schutz
+☐ Input Validation (BE + FE)      # XSS Schutz
+
+# Testing
+☐ Manuell getestet               # Happy Path + Edge Cases
+☐ Browser Console: Keine Errors  # F12 → Console leer
+```
+
+## Release Checklist (Desktop App)
+
+```bash
+☐ TypeScript kompiliert (npx tsc --noEmit)
+☐ Version in 3 Files gebumpt
+☐ Commit & Tag erstellt
+☐ Release auf GitHub erstellt
+☐ Build Status geprüft (8-12 Min)
+☐ Binaries vorhanden (*.dmg, *.exe, *.msi, *.AppImage, *.deb)
+☐ latest.json enthält ALLE Plattformen (Windows!)
+☐ CHANGELOG.md aktualisiert
+☐ PROJECT_STATUS.md aktualisiert
+```
+
+---
+
+# 🔗 QUICK REFERENCE
+
+## Wichtige Pfade
+
+```bash
+# Core Docs
+PROJECT_STATUS.md              # Project Status Dashboard
+ARCHITECTURE.md                # Software Architecture
+PROJECT_SPEC.md                # Requirements & API Spec
+CHANGELOG.md                   # Version History
+ENV.md                         # Environment Config
+
+# Codebase
+server/                        # Backend (Node.js + Express)
+  src/server.ts                # Main Server Entry
+  database.db                  # SQLite Database
+desktop/                       # Frontend (Tauri + React)
+  src/                         # React Components
+  src-tauri/                   # Tauri (Rust)
+scripts/                       # Deployment & Utility Scripts
+.github/workflows/             # CI/CD Pipelines
+```
+
+## Häufige Commands
+
+```bash
+# Development
+npm run dev                    # Start Server (in server/)
+npm run dev                    # Start Desktop App (in desktop/)
+
+# TypeScript Check
+npx tsc --noEmit              # Check TS ohne Build
+
+# Git
+git status                     # Check working tree
+git add . && git commit -m "..." && git push
+
+# Release
+gh release create v1.X.Y --title "..." --notes "..."
+gh run list --workflow="release.yml"
+
+# Production
+ssh ubuntu@129.159.8.19        # Connect to Oracle Cloud
+pm2 logs timetracking-server   # Server Logs
+curl http://129.159.8.19:3000/api/health  # Health Check
+```
+
+## Core Docs Sections (Quick Jump)
+
+### PROJECT_STATUS.md
+- Section 1: Quick Stats
+- Section 2: Current Sprint
+- Section 3: Health Indicators
+- Section 5: Dependencies Status
+
+### ARCHITECTURE.md
+- Section 3: System Context (Diagrams)
+- Section 5: Building Block View (Components)
+- Section 9: ADRs (Architecture Decisions)
+- Section 7: Deployment View (Oracle Cloud)
+
+### PROJECT_SPEC.md
+- Section 3: Functional Requirements
+- Section 5: API Specification (24+ Endpoints)
+- Section 6: Data Model (11 Tables)
+- Section 7: Workflows (Overtime, Absence)
+
+### CHANGELOG.md
+- Section: [Unreleased] (Current Work)
+- Version History: v1.5.1 → v1.0.0
+
+### ENV.md
+- Section 2: GitHub Credentials
+- Section 4: SSH / Production Server
+- Section 10: Troubleshooting
+
+---
+
+# 🏗️ PROJEKT-ÜBERSICHT
+
+## Tech Stack
+
+- **Frontend:** Tauri 2.x, React 18, TypeScript, TanStack Query, Zustand, Tailwind CSS
+- **Backend:** Node.js 20, Express, TypeScript, SQLite (WAL Mode)
+- **Desktop:** Tauri (Rust) - 15 MB App Size
+- **Deployment:** Oracle Cloud Frankfurt (Free Tier)
+- **CI/CD:** GitHub Actions (Auto-Deploy)
+
+**Details:** ARCHITECTURE.md → Section 1 "Technology Stack"
 
 ## Database Schema (11 Tabellen)
-1. users
-2. time_entries
-3. absence_requests
-4. vacation_balance
-5. overtime_balance
-6. departments
-7. projects
-8. activities
-9. holidays
-10. notifications
-11. audit_log
+
+users, time_entries, absence_requests, vacation_balance, overtime_balance, departments, projects, activities, holidays, notifications, audit_log
+
+**Details:** ARCHITECTURE.md → Section "Data Model"
+
+## Key Features
+
+- Multi-User Time Tracking
+- Overtime Calculation (German Labor Law compliant)
+- Absence Management (Vacation, Sick Leave, Overtime Comp)
+- Real-time Sync (WebSocket)
+- Auto-Update System (Desktop Apps)
+- Dark Mode Support
+- German Public Holidays
+- CSV Export (DATEV format)
+
+**Details:** PROJECT_SPEC.md → Section 3 "Functional Requirements"
 
 ---
 
-**Version:** 1.3
-**Letzte Aktualisierung:** 2026-01-15
+# 📞 SUPPORT & LINKS
+
+## GitHub
+
+- **Repository:** https://github.com/Maxwellbadger-1/TimeTracking-Clean
+- **Latest Release:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/latest
+- **Issues:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/issues
+- **Actions:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
+
+## Production
+
+- **Health Check:** http://129.159.8.19:3000/api/health
+- **Server:** Oracle Cloud (Frankfurt, Germany)
+- **SSH:** ubuntu@129.159.8.19
+
+## Backup & Restore
+
+Falls diese neue CLAUDE.md Probleme verursacht:
+
+```bash
+# Restore alte Version (1093 lines)
+cp .claude/CLAUDE.md.backup .claude/CLAUDE.md
+
+# Backup liegt auch in Git:
+git show HEAD~1:.claude/CLAUDE.md > .claude/CLAUDE.md
+```
+
+---
+
+**Version:** 2.0 (Optimiert für AI Context Loading)
+**Lines:** ~480 (vorher: 1093 lines, -56% Reduktion)
+**Last Updated:** 2026-01-15
 **Status:** ✅ AKTIV
+
+**Changelog:**
+- v2.0 (2026-01-15): AI-freundliche Neustrukturierung, Core Docs Integration
+- v1.3 (2026-01-15): Core Docs Section hinzugefügt
+- v1.2 (2025-11-12): Release Workflow Details
+- v1.0 (2025-11-01): Initial Version
