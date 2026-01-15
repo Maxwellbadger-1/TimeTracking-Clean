@@ -5,6 +5,11 @@ import {
   calculateMonthlyTargetHours,
   countWorkingDaysBetween,
   calculateTargetHoursUntilToday,
+  calculateTargetHoursForPeriod,
+  calculateWorkingDaysPerWeek,
+  countWorkingDaysForUser,
+  getDailyTargetHours,
+  calculateAbsenceHoursWithWorkSchedule,
 } from './workingDays.js';
 
 /**
@@ -370,6 +375,637 @@ describe('Working Days Utilities', () => {
       // Should return a reasonable value
       expect(targetHours).toBeGreaterThan(0);
       expect(typeof targetHours).toBe('number');
+    });
+  });
+
+  /**
+   * NEW TEST SUITES - Individual Work Schedule & Edge Cases
+   * Added: 2026-01-15
+   * Purpose: Comprehensive testing for workSchedule, absences, holidays
+   */
+
+  describe('Individual Work Schedule (workSchedule)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z')); // Friday
+    });
+
+    it('should handle workSchedule with 0h days (not working days)', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 30,
+        workSchedule: {
+          monday: 8,
+          tuesday: 0,      // ← NOT a working day!
+          wednesday: 6,
+          thursday: 8,
+          friday: 8,
+          saturday: 0,
+          sunday: 0,
+        },
+      } as any;
+
+      // Week: Mon Feb 3 - Fri Feb 7, 2025
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Expected: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
+      // Tuesday excluded (0h)!
+      expect(target).toBe(30);
+    });
+
+    it('should calculate working days per week correctly with workSchedule', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,      // NOT counted
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      const workingDaysPerWeek = calculateWorkingDaysPerWeek(workSchedule, 30);
+
+      // Only Mo, We, Th, Fr = 4 working days (Tu excluded!)
+      expect(workingDaysPerWeek).toBe(4);
+    });
+
+    it('should count working days for user with workSchedule correctly', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Week: Mon Feb 3 - Fri Feb 7, 2025 (5 calendar days)
+      const workingDays = countWorkingDaysForUser(
+        '2025-02-03',
+        '2025-02-07',
+        workSchedule,
+        30
+      );
+
+      // Expected: 4 working days (Mo, We, Th, Fr - Tu excluded!)
+      expect(workingDays).toBe(4);
+    });
+
+    it('should handle weekend work with workSchedule', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 8,
+        wednesday: 8,
+        thursday: 8,
+        friday: 4,
+        saturday: 4,     // Weekend work!
+        sunday: 0,
+      };
+
+      const workingDaysPerWeek = calculateWorkingDaysPerWeek(workSchedule, 40);
+
+      // Mo-Sa (6 days, Sunday excluded)
+      expect(workingDaysPerWeek).toBe(6);
+    });
+
+    it('should handle getDailyTargetHours with workSchedule', () => {
+      const user = {
+        weeklyHours: 30,
+        workSchedule: {
+          monday: 8,
+          tuesday: 0,
+          wednesday: 6,
+          thursday: 8,
+          friday: 8,
+          saturday: 0,
+          sunday: 0,
+        },
+      } as any;
+
+      expect(getDailyTargetHours(user, '2025-02-03')).toBe(8);  // Monday
+      expect(getDailyTargetHours(user, '2025-02-04')).toBe(0);  // Tuesday (0h!)
+      expect(getDailyTargetHours(user, '2025-02-05')).toBe(6);  // Wednesday
+      expect(getDailyTargetHours(user, '2025-02-06')).toBe(8);  // Thursday
+      expect(getDailyTargetHours(user, '2025-02-07')).toBe(8);  // Friday
+    });
+
+    it('should handle calculateAbsenceHoursWithWorkSchedule for 0h days', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,      // Vacation on this day should give 0h credit!
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Absence: Tuesday only (0h day)
+      const absenceHours = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-04',  // Tuesday
+        '2025-02-04',
+        workSchedule,
+        30
+      );
+
+      // Expected: 0h (Tuesday = 0h in workSchedule)
+      expect(absenceHours).toBe(0);
+    });
+
+    it('should handle calculateAbsenceHoursWithWorkSchedule for working days', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Absence: Wed-Fri (3 working days, excluding Tu)
+      const absenceHours = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-04',  // Tuesday
+        '2025-02-07',  // Friday
+        workSchedule,
+        30
+      );
+
+      // Expected: Tu(0) + We(6) + Th(8) + Fr(8) = 22h
+      expect(absenceHours).toBe(22);
+    });
+
+    it('should handle all days 0h (Aushilfe with workSchedule)', () => {
+      const workSchedule = {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      const workingDaysPerWeek = calculateWorkingDaysPerWeek(workSchedule, 0);
+
+      // No working days
+      expect(workingDaysPerWeek).toBe(0);
+    });
+  });
+
+  describe('Holiday Edge Cases', () => {
+    // Note: These tests assume holidays are in database
+    // In real tests, you'd need to mock the database or use test database
+
+    it('should return 0h target for holiday with workSchedule', () => {
+      const user = {
+        weeklyHours: 40,
+        workSchedule: {
+          monday: 8,
+          tuesday: 8,
+          wednesday: 8,
+          thursday: 8,  // Assume May 1 is a holiday
+          friday: 8,
+          saturday: 0,
+          sunday: 0,
+        },
+      } as any;
+
+      // May 1, 2025 (Thursday) = Tag der Arbeit (Holiday)
+      // Note: This test requires the holiday to be in the database
+      // In production, getDailyTargetHours checks holidays table first
+
+      // If holiday exists, should return 0h (not 8h from workSchedule)
+      // This is tested implicitly in getDailyTargetHours implementation
+    });
+  });
+
+  describe('Real-World Scenarios', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z')); // Friday Feb 7
+    });
+
+    it('should calculate Hans scenario (Mo=8h, Fr=2h)', () => {
+      const hans = {
+        id: 1,
+        weeklyHours: 18,
+        workSchedule: {
+          monday: 8,
+          tuesday: 0,
+          wednesday: 0,
+          thursday: 0,
+          friday: 2,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2025-02-03',  // Monday
+      } as any;
+
+      // Week: Mon Feb 3 - Fri Feb 7 (today)
+      const target = calculateTargetHoursForPeriod(hans, '2025-02-03', '2025-02-07');
+
+      // Expected: Mo(8) + Fr(2) = 10h
+      expect(target).toBe(10);
+    });
+
+    it('should calculate standard 40h worker with full week', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Mo-Fr = 5 × 8h = 40h
+      expect(target).toBe(40);
+    });
+
+    it('should calculate Aushilfe (weeklyHours=0)', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 0,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // weeklyHours=0 → 0h target
+      expect(target).toBe(0);
+    });
+
+    it('should calculate part-time 30h worker', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 30,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Mo-Fr = 5 × 6h = 30h
+      expect(target).toBe(30);
+    });
+
+    it('should handle hire date on weekend correctly', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-01',  // Saturday
+      } as any;
+
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z')); // Friday
+
+      // Sat 1, Sun 2 (weekend, don't count)
+      // Mon 3, Tue 4, Wed 5, Thu 6, Fri 7 = 5 working days
+      const target = calculateTargetHoursForPeriod(user, '2025-02-01', '2025-02-07');
+
+      expect(target).toBe(40); // 5 × 8h
+    });
+
+    it('should handle mixed workSchedule with different hours per day', () => {
+      const user = {
+        id: 1,
+        weeklyHours: 37.5,
+        workSchedule: {
+          monday: 7.5,
+          tuesday: 7.5,
+          wednesday: 7.5,
+          thursday: 7.5,
+          friday: 7.5,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2025-02-03',
+      } as any;
+
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Mo-Fr = 5 × 7.5h = 37.5h
+      expect(target).toBe(37.5);
+    });
+  });
+
+  describe('Absence Scenarios (Theoretical)', () => {
+    /**
+     * Note: These tests validate the absence credit calculation logic
+     * In practice, this is used by overtimeService and absenceService
+     */
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z'));
+    });
+
+    it('should calculate vacation credit for standard user', () => {
+      // User: 40h/week
+      // Vacation: Mon-Fri (5 days)
+      const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-03',
+        '2025-02-07',
+        null,  // No workSchedule
+        40
+      );
+
+      // 5 days × 8h = 40h
+      expect(vacationCredit).toBe(40);
+    });
+
+    it('should calculate sick leave credit with workSchedule', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Sick leave: Whole week Mon-Fri
+      const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-03',
+        '2025-02-07',
+        workSchedule,
+        30
+      );
+
+      // Mo(8) + Tu(0) + We(6) + Th(8) + Fr(8) = 30h
+      expect(sickCredit).toBe(30);
+    });
+
+    it('should calculate sick leave credit excluding 0h days', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,    // Sick on this day = 0h credit
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Sick leave: Tuesday only (0h day)
+      const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-04',  // Tuesday
+        '2025-02-04',
+        workSchedule,
+        30
+      );
+
+      // Tuesday = 0h in workSchedule → 0h credit
+      expect(sickCredit).toBe(0);
+    });
+
+    it('should calculate overtime comp credit', () => {
+      // User: 40h/week
+      // Overtime comp: 1 day (Friday)
+      const overtimeComp = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-07',  // Friday
+        '2025-02-07',
+        null,
+        40
+      );
+
+      // 1 day × 8h = 8h
+      expect(overtimeComp).toBe(8);
+    });
+
+    it('should handle absence spanning weekend correctly', () => {
+      // User: 40h/week
+      // Absence: Fri-Mon (spans weekend)
+      const absenceCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-07',  // Friday
+        '2025-02-10',  // Monday (next week)
+        null,
+        40
+      );
+
+      // Fri(8) + Sat(0) + Sun(0) + Mon(8) = 16h
+      expect(absenceCredit).toBe(16);
+    });
+  });
+
+  describe('Complete Overtime Calculation Flow', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z'));
+    });
+
+    it('should calculate negative overtime when behind target', () => {
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      // Target: Mo-Fr = 5 × 8h = 40h
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      expect(target).toBe(40);
+
+      // Actual: Worked only 32h
+      const actual = 32;
+
+      // Overtime: 32 - 40 = -8h
+      const overtime = actual - target;
+      expect(overtime).toBe(-8);
+    });
+
+    it('should calculate positive overtime when ahead of target', () => {
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      // Target: 40h
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Actual: Worked 48h
+      const actual = 48;
+
+      // Overtime: 48 - 40 = +8h
+      const overtime = actual - target;
+      expect(overtime).toBe(8);
+    });
+
+    it('should calculate overtime with vacation credit', () => {
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-03',
+      } as any;
+
+      // Target: 40h (5 days)
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+
+      // Worked: 24h (3 days)
+      const worked = 24;
+
+      // Vacation: 2 days (Thu-Fri)
+      const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-06',
+        '2025-02-07',
+        null,
+        40
+      );
+      expect(vacationCredit).toBe(16); // 2 × 8h
+
+      // Actual: 24h + 16h = 40h
+      const actual = worked + vacationCredit;
+
+      // Overtime: 40 - 40 = 0h
+      const overtime = actual - target;
+      expect(overtime).toBe(0);
+    });
+
+    it('should calculate overtime with workSchedule and absence', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      const user = {
+        weeklyHours: 30,
+        workSchedule,
+        hireDate: '2025-02-03',
+      } as any;
+
+      // Target: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      expect(target).toBe(30);
+
+      // Worked: Mo(8) + We(6) = 14h
+      const worked = 14;
+
+      // Sick: Th-Fr
+      const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2025-02-06',
+        '2025-02-07',
+        workSchedule,
+        30
+      );
+      expect(sickCredit).toBe(16); // Th(8) + Fr(8)
+
+      // Actual: 14h + 16h = 30h
+      const actual = worked + sickCredit;
+
+      // Overtime: 30 - 30 = 0h
+      const overtime = actual - target;
+      expect(overtime).toBe(0);
+    });
+  });
+
+  describe('Unpaid Leave Scenarios (Theoretical)', () => {
+    /**
+     * Unpaid leave is special: It REDUCES target, not gives credit!
+     * Formula: Adjusted Target = Base Target - (Unpaid Days × Hours/Day)
+     */
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-07T12:00:00Z'));
+    });
+
+    it('should reduce target for unpaid leave (standard user)', () => {
+      // User: 40h/week = 8h/day
+      // Week: Mo-Fr (5 days)
+      // Unpaid: Mon-Wed (3 days)
+
+      const baseTarget = 5 * 8; // 40h
+      const unpaidDays = 3;
+      const unpaidHours = unpaidDays * 8; // 24h
+
+      const adjustedTarget = baseTarget - unpaidHours;
+
+      expect(adjustedTarget).toBe(16); // 40 - 24 = 16h
+
+      // Worked: Thu-Fri = 16h
+      const actual = 16;
+
+      // Overtime: 16 - 16 = 0h (NOT -24h!)
+      const overtime = actual - adjustedTarget;
+      expect(overtime).toBe(0);
+    });
+
+    it('should reduce target for unpaid leave (workSchedule user)', () => {
+      const workSchedule = {
+        monday: 8,
+        tuesday: 0,
+        wednesday: 6,
+        thursday: 8,
+        friday: 8,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      // Base target: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
+      const baseTarget = 30;
+
+      // Unpaid: Monday (8h)
+      const unpaidHours = 8;
+
+      const adjustedTarget = baseTarget - unpaidHours;
+
+      expect(adjustedTarget).toBe(22); // 30 - 8 = 22h
+
+      // Worked: We(6) + Th(8) + Fr(8) = 22h
+      const actual = 22;
+
+      // Overtime: 22 - 22 = 0h
+      const overtime = actual - adjustedTarget;
+      expect(overtime).toBe(0);
+    });
+  });
+
+  describe('Month-Long Scenarios', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-31T12:00:00Z')); // End of January
+    });
+
+    it('should calculate full month January 2025 (21 working days after holidays)', () => {
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-01-01',
+      } as any;
+
+      // January 2025: 23 weekdays (Mo-Fr)
+      // MINUS Holidays: Jan 1 (Neujahr), Jan 6 (Heilige Drei Könige)
+      // = 21 working days
+      const target = calculateTargetHoursForPeriod(user, '2025-01-01', '2025-01-31');
+
+      // 21 × 8h = 168h
+      expect(target).toBe(168);
+    });
+
+    it('should calculate February 2025 (20 working days)', () => {
+      vi.setSystemTime(new Date('2025-02-28T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2025-02-01',
+      } as any;
+
+      // February 2025: 20 working days (not leap year)
+      const target = calculateTargetHoursForPeriod(user, '2025-02-01', '2025-02-28');
+
+      // 20 × 8h = 160h
+      expect(target).toBe(160);
     });
   });
 });

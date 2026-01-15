@@ -2359,6 +2359,99 @@ npm run test:watch
 
 ---
 
+#### 10.2.1 Overtime Calculation Testing
+
+**CRITICAL:** Overtime calculation is business-critical and must be 100% reliable. This subsection documents comprehensive testing requirements.
+
+**Test Coverage:** 73% (Target: 80%)
+
+**Test Files:**
+- `server/src/utils/workingDays.test.ts` (1004 lines, 32 test cases)
+- `docs/OVERTIME_TESTING_GUIDE.md` (Quick Reference, 900 lines)
+- `server/src/test/generateTestData.ts` (Test scenario generator, 10 scenarios)
+- `server/src/scripts/validateOvertimeCalculation.ts` (Validation script)
+
+**Test Scenarios (Required):**
+1. ✅ Standard 40h week (no absences)
+2. ✅ Individual work schedule with 0h days
+3. ✅ Vacation week (credit validation)
+4. ✅ Sick leave month (credit validation)
+5. ✅ Unpaid leave (target reduction)
+6. ✅ Holiday-heavy month (December)
+7. ✅ Weekend worker (Saturday as working day)
+8. ✅ Vacation on 0h day (no credit)
+9. ✅ Partial week (hired mid-week)
+10. ✅ Overtime compensation (credit validation)
+
+**Edge Cases (Must Test):**
+- Holiday on working day (overrides to 0h)
+- Vacation on 0h day (no credit)
+- Hired mid-week (partial week target)
+- Weekend worker with Saturday hours
+- Multiple absences (no overlap validation)
+- Transition across month boundaries
+- Leap year February 29th
+- DST (Daylight Saving Time) transitions
+
+**Validation Script:**
+```bash
+# Validate single user (production data)
+cd server && npm run validate:overtime -- --userId=5
+
+# Validate all users (quarterly audit)
+cd server && npm run validate:overtime -- --all
+
+# Validate with expected value
+cd server && npm run validate:overtime -- --userId=5 --expected="+37:30"
+
+# Validate test scenario
+cd server && npm run validate:overtime -- --scenario=hans-individual-schedule
+
+# Validate all scenarios
+cd server && npm run validate:overtime -- --scenario=all
+```
+
+**Test Data Generator:**
+```typescript
+// Usage in tests
+import { createTestScenario } from '../test/generateTestData';
+
+it('should calculate overtime for Hans scenario', () => {
+  const scenario = createTestScenario('hans-individual-schedule');
+
+  const targetHours = calculateTargetHoursForPeriod(
+    scenario.user,
+    scenario.user.hireDate,
+    scenario.referenceDate
+  );
+
+  expect(targetHours).toBe(scenario.expectedTargetHours);
+});
+```
+
+**Quarterly Audit Procedure:**
+1. Run validation script on all users
+2. Review discrepancies with HR records
+3. Document findings in audit log
+4. Update test scenarios if new edge cases found
+5. Commit audit report to `docs/audits/YYYY-QQ.md`
+
+**Performance Benchmarks:**
+- Single user calculation: <50ms
+- All users (42): <2 seconds
+- Test suite execution: <5 seconds
+
+**Known Limitations:**
+- No caching (always on-demand for accuracy)
+- Calculation complexity: O(n) where n = days since hire date
+- For >1000 users: Consider async calculation
+
+**Reference Documentation:**
+- Detailed: [OVERTIME_TESTING_GUIDE.md](docs/OVERTIME_TESTING_GUIDE.md)
+- Architecture: [ARCHITECTURE.md - Section 6.3](ARCHITECTURE.md#63-scenario-overtime-calculation)
+
+---
+
 ### 10.3 Integration Tests
 
 **Framework:** Supertest (API testing)

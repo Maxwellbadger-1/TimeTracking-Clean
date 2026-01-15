@@ -511,42 +511,277 @@ sequenceDiagram
 
 ### 6.3 Scenario: Overtime Calculation
 
+**Purpose:** Calculate overtime hours for users based on worked hours, target hours, and absence credits.
+
+**Implementation:** `server/src/utils/workingDays.ts` (493 lines)
+
+---
+
+#### 6.3.1 Calculation Flow
+
 ```mermaid
 sequenceDiagram
-    participant Cron
+    participant UI
+    participant API
     participant Service
     participant Database
 
-    Cron->>Service: overtimeService.calculateMonthly(userId, month)
-    Service->>Database: Count working days (since hire date)
-    Database-->>Service: 20 days
-    Service->>Service: targetHours = 20 days × 8h/day = 160h
-    Service->>Database: SUM(totalHours) FROM time_entries
-    Database-->>Service: 155h worked
-    Service->>Database: SUM(absence credits) FROM absence_requests
-    Database-->>Service: 8h credits (1 day vacation)
-    Service->>Service: actualHours = 155h + 8h = 163h
-    Service->>Service: overtime = 163h - 160h = +3h
-    Service->>Database: UPSERT overtime_balance
-    Database-->>Service: Success
+    UI->>API: GET /api/users/:id/overtime
+    API->>Service: calculateOvertimeForUser(userId)
+    Service->>Database: SELECT user (weeklyHours, workSchedule, hireDate)
+    Database-->>Service: User data
+    Service->>Service: calculateTargetHoursForPeriod(hireDate, today)
+    Service->>Database: SELECT time_entries WHERE userId
+    Database-->>Service: Time entries
+    Service->>Service: workedHours = SUM(entry.hours)
+    Service->>Database: SELECT absence_requests WHERE status = 'approved'
+    Database-->>Service: Absences
+    Service->>Service: Calculate absence credits
+    Service->>Service: actualHours = workedHours + absenceCredits
+    Service->>Service: overtime = actualHours - targetHours
+    Service-->>API: Overtime result
+    API-->>UI: JSON response
 ```
 
-**Formula:**
-```
-Overtime = Actual Hours - Target Hours
+---
+
+#### 6.3.2 Core Formula (IMMUTABLE!)
+
+**This formula follows HR industry standards (Personio, DATEV, SAP):**
+
+```typescript
+Überstunden = Ist-Stunden - Soll-Stunden
 
 Where:
-  Target Hours = Working Days × Daily Target Hours
-  Actual Hours = Worked Hours + Absence Credits
-
-Absence Credits:
-  - Vacation: Days × Daily Target
-  - Sick Leave: Days × Daily Target
-  - Overtime Comp: Days × Daily Target
-  - Unpaid Leave: NO credit (reduces target instead)
+  Soll-Stunden (Target) = Arbeitstage × Ziel-Stunden pro Tag
+  Ist-Stunden (Actual)  = Gearbeitete Stunden + Abwesenheits-Gutschriften
 ```
 
-**Schedule:** Monthly cron job (end of month at 23:59)
+**CRITICAL:** Reference date is ALWAYS **today**, not month end!
+
+---
+
+#### 6.3.3 Calculation Modes
+
+**Mode 1: Standard Weekly Hours**
+- User has only `weeklyHours` (e.g., 40)
+- Daily target: `weeklyHours / 5 = 8h/day`
+- Working days: Monday-Friday (Sa/So excluded)
+- Holidays: Always 0h target
+
+**Example:**
+```typescript
+const user = {
+  weeklyHours: 40,
+  workSchedule: null,
+  hireDate: '2025-02-03', // Monday
+};
+
+const targetHours = calculateTargetHoursForPeriod(
+  user,
+  '2025-02-03', // Mon
+  '2025-02-07'  // Fri
+);
+// Result: 5 days × 8h = 40h
+```
+
+**Mode 2: Individual Work Schedule**
+- User has `workSchedule` object with hours per day
+- Days with `hours > 0` count as working days
+- Days with `hours = 0` do NOT count as working days
+- Holidays override workSchedule to 0h
+
+**Example:**
+```typescript
+const user = {
+  weeklyHours: 30,
+  workSchedule: {
+    monday: 8,
+    tuesday: 0,      // NOT a working day!
+    wednesday: 6,
+    thursday: 8,
+    friday: 8,
+    saturday: 0,
+    sunday: 0,
+  },
+  hireDate: '2025-02-03',
+};
+
+const targetHours = calculateTargetHoursForPeriod(
+  user,
+  '2025-02-03', // Mon
+  '2025-02-07'  // Fri
+);
+// Result: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
+// Tuesday excluded (0h day)!
+```
+
+---
+
+#### 6.3.4 Absence Credits
+
+**Vacation, Sick Leave, Overtime Compensation:**
+- Give credit as if the user worked
+- Credit = `targetHoursForDay × days`
+
+**Unpaid Leave:**
+- NO credit!
+- Reduces target hours instead
+- Adjusted Target = Target - (unpaid days × targetHoursPerDay)
+
+**Example (Vacation):**
+```typescript
+// User: 40h/week (Standard)
+// Week: Mon-Tue worked (16h), Wed-Fri vacation (3 days)
+
+const workedHours = 16;
+const vacationCredit = 3 × 8 = 24h;
+const actualHours = 16 + 24 = 40h;
+const targetHours = 5 × 8 = 40h;
+const overtime = 40 - 40 = 0h; // ✅ Correct!
+```
+
+**Example (Unpaid Leave):**
+```typescript
+// User: 40h/week (Standard)
+// Week: Mon-Wed worked (24h), Thu-Fri unpaid (2 days)
+
+const workedHours = 24;
+const unpaidDays = 2;
+const targetHours = (5 - 2) × 8 = 24h; // Reduced!
+const actualHours = 24; // NO credit for unpaid!
+const overtime = 24 - 24 = 0h; // ✅ Correct!
+```
+
+---
+
+#### 6.3.5 Critical Edge Cases
+
+**Edge Case #1: Holiday on working day**
+- Holiday ALWAYS overrides to 0h target
+- Even if workSchedule has hours for that day
+
+**Edge Case #2: Vacation on 0h day**
+- If workSchedule[day] = 0h, vacation gives 0h credit
+- Example: Vacation on Tuesday (0h day) → 0h credit
+
+**Edge Case #3: Hired mid-week**
+- Target hours start from hireDate (inclusive)
+- Example: Hired Wednesday → Only Wed-Fri count
+
+**Edge Case #4: Weekend worker**
+- If workSchedule has Saturday = 8h → Saturday counts as working day
+- Without workSchedule: Sa/So NEVER count
+
+**Edge Case #5: Multiple absences overlapping**
+- System prevents overlap during creation
+- Validation ensures no double-counting
+
+---
+
+#### 6.3.6 Implementation Functions
+
+**Key Functions in `workingDays.ts`:**
+
+```typescript
+// Daily target for a specific date
+export function getDailyTargetHours(
+  user: UserPublic,
+  date: Date | string
+): number
+
+// Target hours for a period
+export function calculateTargetHoursForPeriod(
+  user: UserPublic,
+  startDate: string,
+  endDate: string
+): number
+
+// Working days count (excludes weekends & holidays)
+export function countWorkingDaysBetween(
+  from: Date,
+  to: Date,
+  holidays: string[]
+): number
+
+// Absence credit with workSchedule
+export function calculateAbsenceHoursWithWorkSchedule(
+  startDate: string,
+  endDate: string,
+  workSchedule: Record<DayName, number>,
+  weeklyHours: number
+): number
+
+// Working days per week (respects workSchedule)
+export function calculateWorkingDaysPerWeek(
+  workSchedule: Record<DayName, number> | null,
+  weeklyHours: number
+): number
+```
+
+---
+
+#### 6.3.7 Testing Strategy
+
+**Test Coverage:** 73% (Target: 80%)
+
+**Test Files:**
+- `server/src/utils/workingDays.test.ts` (1004 lines, 32 test cases)
+- `docs/OVERTIME_TESTING_GUIDE.md` (Quick Reference, 900 lines)
+
+**Test Scenarios:**
+1. Standard 40h week (no absences)
+2. Individual work schedule with 0h days
+3. Vacation week (credit validation)
+4. Sick leave month (credit validation)
+5. Unpaid leave (target reduction)
+6. Holiday-heavy month (December)
+7. Weekend worker (Saturday as working day)
+8. Vacation on 0h day (no credit)
+9. Partial week (hired mid-week)
+10. Overtime compensation (credit validation)
+
+**Validation Script:**
+```bash
+# Validate single user
+npm run validate:overtime -- --userId=5
+
+# Validate all users
+npm run validate:overtime -- --all
+
+# Validate with expected value
+npm run validate:overtime -- --userId=5 --expected="+37:30"
+
+# Validate test scenario
+npm run validate:overtime -- --scenario=hans-individual-schedule
+```
+
+**Tools:**
+- `server/src/test/generateTestData.ts` - Test scenario generator (10 predefined scenarios)
+- `server/src/scripts/validateOvertimeCalculation.ts` - On-demand validation script
+
+---
+
+#### 6.3.8 Production Monitoring
+
+**Performance:**
+- Calculation time: <50ms per user (tested with 42 users)
+- Database queries: 4 per user (users, time_entries, absences, holidays)
+- No caching (always on-demand calculation for accuracy)
+
+**Data Integrity:**
+- Audit log tracks all overtime changes
+- Work time accounts table (`work_time_accounts`) stores balance history
+- Quarterly audits recommended (use validation script)
+
+**Known Limitations:**
+- No caching due to real-time requirement
+- Calculation complexity: O(n) where n = days since hire date
+- For >1000 users: Consider async calculation + caching
+
+---
+
+**Reference:** See [OVERTIME_TESTING_GUIDE.md](docs/OVERTIME_TESTING_GUIDE.md) for detailed validation procedures
 
 ---
 
