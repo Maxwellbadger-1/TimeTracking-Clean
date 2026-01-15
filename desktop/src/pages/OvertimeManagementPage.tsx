@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Clock, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
-import { useAllUsersOvertime } from '../hooks';
+import { useAllUsersOvertimeReports } from '../hooks/useOvertimeReports';
+import { useUsers } from '../hooks';
 import { formatHours } from '../utils';
 
 export default function OvertimeManagementPage() {
@@ -12,8 +13,23 @@ export default function OvertimeManagementPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterCritical, setFilterCritical] = useState(false);
 
-  // Fetch overtime data
-  const { data: overtimeData, isLoading, error } = useAllUsersOvertime(selectedYear);
+  // Fetch data using NEW API
+  const { data: reports, isLoading, error } = useAllUsersOvertimeReports(selectedYear);
+  const { data: users } = useUsers(true); // Admin gets all users
+
+  // Transform reports to match old format with user names
+  const overtimeData = useMemo(() => {
+    if (!reports || !users) return undefined;
+    return reports.map(report => {
+      const user = users.find(u => u.id === report.userId);
+      return {
+        userId: report.userId,
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        totalOvertime: report.summary.overtime,
+      };
+    });
+  }, [reports, users]);
 
   // Filter & Sort
   const filteredData = useMemo(() => {
