@@ -1,7 +1,7 @@
 import { db } from '../database/connection.js';
 import type { AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
-import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName } from '../utils/workingDays.js';
+import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName, calculateAbsenceHoursWithWorkSchedule } from '../utils/workingDays.js';
 import { validateDateString } from '../utils/validation.js';
 import { getUserById } from './userService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
@@ -240,7 +240,7 @@ export function getAllAbsenceRequests(filters?: {
       SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
     FROM absence_requests ar
     LEFT JOIN users u ON ar.userId = u.id
-    WHERE 1=1
+    WHERE u.deletedAt IS NULL
   `;
   const params: unknown[] = [];
 
@@ -290,7 +290,7 @@ export function getAbsenceRequestsPaginated(options: {
       SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
     FROM absence_requests ar
     LEFT JOIN users u ON ar.userId = u.id
-    WHERE 1=1
+    WHERE u.deletedAt IS NULL
   `;
 
   const params: unknown[] = [];
@@ -337,8 +337,32 @@ export function getAbsenceRequestsPaginated(options: {
 
   const rows = db.prepare(query).all(...params) as AbsenceRequest[];
 
+  // ✅ Enrich each absence with calculated hours (Single Source of Truth!)
+  const enrichedRows = rows.map(absence => {
+    try {
+      const user = getUserById(absence.userId);
+      if (!user) return absence;
+
+      // Calculate REAL hours based on workSchedule/weeklyHours
+      const calculatedHours = calculateAbsenceHoursWithWorkSchedule(
+        absence.startDate,
+        absence.endDate,
+        user.workSchedule,
+        user.weeklyHours
+      );
+
+      return {
+        ...absence,
+        calculatedHours,  // ✅ ECHTE Stunden!
+      };
+    } catch (error) {
+      logger.error(`Failed to calculate hours for absence ${absence.id}:`, error);
+      return absence;  // Return without calculatedHours on error
+    }
+  });
+
   return {
-    rows,
+    rows: enrichedRows,
     total: count,
     page,
     limit,

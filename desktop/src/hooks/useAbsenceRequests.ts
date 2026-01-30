@@ -411,3 +411,82 @@ export function useDeleteAbsenceRequest() {
     },
   });
 }
+
+/**
+ * Get absences for calendar views with multi-year support
+ *
+ * Loads 3 consecutive years (previous, current, next) to handle:
+ * - Year-crossing absences (e.g., 31.12.2025 - 02.01.2026)
+ * - Historical data when navigating to past months
+ * - Future planning when viewing upcoming months
+ *
+ * Example: If baseYear = 2025, loads absences for 2024, 2025, 2026
+ *
+ * Performance: ~3 API calls, React Query caches for 5 minutes
+ *
+ * @param baseYear - Year to center the loading around (from currentDate)
+ * @param options - Additional filters (userId, status, type, etc.) - year will be overridden
+ */
+export function useCalendarAbsences(
+  baseYear: number,
+  options?: Omit<AbsenceRequestFilters, 'year' | 'page' | 'limit'>
+) {
+  // Load 3 consecutive years for comprehensive coverage
+  const years = [baseYear - 1, baseYear, baseYear + 1];
+
+  // Create queries for all 3 years
+  const queries = years.map(year =>
+    useQuery({
+      queryKey: ['absenceRequests', { ...options, year }],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (options?.userId) params.append('userId', options.userId.toString());
+        if (options?.status) params.append('status', options.status);
+        if (options?.type) params.append('type', options.type);
+        if (options?.forTeamCalendar) {
+          // Use team endpoint for approved absences only
+          const response = await apiClient.get<AbsenceRequest[]>('/absences/team');
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to fetch team absences');
+          }
+          return response.data || [];
+        }
+
+        params.append('year', year.toString());
+        params.append('limit', '100'); // Max limit allowed by backend
+
+        const query = params.toString() ? `?${params.toString()}` : '';
+        const response = await apiClient.get<AbsenceRequest[] | AbsenceRequestsResponse>(`/absences${query}`);
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch absence requests');
+        }
+
+        // Backward compatibility: Always return array
+        if (Array.isArray(response.data)) {
+          return response.data;
+        }
+
+        return response.data?.rows || [];
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes - calendar data doesn't change frequently
+      refetchOnWindowFocus: false,
+    })
+  );
+
+  // Combine results from all queries
+  const isLoading = queries.some(q => q.isLoading);
+  const isError = queries.some(q => q.isError);
+  const allAbsences = queries.flatMap(q => q.data || []);
+
+  // Remove duplicates (absences that span multiple years appear in multiple results)
+  const uniqueAbsences = Array.from(
+    new Map(allAbsences.map(absence => [absence.id, absence])).values()
+  );
+
+  return {
+    data: uniqueAbsences,
+    isLoading,
+    isError,
+  };
+}

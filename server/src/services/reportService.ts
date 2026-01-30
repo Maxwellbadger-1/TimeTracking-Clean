@@ -13,7 +13,9 @@ import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { getUserById } from './userService.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
-import { getOvertimeBalance } from './overtimeTransactionService.js';
+import { formatDate } from '../utils/timezone.js';
+import { ensureYearCoverage } from './holidayService.js';
+import { ensureOvertimeBalanceEntries } from './overtimeService.js';
 
 export interface OvertimeReportSummary {
   userId: number;
@@ -42,27 +44,83 @@ export interface OvertimeHistoryEntry {
 }
 
 /**
- * Get comprehensive overtime report for a user
+ * Get monthly overtime data from overtime_balance table (Single Source of Truth)
+ * Returns null if no entry exists for this month
+ *
+ * PROFESSIONAL STANDARD (SAP, Personio, DATEV):
+ * - overtime_balance is the authoritative source
+ * - Data is pre-calculated and stored by overtimeService.ts
+ * - Much faster than recalculating on every request
+ *
+ * @param userId - User ID
+ * @param month - Month in 'YYYY-MM' format
+ * @returns Monthly overtime data or null if not found
  */
-export function getUserOvertimeReport(
+function getMonthlyOvertimeFromDB(
+  userId: number,
+  month: string
+): { target: number; actual: number; overtime: number } | null {
+  const result = db.prepare(`
+    SELECT targetHours, actualHours, overtime
+    FROM overtime_balance
+    WHERE userId = ? AND month = ?
+  `).get(userId, month) as { targetHours: number; actualHours: number; overtime: number } | undefined;
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    target: result.targetHours,
+    actual: result.actualHours,
+    overtime: result.overtime,
+  };
+}
+
+/**
+ * Get comprehensive overtime report for a user
+ *
+ * HYBRID APPROACH (Single Source of Truth + Fallback):
+ * 1. For MONTHLY reports: Read from overtime_balance table (authoritative!)
+ * 2. For YEARLY reports: Aggregate monthly data from overtime_balance
+ * 3. Fallback: Calculate if DB empty (backward compatibility)
+ * 4. Daily/Weekly breakdown: Always calculate for UI visualization
+ *
+ * PROFESSIONAL STANDARD (SAP, Personio, DATEV):
+ * - overtime_balance is Single Source of Truth
+ * - Ensures consistency across all endpoints
+ * - Much faster than recalculating on every request
+ */
+export async function getUserOvertimeReport(
   userId: number,
   year: number,
   month?: number
-): OvertimeReportSummary {
-  logger.info({ userId, year, month }, 'Generating overtime report');
+): Promise<OvertimeReportSummary> {
+  logger.info({ userId, year, month }, 'Generating overtime report (HYBRID APPROACH)');
+
+  // Ensure holidays are loaded for this year
+  await ensureYearCoverage(year);
 
   const user = getUserById(userId);
   if (!user) {
     throw new Error(`User not found: ${userId}`);
   }
 
-  // Date range
+  // CRITICAL: Ensure overtime_balance entries exist BEFORE reading!
   const today = new Date().toISOString().split('T')[0];
+  const targetMonth = month
+    ? `${year}-${String(month).padStart(2, '0')}`
+    : `${year}-12`;
+
+  // Ensure DB is up-to-date (creates/updates entries if needed)
+  await ensureOvertimeBalanceEntries(userId, targetMonth);
+
+  // Date range (for daily breakdown calculation)
   const startDate = month ? `${year}-${String(month).padStart(2, '0')}-01` : `${year}-01-01`;
 
   // CRITICAL: Never calculate into the future!
   let endDate = month
-    ? new Date(year, month, 0).toISOString().split('T')[0]  // Last day of month
+    ? formatDate(new Date(year, month, 0), 'yyyy-MM-dd')  // Last day of month (timezone-safe)
     : `${year}-12-31`;
 
   // Cap endDate to today (don't calculate future target hours!)
@@ -73,7 +131,88 @@ export function getUserOvertimeReport(
   // Don't include dates before hire date
   const effectiveStartDate = startDate < user.hireDate ? user.hireDate : startDate;
 
-  // Calculate daily breakdown
+  // STRATEGY: Read summary from overtime_balance (Single Source of Truth)
+  let summary: { targetHours: number; actualHours: number; overtime: number };
+
+  if (month) {
+    // MONTHLY REPORT: Read from overtime_balance table
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+    const dbData = getMonthlyOvertimeFromDB(userId, monthKey);
+
+    if (dbData) {
+      // ✅ Use Database as Single Source of Truth
+      summary = {
+        targetHours: dbData.target,
+        actualHours: dbData.actual,
+        overtime: dbData.overtime,
+      };
+      logger.info({ monthKey, summary }, '✅ Read summary from overtime_balance (authoritative)');
+    } else {
+      // FALLBACK: Calculate (should not happen after ensureOvertimeBalanceEntries)
+      logger.warn({ monthKey }, '⚠️  overtime_balance entry missing, falling back to calculation');
+      const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
+      summary = {
+        targetHours: daily.reduce((sum, d) => sum + d.target, 0),
+        actualHours: daily.reduce((sum, d) => sum + d.actual, 0),
+        overtime: daily.reduce((sum, d) => sum + d.overtime, 0),
+      };
+    }
+  } else {
+    // YEARLY REPORT: Aggregate monthly entries from overtime_balance
+    // CRITICAL: Only aggregate up to CURRENT MONTH (don't include future months!)
+    const currentMonth = today.substring(0, 7); // "2026-01"
+
+    const monthlyEntries = db.prepare(`
+      SELECT month, targetHours, actualHours, overtime
+      FROM overtime_balance
+      WHERE userId = ? AND month LIKE ? AND month <= ?
+      ORDER BY month ASC
+    `).all(userId, `${year}-%`, currentMonth) as Array<{
+      month: string;
+      targetHours: number;
+      actualHours: number;
+      overtime: number;
+    }>;
+
+    if (monthlyEntries.length > 0) {
+      // ✅ Aggregate from overtime_balance (authoritative)
+      const totalTarget = monthlyEntries.reduce((sum, m) => sum + m.targetHours, 0);
+      const totalActual = monthlyEntries.reduce((sum, m) => sum + m.actualHours, 0);
+      const totalOvertime = monthlyEntries.reduce((sum, m) => sum + m.overtime, 0);
+
+      // Get year-end carryover from January
+      const januaryBalance = db.prepare(`
+        SELECT carryoverFromPreviousYear
+        FROM overtime_balance
+        WHERE userId = ? AND month = ?
+      `).get(userId, `${year}-01`) as { carryoverFromPreviousYear: number } | undefined;
+
+      const yearEndCarryover = januaryBalance?.carryoverFromPreviousYear || 0;
+
+      summary = {
+        targetHours: totalTarget,
+        actualHours: totalActual,
+        overtime: totalOvertime + yearEndCarryover, // Include carryover
+      };
+      logger.info({
+        monthsFound: monthlyEntries.length,
+        currentMonth,
+        summary
+      }, '✅ Aggregated from overtime_balance (authoritative, up to current month)');
+    } else {
+      // FALLBACK: Calculate (should not happen after ensureOvertimeBalanceEntries)
+      logger.warn({ year }, '⚠️  No overtime_balance entries found, falling back to calculation');
+      const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
+      summary = {
+        targetHours: daily.reduce((sum, d) => sum + d.target, 0),
+        actualHours: daily.reduce((sum, d) => sum + d.actual, 0),
+        overtime: daily.reduce((sum, d) => sum + d.overtime, 0),
+      };
+    }
+  }
+
+  // ALWAYS calculate daily breakdown for UI visualization
+  // This is needed for charts, day-by-day view, etc.
   const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
 
   // Aggregate to weekly
@@ -82,22 +221,26 @@ export function getUserOvertimeReport(
   // Aggregate to monthly
   const monthly = aggregateToMonthly(daily);
 
-  // Calculate summary
-  const summary = {
-    targetHours: daily.reduce((sum, d) => sum + d.target, 0),
-    actualHours: daily.reduce((sum, d) => sum + d.actual, 0),
-    overtime: daily.reduce((sum, d) => sum + d.overtime, 0),
-  };
+  logger.info({
+    userId,
+    year,
+    month,
+    startDate: effectiveStartDate,
+    endDate,
+    dailyCount: daily.length,
+    summary,
+    source: 'overtime_balance (Single Source of Truth)'
+  }, '✅ OVERTIME REPORT GENERATED');
 
   return {
     userId,
     year,
     month,
-    summary,
+    summary, // ← FROM DATABASE (authoritative!)
     breakdown: {
-      daily,
-      weekly,
-      monthly,
+      daily,    // ← For UI visualization only
+      weekly,   // ← For UI visualization only
+      monthly,  // ← For UI visualization only
     },
   };
 }
@@ -127,7 +270,9 @@ function calculateDailyBreakdown(
   const end = new Date(endDate);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split('T')[0];
+    // FIX: Use formatDate() instead of toISOString() to avoid timezone issues
+    // toISOString() returns UTC, but we need Europe/Berlin timezone!
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     const target = getDailyTargetHours(user, dateStr);
 
     // Only include if it's a working day OR has time entries
@@ -138,15 +283,56 @@ function calculateDailyBreakdown(
 
   // Calculate for each date
   Array.from(allDates).sort().forEach(date => {
-    const target = getDailyTargetHours(user, date);
+    let target = getDailyTargetHours(user, date);
 
-    const actualResult = db.prepare(`
+    // Get worked hours from time_entries
+    const workedResult = db.prepare(`
       SELECT COALESCE(SUM(hours), 0) as total
       FROM time_entries
       WHERE userId = ? AND date = ?
     `).get(userId, date) as { total: number };
 
-    const actual = actualResult.total;
+    // Check for unpaid leave (REDUCES target hours, NO absence credit!)
+    const unpaidLeaveResult = db.prepare(`
+      SELECT COUNT(*) as hasUnpaidLeave
+      FROM absence_requests
+      WHERE userId = ?
+        AND status = 'approved'
+        AND type = 'unpaid'
+        AND ? >= startDate
+        AND ? <= endDate
+    `).get(userId, date, date) as { hasUnpaidLeave: number };
+
+    // If unpaid leave on this day, reduce target to 0 (user doesn't need to work)
+    if (unpaidLeaveResult.hasUnpaidLeave > 0 && target > 0) {
+      target = 0;
+    }
+
+    // Get absence credits (vacation, sick, overtime_comp, special)
+    // Check if date falls within any approved absence period
+    // IMPORTANT: Give credit = target hours for WORKING days only!
+    const absenceResult = db.prepare(`
+      SELECT COUNT(*) as hasAbsence
+      FROM absence_requests
+      WHERE userId = ?
+        AND status = 'approved'
+        AND type IN ('vacation', 'sick', 'overtime_comp', 'special')
+        AND ? >= startDate
+        AND ? <= endDate
+    `).get(userId, date, date) as { hasAbsence: number };
+
+    const absenceCredit = (absenceResult.hasAbsence > 0 && target > 0) ? target : 0;
+
+    // Get manual corrections for this date
+    // PROFESSIONAL: Manual adjustments work ALWAYS (like Personio)
+    const correctionsResult = db.prepare(`
+      SELECT COALESCE(SUM(hours), 0) as total
+      FROM overtime_corrections
+      WHERE userId = ? AND date = ?
+    `).get(userId, date) as { total: number };
+
+    // FINAL: Actual = Worked + Absences + Corrections (Single Source of Truth)
+    const actual = workedResult.total + absenceCredit + correctionsResult.total;
     const overtime = actual - target;
 
     days.push({ date, target, actual, overtime });
@@ -168,7 +354,8 @@ function aggregateToWeekly(
     // ISO week: Monday is start of week
     const weekStart = new Date(date);
     weekStart.setDate(date.getDate() - ((date.getDay() + 6) % 7)); // Monday
-    const weekKey = weekStart.toISOString().split('T')[0];
+    // FIX: Use formatDate() instead of toISOString() to avoid timezone bugs
+    const weekKey = formatDate(weekStart, 'yyyy-MM-dd');
 
     if (!weekMap.has(weekKey)) {
       weekMap.set(weekKey, { target: 0, actual: 0, overtime: 0 });
@@ -213,6 +400,7 @@ function aggregateToMonthly(
 
 /**
  * Get overtime history with transaction breakdown
+ * FALLBACK: Uses overtime_balance if no transactions exist
  */
 export function getOvertimeHistory(
   userId: number,
@@ -225,86 +413,176 @@ export function getOvertimeHistory(
     throw new Error(`User not found: ${userId}`);
   }
 
-  // Calculate start month (N months ago from now)
+  // CRITICAL FIX: ALWAYS use overtime_balance (Single Source of Truth)
+  // Transactions are only an audit trail and may contain migration errors
+  // overtime_balance is the authoritative source calculated by overtimeService
+  logger.info({ userId }, 'Using overtime_balance (Single Source of Truth)');
+  return getOvertimeHistoryFromBalance(userId, months);
+}
+
+/**
+ * FALLBACK: Get overtime history from overtime_balance table
+ * Used when no transactions exist (e.g., legacy users)
+ */
+function getOvertimeHistoryFromBalance(
+  userId: number,
+  months: number = 12
+): OvertimeHistoryEntry[] {
   const now = new Date();
   const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
-  const startMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
 
-  // Get all transactions for this period
-  const transactions = db.prepare(`
-    SELECT
-      strftime('%Y-%m', date) as month,
-      type,
-      SUM(hours) as total
-    FROM overtime_transactions
+  // CRITICAL: Only get months up to CURRENT MONTH (don't include future months!)
+  const currentMonth = now.toISOString().substring(0, 7); // "2026-01"
+
+  // Get all overtime_balance entries for this user
+  const balances = db.prepare(`
+    SELECT month, targetHours, actualHours, overtime, carryoverFromPreviousYear
+    FROM overtime_balance
     WHERE userId = ?
-      AND date >= ?
-    GROUP BY strftime('%Y-%m', date), type
+      AND month >= ?
+      AND month <= ?
     ORDER BY month ASC
-  `).all(userId, `${startMonth}-01`) as Array<{
+  `).all(
+    userId,
+    `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`,
+    currentMonth
+  ) as Array<{
     month: string;
-    type: 'earned' | 'compensation' | 'correction' | 'carryover';
-    total: number;
+    targetHours: number;
+    actualHours: number;
+    overtime: number;
+    carryoverFromPreviousYear: number;
   }>;
 
-  // Build month-by-month history
   const history: OvertimeHistoryEntry[] = [];
   let runningBalance = 0;
 
-  // Get balance before start month
-  const balanceBefore = db.prepare(`
-    SELECT COALESCE(SUM(hours), 0) as balance
-    FROM overtime_transactions
+  // Get carryover from previous year (if exists)
+  const prevYearBalance = db.prepare(`
+    SELECT COALESCE(SUM(overtime), 0) as carryover
+    FROM overtime_balance
     WHERE userId = ?
-      AND date < ?
-  `).get(userId, `${startMonth}-01`) as { balance: number };
+      AND month < ?
+  `).get(userId, `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`) as { carryover: number };
 
-  runningBalance = balanceBefore.balance;
+  runningBalance = prevYearBalance.carryover;
 
-  // Generate entries for each month
+  // CRITICAL FIX: Only show months that actually exist in overtime_balance
+  // Don't add "missing months" with 0 values - they didn't exist (user not hired yet or no data)
   const monthSet = new Set<string>();
-  transactions.forEach(t => monthSet.add(t.month));
-
-  // Also include months with no transactions (to show balance continuity)
-  for (let i = 0; i < months; i++) {
-    const monthDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
-    const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
-    monthSet.add(monthKey);
-  }
+  balances.forEach(b => monthSet.add(b.month));
 
   Array.from(monthSet).sort().forEach(month => {
-    const monthTransactions = transactions.filter(t => t.month === month);
+    const balance = balances.find(b => b.month === month);
 
-    const earned = monthTransactions
-      .filter(t => t.type === 'earned')
-      .reduce((sum, t) => sum + t.total, 0);
+    // earned = actualHours - targetHours (overtime for this month)
+    const earned = balance ? balance.overtime : 0;
 
-    const compensation = monthTransactions
-      .filter(t => t.type === 'compensation')
-      .reduce((sum, t) => sum + t.total, 0);
+    // Check if this month has a year-end carryover (from overtime rollover)
+    const yearEndCarryover = balance?.carryoverFromPreviousYear || 0;
 
-    const correction = monthTransactions
-      .filter(t => t.type === 'correction')
-      .reduce((sum, t) => sum + t.total, 0);
+    runningBalance += earned + yearEndCarryover;
+    const balanceChange = earned + yearEndCarryover;
 
-    const carryover = monthTransactions
-      .filter(t => t.type === 'carryover')
-      .reduce((sum, t) => sum + t.total, 0);
-
-    const previousBalance = runningBalance;
-    runningBalance += earned + compensation + correction + carryover;
-    const balanceChange = runningBalance - previousBalance;
-
+    // For balance-based system, we don't have detailed transaction breakdown
+    // carryover shows the year-end rollover (if any)
     history.push({
       month,
       earned,
-      compensation,
-      correction,
-      carryover,
-      balance: runningBalance,
+      compensation: 0,
+      correction: 0,
+      carryover: yearEndCarryover,
+      balance: runningBalance,  // Cumulative balance (for summary display)
       balanceChange,
     });
   });
 
   return history;
+}
+
+/**
+ * Get overtime balance breakdown by year
+ * Shows how current balance is composed: carryover from previous year + current year
+ */
+export interface OvertimeYearBreakdown {
+  userId: number;
+  currentYear: number;
+  totalBalance: number;
+  carryoverFromPreviousYear: number;
+  earnedThisYear: number;
+  currentMonth: {
+    month: string;
+    earned: number;
+    targetHours: number;
+    actualHours: number;
+  };
+}
+
+export function getOvertimeYearBreakdown(userId: number): OvertimeYearBreakdown {
+  logger.info({ userId }, 'Getting overtime year breakdown');
+
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  const currentYear = new Date().getFullYear();
+  const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+  // Calculate REAL carryover from previous year's overtime_balance (Single Source of Truth!)
+  // Don't use stored carryoverFromPreviousYear - calculate it fresh from actual data
+  const previousYear = currentYear - 1;
+  const previousYearBalances = db.prepare(`
+    SELECT SUM(actualHours - targetHours) as totalOvertime
+    FROM overtime_balance
+    WHERE userId = ? AND month LIKE ?
+  `).get(userId, `${previousYear}-%`) as { totalOvertime: number | null } | undefined;
+
+  const carryoverFromPreviousYear = previousYearBalances?.totalOvertime || 0;
+
+  // Get all monthly balances for current year (up to current month)
+  const yearBalances = db.prepare(`
+    SELECT month, overtime, targetHours, actualHours
+    FROM overtime_balance
+    WHERE userId = ? AND month LIKE ? AND month <= ?
+    ORDER BY month ASC
+  `).all(userId, `${currentYear}-%`, currentMonth) as Array<{
+    month: string;
+    overtime: number;
+    targetHours: number;
+    actualHours: number;
+  }>;
+
+  // Sum overtime earned this year (excluding carryover)
+  const earnedThisYear = yearBalances.reduce((sum, m) => sum + m.overtime, 0);
+
+  // Current month data
+  const currentMonthData = yearBalances.find(m => m.month === currentMonth);
+
+  // Total balance = carryover + earned this year
+  const totalBalance = carryoverFromPreviousYear + earnedThisYear;
+
+  logger.info(
+    { userId, currentYear, carryoverFromPreviousYear, earnedThisYear, totalBalance },
+    'Year breakdown calculated'
+  );
+
+  return {
+    userId,
+    currentYear,
+    totalBalance,
+    carryoverFromPreviousYear,
+    earnedThisYear,
+    currentMonth: currentMonthData ? {
+      month: currentMonthData.month,
+      earned: currentMonthData.overtime,
+      targetHours: currentMonthData.targetHours,
+      actualHours: currentMonthData.actualHours,
+    } : {
+      month: currentMonth,
+      earned: 0,
+      targetHours: 0,
+      actualHours: 0,
+    },
+  };
 }

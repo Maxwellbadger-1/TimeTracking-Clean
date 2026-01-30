@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useUsers } from '../hooks';
-import { useAllUsersOvertimeReports } from '../hooks/useOvertimeReports';
+import { useAllUsersOvertimeReports, useOvertimeReport } from '../hooks/useOvertimeReports';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -21,13 +21,16 @@ import { Select } from '../components/ui/Select';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { OvertimeSummaryCards } from '../components/reports/OvertimeSummaryCards';
 import { OvertimeUserTable } from '../components/reports/OvertimeUserTable';
-import { OvertimeHistoryChart } from '../components/reports/OvertimeHistoryChart';
 import { WorkTimeAccountHistory } from '../components/worktime/WorkTimeAccountHistory';
 import { OvertimeTransactions } from '../components/worktime/OvertimeTransactions';
+import { AbsencesBreakdown } from '../components/reports/AbsencesBreakdown';
 import { CorrectionsTable } from '../components/corrections/CorrectionsTable';
 import { OvertimeCorrectionModal } from '../components/corrections/OvertimeCorrectionModal';
 import { Download, BarChart3, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { exportDATEV, exportHistoricalCSV } from '../api/exports';
+import { getDateRangeFromFilters } from '../utils/dateRangeUtils';
+import { downloadBlob } from '../utils/downloadFile';
 
 export function ReportsPage() {
   const { user: currentUser } = useAuthStore();
@@ -45,24 +48,37 @@ export function ReportsPage() {
   const [correctionUserId, setCorrectionUserId] = useState<number | undefined>(undefined);
   const [correctionUserName, setCorrectionUserName] = useState<string | undefined>(undefined);
 
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+
   // Fetch data
   const { data: users } = useUsers(isAdmin);
-  const { data: reports, isLoading } = useAllUsersOvertimeReports(selectedYear, selectedMonth);
+  const { data: reports, isLoading } = useAllUsersOvertimeReports(selectedYear, selectedMonth, isAdmin);
 
-  // Filter report for selected user
+  // For single user view: Use overtime_balance (Single Source of Truth)
+  const { data: balanceReport } = useOvertimeReport(
+    selectedUserId === 'all' ? 0 : (typeof selectedUserId === 'number' ? selectedUserId : 0),
+    selectedYear,
+    selectedMonth,
+    selectedUserId !== 'all' && typeof selectedUserId === 'number' // Only fetch when single user selected
+  );
+
+  // Filter report for selected user (kept for backward compatibility, but Cards now use balanceReport)
   const currentReport = selectedUserId === 'all'
     ? undefined
     : reports?.find(r => r.userId === selectedUserId);
 
-  // Aggregate stats for all users
-  const aggregatedStats = reports?.reduce(
-    (acc, report) => ({
-      targetHours: acc.targetHours + report.summary.targetHours,
-      actualHours: acc.actualHours + report.summary.actualHours,
-      overtime: acc.overtime + report.summary.overtime,
-    }),
-    { targetHours: 0, actualHours: 0, overtime: 0 }
-  );
+  // Aggregate stats for all users (filter out reports without summary)
+  const aggregatedStats = reports
+    ?.filter(report => report?.summary)
+    .reduce(
+      (acc, report) => ({
+        targetHours: acc.targetHours + report.summary.targetHours,
+        actualHours: acc.actualHours + report.summary.actualHours,
+        overtime: acc.overtime + report.summary.overtime,
+      }),
+      { targetHours: 0, actualHours: 0, overtime: 0 }
+    );
 
   // Period string for display
   const periodString = selectedMonth
@@ -70,12 +86,72 @@ export function ReportsPage() {
     : `${selectedYear}`;
 
   // Export handlers
-  const handleExportCSV = () => {
-    toast.info('CSV Export wird implementiert');
+  const handleExportCSV = async () => {
+    if (!isAdmin) {
+      toast.error('Nur Administratoren können Exporte erstellen');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const { startDate, endDate } = getDateRangeFromFilters(selectedYear, selectedMonth);
+      const userId = selectedUserId !== 'all' ? selectedUserId : undefined;
+
+      toast.loading('CSV wird erstellt...', { id: 'csv-export' });
+
+      const blob = await exportHistoricalCSV(startDate, endDate, userId);
+
+      // Generate filename
+      const userPart = userId ? `_User${userId}` : '_Alle';
+      const periodPart = selectedMonth
+        ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+        : `${selectedYear}`;
+      const filename = `Zeiterfassung${userPart}_${periodPart}.csv`;
+
+      downloadBlob(blob, filename);
+      toast.success('CSV erfolgreich heruntergeladen!', { id: 'csv-export' });
+    } catch (error) {
+      console.error('CSV Export Error:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Fehler beim CSV Export',
+        { id: 'csv-export' }
+      );
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const handleExportDATEV = () => {
-    toast.info('DATEV Export wird implementiert');
+  const handleExportDATEV = async () => {
+    if (!isAdmin) {
+      toast.error('Nur Administratoren können Exporte erstellen');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const { startDate, endDate } = getDateRangeFromFilters(selectedYear, selectedMonth);
+
+      toast.loading('DATEV Export wird erstellt...', { id: 'datev-export' });
+
+      const blob = await exportDATEV(startDate, endDate);
+
+      // Generate filename
+      const periodPart = selectedMonth
+        ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+        : `${selectedYear}`;
+      const filename = `DATEV_Export_${periodPart}.csv`;
+
+      downloadBlob(blob, filename);
+      toast.success('DATEV Export erfolgreich!', { id: 'datev-export' });
+    } catch (error) {
+      console.error('DATEV Export Error:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Fehler beim DATEV Export',
+        { id: 'datev-export' }
+      );
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!currentUser) {
@@ -117,16 +193,34 @@ export function ReportsPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleExportCSV} variant="secondary">
-              <Download className="w-4 h-4 mr-2" />
-              CSV Export
-            </Button>
-            <Button onClick={handleExportDATEV} variant="secondary">
-              <Download className="w-4 h-4 mr-2" />
-              DATEV Export
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Button
+                onClick={handleExportCSV}
+                variant="secondary"
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                CSV Export
+              </Button>
+              <Button
+                onClick={handleExportDATEV}
+                variant="secondary"
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                DATEV Export
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -206,12 +300,12 @@ export function ReportsPage() {
           </div>
         )}
 
-        {selectedUserId !== 'all' && currentReport && (
+        {selectedUserId !== 'all' && balanceReport?.summary && (
           <div className="mb-6">
             <OvertimeSummaryCards
-              targetHours={currentReport.summary.targetHours}
-              actualHours={currentReport.summary.actualHours}
-              overtime={currentReport.summary.overtime}
+              targetHours={balanceReport.summary.targetHours}
+              actualHours={balanceReport.summary.actualHours}
+              overtime={balanceReport.summary.overtime}
               period={periodString}
             />
           </div>
@@ -240,12 +334,30 @@ export function ReportsPage() {
           <>
             {/* History Chart */}
             <div className="mb-6">
-              <WorkTimeAccountHistory userId={selectedUserId} months={12} />
+              <WorkTimeAccountHistory
+                userId={selectedUserId}
+                year={selectedYear}
+                month={selectedMonth}
+              />
             </div>
 
             {/* Transactions */}
             <div className="mb-6">
-              <OvertimeTransactions userId={selectedUserId} limit={100} />
+              <OvertimeTransactions
+                userId={selectedUserId}
+                year={selectedYear}
+                month={selectedMonth}
+                limit={100}
+              />
+            </div>
+
+            {/* Absences Breakdown */}
+            <div className="mb-6">
+              <AbsencesBreakdown
+                userId={selectedUserId}
+                year={selectedYear}
+                month={selectedMonth}
+              />
             </div>
 
             {/* Corrections (Admin only) */}
@@ -271,7 +383,12 @@ export function ReportsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CorrectionsTable userId={selectedUserId} isAdmin={true} />
+                  <CorrectionsTable
+                    userId={selectedUserId}
+                    isAdmin={true}
+                    year={selectedYear}
+                    month={selectedMonth}
+                  />
                 </CardContent>
               </Card>
             )}
