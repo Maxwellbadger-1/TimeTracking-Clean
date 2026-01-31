@@ -14,7 +14,7 @@ export default function OvertimeManagementPage() {
   const [filterCritical, setFilterCritical] = useState(false);
 
   // Fetch data using NEW API
-  const { data: reports, isLoading, error } = useAllUsersOvertimeReports(selectedYear);
+  const { data: reports, isLoading, error } = useAllUsersOvertimeReports(selectedYear, undefined, true);
   const { data: users } = useUsers(true); // Admin gets all users
 
   // Transform reports to match old format with user names
