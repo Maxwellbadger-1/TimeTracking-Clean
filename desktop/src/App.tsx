@@ -12,6 +12,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import VacationBalanceManagementPage from './pages/VacationBalanceManagementPage';
 import OvertimeManagementPage from './pages/OvertimeManagementPage';
 import BackupPage from './pages/BackupPage';
+import YearEndRolloverPage from './pages/YearEndRolloverPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ForcePasswordChangePage from './pages/ForcePasswordChangePage';
@@ -21,7 +22,7 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { Button } from './components/ui/Button';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { LogOut } from 'lucide-react';
-import { useGlobalKeyboardShortcuts } from './hooks';
+import { useGlobalKeyboardShortcuts, useWebSocket } from './hooks';
 import { PrivacyPolicyModal } from './components/privacy/PrivacyPolicyModal';
 import { useDesktopNotifications } from './hooks/useDesktopNotifications';
 import { useAutoUpdater } from './hooks/useAutoUpdater';
@@ -55,6 +56,9 @@ export default function App() {
 
   // Desktop Notifications (monitors DB notifications and triggers native desktop alerts)
   useDesktopNotifications(user?.id);
+
+  // WebSocket Real-Time Updates (auto-invalidates TanStack Query caches)
+  useWebSocket({ userId: user?.id, enabled: isAuthenticated });
 
   // Auto-Updater (checks for updates on app start)
   const updater = useAutoUpdater();
@@ -176,6 +180,7 @@ export default function App() {
             {currentView === 'overtime' && user.role === 'admin' && <OvertimeManagementPage />}
             {currentView === 'reports' && <ReportsPage />}
             {currentView === 'backups' && user.role === 'admin' && <BackupPage />}
+            {currentView === 'year-end-rollover' && user.role === 'admin' && <YearEndRolloverPage />}
             {currentView === 'settings' && <SettingsPage />}
           </main>
         </div>

@@ -116,24 +116,151 @@ export async function loadHolidaysForYear(year: number): Promise<number> {
 }
 
 /**
+ * Get the earliest hire year from all users
+ * Used to determine how far back we need to load holidays
+ */
+export function getEarliestHireYear(): number {
+  const result = db
+    .prepare('SELECT MIN(hireDate) as earliestHire FROM users WHERE deletedAt IS NULL')
+    .get() as { earliestHire: string | null };
+
+  if (!result?.earliestHire) {
+    // No users yet, default to current year
+    return new Date().getFullYear();
+  }
+
+  return new Date(result.earliestHire).getFullYear();
+}
+
+/**
+ * Get the maximum year for which we have holidays in the database
+ */
+export function getMaxHolidayYear(): number {
+  const result = db
+    .prepare('SELECT MAX(SUBSTR(date, 1, 4)) as maxYear FROM holidays')
+    .get() as { maxYear: string | null };
+
+  if (!result?.maxYear) {
+    // No holidays yet
+    return new Date().getFullYear() - 1;
+  }
+
+  return parseInt(result.maxYear, 10);
+}
+
+/**
+ * Ensure holidays are loaded for a specific year
+ * Lazy-loads from API if not present in database
+ */
+export async function ensureYearCoverage(year: number): Promise<void> {
+  const exists = db
+    .prepare('SELECT 1 FROM holidays WHERE date LIKE ? LIMIT 1')
+    .get(`${year}-%`);
+
+  if (!exists) {
+    logger.info({ year }, '⚠️  Year not in database, loading holidays...');
+    await loadHolidaysForYear(year);
+  }
+}
+
+/**
  * Initialize holidays on server start
- * Loads current year + next 2 years
+ * Loads from earliest hire year to current year + 3 years ahead
+ *
+ * PROFESSIONAL STANDARD:
+ * - Historical data: Needed for correct overtime calculations
+ * - Future data: Needed for absence planning (typically +2 to +3 years)
+ * - This matches Personio, SAP SuccessFactors, Workday approach
  */
 export async function initializeHolidays(): Promise<void> {
   logger.info('🎄 Initializing holidays...');
 
   const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear + 1, currentYear + 2];
+  const earliestHireYear = getEarliestHireYear();
+  const futureYears = 3; // Standard: +3 years ahead
+
+  const startYear = earliestHireYear;
+  const endYear = currentYear + futureYears;
+
+  logger.info({
+    earliestHireYear,
+    currentYear,
+    endYear,
+    totalYears: endYear - startYear + 1
+  }, '📅 Loading holidays for range');
 
   try {
-    for (const year of years) {
+    for (let year = startYear; year <= endYear; year++) {
       await loadHolidaysForYear(year);
     }
 
-    logger.info({ years }, `🎉 Holidays initialized successfully`);
+    logger.info({
+      yearsLoaded: `${startYear}-${endYear}`,
+      totalYears: endYear - startYear + 1
+    }, `🎉 Holidays initialized successfully`);
   } catch (error) {
     logger.error({ err: error }, '❌ Error initializing holidays');
     // Don't throw - holidays are not critical for server start
+  }
+}
+
+/**
+ * Auto-update holidays to ensure we always have coverage
+ * Called by cron job daily
+ *
+ * Checks if we need to load new years and updates accordingly
+ */
+export async function autoUpdateHolidays(): Promise<void> {
+  logger.info('🔄 Auto-updating holidays...');
+
+  try {
+    const currentYear = new Date().getFullYear();
+    const maxYear = getMaxHolidayYear();
+    const futureYears = 3;
+    const targetMaxYear = currentYear + futureYears;
+
+    // Check if we need to load new years
+    if (maxYear < targetMaxYear) {
+      logger.info({
+        currentMaxYear: maxYear,
+        targetMaxYear,
+        yearsToLoad: targetMaxYear - maxYear
+      }, '📅 Loading missing future years');
+
+      for (let year = maxYear + 1; year <= targetMaxYear; year++) {
+        await loadHolidaysForYear(year);
+      }
+
+      logger.info({ yearsLoaded: `${maxYear + 1}-${targetMaxYear}` }, '✅ Auto-update complete');
+    } else {
+      logger.info({ maxYear }, '✅ Holiday coverage up-to-date');
+    }
+
+    // Also check if we need to backfill (in case earliest hire date changed)
+    const earliestHireYear = getEarliestHireYear();
+    const minYear = parseInt(
+      (db.prepare('SELECT MIN(SUBSTR(date, 1, 4)) as minYear FROM holidays')
+        .get() as { minYear: string | null })?.minYear || String(currentYear),
+      10
+    );
+
+    if (earliestHireYear < minYear) {
+      logger.info({
+        earliestHireYear,
+        currentMinYear: minYear,
+        yearsToBackfill: minYear - earliestHireYear
+      }, '📅 Backfilling missing historical years');
+
+      for (let year = earliestHireYear; year < minYear; year++) {
+        await loadHolidaysForYear(year);
+      }
+
+      logger.info({ yearsLoaded: `${earliestHireYear}-${minYear - 1}` }, '✅ Backfill complete');
+    }
+
+  } catch (error) {
+    logger.error({ err: error }, '❌ Error in auto-update holidays');
+    // Don't throw - this runs in background
   }
 }
 

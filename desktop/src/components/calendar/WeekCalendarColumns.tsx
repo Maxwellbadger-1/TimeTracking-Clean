@@ -19,24 +19,25 @@ import {
   parseISO,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { DateNavigation } from './DateNavigation';
-import { CalendarLegend } from './CalendarLegend';
-import { UserFilter } from './UserFilter';
 import { getUserColor, getInitials } from '../../utils/userColors';
 import { getAbsenceTypeLabel, getEventColor } from '../../utils/calendarUtils';
 import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
+import { useUIStore } from '../../store/uiStore';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface WeekCalendarColumnsProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
+  holidays?: Array<{ date: string; name: string }>;
   currentUserId: number;
   currentUser: { id: number; firstName: string; lastName: string };
   isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
+  currentDate?: Date; // Controlled component: Date from parent
+  onDateChange?: (date: Date) => void; // Callback to parent when date changes
 }
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 6:00 to 22:00
@@ -45,20 +46,23 @@ const HOUR_HEIGHT = 60; // pixels per hour
 export function WeekCalendarColumns({
   timeEntries = [],
   absences = [],
+  holidays = [],
   currentUserId,
   currentUser,
   isAdmin,
   onDayClick,
   viewMode = 'week',
   onViewModeChange,
+  currentDate: externalDate,
+  onDateChange,
 }: WeekCalendarColumnsProps) {
-  console.log('🚀🚀🚀 WEEK CALENDAR COLUMNS COMPONENT RENDERED 🚀🚀🚀');
-  console.log('📊 Total absences received:', absences?.length || 0);
-  console.log('📊 Absences data:', absences);
-  console.log('🚀🚀🚀 END WEEK CALENDAR COLUMNS INIT DEBUG 🚀🚀🚀');
 
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  // Support both controlled (from parent) and uncontrolled (internal state) usage
+  const [internalDate, setInternalDate] = useState(new Date());
+  const currentWeek = externalDate || internalDate;
+  const setCurrentWeek = onDateChange || setInternalDate;
+
+  const { calendarFilters } = useUIStore();
 
   // Admin: Load all users for selection
   // Employee: Query disabled (prevents 403)
@@ -68,6 +72,7 @@ export function WeekCalendarColumns({
   // Get week days (Monday - Sunday)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
 
   // Filter users
   const displayUsers = useMemo(() => {
@@ -87,13 +92,17 @@ export function WeekCalendarColumns({
       return employeeUser;
     }
 
-    // Admin: normale User-Liste von API
+    // Admin: Use centralized calendar filter from uiStore
     const activeUsers = usersList.filter(u => !u.deletedAt);
-    if (selectedUserId) {
-      return activeUsers.filter(u => u.id === selectedUserId);
+
+    // Apply user filter if any users are selected
+    const hasUserFilter = calendarFilters.selectedUserIds.length > 0;
+    if (hasUserFilter) {
+      return activeUsers.filter(u => calendarFilters.selectedUserIds.includes(u.id));
     }
+
     return activeUsers;
-  }, [usersList, selectedUserId, isAdmin, currentUserId, timeEntries]);
+  }, [usersList, calendarFilters.selectedUserIds, isAdmin, currentUser]);
 
   // Calculate column width based on number of users
   const columnWidthPerUser = 180; // pixels per user
@@ -189,31 +198,6 @@ export function WeekCalendarColumns({
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 100px)' }}>
-      <DateNavigation
-        currentDate={currentWeek}
-        onDateChange={setCurrentWeek}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onToday={handleToday}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange || (() => {})}
-      />
-
-      {/* User Filter - nur für Admins */}
-      {isAdmin && (
-        <div className="mb-4">
-          <UserFilter
-            users={usersList}
-            selectedUserId={selectedUserId}
-            onUserChange={setSelectedUserId}
-          />
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="mb-6">
-        <CalendarLegend />
-      </div>
 
       {/* Calendar Container - SINGLE SCROLL CONTAINER */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-auto">
@@ -348,6 +332,13 @@ export function WeekCalendarColumns({
                               </div>
                             )}
 
+                            {/* Holiday Banner */}
+                            {holidays.filter(h => h.date === dateKey).map((holiday, idx) => (
+                              <div key={`holiday-${idx}`} className="absolute top-1 left-1 right-1 z-5 p-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-900 dark:text-yellow-300 border-2 border-yellow-500 dark:border-yellow-600 rounded text-[10px] font-medium text-center">
+                                🎉 {holiday.name}
+                              </div>
+                            ))}
+
                             {/* Absence Banner - nur approved/pending, nicht rejected */}
                             {dayAbsences.filter(a => a.status !== 'rejected').map((absence, idx) => {
                               const isApproved = absence.status === 'approved';
@@ -364,8 +355,12 @@ export function WeekCalendarColumns({
                                 absence.type === 'overtime_comp' ? '⏰' :
                                 absence.type === 'unpaid' ? '📅' : '📋';
 
+                              // Offset absences below holidays (if any)
+                              const holidayCount = holidays.filter(h => h.date === dateKey).length;
+                              const topOffset = 1 + (holidayCount * 8) + (idx * 8);
+
                               return (
-                                <div key={idx} className={`absolute top-${1 + idx * 8} left-1 right-1 z-5 p-1 ${colors.bg} ${colors.text} ${colors.border} ${borderStyle} rounded text-[10px] font-medium text-center`}>
+                                <div key={idx} className={`absolute top-${topOffset} left-1 right-1 z-5 p-1 ${colors.bg} ${colors.text} ${colors.border} ${borderStyle} rounded text-[10px] font-medium text-center`} style={{ top: `${topOffset * 4}px` }}>
                                   {typeEmoji} {typeLabel}
                                 </div>
                               );

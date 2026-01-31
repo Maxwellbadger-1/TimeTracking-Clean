@@ -24,12 +24,23 @@ interface AbsencesBreakdownProps {
 export function AbsencesBreakdown({ userId, year, month }: AbsencesBreakdownProps) {
   const currentYear = year || new Date().getFullYear();
 
-  // ✅ PERFORMANCE: Fetch ONLY this user's approved absences for this year (filtered on backend!)
+  // ✅ PERFORMANCE: Fetch ONLY this user's approved absences (filtered on backend!)
   const { data: absences, isLoading, error } = useAbsenceRequests({
     userId,
     status: 'approved',
     year: currentYear,
+    // ✅ Pass month filter to backend if specified
+    ...(month && { month }),
   });
+
+  // 🔍 DEBUG: Log absences data
+  console.log('📊 AbsencesBreakdown - Loaded absences:', absences?.length || 0);
+  console.log('📊 First absence:', absences?.[0]);
+  if (absences?.[0]) {
+    console.log('📊 Has calculatedHours?', absences[0].calculatedHours !== undefined);
+    console.log('📊 calculatedHours value:', absences[0].calculatedHours);
+    console.log('📊 days value:', absences[0].days);
+  }
 
   if (isLoading) {
     return (
@@ -64,14 +75,9 @@ export function AbsencesBreakdown({ userId, year, month }: AbsencesBreakdownProp
     );
   }
 
-  // ✅ Backend already filtered by userId, status='approved', year
-  // Only filter by month if specified (optional month drill-down)
-  const userAbsences = month
-    ? (absences || []).filter(a => {
-        const monthKey = `${currentYear}-${String(month).padStart(2, '0')}`;
-        return a.startDate.startsWith(monthKey) || a.endDate.startsWith(monthKey);
-      })
-    : (absences || []);
+  // ✅ Backend already filtered by userId, status='approved', year (and month if specified)
+  // No need for frontend filtering anymore!
+  const userAbsences = absences || [];
 
   // Group by type and calculate totals
   const breakdown = userAbsences.reduce(

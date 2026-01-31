@@ -1008,4 +1008,191 @@ describe('Working Days Utilities', () => {
       expect(target).toBe(160);
     });
   });
+
+  /**
+   * CRITICAL EDGE CASES: Individual Work Schedule + Holidays
+   *
+   * These tests cover scenarios discovered during production debugging:
+   * - workSchedule with specific days (e.g., only Mon+Tue)
+   * - Holidays falling on working days (must override to 0h)
+   * - Bavaria-specific holidays (Heilige Drei Könige)
+   */
+  describe('Edge Cases: workSchedule + Holidays', () => {
+    it('should handle Heilige Drei Könige (06.01) on Monday for Mon+Tue worker', () => {
+      vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 8,
+        workSchedule: {
+          monday: 4,
+          tuesday: 4,
+          wednesday: 0,
+          thursday: 0,
+          friday: 0,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2026-01-01',
+      } as any;
+
+      // Period: 01.01-15.01.2026
+      // Working days for Mon+Tue worker:
+      // - 01.01 (Wed) = not a working day (wednesday=0)
+      // - 06.01 (Mon) = Heilige Drei Könige (HOLIDAY!) → 0h
+      // - 07.01 (Tue) = working day → 4h
+      // - 13.01 (Mon) = working day → 4h
+      // - 14.01 (Tue) = working day → 4h
+      // Total: 3 days × 4h = 12h
+
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15');
+
+      expect(target).toBe(12); // NOT 16h! Holiday reduces target
+    });
+
+    it('should calculate vacation credit correctly with holiday in period', () => {
+      vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 8,
+        workSchedule: {
+          monday: 4,
+          tuesday: 4,
+          wednesday: 0,
+          thursday: 0,
+          friday: 0,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2026-01-01',
+      } as any;
+
+      // Vacation: 01.01-15.01 (entire period)
+      // But Heilige Drei Könige (06.01, Monday) = HOLIDAY
+      // Holiday does NOT count as vacation day!
+      // Working days: Tue(07), Mon(13), Tue(14) = 3 days
+      // Credit: 3 × 4h = 12h
+
+      const credit = calculateAbsenceHoursWithWorkSchedule(
+        '2026-01-01',
+        '2026-01-15',
+        user.workSchedule,
+        user.weeklyHours
+      );
+
+      expect(credit).toBe(12); // NOT 16h!
+    });
+
+    it('should handle holiday on 0h day (no impact)', () => {
+      vi.setSystemTime(new Date('2026-01-08T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 8,
+        workSchedule: {
+          monday: 4,
+          tuesday: 4,
+          wednesday: 0, // ← 0h day
+          thursday: 0,
+          friday: 0,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2026-01-01',
+      } as any;
+
+      // If 01.01 (Wednesday, 0h day) is a holiday:
+      // Target would be 0h anyway, so holiday doesn't change anything
+      // Period: 01.01-08.01
+      // Working days: Mon(06) HOLIDAY, Tue(07), Thu(08) 0h
+      // Total: 1 day × 4h = 4h
+
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-08');
+
+      expect(target).toBe(4);
+    });
+
+    it('should handle multiple holidays in same week', () => {
+      vi.setSystemTime(new Date('2026-12-31T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 40,
+        workSchedule: null,
+        hireDate: '2026-12-21',
+      } as any;
+
+      // Week: 21.12-27.12.2026
+      // Holidays: 25.12 (Christmas), 26.12 (Boxing Day)
+      // Mon(21), Tue(22), Wed(23), Thu(24), Fri(25) HOLIDAY, Sat(26) weekend + HOLIDAY, Sun(27) weekend
+      // Working days: 4 (21-24)
+      // Target: 4 × 8h = 32h
+
+      const target = calculateTargetHoursForPeriod(user, '2026-12-21', '2026-12-27');
+
+      expect(target).toBe(32);
+    });
+
+    it('should respect workSchedule even for standard weekdays', () => {
+      vi.setSystemTime(new Date('2026-01-09T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 30, // ← Ignored when workSchedule exists!
+        workSchedule: {
+          monday: 8,
+          tuesday: 0,    // ← Tuesday is NOT a working day!
+          wednesday: 6,
+          thursday: 8,
+          friday: 8,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2026-01-05', // Monday
+      } as any;
+
+      // Period: 05.01-09.01 (Mon-Fri)
+      // Mon(05)=8h, Tue(06) HOLIDAY (overrides 0h), Wed(07)=6h, Thu(08)=8h, Fri(09)=8h
+      // But 06.01 is Heilige Drei Könige (holiday)!
+      // Total: 8 + 0 + 6 + 8 + 8 = 30h
+
+      const target = calculateTargetHoursForPeriod(user, '2026-01-05', '2026-01-09');
+
+      expect(target).toBe(30);
+    });
+
+    it('should calculate overtime correctly for Christine Glas scenario', () => {
+      vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+
+      const user = {
+        weeklyHours: 8,
+        workSchedule: {
+          monday: 4,
+          tuesday: 4,
+          wednesday: 0,
+          thursday: 0,
+          friday: 0,
+          saturday: 0,
+          sunday: 0,
+        },
+        hireDate: '2026-01-01',
+      } as any;
+
+      // Scenario:
+      // - Target: 12h (3 working days: Tue 07, Mon 13, Tue 14)
+      // - Worked: 0h
+      // - Vacation: 01.01-25.01 (approved) → Credit: 12h
+      // - Expected Overtime: (0 + 12) - 12 = 0h
+
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15');
+      const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        '2026-01-01',
+        '2026-01-15',
+        user.workSchedule,
+        user.weeklyHours
+      );
+      const workedHours = 0;
+      const overtime = (workedHours + vacationCredit) - target;
+
+      expect(target).toBe(12);
+      expect(vacationCredit).toBe(12);
+      expect(overtime).toBe(0);
+    });
+  });
 });

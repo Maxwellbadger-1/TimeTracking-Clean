@@ -172,20 +172,26 @@ export function AbsencesPage() {
   const handleCancelConfirm = async (reason: string) => {
     if (!selectedAbsenceForCancel) return;
 
-    console.log('🔥 Confirming cancellation with reason:', reason);
+    console.log('🔥 Confirming cancellation (REJECT, not DELETE) with reason:', reason);
 
     try {
-      await deleteRequest.mutateAsync({
+      // ✅ FIX: Use rejectRequest instead of deleteRequest
+      // This sets status='rejected' instead of deleting the record
+      // → Maintains audit trail and allows re-approval if needed
+      await rejectRequest.mutateAsync({
         id: selectedAbsenceForCancel.id,
-        data: { reason }
+        data: {
+          rejectedBy: currentUser.id,
+          reason: reason,
+        }
       });
-      console.log('✅ Cancellation successful');
+      console.log('✅ Rejection successful (status set to rejected)');
 
       // Close modal
       setCancelModalOpen(false);
       setSelectedAbsenceForCancel(null);
     } catch (error) {
-      console.error('💥 Failed to cancel absence:', error);
+      console.error('💥 Failed to reject absence:', error);
     }
   };
 
@@ -444,7 +450,7 @@ export function AbsencesPage() {
                           <strong>{formatDateDE(request.startDate)}</strong> bis{' '}
                           <strong>{formatDateDE(request.endDate)}</strong>
                           <span className="text-gray-500 dark:text-gray-400 ml-2">
-                            ({request.daysRequired} Tage)
+                            ({request.days || request.daysRequired || 0} Tage)
                           </span>
                         </div>
 
@@ -496,7 +502,7 @@ export function AbsencesPage() {
                             size="sm"
                             variant="danger"
                             onClick={() => handleCancelClick(request)}
-                            disabled={deleteRequest.isPending}
+                            disabled={rejectRequest.isPending || deleteRequest.isPending}
                           >
                             <Ban className="w-4 h-4 mr-1" />
                             Stornieren

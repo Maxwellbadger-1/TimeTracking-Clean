@@ -5,20 +5,13 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { OvertimeHistoryEntry } from '../../hooks/useOvertimeReports';
+import { formatHours, formatOvertimeHours } from '../../utils/timeUtils';
 
 interface OvertimeHistoryChartProps {
   history: OvertimeHistoryEntry[];
 }
 
 export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
-  // Format hours helper
-  const formatHours = (hours: number, withSign = false): string => {
-    const sign = withSign && hours >= 0 ? '+' : '';
-    const absHours = Math.abs(hours);
-    const h = Math.floor(absHours);
-    const m = Math.round((absHours - h) * 60);
-    return `${sign}${h}:${String(m).padStart(2, '0')}h`;
-  };
 
   // Format month for display (2025-11 -> Nov 2025)
   const formatMonth = (monthStr: string): string => {
@@ -68,7 +61,7 @@ export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
                         : 'text-red-600 dark:text-red-400'
                     }`}
                   >
-                    {formatHours(entry.balance, true)}
+                    {formatOvertimeHours(entry.balance)}
                   </span>
                 </div>
               </div>
@@ -92,20 +85,20 @@ export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Verdient:</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatHours(entry.earned, true)}
+                    {formatOvertimeHours(entry.earned)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Ausgleich:</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatHours(entry.compensation, true)}
+                    {formatOvertimeHours(entry.compensation)}
                   </span>
                 </div>
                 {entry.correction !== 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Korrektur:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatHours(entry.correction, true)}
+                      {formatOvertimeHours(entry.correction)}
                     </span>
                   </div>
                 )}
@@ -113,7 +106,7 @@ export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Übertrag:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatHours(entry.carryover, true)}
+                      {formatOvertimeHours(entry.carryover)}
                     </span>
                   </div>
                 )}
@@ -126,7 +119,7 @@ export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
                         : 'text-red-600 dark:text-red-400'
                     }`}
                   >
-                    {formatHours(entry.balanceChange, true)}
+                    {formatOvertimeHours(entry.balanceChange)}
                   </span>
                 </div>
               </div>

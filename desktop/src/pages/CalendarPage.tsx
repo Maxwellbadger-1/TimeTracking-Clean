@@ -4,17 +4,23 @@
  * Integrates MonthCalendar, WeekCalendar, YearCalendar, TeamCalendar
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { addMonths, subMonths, addWeeks, subWeeks, addYears, subYears } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { MonthCalendar } from '../components/calendar/MonthCalendar';
 import { WeekCalendarColumns } from '../components/calendar/WeekCalendarColumns';
 import { YearCalendar } from '../components/calendar/YearCalendar';
 import { TeamCalendar } from '../components/calendar/TeamCalendar';
-import { useTimeEntries, useAbsenceRequests, useMultiYearHolidays } from '../hooks';
+import { CalendarFilters } from '../components/calendar/CalendarFilters';
+import { CalendarToolbar } from '../components/calendar/CalendarToolbar';
+import { CalendarLegend } from '../components/calendar/CalendarLegend';
+import { useTimeEntries, useCalendarAbsences, useMultiYearHolidays, useActiveEmployees } from '../hooks';
 
 export function CalendarPage() {
   const { user } = useAuthStore();
+  const { calendarFilters } = useUIStore();
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'year' | 'team'>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -61,12 +67,78 @@ export function CalendarPage() {
   // For calendars: Show ALL absences (pending + approved) for visibility
   // Pending absences are shown with dashed border to differentiate from approved
   // Rejected absences are filtered out in the calendar components
-  const { data: absences, isLoading: loadingAbsences } = useAbsenceRequests({ });
+  //
+  // MULTI-YEAR ABSENCE LOADING:
+  // Load absences for 3 years (previous, current, next) based on viewed date
+  // Example: Viewing Dec 2025 → Loads 2024, 2025, 2026
+  // This handles:
+  // - Historical data when navigating to past months
+  // - Year-crossing absences (e.g., 31.12.2025 - 02.01.2026)
+  // - Future planning when viewing upcoming months
+  const absenceYear = currentDate.getFullYear();
+  const { data: absences, isLoading: loadingAbsences } = useCalendarAbsences(absenceYear, {});
   const { data: holidays, isLoading: loadingHolidays } = useMultiYearHolidays();
+
+  // Fetch all active employees for filter (admin only)
+  const { data: allEmployees, isLoading: loadingEmployees } = useActiveEmployees({
+    enabled: isAdmin,
+  });
+
+  // Apply user filter (admin only)
+  const hasUserFilter = isAdmin && calendarFilters.selectedUserIds.length > 0;
+
+  const filteredTimeEntries = useMemo(() => {
+    if (!hasUserFilter || !timeEntries) return timeEntries || [];
+    return timeEntries.filter(entry =>
+      calendarFilters.selectedUserIds.includes(entry.userId)
+    );
+  }, [timeEntries, hasUserFilter, calendarFilters.selectedUserIds]);
+
+  const filteredAbsences = useMemo(() => {
+    if (!hasUserFilter || !absences) return absences || [];
+    return absences.filter(absence =>
+      calendarFilters.selectedUserIds.includes(absence.userId)
+    );
+  }, [absences, hasUserFilter, calendarFilters.selectedUserIds]);
+
+  // Navigation handlers
+  const handlePrevious = () => {
+    switch (viewMode) {
+      case 'month':
+      case 'team':
+        setCurrentDate(subMonths(currentDate, 1));
+        break;
+      case 'week':
+        setCurrentDate(subWeeks(currentDate, 1));
+        break;
+      case 'year':
+        setCurrentDate(subYears(currentDate, 1));
+        break;
+    }
+  };
+
+  const handleNext = () => {
+    switch (viewMode) {
+      case 'month':
+      case 'team':
+        setCurrentDate(addMonths(currentDate, 1));
+        break;
+      case 'week':
+        setCurrentDate(addWeeks(currentDate, 1));
+        break;
+      case 'year':
+        setCurrentDate(addYears(currentDate, 1));
+        break;
+    }
+  };
+
+  const handleToday = () => {
+    setCurrentDate(new Date());
+  };
 
   if (!user) return null;
 
-  const isLoading = loadingEntries || loadingAbsences || loadingHolidays;
+  const isLoading = loadingEntries || loadingAbsences || loadingHolidays || (isAdmin && loadingEmployees);
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -78,11 +150,31 @@ export function CalendarPage() {
           </div>
         ) : (
           <>
+            {/* Unified Calendar Toolbar (Row 1) */}
+            <CalendarToolbar
+              currentDate={currentDate}
+              onDateChange={setCurrentDate}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              onToday={handleToday}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              showEmployeeFilter={isAdmin && !!allEmployees}
+              employeeFilterComponent={
+                isAdmin && allEmployees ? <CalendarFilters users={allEmployees} /> : undefined
+              }
+            />
+
+            {/* Calendar Legend (Row 2) */}
+            <div className="mb-6">
+              <CalendarLegend />
+            </div>
+
             {/* Month Calendar */}
             {viewMode === 'month' && (
               <MonthCalendar
-                timeEntries={timeEntries || []}
-                absences={absences || []}
+                timeEntries={filteredTimeEntries}
+                absences={filteredAbsences}
                 holidays={holidays || []}
                 isAdmin={isAdmin}
                 currentUserId={user.id}
@@ -100,13 +192,16 @@ export function CalendarPage() {
             {/* Week Calendar - Columns per User (Google Calendar Style) */}
             {viewMode === 'week' && (
               <WeekCalendarColumns
-                timeEntries={timeEntries || []}
-                absences={absences || []}
+                timeEntries={filteredTimeEntries}
+                absences={filteredAbsences}
+                holidays={holidays || []}
                 currentUserId={user.id}
                 currentUser={user}
                 isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
                 onDayClick={(date) => {
                   console.log('Day clicked:', date);
                   // TODO: Open day detail modal
@@ -117,13 +212,16 @@ export function CalendarPage() {
             {/* Year Calendar */}
             {viewMode === 'year' && (
               <YearCalendar
-                timeEntries={timeEntries || []}
-                absences={absences || []}
+                timeEntries={filteredTimeEntries}
+                absences={filteredAbsences}
+                holidays={holidays || []}
                 currentUserId={user.id}
                 currentUser={user}
                 isAdmin={isAdmin}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
                 onDayClick={(date) => {
                   console.log('Day clicked:', date);
                   // TODO: Open day detail modal or switch to month view

@@ -1,5 +1,6 @@
 import { db } from '../database/connection.js';
 import type { DayName, UserPublic } from '../types/index.js';
+import { formatDate as formatDateBerlin } from './timezone.js';
 
 /**
  * Working Days Utility Functions
@@ -53,8 +54,10 @@ export function getDayName(date: Date | string): DayName {
  */
 export function getDailyTargetHours(user: UserPublic, date: Date | string): number {
   // CRITICAL: Check for holidays FIRST! (Feiertag = 0h Soll-Arbeitszeit)
-  const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+  // FIX: Use formatDateBerlin() instead of toISOString() to respect Europe/Berlin timezone
+  const dateStr = typeof date === 'string' ? date : formatDateBerlin(date, 'yyyy-MM-dd');
   const holiday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
+
   if (holiday) {
     return 0;
   }
@@ -115,7 +118,8 @@ export function calculateAbsenceHoursWithWorkSchedule(
 
   // Iterate through each day in the range
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split('T')[0];
+    // FIX: Use formatDateBerlin() instead of toISOString() to respect Europe/Berlin timezone
+    const dateStr = formatDateBerlin(d, 'yyyy-MM-dd');
     const dayOfWeek = d.getDay();
     const dayName = DAY_NAMES[dayOfWeek];
 

@@ -13,415 +13,178 @@ Test12345
 
 /plugin marketplace add anthropics/claude-code
 
-und ich kann immer noch kein mitarbeiter mit 0 stunden und 0 urlaub erstellen. wenn ich auf speichern klicke wird er automatisch mit
-  40 stunden und 30 Urlaub gespeichert. erstelle einen plan wie du mit playwright alle funktionen mit user ersellung und bearbeitung
-  durchtesten kannst
-──────────────────────────────────
+ Jetzt kannst du einfach sagen:
+  - "/test-users" oder "erstelle test user" → Ich führe
+  kompletten Workflow aus
+  - "npm run test-users:full" → Macht alles automatisch
 
-
-> ist nun urlaub, krankmeldung , überstundenausgleich und unbezahlter urlaub im backend und frontend perfekt auf das neue individuelle wochenplan
-  system ausgerichtet und das alte system mit dem wo die stunden gleichmäßig über die woche verteilt werden noch vorhanden? vergleiche es auch mit
-  den profiprogrammen 
-
-  gehe unser komplettes system durch und analysiere ob irgendwo unser individuelles wochensystem noch nicht implementiert ist wo es aber sein 
-sollte. mache mir einen plan was wir haben und was noch fehlt 
-
-
-Perfekt! Jetzt kann ich den vollständigen Plan erstellen:
-                                                                                                                                              
-⏺User approved Claude's plan:
-  ⎿  🏆 Enterprise-Grade Überstunden-System: Vollständiger Plan
-
-     📚 Recherche-Ergebnisse: Wie machen es die Profis?
-
-     ✅ SAP SuccessFactors
-
-     - Time Account System mit separaten Konten
-     - Automatische Übertragung zum Jahreswechsel
-     - Konfigurierbare Limits (Max Plus/Minus)
-
-     ✅ Personio
-
-     - Überstundenkonto mit Buchungen
-     - Manuelle oder automatische Minusstunden
-     - Jahreswechsel: Vollständige Übertragung
-
-     ✅ Deutsches Arbeitsrecht (Arbeitszeitkonto)
-
-     - Kurzzeitkonto: Ausgleich innerhalb 12 Monate (Standard)
-     - Langzeitkonto: Mehrjährige Ansparung möglich
-     - Limits: 
-       - Empfohlen: Max +50h / -20h
-       - Mindestlohnempfänger: Max 50% der Monatsstunden
-       - Leiharbeiter: Max 200h
-
-     ---
-     🎯 Unser System: Bereits vorhanden!
-
-     ✅ Was wir schon haben:
-
-     1. work_time_accounts Tabelle (✅ Bereits implementiert!)
-     - currentBalance (Aktueller Saldo)
-     - maxPlusHours: 50h (Standard)
-     - maxMinusHours: -20h (Standard)
-     2. Jahreswechsel-Service (✅ Bereits implementiert!)
-       - yearEndRolloverService.ts
-       - bulkInitializeOvertimeBalancesForNewYear()
-       - Automatischer Cron-Job zum 01.01.
-     3. Überstunden-Berechnung (✅ Funktioniert!)
-       - overtime_balance Tabelle (monatlich)
-       - overtimeService.ts
-       - Feiertage werden berücksichtigt
-
-     ---
-     🚨 Das Problem: Überstunden-Ausgleich falsch behandelt
-
-     ❌ Aktuell (FALSCH):
-
-     // overtimeService.ts, Zeile 58
-     type IN ('sick', 'vacation', 'overtime_comp')  // ← FEHLER!
-
-     Was passiert:
-     - Überstunden-Ausgleich wird wie Urlaub behandelt
-     - Gibt IST-Stunden-Gutschrift (+4h)
-     - Sollte aber Überstunden ABBAUEN (-4h)!
-
-     Beispiel Silvia:
-     - Aktuell: +3h (falsch!)
-     - Sollte sein: -1h (korrekt!)
-
-     ---
-     ✅ Die Lösung: Transaction-basiertes System
-
-     Neue Tabelle: overtime_transactions
-
-     CREATE TABLE overtime_transactions (
-       id INTEGER PRIMARY KEY AUTOINCREMENT,
-       userId INTEGER NOT NULL,
-       date TEXT NOT NULL,              -- Buchungsdatum
-       type TEXT NOT NULL,               -- 'earned' | 'compensation' | 'correction'
-       hours REAL NOT NULL,              -- Stunden (+ oder -)
-       description TEXT,                 -- Beschreibung
-       referenceType TEXT,               -- 'time_entry' | 'absence' | 'manual'
-       referenceId INTEGER,              -- FK zu time_entries oder absence_requests
-       createdAt TEXT DEFAULT (datetime('now')),
-       createdBy INTEGER,                -- Admin bei manuellen Korrekturen
-       FOREIGN KEY (userId) REFERENCES users(id),
-       FOREIGN KEY (createdBy) REFERENCES users(id)
-     );
-
-     CREATE INDEX idx_overtime_transactions_userId ON overtime_transactions(userId);
-     CREATE INDEX idx_overtime_transactions_date ON overtime_transactions(date);
-     CREATE INDEX idx_overtime_transactions_type ON overtime_transactions(type);
-
-     ---
-     📊 Wie funktioniert das System?
-
-     1️⃣ Überstunden VERDIENEN (täglich, automatisch)
-
-     Nach jeder Zeiterfassung:
-     // timeEntryService.ts - nach CREATE/UPDATE/DELETE
-     function updateOvertimeTransactions(userId: number, date: string) {
-       // Berechne Soll/Ist
-       const targetHours = getDailyTargetHours(user, date); // Berücksichtigt Feiertage!
-       const actualHours = getWorkedHours(userId, date);
-       const overtime = actualHours - targetHours;
-
-       if (overtime !== 0) {
-         // Buchung ins Überstundenkonto
-         db.prepare(`
-           INSERT INTO overtime_transactions 
-           (userId, date, type, hours, description, referenceType)
-           VALUES (?, ?, 'earned', ?, ?, 'time_entry')
-         `).run(userId, date, overtime, `Differenz Soll/Ist ${date}`);
-       }
-     }
-
-     Beispiele:
-     - 01.01. (Feiertag): 10.5h - 0h = +10.5h ✅
-     - 07.01. (Mittwoch): 6h - 8h = -2h ✅
-     - 14.01. (Mittwoch): 0h - 8h = -8h ✅ (heute, keine Erfassung!)
-
-     2️⃣ Überstunden-Ausgleich NEHMEN (bei Genehmigung)
-
-     Wenn Admin Überstunden-Ausgleich genehmigt:
-     // absenceService.ts - beim approve()
-     async function approveAbsence(absenceId: number, adminId: number) {
-       const absence = getAbsence(absenceId);
-       
-       // Normale Genehmigung
-       db.prepare('UPDATE absence_requests SET status = ? WHERE id = ?')
-         .run('approved', absenceId);
-
-       // Wenn Überstunden-Ausgleich: Konto reduzieren!
-       if (absence.type === 'overtime_comp') {
-         const hoursToDeduct = calculateAbsenceHours(
-           absence.startDate, 
-           absence.endDate, 
-           user.workSchedule
-         );
-
-         // Buchung ins Überstundenkonto (NEGATIV!)
-         db.prepare(`
-           INSERT INTO overtime_transactions 
-           (userId, date, type, hours, description, referenceType, referenceId)
-           VALUES (?, ?, 'compensation', ?, ?, 'absence', ?)
-         `).run(
-           absence.userId, 
-           absence.startDate, 
-           -hoursToDeduct, 
-           `Überstunden-Ausgleich ${absence.startDate}-${absence.endDate}`,
-           absenceId
-         );
-
-         // work_time_accounts aktualisieren
-         updateWorkTimeAccountBalance(absence.userId);
-       }
-     }
-
-     3️⃣ Saldo abrufen
-
-     function getOvertimeBalance(userId: number): number {
-       const result = db.prepare(`
-         SELECT COALESCE(SUM(hours), 0) as balance
-         FROM overtime_transactions
-         WHERE userId = ?
-       `).get(userId);
-
-       return result.balance;
-     }
-
-     ---
-     🔄 Behandlung der Abwesenheitstypen
-
-     ✅ Urlaub / Krankheit (UNVERÄNDERT)
-
-     Soll/Ist-Tracking:
-       SOLL: 0h (Tag wird nicht gezählt)
-       IST:  +8h (Gutschrift wie bisher)
-       
-     Überstundenkonto:
-       KEINE Buchung (bleibt unverändert)
-
-     ✅ Überstunden-Ausgleich (NEU!)
-
-     Soll/Ist-Tracking:
-       SOLL: 0h (Tag wird nicht gezählt)
-       IST:  +4h (Gutschrift wie Urlaub - BLEIBT SO!)
-       
-     Überstundenkonto:
-       -4h Buchung (separate Transaction!)
-
-     WICHTIG: 
-     - overtime_comp bleibt bei sick/vacation in calculateAbsenceCreditsForMonth()
-     - ZUSÄTZLICH wird Überstundenkonto reduziert
-     - Keine komplizierte Soll/Ist-Logik ändern!
-
-     ---
-     🎯 Jahreswechsel (bereits implementiert!)
-
-     ✅ Was schon funktioniert:
-
-     1. Automatischer Cron-Job (01.01. 00:00 Uhr)
-     // cronService.ts
-     cron.schedule('0 0 1 1 *', () => {
-       performYearEndRollover(newYear);
-     });
-     2. Übertragung Überstunden
-     // overtimeService.ts - bulkInitializeOvertimeBalancesForNewYear()
-     const carryover = getYearEndOvertimeBalance(userId, previousYear);
-     db.prepare(`
-       INSERT INTO overtime_balance 
-       (userId, month, carryoverFromPreviousYear)
-       VALUES (?, '2026-01', ?)
-     `).run(userId, carryover);
-
-     ✅ Was wir anpassen:
-
-     Transaction-System berücksichtigen:
-     // Beim Jahreswechsel: Keine Extra-Logik nötig!
-     // Der Saldo aus overtime_transactions bleibt automatisch erhalten:
-
-     SELECT SUM(hours) FROM overtime_transactions WHERE userId = ?
-     // → Funktioniert über Jahresgrenzen hinweg! ✅
-
-     Optional: Jahreswechsel-Buchung für Audit Trail:
-     // yearEndRolloverService.ts
-     db.prepare(`
-       INSERT INTO overtime_transactions 
-       (userId, date, type, hours, description, referenceType)
-       VALUES (?, '2026-01-01', 'carryover', 0, 'Jahreswechsel 2025→2026', 'system')
-     `).run(userId);
-
-     ---
-     🛡️ Limits & Validierung (Deutsches Arbeitsrecht)
-
-     Bereits vorhanden:
-
-     work_time_accounts:
-       maxPlusHours: 50h   -- Standard-Limit
-       maxMinusHours: -20h -- Standard-Limit
-
-     Neue Validierung bei Überstunden-Ausgleich:
-
-     async function approveOvertimeCompensation(absenceId: number) {
-       const absence = getAbsence(absenceId);
-       const currentBalance = getOvertimeBalance(absence.userId);
-       const hoursToDeduct = calculateAbsenceHours(...);
-
-       // Check: Genug Guthaben?
-       if (currentBalance - hoursToDeduct < account.maxMinusHours) {
-         throw new Error(
-           `Unzureichendes Guthaben. Aktuell: ${currentBalance}h, ` +
-           `Nach Ausgleich: ${currentBalance - hoursToDeduct}h, ` +
-           `Limit: ${account.maxMinusHours}h`
-         );
-       }
-
-       // Genehmigung durchführen...
-     }
-
-     ---
-     📋 Implementierungsschritte
-
-     Schritt 1: Migration - Tabelle erstellen
-
-     -- migrations/014_overtime_transactions.sql
-     CREATE TABLE overtime_transactions (...);
-     CREATE INDEX ...;
-
-     Schritt 2: Transaction-Service
-
-     // server/src/services/overtimeTransactionService.ts
-     export function recordOvertimeEarned(...)
-     export function recordOvertimeCompensation(...)
-     export function getOvertimeBalance(...)
-     export function getOvertimeHistory(...)
-
-     Schritt 3: Integration in timeEntryService
-
-     // Nach jedem CREATE/UPDATE/DELETE von time_entry
-     updateOvertimeTransactions(userId, date);
-
-     Schritt 4: Integration in absenceService
-
-     // Beim approve() von overtime_comp
-     recordOvertimeCompensation(...);
-
-     Schritt 5: Historische Daten migrieren
-
-     // scripts/migrateOvertimeToTransactions.ts
-     // Alle overtime_balance Einträge in Transaktionen umwandeln
-
-     Schritt 6: Frontend anpassen
-
-     // Neue Seite: Überstundenkonto-Übersicht
-     // - Aktueller Saldo
-     // - Transaction-Historie (Kontoauszug)
-     // - Limits anzeigen
-
-     ---
-     ⏱️ Zeitaufwand
-
-     | Schritt                      | Aufwand      |
-     |------------------------------|--------------|
-     | Migration + Tabelle          | 20 Min       |
-     | Transaction-Service          | 45 Min       |
-     | Integration timeEntryService | 30 Min       |
-     | Integration absenceService   | 30 Min       |
-     | Historische Migration        | 45 Min       |
-     | Frontend Übersicht           | 60 Min       |
-     | Testing                      | 45 Min       |
-     | GESAMT                       | ~4.5 Stunden |
-
-     ---
-     ✅ Warum ist diese Lösung am professionellsten?
-
-     1️⃣ Enterprise-Standard
-
-     - SAP SuccessFactors: "Time Account System"
-     - Personio: "Überstundenkonto mit Transaktionen"
-     - Deutsches Arbeitsrecht: "Arbeitszeitkonto-Konzept"
-
-     2️⃣ Single Source of Truth
-
-     - Eine Tabelle (overtime_transactions) für alle Buchungen
-     - Keine komplexe Berechnung aus mehreren Quellen
-
-     3️⃣ Immutable Audit Trail
-
-     - Transaktionen werden nie geändert, nur hinzugefügt
-     - Vollständige Nachvollziehbarkeit
-     - Compliance-konform
-
-     4️⃣ Unabhängig von Soll/Ist
-
-     - Monatliche Überstunden können falsch sein
-     - Konto bleibt korrekt (eigene Transaktionen)
-     - Fehlerresistent
-
-     5️⃣ Einfache Logik
-
-     - Saldo = SUM(hours)
-     - Keine komplexen Berechnungen
-     - Verständlich für User
-
-     6️⃣ Jahreswechsel automatisch
-
-     - Kein Extra-Code nötig
-     - Transaktionen überschreiten automatisch Jahresgrenzen
-     - Bereits implementierter Rollover funktioniert weiter
-
-     7️⃣ Konfigurierbare Limits
-
-     - maxPlusHours / maxMinusHours bereits vorhanden
-     - Validierung bei Überstunden-Ausgleich
-     - Deutsches Arbeitsrecht konform
-
-     ---
-     🎯 Erwartetes Ergebnis: Silvia Lachner
-
-     Überstunden-Transaktionen:
-
-     01.01.: +10.5h (10.5h am Feiertag gearbeitet)
-     02.01.: -4h    (Überstunden-Ausgleich)
-     07.01.: -2h    (6h statt 8h)
-     08.01.: +1h    (9h statt 8h)
-     09.01.: +1.5h  (5.5h statt 4h)
-     14.01.: -8h    (Heute, keine Zeiterfassung)
-     ─────────────────────────────────
-     SALDO: -1h ✅
-
-     work_time_accounts:
-
-     userId: 18
-     currentBalance: -1h
-     maxPlusHours: 50h
-     maxMinusHours: -20h
-
-     overtime_balance (2026-01):
-
-     SOLL: 32h (ohne Feiertag, mit Überstunden-Ausgleich als Gutschrift)
-     IST:  35h (31h + 4h Gutschrift)
-     DIFF: +3h (wird ignoriert, transactions sind führend!)
-
-     ---
-     🔒 Sicherheit & Validierung
-
-     ✅ Database Backup vor Migration✅ Transaction-basierte Migration (all-or-nothing)✅ Rollback-Script vorbereiten✅ Limits validieren bei 
-     Überstunden-Ausgleich✅ Audit Trail für alle Buchungen✅ Tests für Edge Cases (Feiertage, Jahreswechsel)
-
-     ---
-     ✅ Definition of Done
-
-     - overtime_transactions Tabelle erstellt
-     - Transaction-Service implementiert
-     - Integration in timeEntryService
-     - Integration in absenceService
-     - Historische Daten migriert
-     - Frontend Überstundenkonto-Seite
-     - Silvia hat -1h (korrekt!)
-     - Jahreswechsel funktioniert
-     - Limits werden validiert
-     - Keine Regression bei Urlaub/Krankheit
-  ⎿
+
+
+Perfekt! Jetzt kann ich die korrekte Berechnung machen:
+
+  Test Workflow - Dezember 2025 Berechnung
+
+  Ist-Stunden (aus DB):
+
+  | Datum | Tag | Stunden |
+  |-------|-----|---------|
+  | 02.12 | Di  | 10.0h   |
+  | 03.12 | Mi  | 8.0h    |
+  | 04.12 | Do  | 6.0h    |
+  | 05.12 | Fr  | 8.0h    |
+  | 06.12 | Sa  | 6.0h    |
+  | 09.12 | Di  | 11.0h   |
+  | 10.12 | Mi  | 9.0h    |
+  | 11.12 | Do  | 7.0h    |
+  | 12.12 | Fr  | 9.0h    |
+  | 13.12 | Sa  | 7.0h    |
+  | 16.12 | Di  | 10.0h   |
+  | 17.12 | Mi  | 8.0h    |
+  | 23.12 | Di  | 10.0h   |
+  | 24.12 | Mi  | 8.0h    |
+  | 30.12 | Di  | 10.0h   |
+  | 31.12 | Mi  | 8.0h    |
+
+  Summe Ist-Stunden: 135h
+
+  Soll-Stunden (workSchedule: Mo 10h, Di 8h, Mi 6h, Do 8h, Fr 6h):
+
+  Dezember 2025 Arbeitstage:
+  - Montage: 01, 08, 15, 22, 29 = 5 × 10h = 50h
+  - Dienstage: 02, 09, 16, 23, 30 = 5 × 8h = 40h
+  - Mittwoche: 03, 10, 17, 24, 31 = 5 × 6h = 30h
+  - Donnerstage: 04, 11, 18, 25 (Feiertag) = 3 × 8h = 24h
+  - Freitage: 05, 12, 19, 26 (Feiertag) = 3 × 6h = 18h
+
+  Summe Soll-Stunden: 162h
+
+  Überstunden:
+
+  135h (Ist) - 162h (Soll) = -27h
+
+  Test Workflow hat im Dezember 2025 -27 Minusstunden!
+
+  Zeigt das System -42h an? Dann gibt es definitiv einen Berechnungsfehler!
+
+
+
+⏺ ✅ OVERTIME VALIDATION - Test Workflow Dezember 2025
+
+  📊 Zusammenfassung
+
+  User: Test Workflow (ID: 155)Zeitraum: 01.12.2025 -
+  31.12.2025Hire Date: 01.12.2025
+
+  Individuelle Arbeitszeiten:
+
+  - Montag: 10h
+  - Dienstag: 8h
+  - Mittwoch: 6h
+  - Donnerstag: 8h
+  - Freitag: 6h
+  - Wochenende: 0h (kein Arbeitstag!)
+
+  ---
+  📋 Berechnungsdetails
+
+  Soll-Stunden (Target):
+
+  - 20 Arbeitstage im Dezember 2025
+  - 2 Feiertage: 25.12 + 26.12 (Weihnachten)
+  - Total Target: 156h
+
+  Ist-Stunden (Actual):
+
+  Gearbeitete Stunden: 135h
+  - 16 Zeiteinträge von 02.12 bis 31.12
+  - Täglich zwischen 3h und 11h
+
+  Abwesenheiten (3):
+  1. Krankheit: 18.12-19.12 (Do+Fr) → +14h Gutschrift
+    - 8h (Do) + 6h (Fr) = 14h
+  2. Überstundenausgleich: 20.12 (Sa) → 0h (Wochenende!)
+  3. Überstundenausgleich: 27.12 (Sa) → 0h (Wochenende!)
+
+  Overtime Corrections: 0h
+
+  Total Actual: 135h + 14h + 0h = 149h
+
+  ---
+  🧮 Endergebnis
+
+  Soll-Stunden (Target):          156h
+  Unbezahlter Urlaub (Reduktion): -0h
+  Angepasstes Soll:               156h
+
+  Gearbeitete Stunden:            135h
+  Abwesenheits-Gutschriften:      +14h
+  Überstunden-Korrekturen:        +0h
+  Ist-Stunden (Actual):           149h
+
+  ÜBERSTUNDEN (Ist - Soll):       -7h
+
+  ---
+  ✅ Database Verification
+
+  Database Comparison:
+  - Expected Target: 156h | DB Target: 156h | ✅ MATCH
+  - Expected Actual: 149h | DB Actual: 149h | ✅ MATCH
+  - Expected Overtime: -7h | DB Overtime: -7h | ✅ MATCH
+
+  Status: Alle Werte stimmen perfekt überein! Die
+  Überstunden-Berechnung ist korrekt.
+
+  ⏺ 📋 ZUSAMMENFASSUNG - JANUAR 2026 BERECHNUNG
+
+  ✅ WAS IN DIE BERECHNUNG EINFLIESST:
+
+  1. SOLL-STUNDEN (98h):
+
+  - Basis: Arbeitstage × workSchedule-Stunden
+    - 3 Montage × 10h = 30h
+    - 2 Dienstage × 8h = 16h (20.01 wird später reduziert)
+    - 3 Mittwoche × 6h = 18h (21.01 wird später reduziert)
+    - 3 Donnerstage × 8h = 24h
+    - 4 Freitage × 6h = 24h
+    - Zwischensumme: 112h
+  - Abzüge:
+    - Feiertage: 01.01 (Do, 8h) + 06.01 (Di, 8h) = Bereits 0h
+  in Basis ✅
+    - Unbezahlter Urlaub: 20.01 (Di, -8h) + 21.01 (Mi, -6h) =
+  -14h
+  - FINALES SOLL: 112h - 14h = 98h ✅
+
+  2. IST-STUNDEN (90.5h):
+
+  - Gearbeitet (76.5h):
+    - 10 Tage mit time_entries
+    - Inkl. Samstag (03.01, 6h) und Feiertag (06.01, 8h) =
+  Plusstunden!
+  - Gutschriften (+14h):
+    - Urlaub 14.01 (Mi): +6h
+    - Urlaub 15.01 (Do): +8h
+  - FINALES IST: 76.5h + 14h = 90.5h ✅
+
+  3. ÜBERSTUNDEN:
+
+  - 90.5h - 98h = -7.5h ✅
+
+  ---
+  ❌ WARUM FRONTEND FALSCH LIEGT (-20:30 statt -14:30):
+
+  Das Problem ist die Kumulierung über Monate:
+
+  | Monat    | Balance (korrekt) | Transactions (falsch) |
+  Differenz |
+  |----------|-------------------|-----------------------|-----
+  ------|
+  | Dezember | -7h               | -13h                  | -6h
+  ❌     |
+  | Januar   | -7.5h             | -7.5h                 | 0h
+  ✅      |
+  | SUMME    | -14.5h ✅          | -20.5h ❌              |
+  -6h ❌     |
+
+  Die -6h Diskrepanz kommt aus Dezember, weil die earned
+  Transactions die Kranken-Gutschriften NICHT korrekt in die
+  Balance einrechnen!

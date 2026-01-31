@@ -5,6 +5,7 @@ import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, 
 import { validateDateString } from '../utils/validation.js';
 import { getUserById } from './userService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
+import { broadcastEvent } from '../websocket/server.js';
 
 /**
  * Absence Service
@@ -34,6 +35,7 @@ interface VacationBalance {
   entitlement: number;
   carryover: number;
   taken: number;
+  pending: number;
   remaining: number;
 }
 
@@ -273,6 +275,7 @@ export function getAbsenceRequestsPaginated(options: {
   status?: string;
   type?: string;
   year?: number;
+  month?: number;  // Optional: filter by specific month (1-12)
   page?: number;
   limit?: number;
 }): PaginatedResult<AbsenceRequest> {
@@ -322,6 +325,13 @@ export function getAbsenceRequestsPaginated(options: {
     const currentYear = new Date().getFullYear();
     query += ' AND (strftime(\'%Y\', ar.startDate) = ? OR strftime(\'%Y\', ar.endDate) = ?)';
     params.push(currentYear.toString(), currentYear.toString());
+  }
+
+  // Filter by month (optional drill-down within year)
+  if (options.month) {
+    const monthKey = `${options.year || new Date().getFullYear()}-${String(options.month).padStart(2, '0')}`;
+    query += ' AND (ar.startDate LIKE ? OR ar.endDate LIKE ?)';
+    params.push(`${monthKey}%`, `${monthKey}%`);
   }
 
   // Get total count (before pagination)
@@ -526,11 +536,25 @@ export function createAbsenceRequest(
     updateBalancesAfterApproval(result.lastInsertRowid as number);
   }
 
+  // If pending vacation request, increment pending balance
+  if (data.type === 'vacation' && status === 'pending') {
+    const year = parseInt(data.startDate.substring(0, 4));
+    incrementVacationPending(data.userId, year, days);
+  }
+
   // Return created request
   const request = getAbsenceRequestById(result.lastInsertRowid as number);
   if (!request) {
     throw new Error('Failed to create absence request');
   }
+
+  // Broadcast WebSocket event
+  broadcastEvent({
+    type: 'absence:created',
+    userId: data.userId,
+    data: request,
+    timestamp: new Date().toISOString(),
+  });
 
   return request;
 }
@@ -637,8 +661,10 @@ export async function approveAbsenceRequest(
     throw new Error('Absence request not found');
   }
 
-  if (request.status !== 'pending') {
-    throw new Error('Only pending requests can be approved');
+  // PHASE 2 FIX: Allow approving pending OR rejected requests
+  // This enables circular workflows: pending → approved → rejected → approved (re-approval)
+  if (request.status !== 'pending' && request.status !== 'rejected') {
+    throw new Error('Only pending or rejected requests can be approved');
   }
 
   // VALIDATION: Check overtime balance for overtime_comp
@@ -690,8 +716,35 @@ export async function approveAbsenceRequest(
 
   db.prepare(query).run(approvedBy, adminNote || null, id);
 
+  // Decrement pending balance for vacation requests (before updating taken)
+  if (request.type === 'vacation') {
+    const year = parseInt(request.startDate.substring(0, 4));
+    decrementVacationPending(request.userId, year, request.days);
+  }
+
   // Update balances
   updateBalancesAfterApproval(id);
+
+  // CRITICAL: Update overtime calculations for all affected months
+  // This creates transactions (vacation_credit, sick_credit, etc.) and updates overtime_balance
+  const { updateMonthlyOvertime } = await import('./overtimeService.js');
+
+  // Get all affected months (e.g., "2026-01" if absence spans 12.01-13.01.2026)
+  const affectedMonths = new Set<string>();
+  for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
+    const month = d.toISOString().substring(0, 7); // "YYYY-MM"
+    affectedMonths.add(month);
+  }
+
+  // Update overtime for each affected month
+  for (const month of affectedMonths) {
+    try {
+      updateMonthlyOvertime(request.userId, month);
+      logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence approval');
+    } catch (error) {
+      logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence approval');
+    }
+  }
 
   // NEW: Record overtime compensation transaction
   if (request.type === 'overtime_comp') {
@@ -750,25 +803,62 @@ export async function approveAbsenceRequest(
     throw new Error('Failed to approve absence request');
   }
 
+  // Broadcast WebSocket event
+  broadcastEvent({
+    type: 'absence:approved',
+    userId: updated.userId,
+    data: updated,
+    timestamp: new Date().toISOString(),
+  });
+
   return updated;
 }
 
 /**
  * Reject absence request
  */
-export function rejectAbsenceRequest(
+export async function rejectAbsenceRequest(
   id: number,
   approvedBy: number,
   adminNote?: string
-): AbsenceRequest {
+): Promise<AbsenceRequest> {
+  console.log('\n🔍 ========== DEBUG: rejectAbsenceRequest CALLED ==========');
+  console.log('📥 Parameters:', { id, approvedBy, adminNote });
+
   const request = getAbsenceRequestById(id);
+  console.log('📄 Request found:', request ? {
+    id: request.id,
+    userId: request.userId,
+    type: request.type,
+    status: request.status,
+    startDate: request.startDate,
+    endDate: request.endDate,
+    days: request.days
+  } : 'NULL');
+
   if (!request) {
+    console.log('❌ Request not found - throwing error');
     throw new Error('Absence request not found');
   }
 
-  if (request.status !== 'pending') {
-    throw new Error('Only pending requests can be rejected');
+  // PHASE 2 FIX: Allow rejecting from any status (pending, approved, or rejected)
+  // This enables circular workflows: pending → approved → rejected → approved (re-approval)
+  // Rejecting a rejected absence is a harmless no-op
+  if (request.status !== 'pending' && request.status !== 'approved' && request.status !== 'rejected') {
+    console.log('❌ Invalid status - throwing error');
+    throw new Error('Invalid absence status for rejection');
   }
+
+  // Check if this was an approved absence (cancellation scenario)
+  const wasApproved = request.status === 'approved';
+  console.log(`✅ Status check: request.status="${request.status}" → wasApproved=${wasApproved}`);
+
+  // Count transactions BEFORE rejection
+  const transactionsBefore = db.prepare(`
+    SELECT COUNT(*) as count FROM overtime_transactions
+    WHERE userId = ? AND referenceType = 'absence' AND referenceId = ?
+  `).get(request.userId, request.id) as { count: number };
+  console.log(`📊 Overtime transactions BEFORE rejection: ${transactionsBefore.count}`);
 
   // Update request status
   const query = `
@@ -777,14 +867,85 @@ export function rejectAbsenceRequest(
     WHERE id = ?
   `;
 
-  db.prepare(query).run(approvedBy, adminNote || null, id);
+  console.log('💾 Executing DB UPDATE...');
+  const updateResult = db.prepare(query).run(approvedBy, adminNote || null, id);
+  console.log('✅ DB UPDATE result:', { changes: updateResult.changes });
+
+  // Verify status changed
+  const verifyRequest = getAbsenceRequestById(id);
+  console.log('🔍 Verify status after update:', verifyRequest?.status);
+
+  // Decrement pending balance for vacation requests
+  if (request.type === 'vacation' && !wasApproved) {
+    console.log('📉 Decrementing vacation pending balance...');
+    const year = parseInt(request.startDate.substring(0, 4));
+    decrementVacationPending(request.userId, year, request.days);
+  }
+
+  // CRITICAL: If rejecting an approved absence (e.g., cancelling vacation),
+  // we need to recalculate overtime to remove the credit transactions
+  if (wasApproved) {
+    console.log('🚀 wasApproved=true → Starting overtime recalculation...');
+    try {
+      console.log('📦 Importing overtimeService...');
+      const { updateMonthlyOvertime } = await import('./overtimeService.js');
+      console.log('✅ Import successful!');
+
+      const affectedMonths = new Set<string>();
+      for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
+        affectedMonths.add(d.toISOString().substring(0, 7));
+      }
+      console.log('📅 Affected months:', Array.from(affectedMonths));
+
+      let recalcCount = 0;
+      for (const month of affectedMonths) {
+        console.log(`\n  🔄 Recalculating month ${month} (${++recalcCount}/${affectedMonths.size})...`);
+        try {
+          updateMonthlyOvertime(request.userId, month);
+          logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence rejection (was approved)');
+          console.log(`  ✅ SUCCESS for month ${month}`);
+        } catch (error) {
+          logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence rejection');
+          console.error(`  ❌ ERROR for month ${month}:`, error);
+        }
+      }
+
+      // Count transactions AFTER recalculation
+      const transactionsAfter = db.prepare(`
+        SELECT COUNT(*) as count FROM overtime_transactions
+        WHERE userId = ? AND referenceType = 'absence' AND referenceId = ?
+      `).get(request.userId, request.id) as { count: number };
+      console.log(`📊 Overtime transactions AFTER recalculation: ${transactionsAfter.count}`);
+      console.log(`📉 Transactions deleted: ${transactionsBefore.count - transactionsAfter.count}`);
+
+    } catch (error) {
+      logger.error({ err: error, requestId: id }, '❌ Failed to import overtimeService for recalculation');
+      console.error('❌ CRITICAL ERROR during import/recalculation:', error);
+    }
+  } else {
+    console.log('⏭️  wasApproved=false → Skipping overtime recalculation');
+  }
 
   // Return updated request
   const updated = getAbsenceRequestById(id);
   if (!updated) {
+    console.log('❌ Failed to get updated request - throwing error');
     throw new Error('Failed to reject absence request');
   }
 
+  console.log('✅ Updated request retrieved:', { id: updated.id, status: updated.status });
+
+  // Broadcast WebSocket event
+  console.log('📡 Broadcasting WebSocket event...');
+  broadcastEvent({
+    type: 'absence:rejected',
+    userId: updated.userId,
+    data: updated,
+    timestamp: new Date().toISOString(),
+  });
+  console.log('✅ WebSocket event broadcasted');
+
+  console.log('🎉 ========== DEBUG: rejectAbsenceRequest COMPLETED ==========\n');
   return updated;
 }
 
@@ -800,6 +961,33 @@ export function deleteAbsenceRequest(id: number): void {
   // If approved, need to revert balance changes
   if (request.status === 'approved') {
     revertBalancesAfterDeletion(id);
+
+    // CRITICAL: Recalculate overtime after deleting approved absence
+    // This removes the transactions and updates overtime_balance
+    try {
+      const { updateMonthlyOvertime } = require('./overtimeService.js');
+
+      const affectedMonths = new Set<string>();
+      for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
+        affectedMonths.add(d.toISOString().substring(0, 7));
+      }
+
+      for (const month of affectedMonths) {
+        try {
+          updateMonthlyOvertime(request.userId, month);
+          logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence deletion');
+        } catch (error) {
+          logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence deletion');
+        }
+      }
+    } catch (error) {
+      logger.error({ err: error, requestId: id }, '❌ Failed to import overtimeService for recalculation');
+    }
+  }
+  // If pending vacation, decrement pending balance
+  else if (request.status === 'pending' && request.type === 'vacation') {
+    const year = parseInt(request.startDate.substring(0, 4));
+    decrementVacationPending(request.userId, year, request.days);
   }
 
   const query = 'DELETE FROM absence_requests WHERE id = ?';
@@ -1057,6 +1245,40 @@ function updateVacationTaken(userId: number, year: number, days: number): void {
   `;
 
   db.prepare(query).run(days, userId, year);
+}
+
+/**
+ * Increment pending vacation days (when request is created)
+ */
+function incrementVacationPending(userId: number, year: number, days: number): void {
+  // Ensure balance exists
+  let balance = getVacationBalance(userId, year);
+  if (!balance) {
+    balance = initializeVacationBalance(userId, year);
+  }
+
+  const query = `
+    UPDATE vacation_balance
+    SET pending = pending + ?
+    WHERE userId = ? AND year = ?
+  `;
+
+  db.prepare(query).run(days, userId, year);
+  logger.debug({ userId, year, days }, '✅ Incremented pending vacation days');
+}
+
+/**
+ * Decrement pending vacation days (when request is approved/rejected/deleted)
+ */
+function decrementVacationPending(userId: number, year: number, days: number): void {
+  const query = `
+    UPDATE vacation_balance
+    SET pending = pending - ?
+    WHERE userId = ? AND year = ?
+  `;
+
+  db.prepare(query).run(days, userId, year);
+  logger.debug({ userId, year, days }, '✅ Decremented pending vacation days');
 }
 
 // REMOVED: getTotalOvertimeHours() - replaced by overtimeTransactionService.getOvertimeBalance()

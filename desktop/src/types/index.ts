@@ -64,6 +64,7 @@ export interface AbsenceRequest {
   startDate: string;
   endDate: string;
   days: number; // Database field name
+  calculatedHours?: number; // Real hours based on workSchedule/weeklyHours (calculated on-demand by backend)
   daysRequired?: number; // Legacy alias (for backwards compatibility)
   status: 'pending' | 'approved' | 'rejected';
   reason: string | null;
@@ -87,6 +88,7 @@ export interface VacationBalance {
   entitlement: number;
   carryover: number;
   taken: number;
+  pending: number;
   remaining: number;
   createdAt?: string; // Creation timestamp
 }

@@ -19,6 +19,7 @@ export {
   useApproveAbsenceRequest,
   useRejectAbsenceRequest,
   useDeleteAbsenceRequest,
+  useCalendarAbsences,
 } from './useAbsenceRequests';
 
 // Balances
@@ -95,3 +96,20 @@ export type { UpdateState } from './useAutoUpdater';
 // Connection Status
 export { useConnectionStatus } from './useConnectionStatus';
 export type { ConnectionStatus, ConnectionState } from './useConnectionStatus';
+
+// Overtime Reports
+export {
+  useOvertimeReport,
+  useOvertimeHistory,
+  useOvertimeYearBreakdown,
+  useAllUsersOvertimeReports,
+} from './useOvertimeReports';
+export type {
+  OvertimeReportSummary,
+  OvertimeHistoryEntry,
+  OvertimeYearBreakdown,
+} from './useOvertimeReports';
+
+// WebSocket
+export { useWebSocket } from './useWebSocket';
+export type { WSEventType, WSEvent } from './useWebSocket';

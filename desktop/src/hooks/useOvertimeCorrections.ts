@@ -53,12 +53,23 @@ export interface CorrectionStatistics {
 
 /**
  * Get overtime corrections for a specific user
+ * @param userId User ID (optional)
+ * @param year Year filter (optional, e.g., 2026)
+ * @param month Month filter (optional, 1-12)
  */
-export function useOvertimeCorrections(userId?: number) {
+export function useOvertimeCorrections(userId?: number, year?: number, month?: number) {
   return useQuery({
-    queryKey: ['overtime', 'corrections', userId],
+    queryKey: ['overtime', 'corrections', userId, year, month],
     queryFn: async () => {
-      const endpoint = userId ? `/overtime/corrections?userId=${userId}` : '/overtime/corrections';
+      // Build query string
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      if (year) params.append('year', year.toString());
+      if (month) params.append('month', month.toString());
+
+      const queryString = params.toString();
+      const endpoint = queryString ? `/overtime/corrections?${queryString}` : '/overtime/corrections';
+
       const response = await apiClient.get<OvertimeCorrection[]>(endpoint);
       if (!response.success) throw new Error(response.error);
       return response.data || [];

@@ -9,12 +9,16 @@ import logger from '../utils/logger.js';
 export async function seedDatabase(): Promise<void> {
   logger.info('🌱 Seeding database...');
 
-  // Check if admin already exists
-  const adminExists = db
+  // Check if admin already exists (by username OR email)
+  const adminByUsername = db
     .prepare('SELECT id FROM users WHERE username = ?')
     .get('admin');
 
-  if (adminExists) {
+  const adminByEmail = db
+    .prepare('SELECT id FROM users WHERE email = ?')
+    .get('admin@timetracking.local');
+
+  if (adminByUsername || adminByEmail) {
     logger.info('✅ Admin user already exists, skipping seed');
     return;
   }

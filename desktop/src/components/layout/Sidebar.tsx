@@ -25,10 +25,11 @@ import {
   Settings,
   LogOut,
   Bell,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings' | 'notifications';
+type ViewType = 'dashboard' | 'calendar' | 'users' | 'vacation-balances' | 'overtime' | 'reports' | 'time-entries' | 'absences' | 'backups' | 'settings' | 'notifications' | 'year-end-rollover';
 
 interface NavItem {
   id: ViewType;
@@ -85,12 +86,18 @@ const navItems: NavItem[] = [
     id: 'reports',
     label: 'Berichte',
     icon: <FileText className="w-5 h-5" />,
-    adminOnly: true,
+    adminOnly: false,
   },
   {
     id: 'backups',
     label: 'Backups',
     icon: <Database className="w-5 h-5" />,
+    adminOnly: true,
+  },
+  {
+    id: 'year-end-rollover',
+    label: 'Jahreswechsel',
+    icon: <Sparkles className="w-5 h-5" />,
     adminOnly: true,
   },
   {

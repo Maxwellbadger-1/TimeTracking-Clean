@@ -3,7 +3,7 @@ import { useUIStore } from '../../store/uiStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { Users, Clock, Umbrella, FileText, CheckCircle, User, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Users, Clock, Umbrella, FileText, CheckCircle, User } from 'lucide-react';
 import {
   useActiveEmployees,
   usePendingAbsenceRequests,
@@ -11,11 +11,11 @@ import {
   useRejectAbsenceRequest,
   useTodayTimeEntries,
   useMonthTimeEntries,
-  useAllUsersOvertime,
 } from '../../hooks';
-import { formatDateDE, calculateTotalHours, formatHours, formatOvertimeHours } from '../../utils';
+import { formatDateDE, calculateTotalHours, formatHours } from '../../utils';
 import type { AbsenceRequest, User as UserType, TimeEntry } from '../../types';
 import { useState } from 'react';
+import { TeamOvertimeSummary } from '../reports/TeamOvertimeSummary';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
@@ -27,7 +27,6 @@ export function AdminDashboard() {
   const { data: pendingRequests, isLoading: loadingRequests } = usePendingAbsenceRequests();
   const { data: todayEntries } = useTodayTimeEntries(0); // All entries for today
   const { data: monthEntries } = useMonthTimeEntries(); // All entries for current month (all users)
-  const { data: overtimeData, isLoading: loadingOvertime } = useAllUsersOvertime();
 
   // Mutations
   const approveRequest = useApproveAbsenceRequest();
@@ -235,7 +234,7 @@ export function AdminDashboard() {
                             <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
                               {formatDateDE(request.startDate)} - {formatDateDE(request.endDate)}
                               <span className="text-gray-500 dark:text-gray-400 ml-2">
-                                ({request.daysRequired} Tage)
+                                ({request.days} Tage)
                               </span>
                             </p>
                             {request.reason && (
@@ -280,98 +279,10 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Overtime Overview */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Überstunden-Übersicht (Aktueller Stand)</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentView('overtime')}
-              >
-                Alle anzeigen →
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loadingOvertime ? (
-              <div className="flex justify-center py-8">
-                <LoadingSpinner size="md" />
-              </div>
-            ) : overtimeData && overtimeData.length > 0 ? (
-              <div className="space-y-3">
-                {/* Show Top 5 by absolute overtime value */}
-                {[...overtimeData]
-                  .sort((a, b) => Math.abs(b.totalOvertime) - Math.abs(a.totalOvertime))
-                  .slice(0, 5)
-                  .map((overtime) => {
-                    const isCritical = Math.abs(overtime.totalOvertime) > 40;
-                    const isPositive = overtime.totalOvertime > 0;
-
-                    return (
-                      <div
-                        key={overtime.userId}
-                        className={`p-3 rounded-lg ${
-                          isCritical
-                            ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                            : 'bg-gray-50 dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className={`p-2 rounded ${
-                              isCritical
-                                ? 'bg-red-100 dark:bg-red-900/30'
-                                : isPositive
-                                ? 'bg-green-100 dark:bg-green-900/20'
-                                : 'bg-orange-100 dark:bg-orange-900/20'
-                            }`}>
-                              {isCritical ? (
-                                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                              ) : (
-                                <TrendingUp className={`w-5 h-5 ${
-                                  isPositive
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : 'text-orange-600 dark:text-orange-400'
-                                }`} />
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                {overtime.firstName} {overtime.lastName}
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                {overtime.email}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${
-                              isPositive
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {formatOvertimeHours(overtime.totalOvertime)}
-                            </p>
-                            {isCritical && (
-                              <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                                Kritisch
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <p>Keine Überstunden-Daten verfügbar</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Team Overtime Summary - Professional Year Breakdown */}
+        <div className="mb-8">
+          <TeamOvertimeSummary />
+        </div>
 
         {/* Team Overview */}
         <Card>

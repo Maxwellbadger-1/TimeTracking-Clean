@@ -74,8 +74,8 @@ export function useWorkTimeAccountLive(userId?: number) {
     },
     retry: false,
     refetchOnWindowFocus: false,
-    // Refetch more often since this is live data
-    staleTime: 30000, // 30 seconds
+    // Mark as stale immediately → WebSocket invalidation works instantly!
+    staleTime: 0, // CRITICAL FIX: Allow WebSocket real-time updates
   });
 }
 
@@ -202,33 +202,64 @@ export function useUpdateWorkTimeAccountSettings() {
 }
 
 /**
- * Get overtime transactions (transaction-based tracking)
+ * Get overtime transactions (LIVE calculation from source data)
  *
- * PROFESSIONAL STANDARD: Immutable audit trail of all overtime changes
- * Like SAP SuccessFactors, Personio, DATEV
+ * PROFESSIONAL STANDARD (Personio, DATEV, SAP):
+ * - ON-DEMAND calculation from time_entries + absences + corrections
+ * - Always up-to-date, no stale data
+ * - Shows ALL working days (including days without time entries)
+ * - Includes vacation/sick credits automatically
+ * - Respects year/month filters from Reports Page
+ *
+ * @param userId User ID (admin can specify, employee gets own)
+ * @param year Optional year filter (converted to fromDate/toDate)
+ * @param month Optional month filter (1-12, requires year)
+ * @param limit Optional limit (default: 50)
  */
-export function useOvertimeTransactions(userId?: number, year?: number, limit?: number) {
+export function useOvertimeTransactions(userId?: number, year?: number, month?: number, limit?: number) {
   return useQuery({
-    queryKey: ['overtime-transactions', userId, year, limit],
+    queryKey: ['overtime-transactions', 'live', userId, year, month, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (userId) params.append('userId', userId.toString());
-      if (year) params.append('year', year.toString());
       if (limit) params.append('limit', limit.toString());
 
-      const endpoint = `/overtime/transactions${params.toString() ? '?' + params.toString() : ''}`;
+      // Convert year/month to fromDate/toDate for API
+      if (year) {
+        const fromDate = month
+          ? `${year}-${String(month).padStart(2, '0')}-01`
+          : `${year}-01-01`;
+
+        // Calculate end date (last day of month or year)
+        let toDate: string;
+        if (month) {
+          const lastDay = new Date(year, month, 0).getDate(); // Last day of month
+          toDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        } else {
+          toDate = `${year}-12-31`;
+        }
+
+        // Ensure toDate is not in the future (max = today)
+        const today = new Date().toISOString().split('T')[0];
+        if (toDate > today) {
+          toDate = today;
+        }
+
+        params.append('fromDate', fromDate);
+        params.append('toDate', toDate);
+      }
+      // If no year/month: Backend uses hireDate to today (default)
+
+      // NEW: Use /live endpoint for real-time calculation
+      const endpoint = `/overtime/transactions/live${params.toString() ? '?' + params.toString() : ''}`;
       const response = await apiClient.get<{
         transactions: Array<{
-          id: number;
-          userId: number;
           date: string;
-          type: 'earned' | 'compensation' | 'correction' | 'carryover';
+          type: 'earned' | 'feiertag' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment';
           hours: number;
-          description: string | null;
-          referenceType: string | null;
-          referenceId: number | null;
-          createdAt: string;
-          createdBy: number | null;
+          description: string;
+          source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays';
+          referenceId?: number;
         }>;
         currentBalance: number;
         userId: number;
@@ -236,6 +267,8 @@ export function useOvertimeTransactions(userId?: number, year?: number, limit?: 
       if (!response.success) throw new Error(response.error);
       return response.data;
     },
+    enabled: !!userId, // CRITICAL: Only fetch if valid userId provided!
+    staleTime: 0, // Always fetch fresh (live calculation)
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 }

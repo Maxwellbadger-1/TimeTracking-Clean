@@ -4,6 +4,7 @@ import { updateAllOvertimeLevels } from './overtimeService.js';
 import { validateTimeEntryArbZG } from './arbeitszeitgesetzService.js';
 import { logAudit } from './auditService.js';
 import logger from '../utils/logger.js';
+import { broadcastEvent } from '../websocket/server.js';
 
 /**
  * Time Entry Service
@@ -244,7 +245,7 @@ export function getAllTimeEntries(userId?: number): TimeEntry[] {
       SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
     FROM time_entries te
     LEFT JOIN users u ON te.userId = u.id
-    WHERE 1=1
+    WHERE u.deletedAt IS NULL
   `;
 
   const params: unknown[] = [];
@@ -283,7 +284,7 @@ export function getTimeEntriesPaginated(options: {
       SUBSTR(u.firstName, 1, 1) || SUBSTR(u.lastName, 1, 1) as userInitials
     FROM time_entries te
     LEFT JOIN users u ON te.userId = u.id
-    WHERE 1=1
+    WHERE u.deletedAt IS NULL
   `;
 
   const params: unknown[] = [];
@@ -294,12 +295,21 @@ export function getTimeEntriesPaginated(options: {
     params.push(options.userId);
   }
 
-  // Filter by date range (default: last 30 days for admin, all for employees)
+  // Filter by date range (flexible: supports startDate only, endDate only, or both)
   if (options.startDate && options.endDate) {
+    // Both dates: Filter range
     query += ' AND te.date >= ? AND te.date <= ?';
     params.push(options.startDate, options.endDate);
+  } else if (options.startDate) {
+    // Only startDate: Filter from date onwards (e.g., "since 2023")
+    query += ' AND te.date >= ?';
+    params.push(options.startDate);
+  } else if (options.endDate) {
+    // Only endDate: Filter up to date (e.g., "until 2025")
+    query += ' AND te.date <= ?';
+    params.push(options.endDate);
   } else if (!options.userId) {
-    // Admin view without date range: default to last 30 days
+    // Admin view without any date filter: default to last 30 days for performance
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const defaultStartDate = thirtyDaysAgo.toISOString().split('T')[0];
@@ -496,6 +506,14 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
   if (!entry) {
     throw new Error('Failed to create time entry');
   }
+
+  // Broadcast WebSocket event
+  broadcastEvent({
+    type: 'time-entry:created',
+    userId: data.userId,
+    data: entry,
+    timestamp: new Date().toISOString(),
+  });
 
   return entry;
 }
@@ -710,6 +728,15 @@ export function updateTimeEntry(
   }
 
   logger.info({ id, entry }, '✅✅✅ UPDATE SUCCESSFUL');
+
+  // Broadcast WebSocket event
+  broadcastEvent({
+    type: 'time-entry:updated',
+    userId: existing.userId,
+    data: entry,
+    timestamp: new Date().toISOString(),
+  });
+
   return entry;
 }
 
@@ -739,6 +766,14 @@ export function deleteTimeEntry(id: number): void {
     logger.error({ err: error }, '❌ Error updating overtime levels');
     // Don't throw - deletion was successful, just log the overtime update error
   }
+
+  // Broadcast WebSocket event
+  broadcastEvent({
+    type: 'time-entry:deleted',
+    userId: entry.userId,
+    data: { id, date: entry.date },
+    timestamp: new Date().toISOString(),
+  });
 }
 
 /**

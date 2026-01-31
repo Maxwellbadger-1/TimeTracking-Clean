@@ -219,17 +219,56 @@ Example: 09:00 - 17:30 (8.5h) - 0.5h break = 8.0h worked
 **User Story:**
 *As an employee, I want to see my current overtime balance so that I know if I can take time off.*
 
+**⚠️ CRITICAL: Single Source of Truth**
+
+The **overtime_balance** table is the AUTHORITATIVE source for all overtime data. All frontend reports and APIs MUST read from this table, NOT recalculate!
+
+**Database Table (Single Source of Truth):**
+```sql
+overtime_balance (
+  userId INTEGER,
+  month TEXT,              -- "YYYY-MM"
+  targetHours REAL,        -- Calculated by overtimeService.ts
+  actualHours REAL,        -- Worked + Absence Credits
+  overtime REAL VIRTUAL    -- (actualHours - targetHours)
+)
+```
+
 **Formula:**
 ```
-Overtime = Actual Hours - Target Hours
+Überstunden = Ist-Stunden - Soll-Stunden
 
 Where:
-- Target Hours = Working Days (since hire date) × Daily Target Hours
-- Actual Hours = Sum of Time Entries + Absence Credits
-- Working Days = Weekdays excluding weekends and public holidays
+- Soll-Stunden (Target) = Arbeitstage × Ziel-Stunden pro Tag
+- Ist-Stunden (Actual)  = Gearbeitete Stunden + Abwesenheits-Gutschriften
+- Arbeitstage (Working Days) = Wochentage minus Wochenenden und Feiertage
 
-Daily Target Hours = Weekly Hours ÷ 5
-Example: 40h/week ÷ 5 = 8h/day
+CRITICAL: Reference date is ALWAYS TODAY, not month end!
+```
+
+**Calculation Modes:**
+
+**Mode 1: Standard Weekly Hours**
+```typescript
+const user = { weeklyHours: 40, workSchedule: null };
+Daily Target = 40h ÷ 5 = 8h/day
+Working Days = Monday-Friday
+```
+
+**Mode 2: Individual Work Schedule (Priority over weeklyHours!)**
+```typescript
+const user = {
+  weeklyHours: 30,  // IGNORED if workSchedule exists!
+  workSchedule: {
+    monday: 8,      // 8h
+    tuesday: 0,     // NOT a working day!
+    wednesday: 6,   // 6h
+    thursday: 8,    // 8h
+    friday: 8,      // 8h
+  }
+};
+// Days with hours > 0 count as working days
+// Days with hours = 0 do NOT count (even if weekday!)
 ```
 
 **Example Calculation:**
@@ -249,7 +288,28 @@ Overtime: 85h - 80h = +5h
 - **Vacation**: Days × Daily Target Hours (e.g., 3 days vacation = 24h credit)
 - **Sick Leave**: Days × Daily Target Hours
 - **Overtime Compensation**: Days × Daily Target Hours
-- **Unpaid Leave**: Reduces target hours (no credit)
+- **Special Leave**: Days × Daily Target Hours
+- **Unpaid Leave**: Reduces target hours (NO credit!)
+
+**Unpaid Leave Special Handling:**
+```typescript
+// Unpaid leave REDUCES Soll-Stunden, does NOT give Ist-Stunden credit!
+const targetHours = 5 days × 8h = 40h;
+const unpaidLeaveDays = 2 days;
+const adjustedTarget = 40h - (2 × 8h) = 24h;  // Reduced!
+const actualHours = 24h;  // NO credit for unpaid days!
+const overtime = 24h - 24h = 0h;
+```
+
+**Timezone Handling (CRITICAL!):**
+```typescript
+// ✅ CORRECT: Use formatDate() for Europe/Berlin timezone
+const endDate = formatDate(new Date(year, month, 0), 'yyyy-MM-dd');
+
+// ❌ WRONG: toISOString() converts to UTC (off-by-one-day bug!)
+const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+// Example: 2025-12-31 00:00 (Berlin) → 2025-12-30 23:00 (UTC) → "2025-12-30" ❌
+```
 
 **UI Display:**
 - Target Hours (Soll): Gray, Clock icon
@@ -257,8 +317,23 @@ Overtime: 85h - 80h = +5h
 - Overtime (Differenz): Green (+) / Red (-), TrendingUp/Down icon
 
 **API Endpoints:**
-- `GET /api/overtime/user/:id?month=2026-01` - Get overtime for month
-- `GET /api/overtime/user/:id/total` - Get cumulative overtime
+
+**RECOMMENDED (Read from Database ✅):**
+```
+GET /api/overtime/balance?userId=5&year=2026        → overtime_balance ✅
+GET /api/overtime/month/:userId/:month              → overtime_balance ✅
+GET /api/reports/overtime/history/:userId           → overtime_balance ✅
+GET /api/reports/overtime/year-breakdown/:userId    → overtime_balance ✅
+```
+
+**⚠️ PROBLEMATIC (Recalculates instead of reading DB!):**
+```
+GET /api/reports/overtime/user/:userId?year=2026&month=12  → reportService ❌
+```
+
+**Known Issue:** This endpoint uses `reportService.ts` which recalculates overtime instead of reading from `overtime_balance`. This can cause discrepancies!
+
+**Recommendation:** Refactor `/api/reports/overtime/user/:userId` to read from `overtime_balance` table instead of recalculating.
 
 ---
 

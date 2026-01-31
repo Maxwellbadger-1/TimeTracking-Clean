@@ -12,8 +12,6 @@
 
 import { useState } from 'react';
 import { addMonths, subMonths } from 'date-fns';
-import { DateNavigation } from './DateNavigation';
-import { CalendarLegend } from './CalendarLegend';
 import {
   getDaysInMonth,
   formatDay,
@@ -60,6 +58,12 @@ export function MonthCalendar({
   const currentMonth = externalDate || internalDate;
   const setCurrentMonth = onDateChange || setInternalDate;
 
+  // Track which days are expanded
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+
+  // Global "Show All" toggle
+  const [showAllEntries, setShowAllEntries] = useState(false);
+
   const days = getDaysInMonth(currentMonth);
   const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -99,20 +103,17 @@ export function MonthCalendar({
 
   return (
     <div>
-      {/* Modern Header */}
-      <DateNavigation
-        currentDate={currentMonth}
-        onDateChange={setCurrentMonth}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onToday={handleToday}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange || (() => {})}
-      />
-
-      {/* Legend */}
-      <div className="mb-6">
-        <CalendarLegend />
+      {/* Show All Toggle - below legend */}
+      <div className="flex items-center justify-end mb-6">
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+          <input
+            type="checkbox"
+            checked={showAllEntries}
+            onChange={(e) => setShowAllEntries(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+          />
+          <span className="font-medium">Alle Einträge anzeigen</span>
+        </label>
       </div>
 
       {/* Calendar Grid - Modern card style */}
@@ -141,6 +142,19 @@ export function MonthCalendar({
             const isTodayDay = isToday(day);
             const isWeekendDay = isWeekend(day);
             const isHolidayDay = !!holiday;
+
+            // Check if this day is expanded (either individually or globally)
+            const isExpanded = showAllEntries || expandedDays.has(dateStr);
+            const filteredAbsences = dayAbsences.filter(a => a.status !== 'rejected');
+            const totalItems = filteredAbsences.length + dayEntries.length;
+
+            // Calculate how many items are actually visible when collapsed
+            const visibleAbsences = Math.min(filteredAbsences.length, 2);
+            const remainingSlots = 3 - visibleAbsences; // How many slots left for time entries
+            const visibleEntries = Math.min(dayEntries.length, Math.max(0, remainingSlots));
+            const visibleItems = visibleAbsences + visibleEntries;
+
+            const hasMore = totalItems > visibleItems;
 
             return (
               <div
@@ -198,7 +212,9 @@ export function MonthCalendar({
                   )}
 
                   {/* Absences - with User Info, only approved/pending */}
-                  {dayAbsences.filter(a => a.status !== 'rejected').slice(0, 2).map((absence, idx) => {
+                  {filteredAbsences
+                    .slice(0, isExpanded ? undefined : visibleAbsences)
+                    .map((absence, idx) => {
                     const isApproved = absence.status === 'approved';
 
                     // Type-based colors (professional standard like Google Calendar)
@@ -235,7 +251,7 @@ export function MonthCalendar({
                   })}
 
                   {/* Time Entries - Individual entries with User Info */}
-                  {dayEntries.slice(0, 3).map((entry, idx) => {
+                  {dayEntries.slice(0, isExpanded ? undefined : visibleEntries).map((entry, idx) => {
                     const userColor = getUserColor(entry.userId);
                     const initials = getInitials(entry.firstName, entry.lastName, entry.userInitials);
                     const fullName = getFullName(entry.firstName, entry.lastName);
@@ -257,11 +273,25 @@ export function MonthCalendar({
                     );
                   })}
 
-                  {/* More indicator */}
-                  {(dayAbsences.length + dayEntries.length) > 3 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
-                      +{(dayAbsences.length + dayEntries.length) - 3} mehr
-                    </div>
+                  {/* More indicator - Clickable Toggle (nur wenn nicht global expanded) */}
+                  {hasMore && !showAllEntries && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Don't trigger onDayClick
+                        setExpandedDays(prev => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(dateStr)) {
+                            newSet.delete(dateStr);
+                          } else {
+                            newSet.add(dateStr);
+                          }
+                          return newSet;
+                        });
+                      }}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer font-medium"
+                    >
+                      {isExpanded ? '− weniger' : `+${totalItems - visibleItems} mehr`}
+                    </button>
                   )}
                 </div>
               </div>

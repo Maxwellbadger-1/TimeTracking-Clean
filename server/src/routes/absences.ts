@@ -94,12 +94,14 @@ router.get(
       const isAdmin = req.session.user!.role === 'admin';
 
       // Get pagination and filter parameters
-      const { page, limit, year, status, type } = req.query;
+      const { page, limit, year, month, status, type, userId } = req.query;
 
       // Validate parameters
       const pageNum = page ? parseInt(page as string, 10) : 1;
       const limitNum = limit ? parseInt(limit as string, 10) : 30;
       const yearNum = year ? parseInt(year as string, 10) : undefined;
+      const monthNum = month ? parseInt(month as string, 10) : undefined;
+      const userIdNum = userId ? parseInt(userId as string, 10) : undefined;
 
       if (isNaN(pageNum) || pageNum < 1) {
         res.status(400).json({
@@ -125,12 +127,30 @@ router.get(
         return;
       }
 
+      if (month && (isNaN(monthNum!) || monthNum! < 1 || monthNum! > 12)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid month (must be 1-12)',
+        });
+        return;
+      }
+
+      if (userId && isNaN(userIdNum!)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid userId',
+        });
+        return;
+      }
+
       // Use paginated function
+      // If admin, allow filtering by userId query param, otherwise use current user's ID
       const result = getAbsenceRequestsPaginated({
-        userId: isAdmin ? undefined : req.session.user!.id,
+        userId: isAdmin ? userIdNum : req.session.user!.id,
         status: status as string,
         type: type as string,
         year: yearNum,
+        month: monthNum,
         page: pageNum,
         limit: limitNum,
       });
@@ -455,7 +475,7 @@ router.post(
   '/:id/reject',
   requireAuth,
   requireAdmin,
-  (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
+  async (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
     try {
       const id = parseInt(req.params.id);
 
@@ -469,8 +489,8 @@ router.post(
 
       const { adminNote } = req.body;
 
-      // Reject request
-      const request = rejectAbsenceRequest(
+      // Reject request (now async - recalculates overtime if was approved)
+      const request = await rejectAbsenceRequest(
         id,
         req.session.user!.id,
         adminNote
@@ -500,7 +520,8 @@ router.post(
       if (error instanceof Error) {
         if (
           error.message === 'Absence request not found' ||
-          error.message.includes('Only pending')
+          error.message.includes('Only pending') ||
+          error.message.includes('Only pending or approved')
         ) {
           res.status(400).json({
             success: false,

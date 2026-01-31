@@ -6,6 +6,8 @@ import logger from './utils/logger.js';
 import { apiLimiter, loginLimiter } from './middleware/rateLimits.js';
 import './database/connection.js'; // Initialize database
 import { seedDatabase } from './database/seed.js';
+import { runMigrations } from './database/migrationRunner.js';
+import { db } from './database/connection.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import departmentsRoutes from './routes/departments.js';
@@ -22,10 +24,13 @@ import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
 import exportsRoutes from './routes/exports.js';
 import performanceRoutes from './routes/performance.js';
+import yearEndRolloverRoutes from './routes/yearEndRollover.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { performanceMonitor } from './middleware/performanceMonitor.js';
 import { startBackupScheduler, startYearEndRolloverScheduler } from './services/cronService.js';
-import { initializeHolidays } from './services/holidayService.js';
+import { initializeHolidays, autoUpdateHolidays } from './services/holidayService.js';
+import { initializeWebSocket } from './websocket/server.js';
+import cron from 'node-cron';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -178,6 +183,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/exports', exportsRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/year-end-rollover', yearEndRolloverRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);
@@ -190,6 +196,9 @@ async function startServer() {
   try {
     await seedDatabase();
 
+    // Run database migrations (auto-backfill transaction history)
+    await runMigrations(db);
+
     // Initialize holidays (fetch from API)
     await initializeHolidays();
 
@@ -199,13 +208,28 @@ async function startServer() {
     // Start year-end rollover scheduler (January 1st at 00:05 AM Europe/Berlin)
     startYearEndRolloverScheduler();
 
-    app.listen(PORT, '0.0.0.0', () => {
+    // Schedule daily holiday auto-update (03:00 AM Europe/Berlin)
+    // Ensures we always have coverage for future years and historical data
+    cron.schedule('0 3 * * *', async () => {
+      logger.info('⏰ Running scheduled holiday auto-update');
+      await autoUpdateHolidays();
+    }, {
+      timezone: 'Europe/Berlin'
+    });
+
+    logger.info('📅 Holiday auto-update scheduled (daily at 03:00 AM Europe/Berlin)');
+
+    const httpServer = app.listen(PORT, '0.0.0.0', () => {
       logger.info('✅ TimeTracking Server started');
       logger.info(`📡 Listening on http://0.0.0.0:${PORT}`);
       logger.info(`🏥 Health check: http://0.0.0.0:${PORT}/api/health`);
       logger.info(`🔐 Auth endpoints: http://0.0.0.0:${PORT}/api/auth`);
       logger.info(`💾 Backup endpoints: http://0.0.0.0:${PORT}/api/backup`);
     });
+
+    // Initialize WebSocket server
+    initializeWebSocket(httpServer);
+    logger.info(`🔌 WebSocket endpoint: ws://0.0.0.0:${PORT}/ws`);
   } catch (error) {
     logger.error({ err: error }, '❌ Failed to start server');
     process.exit(1);

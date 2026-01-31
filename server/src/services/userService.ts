@@ -2,7 +2,7 @@ import db from '../database/connection.js';
 import { hashPassword, comparePassword, findUserById as findUserByIdWithPassword } from './authService.js';
 import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
 import { getVacationBalance } from './absenceService.js';
-import { getCurrentOvertimeStats } from './overtimeService.js';
+import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 
@@ -238,11 +238,10 @@ export async function updateUser(
     if (data.hireDate !== undefined && data.hireDate !== existingUser.hireDate) {
       logger.info({ oldHireDate: existingUser.hireDate, newHireDate: data.hireDate }, '🔄 hireDate changed, clearing and recalculating overtime');
       try {
-        // Delete ALL overtime entries - they will be recreated on next API call
+        // Delete overtime_balance entries - they will be recreated on next API call
+        // Note: overtime_transactions are kept (immutable audit trail)
         db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
-        db.prepare('DELETE FROM overtime_daily WHERE userId = ?').run(id);
-        db.prepare('DELETE FROM overtime_weekly WHERE userId = ?').run(id);
-        logger.info('✅ Overtime entries cleared - will recalculate on next access');
+        logger.info('✅ Overtime balance cleared - will recalculate on next access');
       } catch (error) {
         logger.error({ err: error }, '❌ Failed to clear overtime after hireDate change');
         // Don't fail the update, but log the error
@@ -587,11 +586,11 @@ export function exportUserData(userId: number): GDPRDataExport {
     `);
     const absenceRequests = absencesStmt.all(userId) as AbsenceRequest[];
 
-    // 4. Get overtime balance (current year)
-    const currentYear = new Date().getFullYear();
-    const overtimeStats = getCurrentOvertimeStats(userId);
+    // 4. Get overtime balance (current - from SSOT)
+    const overtimeBalance = getOvertimeBalance(userId);
 
     // 5. Get vacation balance (current year)
+    const currentYear = new Date().getFullYear();
     const vacationBalance = getVacationBalance(userId, currentYear);
 
     // 6. Build export data
@@ -602,7 +601,7 @@ export function exportUserData(userId: number): GDPRDataExport {
       absenceRequests,
       absences: absenceRequests, // Alias for backward compatibility
       overtimeBalance: {
-        totalHours: overtimeStats?.totalYear || 0,
+        totalHours: overtimeBalance || 0,
         lastUpdated: new Date().toISOString(),
       },
       vacationBalance: {
@@ -616,7 +615,7 @@ export function exportUserData(userId: number): GDPRDataExport {
     logger.info({
       timeEntriesCount: timeEntries.length,
       absenceRequestsCount: absenceRequests.length,
-      overtimeHours: overtimeStats?.totalYear || 0,
+      overtimeHours: overtimeBalance || 0,
       vacationRemaining: vacationBalance?.remaining || 0,
       vacationTotal: vacationBalance?.entitlement || 0
     }, '✅ User data exported successfully');

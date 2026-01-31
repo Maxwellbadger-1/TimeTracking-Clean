@@ -47,10 +47,8 @@ export function recordOvertimeEarned(
   hours: number,
   description?: string
 ): void {
-  if (hours === 0) {
-    logger.debug({ userId, date }, 'Skipping transaction: 0 hours');
-    return;
-  }
+  // ✅ ALLOW 0h transactions (important for complete audit trail!)
+  // Even days with 0h overtime should be logged for transparency
 
   const desc = description || `Differenz Soll/Ist ${date}`;
 
@@ -115,28 +113,31 @@ export function recordOvertimeCompensation(
  * @param hours Hours to add/subtract
  * @param description Reason for correction (required!)
  * @param adminId Admin user ID who made the correction
+ * @param correctionId Optional FK to overtime_corrections table
  */
 export function recordOvertimeCorrection(
   userId: number,
   date: string,
   hours: number,
   description: string,
-  adminId: number
+  adminId: number,
+  correctionId?: number
 ): void {
   if (!description || description.trim().length === 0) {
     throw new Error('Description is required for manual corrections');
   }
 
   db.prepare(`
-    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, createdBy)
-    VALUES (?, ?, 'correction', ?, ?, 'manual', ?)
-  `).run(userId, date, hours, description, adminId);
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId, createdBy)
+    VALUES (?, ?, 'correction', ?, ?, 'manual', ?, ?)
+  `).run(userId, date, hours, description, correctionId || null, adminId);
 
   logger.warn({
     userId,
     date,
     hours,
     adminId,
+    correctionId,
     description,
     type: 'correction'
   }, `⚠️ Manual overtime correction: ${hours > 0 ? '+' : ''}${hours}h`);
@@ -171,15 +172,204 @@ export function recordYearEndCarryover(
 }
 
 /**
- * Get current overtime balance for a user
+ * Record vacation credit (Urlaubs-Gutschrift)
+ *
+ * AUTOMATIC: Called when absence is approved or when ensuring transactions
+ * Credits target hours for vacation days
  *
  * @param userId User ID
- * @returns Current balance (sum of all transactions)
+ * @param date Date (YYYY-MM-DD)
+ * @param hours Hours to credit (target hours for this day)
+ * @param absenceId FK to absence_requests table
+ * @param description Optional description
+ */
+export function recordVacationCredit(
+  userId: number,
+  date: string,
+  hours: number,
+  absenceId?: number,
+  description?: string
+): void {
+  const desc = description || `Urlaubs-Gutschrift ${date}`;
+
+  db.prepare(`
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+    VALUES (?, ?, 'vacation_credit', ?, ?, 'absence', ?)
+  `).run(userId, date, hours, desc, absenceId || null);
+
+  logger.debug({
+    userId,
+    date,
+    hours,
+    type: 'vacation_credit'
+  }, `✅ Recorded vacation credit: +${hours}h`);
+}
+
+/**
+ * Record sick leave credit (Krankheits-Gutschrift)
+ *
+ * AUTOMATIC: Called when sick leave is approved or when ensuring transactions
+ * Credits target hours for sick days
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD)
+ * @param hours Hours to credit (target hours for this day)
+ * @param absenceId FK to absence_requests table
+ * @param description Optional description
+ */
+export function recordSickCredit(
+  userId: number,
+  date: string,
+  hours: number,
+  absenceId?: number,
+  description?: string
+): void {
+  const desc = description || `Krankheits-Gutschrift ${date}`;
+
+  db.prepare(`
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+    VALUES (?, ?, 'sick_credit', ?, ?, 'absence', ?)
+  `).run(userId, date, hours, desc, absenceId || null);
+
+  logger.debug({
+    userId,
+    date,
+    hours,
+    type: 'sick_credit'
+  }, `✅ Recorded sick credit: +${hours}h`);
+}
+
+/**
+ * Record overtime compensation credit (Überstunden-Ausgleich Gutschrift)
+ *
+ * AUTOMATIC: Called when overtime_comp is approved or when ensuring transactions
+ * Credits target hours for overtime compensation days
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD)
+ * @param hours Hours to credit (target hours for this day)
+ * @param absenceId FK to absence_requests table
+ * @param description Optional description
+ */
+export function recordOvertimeCompCredit(
+  userId: number,
+  date: string,
+  hours: number,
+  absenceId?: number,
+  description?: string
+): void {
+  const desc = description || `Überstunden-Ausgleich Gutschrift ${date}`;
+
+  db.prepare(`
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+    VALUES (?, ?, 'overtime_comp_credit', ?, ?, 'absence', ?)
+  `).run(userId, date, hours, desc, absenceId || null);
+
+  logger.debug({
+    userId,
+    date,
+    hours,
+    type: 'overtime_comp_credit'
+  }, `✅ Recorded overtime comp credit: +${hours}h`);
+}
+
+/**
+ * Record special leave credit (Sonderurlaub-Gutschrift)
+ *
+ * AUTOMATIC: Called when special leave is approved or when ensuring transactions
+ * Credits target hours for special leave days
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD)
+ * @param hours Hours to credit (target hours for this day)
+ * @param absenceId FK to absence_requests table
+ * @param description Optional description
+ */
+export function recordSpecialCredit(
+  userId: number,
+  date: string,
+  hours: number,
+  absenceId?: number,
+  description?: string
+): void {
+  const desc = description || `Sonderurlaub-Gutschrift ${date}`;
+
+  db.prepare(`
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+    VALUES (?, ?, 'special_credit', ?, ?, 'absence', ?)
+  `).run(userId, date, hours, desc, absenceId || null);
+
+  logger.debug({
+    userId,
+    date,
+    hours,
+    type: 'special_credit'
+  }, `✅ Recorded special credit: +${hours}h`);
+}
+
+/**
+ * Record unpaid leave adjustment (Unbezahlter Urlaub Anpassung)
+ *
+ * AUTOMATIC: Called when unpaid leave is approved or when ensuring transactions
+ * Adds target hours to compensate for the negative earned transaction
+ * (because unpaid reduces target to 0, so earned = 0 - 0 = 0, no adjustment needed actually!)
+ *
+ * WAIT - this is wrong! Unpaid leave REDUCES target, so:
+ * - earned for unpaid day = 0h - 0h = 0h (correct!)
+ * - NO additional transaction needed!
+ *
+ * But to show transparency: We record the adjustment for audit trail
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD)
+ * @param hours Hours that were reduced from target
+ * @param absenceId FK to absence_requests table
+ * @param description Optional description
+ */
+export function recordUnpaidAdjustment(
+  userId: number,
+  date: string,
+  hours: number,
+  absenceId?: number,
+  description?: string
+): void {
+  // ACTUALLY: For unpaid leave, we DON'T need an adjustment transaction
+  // because the target is already reduced to 0, so earned = 0 - 0 = 0
+  // This function is kept for completeness but may not be used
+
+  const desc = description || `Unbezahlter Urlaub Anpassung ${date}`;
+
+  db.prepare(`
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+    VALUES (?, ?, 'unpaid_adjustment', ?, ?, 'absence', ?)
+  `).run(userId, date, hours, desc, absenceId || null);
+
+  logger.debug({
+    userId,
+    date,
+    hours,
+    type: 'unpaid_adjustment'
+  }, `✅ Recorded unpaid adjustment: +${hours}h`);
+}
+
+/**
+ * Get current overtime balance for a user
+ *
+ * FIXED: Now uses overtime_balance (Single Source of Truth)
+ * - overtime_balance contains CORRECTLY calculated cumulative overtime
+ * - Includes unpaid leave reduction in target hours
+ * - Professional standard (SAP, Personio, DATEV)
+ *
+ * @param userId User ID
+ * @returns Current balance (cumulative sum from overtime_balance)
  */
 export function getOvertimeBalance(userId: number): number {
+  // FIXED: Sum overtime from overtime_balance (NOT transactions!)
+  // overtime_balance contains cumulative overtime correctly calculated by updateMonthlyOvertime()
+  // This ensures consistency with "Monatliche Entwicklung" display
   const result = db.prepare(`
-    SELECT COALESCE(SUM(hours), 0) as balance
-    FROM overtime_transactions
+    SELECT COALESCE(SUM(actualHours - targetHours), 0) as balance
+    FROM overtime_balance
     WHERE userId = ?
   `).get(userId) as { balance: number };
 
@@ -366,4 +556,112 @@ export function hasSufficientOvertimeBalance(
   const balanceAfterDeduction = currentBalance - hoursRequired;
 
   return balanceAfterDeduction >= maxMinusHours;
+}
+
+/**
+ * Monthly Transaction Summary Entry
+ * Used for Monatliche Entwicklung (Monthly Development) display
+ */
+export interface MonthlyTransactionSummary {
+  month: string;           // "2025-11"
+  earned: number;          // Sum of 'earned' transactions
+  compensation: number;    // Sum of 'compensation' transactions
+  correction: number;      // Sum of 'correction' transactions
+  carryover: number;       // Sum of 'carryover' transactions (usually 0 except January)
+  balance: number;         // Cumulative balance at end of month
+  balanceChange: number;   // Change from previous month
+}
+
+/**
+ * Get monthly transaction summary for overtime history
+ * PROFESSIONAL STANDARD (SAP SuccessFactors, Personio):
+ * - Groups transactions by month
+ * - Shows earned/compensation/correction separately (full transparency)
+ * - Calculates cumulative balance (like bank account)
+ *
+ * REPLACES: reportService.getOvertimeHistory() which used overtime_balance (wrong!)
+ * NOW USES: overtime_transactions as Single Source of Truth
+ *
+ * @param userId User ID
+ * @param months Number of months to retrieve (default: 12)
+ * @returns Array of monthly summaries, newest first
+ */
+export function getMonthlyTransactionSummary(
+  userId: number,
+  months: number = 12
+): MonthlyTransactionSummary[] {
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+  const startMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Get all transactions for this user in the date range
+  const transactions = db.prepare(`
+    SELECT
+      substr(date, 1, 7) as month,
+      type,
+      SUM(hours) as totalHours
+    FROM overtime_transactions
+    WHERE userId = ?
+      AND date >= ?
+      AND date <= ?
+    GROUP BY month, type
+    ORDER BY month ASC
+  `).all(userId, `${startMonth}-01`, `${currentMonth}-31`) as Array<{
+    month: string;
+    type: 'earned' | 'compensation' | 'correction' | 'carryover';
+    totalHours: number;
+  }>;
+
+  // Get balance before start month (for cumulative calculation)
+  const previousBalance = db.prepare(`
+    SELECT COALESCE(SUM(hours), 0) as balance
+    FROM overtime_transactions
+    WHERE userId = ?
+      AND date < ?
+  `).get(userId, `${startMonth}-01`) as { balance: number };
+
+  // Group by month
+  const monthsMap = new Map<string, {
+    earned: number;
+    compensation: number;
+    correction: number;
+    carryover: number;
+  }>();
+
+  transactions.forEach(t => {
+    if (!monthsMap.has(t.month)) {
+      monthsMap.set(t.month, { earned: 0, compensation: 0, correction: 0, carryover: 0 });
+    }
+    const monthData = monthsMap.get(t.month)!;
+    monthData[t.type] += t.totalHours;
+  });
+
+  // Build summary array with cumulative balance
+  const summary: MonthlyTransactionSummary[] = [];
+  let runningBalance = previousBalance.balance;
+
+  // Sort months and calculate balances
+  const sortedMonths = Array.from(monthsMap.keys()).sort();
+
+  sortedMonths.forEach(month => {
+    const data = monthsMap.get(month)!;
+
+    // Balance change = sum of all transaction types
+    const balanceChange = data.earned + data.compensation + data.correction + data.carryover;
+    runningBalance += balanceChange;
+
+    summary.push({
+      month,
+      earned: Math.round(data.earned * 100) / 100,
+      compensation: Math.round(data.compensation * 100) / 100,
+      correction: Math.round(data.correction * 100) / 100,
+      carryover: Math.round(data.carryover * 100) / 100,
+      balance: Math.round(runningBalance * 100) / 100,
+      balanceChange: Math.round(balanceChange * 100) / 100,
+    });
+  });
+
+  // Return newest first (for display)
+  return summary.reverse();
 }

@@ -17,6 +17,7 @@
     "sync:worktime": "tsx src/scripts/syncWorkTimeAccounts.ts",
     "seed": "tsx scripts/seed.ts",
     "seed:reset": "tsx scripts/seed.ts --reset",
+    "seed:test-users": "tsx src/scripts/seedTestUsers.ts",
     "seed-test-data": "tsx src/scripts/seedTestData.ts",
     "verify-test-data": "tsx src/scripts/verifyTestData.ts",
     "pkg:build": "npm run build && pkg dist/server.js --compress Brotli --targets node20-macos-arm64,node20-macos-x64,node20-win-x64,node20-linux-x64 --output ../desktop/src-tauri/binaries/timetracking-server",
@@ -24,7 +25,18 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "validate:overtime": "tsx src/scripts/validateOvertimeCalculation.ts"
+    "validate:overtime": "tsx src/scripts/validateOvertimeCalculation.ts",
+    "validate:overtime:detailed": "tsx src/scripts/validateOvertimeDetailed.ts",
+    "fill:transactions": "tsx src/scripts/fillAllOvertimeTransactions.ts",
+    "validate:all-test-users": "tsx src/scripts/validateAllTestUsers.ts",
+    "recalculate:overtime": "tsx src/scripts/recalculateOvertimeBalances.ts",
+    "add:2026-entries": "tsx src/scripts/add2026TimeEntries.ts",
+    "add:historical-entries": "tsx src/scripts/addHistoricalTimeEntries.ts",
+    "test-users:clean": "tsx src/scripts/cleanTestUsers.ts",
+    "test-users:enhanced": "tsx src/scripts/createEnhancedTestUser.ts",
+    "test-users:super": "tsx src/scripts/createSuperTestUser.ts",
+    "test-users:neuling": "tsx src/scripts/createNewEmployeeTestUser.ts",
+    "test-users:full": "npm run test-users:clean && npm run seed:test-users && npm run add:historical-entries && npm run add:2026-entries && npm run recalculate:overtime && npm run validate:all-test-users"
   },
   "pkg": {
     "assets": [
@@ -51,6 +63,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2",
     "ws": "^8.18.3"

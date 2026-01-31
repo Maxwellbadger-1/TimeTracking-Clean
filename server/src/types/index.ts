@@ -135,6 +135,7 @@ export interface AbsenceRequest {
   startDate: string;
   endDate: string;
   days: number;
+  calculatedHours?: number;  // Real hours based on workSchedule/weeklyHours (calculated on-demand)
   status: 'pending' | 'approved' | 'rejected';
   reason: string | null;
   adminNote: string | null;

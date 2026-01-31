@@ -4,6 +4,7 @@
  */
 
 import { Clock, CheckCircle, TrendingUp, AlertCircle } from 'lucide-react';
+import { formatHours, formatOvertimeHours } from '../../utils/timeUtils';
 
 interface OvertimeSummaryCardsProps {
   targetHours: number;
@@ -20,15 +21,6 @@ export function OvertimeSummaryCards({
 }: OvertimeSummaryCardsProps) {
   // Calculate percentage
   const percentage = targetHours > 0 ? Math.round((actualHours / targetHours) * 100) : 0;
-
-  // Format hours helper
-  const formatHours = (hours: number, withSign = false): string => {
-    const sign = withSign && hours >= 0 ? '+' : '';
-    const absHours = Math.abs(hours);
-    const h = Math.floor(absHours);
-    const m = Math.round((absHours - h) * 60);
-    return `${sign}${h}:${String(m).padStart(2, '0')}h`;
-  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -67,8 +59,8 @@ export function OvertimeSummaryCards({
       {/* ÜBERSTUNDEN - Overtime (Difference) */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            Überstunden
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400" title="Differenz zwischen Ist- und Soll-Stunden im gewählten Zeitraum">
+            Überstunden (Zeitraum)
           </span>
           {overtime >= 0 ? (
             <TrendingUp className="w-5 h-5 text-green-500" />
@@ -83,10 +75,10 @@ export function OvertimeSummaryCards({
               : 'text-red-600 dark:text-red-400'
           }`}
         >
-          {formatHours(overtime, true)}
+          {formatOvertimeHours(overtime)}
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Ist - Soll
+          Ist - Soll ({period})
         </p>
       </div>
     </div>

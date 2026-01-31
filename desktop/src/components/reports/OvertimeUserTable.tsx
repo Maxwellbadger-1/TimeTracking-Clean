@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { OvertimeReportSummary } from '../../hooks/useOvertimeReports';
+import { formatHours, formatOvertimeHours } from '../../utils/timeUtils';
 
 interface User {
   id: number;
@@ -25,15 +26,6 @@ type SortDirection = 'asc' | 'desc';
 export function OvertimeUserTable({ reports, users, onUserClick }: OvertimeUserTableProps) {
   const [sortField, setSortField] = useState<SortField>('overtime');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-
-  // Format hours helper
-  const formatHours = (hours: number, withSign = false): string => {
-    const sign = withSign && hours >= 0 ? '+' : '';
-    const absHours = Math.abs(hours);
-    const h = Math.floor(absHours);
-    const m = Math.round((absHours - h) * 60);
-    return `${sign}${h}:${String(m).padStart(2, '0')}h`;
-  };
 
   // Sort handler
   const handleSort = (field: SortField) => {
@@ -160,7 +152,7 @@ export function OvertimeUserTable({ reports, users, onUserClick }: OvertimeUserT
                         : 'text-red-600 dark:text-red-400'
                     }`}
                   >
-                    {formatHours(report.summary.overtime, true)}
+                    {formatOvertimeHours(report.summary.overtime)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500 dark:text-gray-400">
                     {percentage}%

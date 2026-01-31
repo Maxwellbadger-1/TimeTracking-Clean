@@ -1,5 +1,4 @@
 import { db } from '../database/connection.js';
-import { startOfWeek, endOfWeek } from 'date-fns';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 import {
@@ -12,7 +11,12 @@ import { getUserById } from './userService.js';
 import {
   deleteEarnedTransactionsForDate,
   recordOvertimeEarned,
-  getOvertimeBalance
+  getOvertimeBalance,
+  recordVacationCredit,
+  recordSickCredit,
+  recordOvertimeCompCredit,
+  recordSpecialCredit,
+  recordUnpaidAdjustment
 } from './overtimeTransactionService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 
@@ -100,8 +104,8 @@ function calculateAbsenceCreditsForMonth(
       const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
       if (isHoliday) continue;
 
-      // Add daily target hours (respects workSchedule!)
-      absenceHours += getDailyTargetHours(user, d);
+      // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
+      absenceHours += getDailyTargetHours(user, dateStr);
     }
 
     totalCreditHours += absenceHours;
@@ -188,8 +192,8 @@ function calculateUnpaidLeaveForMonth(
       const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
       if (isHoliday) continue;
 
-      // Add daily target hours (respects workSchedule!)
-      totalUnpaidHours += getDailyTargetHours(user, d);
+      // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
+      totalUnpaidHours += getDailyTargetHours(user, dateStr);
     }
   }
 
@@ -210,6 +214,184 @@ interface WeeklyOvertime {
   overtime: number;
 }
 
+/**
+ * PROFESSIONAL STANDARD: Ensure absence transactions exist for a month
+ *
+ * This creates individual transaction records in overtime_transactions for transparency.
+ * Called from updateMonthlyOvertime() to maintain audit trail.
+ *
+ * IDEMPOTENT: Deletes existing absence transactions for month before creating new ones.
+ *
+ * Professional systems (SAP SuccessFactors, Personio, DATEV) require transparent transaction history.
+ */
+function ensureAbsenceTransactionsForMonth(userId: number, month: string): void {
+  console.log(`\n  🔧 ensureAbsenceTransactionsForMonth(userId=${userId}, month=${month})`);
+
+  const monthStart = new Date(month + '-01');
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+  // Get user for workSchedule
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(user.hireDate).getTime()));
+  const rangeEnd = new Date(Math.min(monthEnd.getTime(), new Date().getTime()));
+
+  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
+  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
+
+  console.log(`    📅 Date range: ${rangeStartStr} to ${rangeEndStr}`);
+
+  // Count existing absence transactions BEFORE
+  const monthFirstDay = formatDate(monthStart, 'yyyy-MM-dd');
+  const monthLastDay = formatDate(monthEnd, 'yyyy-MM-dd');
+  const transactionsBefore = db.prepare(`
+    SELECT COUNT(*) as count FROM overtime_transactions
+    WHERE userId = ?
+      AND date BETWEEN ? AND ?
+      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment')
+  `).get(userId, monthFirstDay, monthLastDay) as { count: number };
+  console.log(`    📊 Existing absence transactions BEFORE: ${transactionsBefore.count}`);
+
+  // CRITICAL FIX: ALWAYS delete old absence transactions first, regardless of current approved absences!
+  // This ensures that when an approved absence is rejected/deleted, its transactions get removed.
+  console.log(`    🗑️  Deleting ALL old absence transactions for this month...`);
+  const deleteResult = db.prepare(`
+    DELETE FROM overtime_transactions
+    WHERE userId = ?
+      AND date BETWEEN ? AND ?
+      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment')
+  `).run(userId, monthFirstDay, monthLastDay);
+  console.log(`    ✅ Deleted ${deleteResult.changes} old transactions`);
+
+  // Now load ALL currently approved absences for this month (all types!)
+  const absences = db.prepare(`
+    SELECT id, type, startDate, endDate
+    FROM absence_requests
+    WHERE userId = ?
+      AND status = 'approved'
+      AND type IN ('vacation', 'sick', 'overtime_comp', 'special', 'unpaid')
+      AND startDate <= ?
+      AND endDate >= ?
+  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
+    id: number;
+    type: 'vacation' | 'sick' | 'overtime_comp' | 'special' | 'unpaid';
+    startDate: string;
+    endDate: string;
+  }>;
+
+  console.log(`    📋 Found ${absences.length} currently approved absences in month`);
+
+  if (absences.length === 0) {
+    logger.debug({ userId, month }, 'No approved absences in month → No new transactions to create');
+    console.log(`    ✅ No approved absences → Old transactions deleted, no new ones to create`);
+    return;
+  }
+
+  logger.info({ userId, month, absencesCount: absences.length }, '🔄 Creating absence transactions for month');
+
+  // PHASE 1 FIX: Create "earned" transactions for absence days FIRST
+  // This implements neutralization: vacation day shows earned: -8h + vacation_credit: +8h = 0h net
+  let earnedTransactionsCreated = 0;
+
+  console.log(`    🔧 PHASE 1: Creating earned transactions for absence days (neutralization)...`);
+
+  for (const absence of absences) {
+    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+
+    // Iterate through each day of absence
+    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue; // Skip weekends
+
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+
+      // Check if holiday
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue; // Skip holidays
+
+      // Get target hours for this day (workSchedule-aware!)
+      const targetHours = getDailyTargetHours(user, dateStr);
+      if (targetHours === 0) continue; // Skip non-working days
+
+      // Check if time entries exist for this day
+      const hasTimeEntries = db.prepare(`
+        SELECT 1 FROM time_entries WHERE userId = ? AND date = ?
+      `).get(userId, dateStr);
+
+      if (!hasTimeEntries) {
+        // No time entries exist → create earned transaction with NEGATIVE hours
+        // This represents the Soll/Ist difference: 0 (actual) - targetHours (target) = -targetHours
+        recordOvertimeEarned(userId, dateStr, -targetHours, `Abwesenheit (${absence.type}): Soll/Ist-Differenz`);
+        earnedTransactionsCreated++;
+      }
+    }
+  }
+
+  console.log(`    ✅ Created ${earnedTransactionsCreated} earned transactions (negative hours for absence days)`);
+
+  // For each absence, iterate through each day and create CREDIT transactions
+  let transactionsCreated = 0;
+
+  console.log(`    🔧 PHASE 2: Creating credit transactions (neutralizes earned transactions)...`);
+
+  for (const absence of absences) {
+    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+
+    // Iterate through each day
+    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue;
+
+      // Check if holiday
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue;
+
+      // Calculate daily target hours (workSchedule-aware)
+      const dailyHours = getDailyTargetHours(user, dateStr);
+
+      if (dailyHours === 0) {
+        continue; // Skip days where user doesn't work (per workSchedule)
+      }
+
+      // Call appropriate record function based on absence type
+      switch (absence.type) {
+        case 'vacation':
+          recordVacationCredit(userId, dateStr, dailyHours, absence.id);
+          transactionsCreated++;
+          break;
+        case 'sick':
+          recordSickCredit(userId, dateStr, dailyHours, absence.id);
+          transactionsCreated++;
+          break;
+        case 'overtime_comp':
+          recordOvertimeCompCredit(userId, dateStr, dailyHours, absence.id);
+          transactionsCreated++;
+          break;
+        case 'special':
+          recordSpecialCredit(userId, dateStr, dailyHours, absence.id);
+          transactionsCreated++;
+          break;
+        case 'unpaid':
+          // Unpaid leave: REDUCES target, does NOT give credit
+          // But we still create a transaction for transparency
+          recordUnpaidAdjustment(userId, dateStr, dailyHours, absence.id);
+          transactionsCreated++;
+          break;
+      }
+    }
+  }
+
+  logger.info({ userId, month, transactionsCreated }, '✅ Absence transactions created');
+}
+
 interface MonthlyOvertime {
   month: string; // Format: "2025-11"
   targetHours: number;
@@ -226,154 +408,6 @@ interface OvertimeSummary {
 }
 
 /**
- * Get ISO week string from date (Berlin timezone)
- * Format: "2025-W45"
- */
-function getISOWeek(date: string): string {
-  const d = new Date(date);
-  const weekStart = startOfWeek(d, { weekStartsOn: 1 }); // Monday
-  return formatDate(weekStart, "yyyy-'W'II");
-}
-
-/**
- * Get week start and end dates from a date (Berlin timezone)
- */
-function getWeekDateRange(date: string): { startDate: string; endDate: string } {
-  const d = new Date(date);
-  const weekStart = startOfWeek(d, { weekStartsOn: 1 }); // Monday
-  const weekEnd = endOfWeek(d, { weekStartsOn: 1 }); // Sunday
-  return {
-    startDate: formatDate(weekStart, 'yyyy-MM-dd'),
-    endDate: formatDate(weekEnd, 'yyyy-MM-dd'),
-  };
-}
-
-/**
- * @deprecated LEGACY: Old daily aggregation system
- * Use overtimeTransactionService.updateOvertimeTransactionsForDate() for transaction-based tracking
- *
- * Update DAILY overtime for a specific date
- * Called automatically when time entries are created/updated/deleted
- *
- * KEPT FOR: Backward compatibility and legacy reports
- */
-export function updateDailyOvertime(userId: number, date: string): void {
-  // Get full user object with workSchedule for WorkSchedule-aware calculation
-  const user = getUserById(userId);
-
-  if (!user) {
-    logger.error({ userId }, 'updateDailyOvertime: User not found');
-    throw new Error(`User not found: ${userId}`);
-  }
-
-  // Check if date is before hire date
-  if (date < user.hireDate) {
-    // Before hire date: no target, no actual hours
-    db.prepare(
-      `INSERT INTO overtime_daily (userId, date, targetHours, actualHours)
-       VALUES (?, ?, 0, 0)
-       ON CONFLICT(userId, date)
-       DO UPDATE SET targetHours = 0, actualHours = 0`
-    ).run(userId, date);
-    logger.debug({ userId, date, hireDate: user.hireDate }, 'Skipped day before hire date');
-    return;
-  }
-
-  // ✅ FIXED: WorkSchedule-aware daily target calculation (respects individual schedules)
-  const dailyTarget = getDailyTargetHours(user, date);
-
-  // Calculate actual hours for the day
-  const actualHours = db
-    .prepare(
-      `SELECT COALESCE(SUM(hours), 0) as total
-       FROM time_entries
-       WHERE userId = ? AND date = ?`
-    )
-    .get(userId, date) as { total: number };
-
-  // Upsert daily overtime
-  db.prepare(
-    `INSERT INTO overtime_daily (userId, date, targetHours, actualHours)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(userId, date)
-     DO UPDATE SET targetHours = ?, actualHours = ?`
-  ).run(userId, date, dailyTarget, actualHours.total, dailyTarget, actualHours.total);
-}
-
-/**
- * @deprecated LEGACY: Old weekly aggregation system
- * Transaction-based system provides better granularity
- *
- * Update WEEKLY overtime for a specific week
- * Called automatically after daily overtime is updated
- *
- * KEPT FOR: Backward compatibility and legacy reports
- */
-export function updateWeeklyOvertime(userId: number, date: string): void {
-  // Get user with workSchedule support
-  const user = getUserById(userId);
-
-  if (!user) {
-    logger.error({ userId }, 'updateWeeklyOvertime: User not found');
-    throw new Error(`User not found: ${userId}`);
-  }
-
-  const weekString = getISOWeek(date);
-
-  // Get week start/end dates
-  const { startDate, endDate } = getWeekDateRange(date);
-
-  // Check if week is entirely before hire date
-  if (endDate < user.hireDate) {
-    // Entire week before hire date
-    db.prepare(
-      `INSERT INTO overtime_weekly (userId, week, targetHours, actualHours)
-       VALUES (?, ?, 0, 0)
-       ON CONFLICT(userId, week)
-       DO UPDATE SET targetHours = 0, actualHours = 0`
-    ).run(userId, weekString);
-    logger.debug({ userId, week: weekString, hireDate: user.hireDate }, 'Skipped week before hire date');
-    return;
-  }
-
-  // Adjust start date if hire date is mid-week
-  const actualStartDate = startDate < user.hireDate ? user.hireDate : startDate;
-
-  // Calculate target hours using individual work schedule
-  // Iterate through each working day and sum getDailyTargetHours()
-  let targetHours = 0;
-  for (let d = new Date(actualStartDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    if (isWeekend) continue;
-
-    const dateStr = formatDate(d, 'yyyy-MM-dd');
-    const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-    if (isHoliday) continue;
-
-    targetHours += getDailyTargetHours(user, d);
-  }
-  targetHours = Math.round(targetHours * 100) / 100;
-
-  // Calculate actual hours for the week
-  const actualHours = db
-    .prepare(
-      `SELECT COALESCE(SUM(hours), 0) as total
-       FROM time_entries
-       WHERE userId = ? AND date >= ? AND date <= ?`
-    )
-    .get(userId, startDate, endDate) as { total: number };
-
-  // Upsert weekly overtime
-  db.prepare(
-    `INSERT INTO overtime_weekly (userId, week, targetHours, actualHours)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(userId, week)
-     DO UPDATE SET targetHours = ?, actualHours = ?`
-  ).run(userId, weekString, targetHours, actualHours.total, targetHours, actualHours.total);
-}
-
-/**
  * @deprecated LEGACY: Old monthly aggregation system
  * Transaction-based system is now the primary source of truth
  *
@@ -383,12 +417,15 @@ export function updateWeeklyOvertime(userId: number, date: string): void {
  * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateMonthlyOvertime(userId: number, month: string): void {
+  console.log(`\n🔄 updateMonthlyOvertime(userId=${userId}, month=${month})`);
+
   // Get user with workSchedule support
   const user = getUserById(userId);
 
   if (!user) {
     throw new Error(`User not found: ${userId}`);
   }
+  console.log(`  👤 User found: ${user.firstName} ${user.lastName}`);
 
   const [year, monthNum] = month.split('-').map(Number);
   const today = getCurrentDate();
@@ -429,7 +466,8 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
     if (isHoliday) continue;
 
-    targetHours += getDailyTargetHours(user, d);
+    // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
+    targetHours += getDailyTargetHours(user, dateStr);
   }
   targetHours = Math.round(targetHours * 100) / 100;
 
@@ -485,6 +523,16 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
      DO UPDATE SET targetHours = ?, actualHours = ?`
   ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
 
+  // CRITICAL: Ensure absence transactions are created for transparency
+  // This creates individual transaction records for each absence day (vacation, sick, etc.)
+  // Professional standard (SAP, Personio, DATEV): Transparent audit trail required!
+  try {
+    ensureAbsenceTransactionsForMonth(userId, month);
+  } catch (error) {
+    logger.error({ err: error, userId, month }, '❌ Failed to create absence transactions');
+    // Don't throw - overtime_balance is updated, transaction creation is secondary
+  }
+
   // REMOVED: Old Work Time Account sync (now handled by transaction-based system)
   // Work Time Account is now ONLY updated from overtimeTransactionService for consistency
   // See: absenceService.ts:696 for the single source of truth
@@ -495,12 +543,17 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
  * This is called from timeEntryService when entries are created/updated/deleted
  *
  * PROFESSIONAL STANDARD (SAP SuccessFactors, Personio, DATEV):
- * - Transaction-based overtime tracking as primary system
- * - Old aggregation tables (daily, weekly, monthly) maintained for legacy reports
- * - Work Time Account synced from transaction-based balance (single source of truth)
+ * - Transaction-based overtime tracking (PRIMARY: overtime_transactions)
+ * - Monthly aggregation (SSOT: overtime_balance)
+ * - Work Time Account synced from overtime_balance (consistency!)
  *
  * CRITICAL: Uses transaction to prevent race conditions and ensure atomicity.
  * If one update fails, ALL updates are rolled back to maintain data consistency.
+ *
+ * OPTIMIZED (2026-01-27): Removed legacy daily/weekly aggregations
+ * - Removed: updateDailyOvertime() - no longer needed
+ * - Removed: updateWeeklyOvertime() - no longer needed
+ * - Kept: updateMonthlyOvertime() - CRITICAL (fills overtime_balance SSOT)
  */
 export function updateAllOvertimeLevels(userId: number, date: string): void {
   const month = date.substring(0, 7); // "2025-11"
@@ -510,21 +563,20 @@ export function updateAllOvertimeLevels(userId: number, date: string): void {
     // NEW SYSTEM: Transaction-based tracking (PRIMARY)
     updateOvertimeTransactionsForDate(userId, date);
 
-    // OLD SYSTEM: Legacy aggregation tables (for backward compatibility)
-    updateDailyOvertime(userId, date);
-    updateWeeklyOvertime(userId, date);
+    // SSOT: Monthly aggregation (overtime_balance table)
+    // CRITICAL: This is the authoritative source for monthly overtime!
     updateMonthlyOvertime(userId, month);
   });
 
   // Execute transaction (all-or-nothing)
   transaction();
 
-  // Sync Work Time Account with transaction-based balance (outside transaction)
-  // This ensures Work Time Account always reflects the current transaction-based balance
+  // Sync Work Time Account with overtime_balance (outside transaction)
+  // This ensures Work Time Account always reflects the current balance
   const currentBalance = getOvertimeBalance(userId);
   updateWorkTimeAccountBalance(userId, currentBalance);
 
-  logger.debug({ userId, date, balance: currentBalance }, '✅ Work Time Account synced from transactions');
+  logger.debug({ userId, date, balance: currentBalance }, '✅ Work Time Account synced from overtime_balance');
 }
 
 /**
@@ -568,10 +620,8 @@ function updateOvertimeTransactionsForDate(userId: number, date: string): void {
   // Delete existing earned transactions for this date
   deleteEarnedTransactionsForDate(userId, date);
 
-  // Record new transaction (if not 0)
-  if (overtime !== 0) {
-    recordOvertimeEarned(userId, date, overtime);
-  }
+  // ✅ Record new transaction (ALWAYS, even 0h for complete audit trail!)
+  recordOvertimeEarned(userId, date, overtime);
 
   logger.debug({
     userId,
@@ -586,7 +636,7 @@ function updateOvertimeTransactionsForDate(userId: number, date: string): void {
  * Get complete overtime summary for a user and year
  * Returns daily, weekly, monthly breakdowns + total
  */
-export function getOvertimeSummary(userId: number, year: number): OvertimeSummary {
+export async function getOvertimeSummary(userId: number, year: number): Promise<OvertimeSummary> {
   logger.debug('🔥🔥🔥 getOvertimeSummary CALLED 🔥🔥🔥');
   logger.debug({ userId, year }, '📌 Parameters');
 
@@ -609,30 +659,15 @@ export function getOvertimeSummary(userId: number, year: number): OvertimeSummar
   logger.debug({ endMonth }, '📅 Ensuring overtime entries up to');
 
   // Ensure all monthly overtime_balance entries exist
-  ensureOvertimeBalanceEntries(userId, endMonth);
+  await ensureOvertimeBalanceEntries(userId, endMonth);
 
   logger.debug('✅ All monthly entries ensured');
 
-  // Get daily overtime (only from hireDate onwards)
-  const daily = db
-    .prepare(
-      `SELECT date, targetHours, actualHours, overtime
-       FROM overtime_daily
-       WHERE userId = ? AND date LIKE ? AND date >= ?
-       ORDER BY date DESC`
-    )
-    .all(userId, `${year}-%`, hireDate) as DailyOvertime[];
-
-  // Get weekly overtime (only from hireDate onwards)
-  const weekly = db
-    .prepare(
-      `SELECT week, targetHours, actualHours, overtime
-       FROM overtime_weekly
-       WHERE userId = ? AND week LIKE ?
-         AND week >= strftime('%Y-W%W', ?)
-       ORDER BY week DESC`
-    )
-    .all(userId, `${year}-%`, hireDate) as WeeklyOvertime[];
+  // LEGACY TABLES REMOVED (2026-01-27): overtime_daily and overtime_weekly
+  // Now using transaction-based system (overtime_transactions + overtime_balance)
+  // Daily/weekly breakdowns can be derived from overtime_transactions if needed
+  const daily: DailyOvertime[] = [];
+  const weekly: WeeklyOvertime[] = [];
 
   // Get monthly overtime (only from hireDate onwards)
   const monthlyRaw = db
@@ -668,35 +703,7 @@ export function getOvertimeSummary(userId: number, year: number): OvertimeSummar
   };
 }
 
-/**
- * Get daily overtime for a specific date
- */
-export function getDailyOvertime(userId: number, date: string): DailyOvertime | null {
-  const result = db
-    .prepare(
-      `SELECT date, targetHours, actualHours, overtime
-       FROM overtime_daily
-       WHERE userId = ? AND date = ?`
-    )
-    .get(userId, date) as DailyOvertime | undefined;
 
-  return result || null;
-}
-
-/**
- * Get weekly overtime for a specific week
- */
-export function getWeeklyOvertime(userId: number, week: string): WeeklyOvertime | null {
-  const result = db
-    .prepare(
-      `SELECT week, targetHours, actualHours, overtime
-       FROM overtime_weekly
-       WHERE userId = ? AND week = ?`
-    )
-    .get(userId, week) as WeeklyOvertime | undefined;
-
-  return result || null;
-}
 
 /**
  * Get monthly overtime for a specific month
@@ -713,49 +720,12 @@ export function getMonthlyOvertime(userId: number, month: string): MonthlyOverti
   return result || null;
 }
 
-/**
- * Get current overtime stats (for dashboard)
- * Returns: today, this week, this month, total year
- */
-export function getCurrentOvertimeStats(userId: number) {
-  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
-  const currentWeek = getISOWeek(today);
-  const currentMonth = formatDate(getCurrentDate(), 'yyyy-MM');
-  const currentYear = getCurrentYear();
-
-  logger.debug('🔥🔥🔥 getCurrentOvertimeStats CALLED 🔥🔥🔥');
-  logger.debug({ userId, today, currentWeek, currentMonth, currentYear }, '📌 Parameters');
-
-  const dailyData = getDailyOvertime(userId, today);
-  logger.debug({ dailyData }, '📊 dailyData');
-
-  const weeklyData = getWeeklyOvertime(userId, currentWeek);
-  logger.debug({ weeklyData }, '📊 weeklyData');
-
-  const monthlyData = getMonthlyOvertime(userId, currentMonth);
-  logger.debug({ monthlyData }, '📊 monthlyData');
-
-  const yearData = getOvertimeSummary(userId, currentYear);
-  logger.debug({ yearDataTotal: yearData.totalOvertime }, '📊 yearData');
-
-  const result = {
-    today: dailyData?.overtime || 0,
-    thisWeek: weeklyData?.overtime || 0,
-    thisMonth: monthlyData?.overtime || 0,
-    totalYear: yearData.totalOvertime,
-  };
-
-  logger.info({ result }, '✅ RETURNING RESULT');
-  logger.debug('🔥🔥🔥 END getCurrentOvertimeStats 🔥🔥🔥');
-
-  return result;
-}
 
 /**
  * Ensure overtime_balance entries exist for all months between hire date and target month
  * This is CRITICAL - without entries for months with 0 hours, negative overtime won't accumulate!
  */
-export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string): void {
+export async function ensureOvertimeBalanceEntries(userId: number, upToMonth: string): Promise<void> {
   logger.debug({ userId, upToMonth }, '🔥 ensureOvertimeBalanceEntries called');
 
   // Get user with workSchedule support
@@ -767,6 +737,15 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
 
   const hireDate = new Date(user.hireDate);
   const targetDate = new Date(upToMonth + '-01');
+
+  // Ensure holidays are loaded for all years in this range
+  const startYear = hireDate.getFullYear();
+  const endYear = targetDate.getFullYear();
+  const { ensureYearCoverage } = await import('./holidayService.js');
+
+  for (let year = startYear; year <= endYear; year++) {
+    await ensureYearCoverage(year);
+  }
 
   logger.debug({ hireDate: user.hireDate, targetMonth: upToMonth }, '📅 Date range');
 
@@ -807,15 +786,15 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
     // Iterate through each working day and sum getDailyTargetHours()
     let targetHours = 0;
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue;
-
+      // CRITICAL FIX #1: Convert Date to string BEFORE using it (Date object mutates in loop!)
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue;
 
-      targetHours += getDailyTargetHours(user, d);
+      // CRITICAL FIX #2: getDailyTargetHours() handles holidays AND workSchedule correctly
+      // Don't skip weekends here - let getDailyTargetHours decide based on workSchedule!
+      // Old buggy code: if (isWeekend) continue; ← This broke weekend workers!
+
+      const hours = getDailyTargetHours(user, dateStr);
+      targetHours += hours;
     }
     targetHours = Math.round(targetHours * 100) / 100;
 
@@ -867,12 +846,104 @@ export function ensureOvertimeBalanceEntries(userId: number, upToMonth: string):
 }
 
 /**
+ * Ensure ALL daily overtime_transactions exist for a date range
+ * Creates transactions for days WITHOUT time_entries (missing minus hours!)
+ *
+ * ON-DEMAND: Called before reading transactions (like ensureOvertimeBalanceEntries)
+ * IDEMPOTENT: Can be called multiple times, won't create duplicates
+ *
+ * @param userId User ID
+ * @param startMonth Start month in 'YYYY-MM' format
+ * @param endMonth End month in 'YYYY-MM' format
+ */
+export async function ensureDailyOvertimeTransactions(
+  userId: number,
+  startMonth: string,
+  endMonth: string
+): Promise<void> {
+  logger.info({ userId, startMonth, endMonth }, '🔥 ensureDailyOvertimeTransactions called');
+
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  // Parse month range
+  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
+  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+
+  const startDate = new Date(startYear, startMonthNum - 1, 1);
+  const endDate = new Date(endYear, endMonthNum, 0); // Last day of end month
+  const today = getCurrentDate();
+
+  // Don't go into the future
+  const effectiveEndDate = endDate > today ? today : endDate;
+
+  // Don't go before hire date
+  const hireDate = new Date(user.hireDate);
+  const effectiveStartDate = startDate < hireDate ? hireDate : startDate;
+
+  logger.debug({
+    effectiveStartDate: formatDate(effectiveStartDate, 'yyyy-MM-dd'),
+    effectiveEndDate: formatDate(effectiveEndDate, 'yyyy-MM-dd')
+  }, '📅 Date range');
+
+  let transactionsCreated = 0;
+  let transactionsSkipped = 0;
+
+  // Iterate through ALL days
+  for (let d = new Date(effectiveStartDate); d <= effectiveEndDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
+
+    // Check if transaction already exists
+    const existing = db.prepare(`
+      SELECT id FROM overtime_transactions
+      WHERE userId = ? AND date = ? AND type = 'earned'
+    `).get(userId, dateStr);
+
+    if (existing) {
+      transactionsSkipped++;
+      continue; // Skip if exists
+    }
+
+    // Calculate overtime for this day
+    const targetHours = getDailyTargetHours(user, dateStr);
+    const actualHours = db.prepare(`
+      SELECT COALESCE(SUM(hours), 0) as total
+      FROM time_entries WHERE userId = ? AND date = ?
+    `).get(userId, dateStr) as { total: number };
+
+    const overtime = actualHours.total - targetHours;
+
+    // Create transaction (even 0h!)
+    recordOvertimeEarned(userId, dateStr, overtime);
+    transactionsCreated++;
+  }
+
+  logger.info({
+    userId,
+    startMonth,
+    endMonth,
+    transactionsCreated,
+    transactionsSkipped
+  }, '✅ Ensured daily overtime transactions (earned)');
+
+  // NOW: Ensure absence credit transactions
+  await ensureAbsenceTransactions(userId, startMonth, endMonth);
+
+  // NOW: Ensure correction transactions
+  await ensureCorrectionTransactions(userId, startMonth, endMonth);
+
+  logger.info({ userId, startMonth, endMonth }, '✅ Ensured ALL transaction types');
+}
+
+/**
  * Get overtime for all users (Admin dashboard)
  * Calculates cumulative overtime from start of year UP TO CURRENT MONTH (inclusive)
  * This gives the CURRENT balance, not future projection
  * IMPORTANT: Only counts months from employee's hire date onwards!
  */
-export function getAllUsersOvertimeSummary(year: number, month?: string) {
+export async function getAllUsersOvertimeSummary(year: number, month?: string) {
   const today = getCurrentDate();
   const currentYear = today.getFullYear();
 
@@ -890,7 +961,7 @@ export function getAllUsersOvertimeSummary(year: number, month?: string) {
 
     // Ensure overtime_balance exists for this month
     for (const user of users) {
-      ensureOvertimeBalanceEntries(user.id, month);
+      await ensureOvertimeBalanceEntries(user.id, month);
     }
   } else {
     // Yearly report: Full year or up to current month
@@ -900,7 +971,7 @@ export function getAllUsersOvertimeSummary(year: number, month?: string) {
       : `${year}-12`;
 
     for (const user of users) {
-      ensureOvertimeBalanceEntries(user.id, endMonth);
+      await ensureOvertimeBalanceEntries(user.id, endMonth);
     }
   }
 
@@ -939,7 +1010,7 @@ export function getAllUsersOvertimeSummary(year: number, month?: string) {
  * Returns total sums for Soll, Ist, and Überstunden
  * Best Practice: Used for "Alle Mitarbeiter" view in reports
  */
-export function getAggregatedOvertimeStats(year: number, month?: string) {
+export async function getAggregatedOvertimeStats(year: number, month?: string) {
   const today = getCurrentDate();
   const currentYear = today.getFullYear();
 
@@ -949,7 +1020,7 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
   const targetMonth = month || formatDate(today, 'yyyy-MM');
 
   for (const user of users) {
-    ensureOvertimeBalanceEntries(user.id, targetMonth);
+    await ensureOvertimeBalanceEntries(user.id, targetMonth);
   }
 
   // Query for monthly aggregation
@@ -1023,13 +1094,13 @@ export function getAggregatedOvertimeStats(year: number, month?: string) {
 /**
  * Deduct overtime when overtime compensation absence is approved
  */
-export function deductOvertimeForAbsence(
+export async function deductOvertimeForAbsence(
   userId: number,
   hours: number,
   absenceDate: string
-): void {
+): Promise<void> {
   const currentYear = getCurrentYear();
-  const summary = getOvertimeSummary(userId, currentYear);
+  const summary = await getOvertimeSummary(userId, currentYear);
 
   if (summary.totalOvertime < hours) {
     throw new Error(
@@ -1052,9 +1123,9 @@ export function deductOvertimeForAbsence(
 /**
  * Check if user has enough overtime for compensation request
  */
-export function hasEnoughOvertime(userId: number, requestedHours: number): boolean {
+export async function hasEnoughOvertime(userId: number, requestedHours: number): Promise<boolean> {
   const currentYear = getCurrentYear();
-  const summary = getOvertimeSummary(userId, currentYear);
+  const summary = await getOvertimeSummary(userId, currentYear);
   return summary.totalOvertime >= requestedHours;
 }
 
@@ -1075,8 +1146,43 @@ export function hasEnoughOvertime(userId: number, requestedHours: number): boole
  * @returns Total overtime hours at year-end
  */
 export function getYearEndOvertimeBalance(userId: number, year: number): number {
-  const summary = getOvertimeSummary(userId, year);
-  return summary.totalOvertime;
+  logger.info({ userId, year }, '📊 getYearEndOvertimeBalance - OPTIMIZED VERSION (Direct DB Query)');
+
+  // OPTIMIZATION: Read directly from overtime_balance table instead of recalculating!
+  // This function is called during Year-End Rollover AFTER ensureOvertimeBalanceEntries
+  // has already been called, so the data is already in the DB.
+
+  // Get all monthly balances for the year
+  const monthlyBalances = db.prepare(`
+    SELECT overtime, carryoverFromPreviousYear
+    FROM overtime_balance
+    WHERE userId = ? AND month LIKE ?
+    ORDER BY month ASC
+  `).all(userId, `${year}-%`) as Array<{ overtime: number; carryoverFromPreviousYear: number }>;
+
+  if (monthlyBalances.length === 0) {
+    logger.error({ userId, year }, '❌ No overtime_balance entries found - cannot calculate year-end balance');
+    // CRITICAL: This should never happen in normal flow!
+    // ensureOvertimeBalanceEntries() must be called BEFORE getYearEndOvertimeBalance()
+    // Returning 0 as safe fallback (year-end rollover will continue but log error)
+    return 0;
+  }
+
+  // Sum all monthly overtime (each month's overtime = actualHours - targetHours for that month)
+  const totalMonthlyOvertime = monthlyBalances.reduce((sum, m) => sum + m.overtime, 0);
+
+  // Get carryover from January (all months have the same carryoverFromPreviousYear value)
+  const carryover = monthlyBalances[0]?.carryoverFromPreviousYear || 0;
+
+  const totalBalance = totalMonthlyOvertime + carryover;
+
+  logger.info(
+    { userId, year, monthsFound: monthlyBalances.length, totalMonthlyOvertime, carryover, totalBalance },
+    `✅ Year-end balance calculated from ${monthlyBalances.length} months`
+  );
+
+  // Return cumulative balance: sum of all monthly overtime + carryover from previous year
+  return totalBalance;
 }
 
 /**
@@ -1151,7 +1257,7 @@ export function bulkInitializeOvertimeBalancesForNewYear(year: number): number {
 
   // Get all active users
   const users = db
-    .prepare('SELECT id FROM users WHERE deletedAt IS NULL AND status = "active"')
+    .prepare('SELECT id FROM users WHERE deletedAt IS NULL AND status = \'active\'')
     .all() as Array<{ id: number }>;
 
   logger.info({ count: users.length }, `📋 Found ${users.length} active users`);
@@ -1192,34 +1298,207 @@ export function bulkInitializeOvertimeBalancesForNewYear(year: number): number {
   return processedCount;
 }
 
+
 /**
- * LEGACY COMPATIBILITY FUNCTIONS
- * These are kept for backwards compatibility with old API endpoints
+ * Ensure absence credit transactions exist for all approved absences
  *
- * @deprecated Use overtimeTransactionService.getOvertimeBalance() for NEW transaction-based system
+ * Creates transactions for: vacation, sick, overtime_comp, special, unpaid
+ *
+ * IMPORTANT: Unpaid leave gets unpaid_adjustment transactions to compensate
+ * for the negative earned transactions (since target is reduced to 0)
+ *
+ * @param userId User ID
+ * @param startMonth Start month (YYYY-MM)
+ * @param endMonth End month (YYYY-MM)
  */
+export async function ensureAbsenceTransactions(
+  userId: number,
+  startMonth: string,
+  endMonth: string
+): Promise<void> {
+  logger.info({ userId, startMonth, endMonth }, '🔥 ensureAbsenceTransactions called');
 
-/**
- * @deprecated LEGACY: Uses old overtime_balance table. Use overtimeTransactionService.getOvertimeBalance() instead.
- */
-export function getOvertimeBalanceLEGACY(userId: number, year: number) {
-  return getOvertimeSummary(userId, year);
-}
-
-/**
- * @deprecated LEGACY: Uses old monthly system. Use transaction-based system instead.
- */
-export function getOvertimeByMonth(userId: number, month: string) {
-  const monthlyData = getMonthlyOvertime(userId, month);
-  if (!monthlyData) {
-    return { targetHours: 0, actualHours: 0, overtime: 0 };
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
   }
-  return monthlyData;
+
+  // Parse month range
+  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
+  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+
+  const startDate = new Date(startYear, startMonthNum - 1, 1);
+  const endDate = new Date(endYear, endMonthNum, 0); // Last day of end month
+  const today = getCurrentDate();
+
+  // Don't go into the future
+  const effectiveEndDate = endDate > today ? today : endDate;
+
+  // Don't go before hire date
+  const hireDate = new Date(user.hireDate);
+  const effectiveStartDate = startDate < hireDate ? hireDate : startDate;
+
+  const effectiveStartStr = formatDate(effectiveStartDate, 'yyyy-MM-dd');
+  const effectiveEndStr = formatDate(effectiveEndDate, 'yyyy-MM-dd');
+
+  logger.debug({
+    effectiveStartDate: effectiveStartStr,
+    effectiveEndDate: effectiveEndStr
+  }, '📅 Absence date range');
+
+  // Get all approved absences in date range (NOW INCLUDING unpaid!)
+  const absences = db.prepare(`
+    SELECT id, type, startDate, endDate
+    FROM absence_requests
+    WHERE userId = ?
+      AND status = 'approved'
+      AND type IN ('vacation', 'sick', 'overtime_comp', 'special', 'unpaid')
+      AND startDate <= ?
+      AND endDate >= ?
+    ORDER BY startDate ASC
+  `).all(userId, effectiveEndStr, effectiveStartStr) as Array<{
+    id: number;
+    type: 'vacation' | 'sick' | 'overtime_comp' | 'special' | 'unpaid';
+    startDate: string;
+    endDate: string;
+  }>;
+
+  let transactionsCreated = 0;
+  let transactionsSkipped = 0;
+
+  for (const absence of absences) {
+    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), effectiveStartDate.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), effectiveEndDate.getTime()));
+
+    // Iterate through each day of absence
+    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) continue; // Skip weekends
+
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
+
+      // Check if holiday
+      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+      if (isHoliday) continue; // Skip holidays
+
+      // Get target hours for this day (workSchedule-aware!)
+      const targetHours = getDailyTargetHours(user, dateStr);
+      if (targetHours === 0) continue; // Skip non-working days
+
+      // Check if transaction already exists
+      const transactionType = absence.type === 'unpaid'
+        ? 'unpaid_adjustment'
+        : `${absence.type}_credit` as 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit';
+
+      const existing = db.prepare(`
+        SELECT id FROM overtime_transactions
+        WHERE userId = ? AND date = ? AND type = ? AND referenceId = ?
+      `).get(userId, dateStr, transactionType, absence.id);
+
+      if (existing) {
+        transactionsSkipped++;
+        continue;
+      }
+
+      // Create credit transaction
+      switch (absence.type) {
+        case 'vacation':
+          recordVacationCredit(userId, dateStr, targetHours, absence.id);
+          break;
+        case 'sick':
+          recordSickCredit(userId, dateStr, targetHours, absence.id);
+          break;
+        case 'overtime_comp':
+          recordOvertimeCompCredit(userId, dateStr, targetHours, absence.id);
+          break;
+        case 'special':
+          recordSpecialCredit(userId, dateStr, targetHours, absence.id);
+          break;
+        case 'unpaid':
+          // Unpaid leave: Add adjustment to compensate for negative earned
+          // (earned for unpaid day = 0 - targetHours = -targetHours)
+          // (unpaid_adjustment = +targetHours to compensate)
+          recordUnpaidAdjustment(userId, dateStr, targetHours, absence.id);
+          break;
+      }
+
+      transactionsCreated++;
+    }
+  }
+
+  logger.info({
+    userId,
+    startMonth,
+    endMonth,
+    absencesProcessed: absences.length,
+    transactionsCreated,
+    transactionsSkipped
+  }, '✅ Ensured absence credit transactions');
 }
 
 /**
- * @deprecated LEGACY: Uses old monthly system. Use transaction-based system instead.
+ * Ensure correction transactions exist for all overtime_corrections
+ *
+ * NOTE: Corrections already create transactions when created via overtimeCorrectionsService
+ * This function is for backfilling old corrections that might not have transactions
+ *
+ * @param userId User ID
+ * @param startMonth Start month (YYYY-MM)
+ * @param endMonth End month (YYYY-MM)
  */
-export function getOvertimeStats(userId: number) {
-  return getCurrentOvertimeStats(userId);
+export async function ensureCorrectionTransactions(
+  userId: number,
+  startMonth: string,
+  endMonth: string
+): Promise<void> {
+  logger.info({ userId, startMonth, endMonth }, '🔥 ensureCorrectionTransactions called');
+
+  // Get all corrections in date range
+  const corrections = db.prepare(`
+    SELECT id, date, hours, reason
+    FROM overtime_corrections
+    WHERE userId = ?
+      AND strftime('%Y-%m', date) >= ?
+      AND strftime('%Y-%m', date) <= ?
+    ORDER BY date ASC
+  `).all(userId, startMonth, endMonth) as Array<{
+    id: number;
+    date: string;
+    hours: number;
+    reason: string;
+  }>;
+
+  let transactionsCreated = 0;
+  let transactionsSkipped = 0;
+
+  for (const correction of corrections) {
+    // Check if transaction already exists
+    const existing = db.prepare(`
+      SELECT id FROM overtime_transactions
+      WHERE userId = ? AND date = ? AND type = 'correction' AND referenceId = ?
+    `).get(userId, correction.date, correction.id);
+
+    if (existing) {
+      transactionsSkipped++;
+      continue;
+    }
+
+    // Create correction transaction
+    db.prepare(`
+      INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
+      VALUES (?, ?, 'correction', ?, ?, 'manual', ?)
+    `).run(userId, correction.date, correction.hours, correction.reason, correction.id);
+
+    transactionsCreated++;
+  }
+
+  logger.info({
+    userId,
+    startMonth,
+    endMonth,
+    correctionsProcessed: corrections.length,
+    transactionsCreated,
+    transactionsSkipped
+  }, '✅ Ensured correction transactions');
 }

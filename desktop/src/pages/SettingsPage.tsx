@@ -4,6 +4,7 @@ import { useCurrentUser } from '../hooks';
 import PasswordChangeForm from '../components/settings/PasswordChangeForm';
 import EmailChangeForm from '../components/settings/EmailChangeForm';
 import UpdateChecker from '../components/settings/UpdateChecker';
+import { WorkScheduleDisplay } from '../components/worktime/WorkScheduleDisplay';
 import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 
@@ -119,7 +120,8 @@ export default function SettingsPage() {
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === 'profile' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
+              {/* Basic Profile Info */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Profilinformationen
@@ -151,14 +153,6 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Wochenarbeitsstunden
-                    </label>
-                    <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
-                      {currentUser?.weeklyHours} Stunden
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Urlaubstage pro Jahr
                     </label>
                     <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
@@ -180,6 +174,13 @@ export default function SettingsPage() {
                   ℹ️ Diese Werte können nur von einem Administrator geändert werden
                 </p>
               </div>
+
+              {/* Work Schedule Section */}
+              {currentUser && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <WorkScheduleDisplay user={currentUser} mode="detailed" />
+                </div>
+              )}
 
               <EmailChangeForm />
             </div>

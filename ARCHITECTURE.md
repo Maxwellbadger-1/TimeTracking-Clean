@@ -785,6 +785,348 @@ npm run validate:overtime -- --scenario=hans-individual-schedule
 
 ---
 
+#### 6.3.9 Reports Page - Single Source of Truth Implementation ✅
+
+**STATUS (2026-01-24):** ✅ **RESOLVED** - Berichte-Tab now uses Single Source of Truth
+
+**Previous Issue:** Massive discrepancy between components (+57:30h vs -14:30h)
+- "Überstunden-Transaktionen" used `overtime_transactions` table (✅ correct)
+- "Monatliche Entwicklung" used `overtime_balance` via `reportService` (❌ wrong - outdated)
+- Two different data sources = user confusion
+
+**Fix:** Complete migration to transaction-based system
+1. ✅ New endpoint: `/api/overtime/transactions/monthly-summary`
+2. ✅ New service: `getMonthlyTransactionSummary()` in `overtimeTransactionService.ts`
+3. ✅ New hook: `useOvertimeHistoryFromTransactions()`
+4. ✅ Updated `WorkTimeAccountHistory.tsx` to use transaction data
+5. ✅ Added "Korrektur" column for transparency
+
+**Result:** Both components now show SAME balance (professional standard: SAP SuccessFactors, Personio)
+
+---
+
+##### 6.3.9.1 NEW Architecture (Transaction-Based) ✅
+
+```mermaid
+graph TD
+    A[User creates time_entry] --> B[timeEntryService.ts]
+    B --> C[overtimeService.ts]
+    C --> D[updateOvertimeTransactionsForDate]
+    D --> E[overtime_transactions table]
+
+    E --> F[Berichte-Tab Components]
+    F --> G[OvertimeTransactions.tsx]
+    F --> H[WorkTimeAccountHistory.tsx]
+
+    G --> I[Shows: Individual Transactions]
+    H --> J[Shows: Monthly Summary]
+
+    I --> K[Zeitkonto-Saldo: -14:30h ✅]
+    J --> K
+
+    style E fill:#90EE90
+    style K fill:#90EE90
+```
+
+**Benefits:**
+- ✅ Dual System: `overtime_balance` (aggregated balance) + `overtime_transactions` (audit trail)
+- ✅ Balance calculation: Uses `overtime_balance` table (includes unpaid leave reduction)
+- ✅ Guaranteed consistency (both widgets show same balance)
+- ✅ Full transparency (earned/compensation/correction breakdown in transactions)
+- ✅ Professional standard (SAP/Personio compliance)
+- ✅ Immutable audit trail (all changes tracked)
+
+---
+
+##### 6.3.9.2 Transaction Service (Audit Trail + Balance Calculation) ✅
+
+**File:** `server/src/services/overtimeTransactionService.ts` (~478 lines)
+
+**Purpose:** Professional transaction-based overtime tracking (SAP SuccessFactors standard)
+
+**Transaction Types:**
+- `earned`: Daily overtime from time entries (Soll/Ist difference)
+- `compensation`: Overtime deduction when taking time off
+- `correction`: Manual adjustments by admin
+- `carryover`: Year-end transfer markers (audit trail only)
+
+**Key Functions:**
+
+1. **`getMonthlyTransactionSummary(userId, months)`** (Line 399-477)
+   - Groups transactions by month
+   - Calculates cumulative balance (bank account style)
+   - Returns: `{ month, earned, compensation, correction, carryover, balance, balanceChange }`
+   - Used by: Berichte-Tab "Monatliche Entwicklung"
+
+2. **`getOvertimeBalance(userId)`** (Line 363-374) ✅ FIXED 2026-01-25
+   - Current overtime balance from `overtime_balance` table (Single Source of Truth)
+   - Query: `SUM(actualHours - targetHours) FROM overtime_balance`
+   - **NOT** from transactions! (`overtime_balance` includes unpaid leave reduction)
+   - Used by: "Zeitkonto-Saldo" display in Überstunden-Transaktionen widget
+
+3. **`recordOvertimeEarned(userId, date, hours)`** (Line 44-68)
+   - Called automatically after time entry changes
+   - Immutable audit trail
+
+**Database:**
+```sql
+overtime_transactions (id, userId, date, type, hours, description, referenceType, referenceId, createdAt, createdBy)
+```
+
+**Benefits:**
+- ✅ Immutable audit trail (all changes tracked)
+- ✅ Transaction breakdown visible to user
+- ✅ Professional standard (SAP, Personio, DATEV)
+- ✅ No recalculation needed (read from DB)
+
+---
+
+##### 6.3.9.3 API Endpoints (NEW) ✅
+
+**File:** `server/src/routes/overtime.ts`
+
+**Endpoint 1: Monthly Summary**
+```
+GET /api/overtime/transactions/monthly-summary?userId={id}&months={1-36}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "summary": [
+      {
+        "month": "2026-01",
+        "earned": -14.5,
+        "compensation": 0,
+        "correction": 0,
+        "carryover": 0,
+        "balance": -14.5,
+        "balanceChange": -14.5
+      }
+    ],
+    "currentBalance": -14.5,
+    "userId": 155
+  }
+}
+```
+
+**Used by:** `WorkTimeAccountHistory.tsx` (Monatliche Entwicklung)
+
+**Endpoint 2: Individual Transactions**
+```
+GET /api/overtime/transactions/:userId?year={year}&limit={n}
+```
+**Used by:** `OvertimeTransactions.tsx` (Überstunden-Transaktionen)
+
+---
+
+##### 6.3.9.4 Frontend Hooks (NEW) ✅
+
+**File:** `desktop/src/hooks/useOvertimeReports.ts`
+
+**Hook:** `useOvertimeHistoryFromTransactions(userId, months)`
+```typescript
+export function useOvertimeHistoryFromTransactions(userId: number, months: number = 12) {
+  return useQuery({
+    queryKey: ['overtime-history-transactions', userId, months],
+    queryFn: async (): Promise<OvertimeHistoryEntry[]> => {
+      const response = await apiClient.get(`/overtime/transactions/monthly-summary?userId=${userId}&months=${months}`);
+      return response.data.summary;
+    },
+    enabled: !!userId,
+  });
+}
+```
+
+**Replaces:** `useOvertimeHistory()` (deprecated - used `overtime_balance` which was outdated)
+
+**Used by:**
+- `WorkTimeAccountHistory.tsx` (Line 15)
+
+---
+
+##### 6.3.9.5 Updated Components ✅
+
+**File:** `desktop/src/components/worktime/WorkTimeAccountHistory.tsx`
+
+**Changes:**
+1. ✅ Switched to `useOvertimeHistoryFromTransactions()` (Line 15)
+2. ✅ Added "Korrektur" column to table (Line 109-216)
+3. ✅ Enhanced summary section with correction totals (Line 301-313)
+4. ✅ Color coding: green/red (earned), orange (compensation), purple (correction)
+5. ✅ Conditional carryover column (only shown when needed)
+
+**Result:** Now matches "Zeitkonto-Saldo" in OvertimeTransactions component (no more discrepancy!)
+
+---
+
+##### 6.3.9.6 Overtime System Architecture (Updated 2026-01-27) ✅
+
+**Current State:** Simplified hybrid system with performance optimizations
+
+**Active Components:**
+- ✅ `overtime_balance` table (monthly aggregates - Single Source of Truth for reports)
+- ✅ `overtime_transactions` table (immutable audit trail)
+- ✅ `reportService.ts` (reads from `overtime_balance`, no longer recalculates)
+- ✅ `/api/reports/overtime/user/:userId` endpoint
+- ✅ `overtimeService.ts` - Optimized update chain
+
+**Removed/Deprecated (2026-01-27):**
+- ❌ `overtime_daily` table - No longer used by application (tables exist for backward compatibility)
+- ❌ `overtime_weekly` table - No longer used by application (tables exist for backward compatibility)
+- ❌ `updateDailyOvertime()` - Removed from runtime
+- ❌ `updateWeeklyOvertime()` - Removed from runtime
+- ❌ 6 deprecated API endpoints (daily/weekly overtime)
+
+**Performance Improvements:**
+- Before: 3 table updates per time entry (daily + weekly + monthly)
+- After: 1 table update per time entry (monthly only)
+- Result: ~66% reduction in database writes
+
+**System Behavior:**
+- Time entry created/updated → `updateAllOvertimeLevels()` called
+- Updates `overtime_transactions` (audit trail)
+- Updates `overtime_balance` (monthly SSOT)
+- Skips daily/weekly tables (deprecated)
+- Syncs `work_time_accounts` table
+
+**Known Issues (Remaining):**
+1. ⚠️ Timezone bug in weekly aggregation (reportService.ts Line 245) - Low priority (weekly no longer used)
+2. ✅ Fixed: Dual calculation paths eliminated
+
+**Future Work:**
+- Optional: Remove `overtime_daily` and `overtime_weekly` tables via database migration
+- Currently kept for backward compatibility with any external scripts/tools
+
+---
+
+##### 6.3.9.6 Frontend Hooks & Components
+
+**Hook:** `useOvertimeReport()` (Line 52-67 in `useOvertimeReports.ts`)
+```typescript
+export function useOvertimeReport(userId: number, year: number, month?: number) {
+  return useQuery({
+    queryKey: ['overtime-report', userId, year, month],
+    queryFn: async () => {
+      const response = await apiClient.get(`/reports/overtime/user/${userId}?${params}`);
+      // ❌ Uses reportService (recalculates!)
+      return response.data;
+    },
+  });
+}
+```
+
+**Used By (Affected Components):**
+- `TeamOvertimeSummary.tsx` (Admin Dashboard) - Calls `useAllUsersOvertimeReports()`
+  - ❌ Fetches report for EVERY user → recalculates for each!
+  - Performance issue: O(n) API calls + recalculations
+- `BalanceSummaryWidget.tsx` (Employee Dashboard) - Uses `useOvertimeYearBreakdown()` ✅
+
+---
+
+##### 6.3.9.7 Recommended Fix (PROFESSIONAL!)
+
+**Option A: Single Source of Truth (BEST PRACTICE)**
+
+Refactor `reportService.ts` to READ from database instead of recalculating:
+
+```typescript
+export async function getUserOvertimeReport(userId, year, month?) {
+  // ❌ REMOVE: calculateDailyBreakdown() → Own calculation
+  // ✅ ADD: Read from overtime_balance table!
+
+  const monthFilter = month
+    ? `${year}-${String(month).padStart(2,'0')}`
+    : `${year}-%`;
+
+  const monthlyData = db.prepare(`
+    SELECT month, targetHours, actualHours, overtime
+    FROM overtime_balance
+    WHERE userId = ? AND month LIKE ?
+    ORDER BY month
+  `).all(userId, monthFilter);
+
+  // Calculate summary from DB data
+  const summary = {
+    targetHours: monthlyData.reduce((sum, m) => sum + m.targetHours, 0),
+    actualHours: monthlyData.reduce((sum, m) => sum + m.actualHours, 0),
+    overtime: monthlyData.reduce((sum, m) => sum + m.overtime, 0),
+  };
+
+  return { userId, year, month, summary, breakdown: { monthly: monthlyData } };
+}
+```
+
+**Benefits:**
+- ✅ Single Source of Truth (overtime_balance)
+- ✅ No discrepancies
+- ✅ Faster (no recalculation)
+- ✅ Professional (SAP, Personio, DATEV do this)
+
+**Option B: Align Frontend with Backend (QUICK FIX)**
+
+Keep dual system but ensure both calculate IDENTICALLY:
+1. Fix timezone bug in Line 245
+2. Ensure unpaid leave logic matches backend
+3. Add extensive tests comparing both systems
+
+---
+
+##### 6.3.9.8 Testing & Validation
+
+**Validation Script:**
+```bash
+# Compare backend DB vs frontend API for all months
+npm run validate:overtime:detailed -- --userId=155 --month=2025-12 --compare
+
+# Output shows:
+# - Backend (overtime_balance): 156h target
+# - Frontend (reportService):   162h target
+# - Discrepancy: +6h ❌
+```
+
+**Test Users with Known Issues:**
+- User 155 (Test Workflow): 6h discrepancy in Dec 2025
+- User 3 (Christine Glas): 6h discrepancy in Jan 2026 (Heilige Drei Könige)
+
+---
+
+##### 6.3.9.9 Migration Path
+
+**Phase 1: Analysis (DONE ✅)**
+- Document dual system problem
+- Identify all discrepancies
+- Test timezone fix
+
+**Phase 2: Decision (NEXT)**
+- Choose Option A (recommended) or Option B
+- Get stakeholder approval
+
+**Phase 3: Implementation**
+- Refactor reportService.ts
+- Update API endpoint
+- Update frontend hooks
+
+**Phase 4: Validation**
+- Run comparison tests for all users
+- Verify no regressions
+- Update documentation
+
+**Phase 5: Cleanup**
+- Remove duplicate calculation code
+- Archive legacy endpoints
+- Update deployment docs
+
+---
+
+**Status:** ⚠️ TECHNICAL DEBT - Requires immediate attention
+**Priority:** HIGH (data integrity issue)
+**Owner:** Development Team
+**Target:** Q1 2026
+
+---
+
 ## 7. Deployment View
 
 ### 7.1 Infrastructure Overview

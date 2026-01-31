@@ -67,6 +67,57 @@ RELEASE
 
 # 🎯 KERN-PRINZIPIEN
 
+## 0. ZERO HALLUCINATION POLICY (KRITISCH!)
+
+**AI darf NIEMALS Annahmen treffen oder Code "interpretieren"!**
+
+### Verbotene Verhaltensweisen:
+- ❌ "Das sieht korrekt aus" ohne EXAKTEN Vergleich
+- ❌ "Ab hier sollte es funktionieren" ohne vollständige Verifikation
+- ❌ "Wahrscheinlich macht es X" ohne Code-Beweis
+- ❌ Analyse stoppen weil "der Rest ähnlich aussieht"
+- ❌ Funktionen erwähnen ohne sie gelesen zu haben
+
+### Pflicht bei Code-Vergleichen:
+1. ✅ **JEDE Zeile** der relevanten Source-Funktionen lesen
+2. ✅ **JEDE SQL Query** exakt vergleichen (nicht nur "ähnlich")
+3. ✅ **JEDE Berechnung** Schritt-für-Schritt nachvollziehen
+4. ✅ **JEDE Abweichung** dokumentieren (auch kleine!)
+5. ✅ **JEDEN Fix** mit echten Test-Daten verifizieren
+
+### Beispiel - FALSCH:
+```
+"overtimeService nutzt getDailyTargetHours, validateScript auch → sollte passen ✅"
+```
+
+### Beispiel - RICHTIG:
+```
+"overtimeService.ts Line 467:
+  const corrections = getTotalCorrectionsForUserInMonth(userId, month)
+validateScript.ts Line 291-302:
+  const corrections = db.prepare(SELECT...).all(...)
+  const totalCorrections = corrections.reduce(...)
+→ Beide laden Corrections, aber unterschiedliche Implementierung!
+→ Muss prüfen ob getTotalCorrectionsForUserInMonth intern gleiche Query nutzt..."
+[Liest getTotalCorrectionsForUserInMonth Code]
+"Line 285-290: SELECT COALESCE(SUM(hours), 0)... WHERE userId = ? AND strftime...
+→ UNTERSCHIED! Service nutzt SUM(), Script nutzt reduce()
+→ ABER: Ergebnis mathematisch identisch ✅ (verifiziert mit Test)"
+```
+
+### Wann ist eine Analyse "komplett"?
+**NUR wenn:**
+- Alle relevanten Funktionen gelesen & verglichen ✅
+- Alle SQL Queries verifiziert ✅
+- Alle Berechnungen nachvollzogen ✅
+- Alle Unterschiede dokumentiert ✅
+- Alle Fixes getestet ✅
+
+**User-Trigger-Phrase:**
+Wenn User sagt "durchforste komplett" oder "keine Halluzinationen" → Diese Policy gilt ABSOLUT!
+
+---
+
 ## 1. NO REGRESSION
 
 **Funktionierende Features dürfen NIEMALS kaputt gehen!**
@@ -132,6 +183,298 @@ await universalFetch('http://localhost:3000/api/...', { credentials: 'include' }
 4. **Live-Berechnung:** ON-DEMAND berechnen, NIE cachen!
 
 **Details:** PROJECT_SPEC.md → Section 6.2 "Overtime Calculation"
+
+### 🔍 Überstunden-Validierungs-Checkliste (PFLICHT!)
+
+**WANN NUTZEN:** Bei JEDEM Debugging von Überstunden-Berechnungen!
+
+**19 Faktoren die Überstunden beeinflussen:**
+
+#### 1. User-Stammdaten (users table)
+```bash
+# 1. weeklyHours - IGNORIERT wenn workSchedule existiert!
+☐ weeklyHours geprüft (z.B. 40h)
+☐ Wenn workSchedule existiert → weeklyHours wird IGNORIERT!
+
+# 2. workSchedule - HÖCHSTE PRIORITÄT!
+☐ workSchedule existiert? (JSON: {monday: 8, tuesday: 8, ...})
+☐ Welche Tage sind Arbeitstage? (hours > 0)
+☐ Welche Tage sind KEINE Arbeitstage? (hours = 0 oder fehlt)
+☐ BEISPIEL: Christine {monday: 4, tuesday: 4} → Nur Mo+Di = Arbeitstage!
+
+# 3. hireDate - Start der Berechnung
+☐ hireDate geprüft (Format: YYYY-MM-DD)
+☐ Berechnung startet NICHT vor hireDate!
+
+# 4. endDate - Falls Mitarbeiter gekündigt
+☐ endDate geprüft (NULL = noch aktiv)
+☐ Berechnung endet bei endDate (falls gesetzt)
+```
+
+#### 2. Zeitraum & Referenz-Datum
+```bash
+# 5. "Heute" als Referenz
+☐ Berechnung läuft IMMER bis "heute" (nicht Monatsende!)
+☐ Beispiel: 15.01.2026 → Zeitraum: hireDate bis 15.01.2026
+
+# 6. Feiertage (holidays table)
+☐ ALLE Feiertage im Zeitraum geladen (federal=0 UND federal=1!)
+☐ Bayern: Heilige Drei Könige (06.01) ist Feiertag!
+☐ Feiertag ÜBERSCHREIBT workSchedule → 0h (auch wenn workSchedule > 0!)
+☐ Beispiel: 06.01 (Dienstag) + workSchedule.tuesday=4h → 0h wegen Feiertag!
+
+# 7. Wochenenden
+☐ Samstag + Sonntag sind KEINE Arbeitstage (es sei denn workSchedule.saturday > 0)
+```
+
+#### 3. Abwesenheiten (absence_requests table)
+```bash
+# Nur status='approved' zählen!
+
+# 8. vacation (Urlaub)
+☐ Urlaubs-Tage MIT Gutschrift (Ist-Stunden +)
+☐ Feiertage innerhalb Urlaub zählen NICHT als Urlaubstag!
+☐ Beispiel: Urlaub 01.01-10.01, aber 06.01 = Feiertag → Nur Arbeitstage zählen!
+
+# 9. sick (Krankheit)
+☐ Kranke Tage MIT Gutschrift (Ist-Stunden +)
+☐ Wochenenden + Feiertage zählen NICHT!
+
+# 10. overtime_comp (Überstunden-Ausgleich)
+☐ Überstunden-Ausgleich MIT Gutschrift (Ist-Stunden +)
+
+# 11. special (Sonderurlaub)
+☐ Sonderurlaub MIT Gutschrift (Ist-Stunden +)
+
+# 12. unpaid (Unbezahlter Urlaub)
+☐ Unbezahlter Urlaub REDUZIERT Soll-Stunden (Ist-Stunden OHNE Gutschrift!)
+☐ Beispiel: 2 Tage unbezahlt → Soll-Stunden - (2 × targetHoursPerDay)
+```
+
+#### 4. Gearbeitete Stunden
+```bash
+# 13. time_entries table
+☐ Alle Zeiteinträge im Zeitraum geladen
+☐ Summe korrekt berechnet (reduce((sum, e) => sum + e.hours, 0))
+☐ Nur userId + Zeitraum filtern (KEINE deletedAt-Spalte in time_entries!)
+```
+
+#### 5. Korrekturen
+```bash
+# 14. overtime_corrections table
+☐ Manuelle Korrekturen geladen (falls vorhanden)
+☐ Summe zu Ist-Stunden addieren
+```
+
+#### 6. Berechnungslogik
+```bash
+# 15. Soll-Stunden (Target)
+☐ FOR EACH Tag im Zeitraum (hireDate bis heute):
+☐   - Wenn Wochenende → 0h
+☐   - Wenn Feiertag → 0h (ÜBERSCHREIBT workSchedule!)
+☐   - Wenn workSchedule existiert → workSchedule[dayOfWeek]
+☐   - Sonst → weeklyHours / 5
+☐ Summe aller Tage = totalTargetHours
+☐ Unbezahlter Urlaub ABZIEHEN → adjustedTargetHours
+
+# 16. Ist-Stunden (Actual)
+☐ Gearbeitete Stunden (time_entries)
+☐ + Abwesenheits-Gutschriften (vacation + sick + overtime_comp + special)
+☐ + Manuelle Korrekturen (overtime_corrections)
+☐ = totalActualHours
+
+# 17. Überstunden
+☐ totalActualHours - adjustedTargetHours = overtime
+```
+
+#### 7. Database-Strukturen
+```bash
+# 18. overtime_balance table (Monatlich)
+☐ Für Monats-Vergleich: Eintrag mit month='YYYY-MM' vorhanden?
+☐ Werte prüfen: targetHours, actualHours, overtime
+☐ Diskrepanz zwischen berechnet vs. DB → Recalculation nötig!
+
+# 19. overtime_transactions table (Historie)
+☐ Alle Transaktionen korrekt geloggt?
+☐ Types: worked, vacation_credit, sick_credit, correction, etc.
+```
+
+### 🛠️ Validation Tools
+
+```bash
+# Tool 1: Detailliertes Validation Script (NEU!)
+npm run validate:overtime:detailed -- --userId=3 --month=2026-01
+
+# Output zeigt:
+# - User Info + workSchedule Visualisierung
+# - Calculation Period
+# - Holidays (mit [Bundesweit] / [Länderspezifisch])
+# - DAY-BY-DAY BREAKDOWN (Tabelle mit Target pro Tag)
+# - Absences (mit Gutschrift-Berechnung pro Typ)
+# - Time Entries
+# - Calculation (Soll vs. Ist vs. Überstunden)
+# - Database Comparison (Expected vs. Actual mit Diskrepanz-Highlighting)
+
+# Tool 2: Quick Validation (Bestehendes Script)
+npm run validate:overtime -- --userId=3
+
+# Tool 3: Tests ausführen
+npm test -- workingDays
+```
+
+### ⚠️ Häufige Fehlerquellen (Aus Production Issues)
+
+1. **workSchedule ignoriert** → Prüfe: Existiert workSchedule? Dann weeklyHours IGNORIEREN!
+2. **Feiertag übersehen** → Bayern: Heilige Drei Könige (06.01), Fronleichnam, etc.
+3. **Feiertag überschreibt nicht** → Feiertag MUSS workSchedule-Tag auf 0h setzen!
+4. **Urlaub zählt Feiertag** → Feiertag innerhalb Urlaub = KEIN Urlaubstag!
+5. **Unbezahlter Urlaub falsch** → REDUZIERT Soll, gibt KEINE Ist-Gutschrift!
+6. **Wochenende in workSchedule** → Nur wenn saturday/sunday > 0 in workSchedule!
+
+### 📝 Beispiel-Szenario: Christine Glas
+
+```
+User: Christine Glas (ID=3)
+workSchedule: {monday: 4h, tuesday: 4h, rest: 0h}
+Zeitraum: 01.01 - 15.01.2026
+Urlaub: 01.01 - 25.01.2026 (approved)
+
+DAY-BY-DAY:
+01.01 (Do) → 0h (Neujahr = Feiertag)
+02.01 (Fr) → 0h (workSchedule: kein Arbeitstag)
+05.01 (Mo) → 4h (workSchedule.monday)
+06.01 (Di) → 0h (Heilige Drei Könige = Feiertag, überschreibt workSchedule.tuesday!)
+07.01 (Mi) → 0h (workSchedule: kein Arbeitstag)
+12.01 (Mo) → 4h (workSchedule.monday)
+13.01 (Di) → 4h (workSchedule.tuesday)
+14.01 (Mi) → 0h (workSchedule: kein Arbeitstag)
+
+Soll-Stunden: 4h + 4h + 4h = 12h (3 Arbeitstage)
+Urlaubs-Gutschrift: 12h (3 Arbeitstage, NICHT 4 wegen Feiertag!)
+Gearbeitet: 0h
+Ist-Stunden: 0h + 12h = 12h
+Überstunden: 12h - 12h = 0h ✅
+```
+
+### ⚠️ DUAL CALCULATION SYSTEM WARNING (CRITICAL!)
+
+**GEFAHR:** System hat ZWEI unabhängige Berechnungswege!
+
+```
+Backend (Source of Truth)              Frontend (Problematic!)
+overtimeService.ts                     reportService.ts
+  ↓ calculates                           ↓ recalculates
+  ↓ writes to DB                         ↓ live on-demand
+overtime_balance table                 API response
+```
+
+**Probleme:**
+1. ❌ Zwei verschiedene Implementierungen können unterschiedlich rechnen
+2. ❌ Timezone bugs führen zu Diskrepanzen (z.B. 6h Differenz!)
+3. ❌ reportService ignoriert Single Source of Truth
+4. ❌ UNPROFESSIONELL - SAP, Personio, DATEV nutzen IMMER Single Source!
+
+**Details:** ARCHITECTURE.md → Section 6.3.9 "Overtime System Architecture & Known Issues"
+
+### 🐛 Bekannte Timezone Bugs (ACHTUNG!)
+
+**Bug Location #1: reportService.ts Line 70** ✅ FIXED
+```typescript
+// WAS (❌ wrong):
+new Date(year, month, 0).toISOString().split('T')[0]
+// Result: "2025-12-30" (one day off!)
+
+// IST (✅ correct):
+formatDate(new Date(year, month, 0), 'yyyy-MM-dd')
+// Result: "2025-12-31" (timezone-safe!)
+```
+
+**Bug Location #2: reportService.ts Line 245** ❌ STILL BUGGY!
+```typescript
+// BUGGY CODE:
+const weekKey = weekStart.toISOString().split('T')[0];
+// FIX NEEDED:
+const weekKey = formatDate(weekStart, 'yyyy-MM-dd');
+```
+
+**Root Cause:**
+- `toISOString()` konvertiert zu UTC → 1h Zeitverschiebung (Europe/Berlin = UTC+1)
+- Dezember 31, 2025 00:00 (Berlin) wird zu "2025-12-30T23:00:00.000Z"
+- `.split('T')[0]` extrahiert "2025-12-30" ❌ FALSCHES DATUM!
+
+**Always Use:**
+```typescript
+import { formatDate } from '../utils/dateFormatting.js';
+formatDate(date, 'yyyy-MM-dd') // ✅ Timezone-safe
+```
+
+**NEVER Use:**
+```typescript
+date.toISOString().split('T')[0] // ❌ Timezone bug!
+```
+
+### 🔍 Debugging Workflow (Wenn Überstunden falsch)
+
+**Step 1: Vergleiche Backend vs Frontend**
+```bash
+# Backend (Source of Truth)
+sqlite3 server/database.db "SELECT * FROM overtime_balance WHERE userId=155 AND month='2025-12'"
+
+# Frontend (API)
+curl http://localhost:3000/api/reports/overtime/user/155?year=2025&month=12
+```
+
+**Step 2: Nutze Validation Tool**
+```bash
+cd server
+npm run validate:overtime:detailed -- --userId=155 --month=2025-12
+
+# Output shows:
+# - DAY-BY-DAY BREAKDOWN (target per day)
+# - Database Comparison (Expected vs Actual)
+# - Discrepancy highlighting (if any)
+```
+
+**Step 3: Check für Timezone Bugs**
+```bash
+# Search für toISOString() in overtime code
+cd server/src
+grep -n "toISOString()" services/reportService.ts
+grep -n "toISOString()" services/overtimeService.ts
+
+# EXPECTED:
+# - overtimeService.ts: KEINE toISOString() (nutzt formatDate)
+# - reportService.ts: toISOString() auf Line 245 (BUG!)
+```
+
+**Step 4: Verify Calculation Period**
+```bash
+# Create test script to verify date range
+cat > test_dates.ts << 'EOF'
+import { getUserOvertimeReport } from './src/services/reportService.js';
+const report = await getUserOvertimeReport(155, 2025, 12);
+console.log('First date:', report.breakdown.daily[0].date);
+console.log('Last date:', report.breakdown.daily[report.breakdown.daily.length - 1].date);
+console.log('Expected: 2025-12-31');
+EOF
+
+npx tsx test_dates.ts
+```
+
+### 🛠️ Validation Tools Reference
+
+| Tool | Command | Use Case |
+|------|---------|----------|
+| **Detailed Validation** | `npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM` | Full analysis with day-by-day breakdown |
+| **Quick Validation** | `npm run validate:overtime -- --userId=X` | Quick check all months |
+| **Unit Tests** | `npm test -- workingDays` | Test calculation logic |
+| **Database Query** | `sqlite3 database.db "SELECT ..."` | Manual verification |
+| **API Test** | `curl http://localhost:3000/api/...` | Test frontend API |
+
+**Tool Locations:**
+- `server/src/scripts/validateOvertimeDetailed.ts` - Detailed validation
+- `server/src/scripts/validateAllTestUsers.ts` - Batch validation
+- `server/src/utils/workingDays.test.ts` - Unit tests
 
 ## 🗄️ Database Rules
 
@@ -209,6 +552,18 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 5. Update: CHANGELOG.md (Fixed section im Unreleased)
 ```
 
+### Overtime Bug Fix (Special Case)
+
+```bash
+# Wenn Überstunden falsch berechnet werden:
+1. Read: ARCHITECTURE.md Section 6.3.9 (Dual Calculation System)
+2. Run: npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
+3. Compare: Backend (overtime_balance) vs Frontend (reportService API)
+4. Check: Timezone bugs (toISOString() usage)
+5. Verify: workSchedule vs weeklyHours priority
+6. Test: All 19 calculation factors (siehe Validation Checklist)
+```
+
 ## Release (Desktop App)
 
 ```bash
@@ -256,6 +611,13 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 - ❌ SQL Injection → IMMER Prepared Statements
 - ❌ Hard Delete → Soft Delete (`deletedAt`)
 - ❌ WAL Mode vergessen → Multi-User funktioniert nicht
+
+## Überstunden-Berechnung
+- ❌ `toISOString().split('T')[0]` für Datumskonvertierung → Timezone Bugs!
+- ❌ reportService.ts ändern ohne overtimeService.ts → Inkonsistente Berechnungen
+- ❌ Frontend API als Source of Truth → overtime_balance ist authoritative!
+- ❌ Ohne Validation Tool testen → Immer `npm run validate:overtime:detailed` nutzen
+- ❌ Nur einen Berechnungsweg prüfen → Backend UND Frontend vergleichen!
 
 ## Workflow
 - ❌ Direkt coden ohne Plan → IMMER Plan-First!
@@ -352,6 +714,15 @@ npm run dev                    # Start Desktop App (in desktop/)
 # TypeScript Check
 npx tsc --noEmit              # Check TS ohne Build
 
+# Overtime Validation (in server/)
+npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM  # Detailed analysis
+npm run validate:overtime -- --userId=X                            # Quick check all months
+npm test -- workingDays                                            # Unit tests
+
+# Database
+sqlite3 database.db "SELECT * FROM overtime_balance WHERE userId=X AND month='YYYY-MM'"
+sqlite3 database.db "SELECT * FROM overtime_transactions WHERE userId=X ORDER BY date DESC LIMIT 10"
+
 # Git
 git status                     # Check working tree
 git add . && git commit -m "..." && git push
@@ -377,6 +748,7 @@ curl http://129.159.8.19:3000/api/health  # Health Check
 ### ARCHITECTURE.md
 - Section 3: System Context (Diagrams)
 - Section 5: Building Block View (Components)
+- Section 6.3.9: Overtime System Architecture & Known Issues ⚠️
 - Section 9: ADRs (Architecture Decisions)
 - Section 7: Deployment View (Oracle Cloud)
 
@@ -459,12 +831,21 @@ git show HEAD~1:.claude/CLAUDE.md > .claude/CLAUDE.md
 
 ---
 
-**Version:** 2.0 (Optimiert für AI Context Loading)
-**Lines:** ~480 (vorher: 1093 lines, -56% Reduktion)
-**Last Updated:** 2026-01-15
+**Version:** 2.1 (Overtime System Dokumentation)
+**Lines:** ~840 (v2.0: 480 lines, +75% für Overtime Details)
+**Last Updated:** 2026-01-24
 **Status:** ✅ AKTIV
 
 **Changelog:**
+- v2.1 (2026-01-24): Overtime System Architecture & Debugging Tools
+  - Added: Dual Calculation System Warning
+  - Added: Timezone Bug Locations & Fixes
+  - Added: Debugging Workflow for Overtime Issues
+  - Added: Validation Tools Reference
+  - Added: Overtime-specific VERBOTE Section
+  - Updated: Bug Fix Workflow with Overtime Special Case
+  - Updated: Häufige Commands with Validation Tools
+  - Cross-referenced: ARCHITECTURE.md Section 6.3.9
 - v2.0 (2026-01-15): AI-freundliche Neustrukturierung, Core Docs Integration
 - v1.3 (2026-01-15): Core Docs Section hinzugefügt
 - v1.2 (2025-11-12): Release Workflow Details

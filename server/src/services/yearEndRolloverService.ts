@@ -16,8 +16,10 @@
 
 import logger from '../utils/logger.js';
 import { bulkInitializeVacationBalances } from './vacationBalanceService.js';
-import { bulkInitializeOvertimeBalancesForNewYear } from './overtimeService.js';
+import { bulkInitializeOvertimeBalancesForNewYear, getYearEndOvertimeBalance } from './overtimeService.js';
 import { logAudit } from './auditService.js';
+import { db } from '../database/connection.js';
+import { getUserById } from './userService.js';
 
 interface YearEndRolloverResult {
   success: boolean;
@@ -167,11 +169,124 @@ export function previewYearEndRollover(year: number): {
     warnings: string[];
   }>;
 } {
-  // Implementation will be added in API routes
-  // For now, return empty preview
+  const previousYear = year - 1;
+
+  logger.info({ year, previousYear }, '🔍 Previewing year-end rollover...');
+
+  // Get all active users
+  const users = db
+    .prepare('SELECT id, firstName, lastName, hireDate FROM users WHERE deletedAt IS NULL AND status = \'active\'')
+    .all() as Array<{ id: number; firstName: string; lastName: string; hireDate: string }>;
+
+  const preview = users.map((user) => {
+    const warnings: string[] = [];
+
+    // Get overtime carryover from previous year
+    let overtimeCarryover = 0;
+    try {
+      overtimeCarryover = getYearEndOvertimeBalance(user.id, previousYear);
+    } catch (error) {
+      warnings.push(`Could not calculate overtime balance: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Get vacation carryover from previous year
+    let vacationCarryover = 0;
+    try {
+      const vacationBalance = db
+        .prepare('SELECT entitlement, carryover, taken FROM vacation_balance WHERE userId = ? AND year = ?')
+        .get(user.id, previousYear) as { entitlement: number; carryover: number; taken: number } | undefined;
+
+      if (vacationBalance) {
+        // remainingDays = entitlement + carryover - taken
+        vacationCarryover = vacationBalance.entitlement + vacationBalance.carryover - vacationBalance.taken;
+      }
+    } catch (error) {
+      warnings.push(`Could not calculate vacation balance: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Check for potential issues
+    if (!user.hireDate) {
+      warnings.push('Missing hire date');
+    }
+
+    const hireYear = new Date(user.hireDate).getFullYear();
+    if (hireYear === year) {
+      warnings.push(`Hired in ${year} - no carryover expected`);
+    }
+
+    return {
+      userId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      vacationCarryover,
+      overtimeCarryover,
+      warnings,
+    };
+  });
+
+  logger.info({ count: preview.length }, `✅ Preview completed for ${preview.length} users`);
+
   return {
     year,
-    previousYear: year - 1,
-    users: [],
+    previousYear,
+    users: preview,
   };
+}
+
+/**
+ * Get year-end rollover history from audit log
+ *
+ * PROFESSIONAL STANDARD (Personio, DATEV, SAP):
+ * - Show when rollovers were executed
+ * - Show who executed them (admin or cron)
+ * - Show success/failure status
+ *
+ * @returns Array of rollover history entries
+ */
+export function getYearEndRolloverHistory(): Array<{
+  year: number;
+  executedAt: string;
+  executedBy: string;
+  vacationUsersProcessed: number;
+  overtimeUsersProcessed: number;
+  success: boolean;
+}> {
+  const history = db
+    .prepare(`
+      SELECT
+        entityId as year,
+        createdAt as executedAt,
+        userId as executedById,
+        changes
+      FROM audit_log
+      WHERE entity = 'year_end_rollover'
+      ORDER BY createdAt DESC
+      LIMIT 50
+    `)
+    .all() as Array<{
+      year: number;
+      executedAt: string;
+      executedById: number | null;
+      changes: string;
+    }>;
+
+  return history.map((entry) => {
+    const metadata = JSON.parse(entry.changes || '{}');
+
+    // Get executor name
+    let executedBy = 'cron';
+    if (entry.executedById) {
+      const user = getUserById(entry.executedById);
+      executedBy = user ? `${user.firstName} ${user.lastName}` : `User #${entry.executedById}`;
+    }
+
+    return {
+      year: entry.year,
+      executedAt: entry.executedAt,
+      executedBy,
+      vacationUsersProcessed: metadata.vacationUsersProcessed || 0,
+      overtimeUsersProcessed: metadata.overtimeUsersProcessed || 0,
+      success: !metadata.errors || metadata.errors.length === 0,
+    };
+  });
 }

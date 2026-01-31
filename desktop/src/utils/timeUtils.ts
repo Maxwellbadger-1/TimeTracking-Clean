@@ -43,8 +43,6 @@ export function calculateTotalHours(entries: TimeEntry[]): number {
  * Fixed: -23.5h → "-23:30h" (correct!)
  */
 export function formatHours(hours: number): string {
-  console.log('🔍 [formatHours] INPUT:', hours);
-
   // Handle negative values correctly
   const isNegative = hours < 0;
   const absHours = Math.abs(hours);
@@ -53,20 +51,7 @@ export function formatHours(hours: number): string {
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
 
-  const result = `${isNegative ? '-' : ''}${h}:${m.toString().padStart(2, '0')}h`;
-
-  console.log('🔍 [formatHours] OUTPUT:', result);
-  console.log('🔍 [formatHours] Details:', {
-    input: hours,
-    isNegative,
-    absHours,
-    totalMinutes,
-    h,
-    m,
-    result
-  });
-
-  return result;
+  return `${isNegative ? '-' : ''}${h}:${m.toString().padStart(2, '0')}h`;
 }
 
 /**
@@ -74,10 +59,14 @@ export function formatHours(hours: number): string {
  * Example: 2.5 → "+2:30h", -1.5 → "-1:30h"
  */
 export function formatOvertimeHours(hours: number): string {
-  const sign = hours >= 0 ? '+' : '-';
+  const sign = hours >= 0 ? '+' : '';
   const absHours = Math.abs(hours);
-  const formattedTime = formatHours(absHours);
-  return sign + formattedTime;
+
+  const totalMinutes = Math.round(absHours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+
+  return `${sign}${hours < 0 ? '-' : ''}${h}:${m.toString().padStart(2, '0')}h`;
 }
 
 /**

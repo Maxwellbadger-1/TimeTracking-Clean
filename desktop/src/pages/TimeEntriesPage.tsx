@@ -11,7 +11,7 @@
  * - Employee column in table (admin only)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -28,7 +28,7 @@ import { EditTimeEntryModal } from '../components/timeEntries/EditTimeEntryModal
 import { TimeEntryForm } from '../components/timeEntries/TimeEntryForm';
 
 // Date range presets
-type DateRangePreset = 'today' | 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'this-year' | 'custom';
+type DateRangePreset = 'all-time' | 'today' | 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'this-year' | 'custom';
 
 export function TimeEntriesPage() {
   const { user } = useAuthStore();
@@ -36,12 +36,34 @@ export function TimeEntriesPage() {
 
   // Filter States (moved up for use in infinite query)
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('this-month');
+
+  // Local state for immediate UI updates (user typing)
+  const [customStartDateInput, setCustomStartDateInput] = useState('');
+  const [customEndDateInput, setCustomEndDateInput] = useState('');
+
+  // Debounced state for API requests (only update after user stops typing)
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
   const [filterEmployee, setFilterEmployee] = useState<number | 'all'>('all');
   const [filterLocation, setFilterLocation] = useState('all');
   const [sortBy, setSortBy] = useState<'date' | 'hours' | 'employee'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Debounce custom date inputs (wait 500ms after user stops typing)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCustomStartDate(customStartDateInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [customStartDateInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCustomEndDate(customEndDateInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [customEndDateInput]);
 
   // Fetch users for employee filter (admin only)
   const { data: users } = useUsers(isAdmin);
@@ -52,6 +74,12 @@ export function TimeEntriesPage() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     switch (dateRangePreset) {
+      case 'all-time':
+        return {
+          start: '',
+          end: '',
+        };
+
       case 'today':
         return {
           start: today.toISOString().split('T')[0],
@@ -122,6 +150,14 @@ export function TimeEntriesPage() {
 
   const { start: startDate, end: endDate } = getDateRange();
 
+  // Determine userId for API filter (backend filtering!)
+  // - Employee: always their own ID
+  // - Admin with employee filter: selected employee ID
+  // - Admin without filter: undefined (load all)
+  const apiUserId = user?.role === 'admin'
+    ? (filterEmployee !== 'all' ? filterEmployee : undefined)
+    : (user?.id || 0);
+
   // Use infinite scroll pagination with date range filter
   const {
     data,
@@ -129,15 +165,16 @@ export function TimeEntriesPage() {
     hasNextPage,
     isLoading,
   } = useInfiniteTimeEntries({
-    userId: user?.role === 'admin' ? undefined : user?.id || 0,
+    userId: apiUserId,
     startDate,
     endDate,
   });
 
   // Flatten all pages into single array
   const timeEntries = useMemo(() => {
-    return data?.pages.flatMap((page) => page.rows) || [];
-  }, [data]);
+    const entries = data?.pages.flatMap((page) => page.rows) || [];
+    return entries;
+  }, [data, hasNextPage]);
 
   const deleteEntry = useDeleteTimeEntry();
 
@@ -152,18 +189,13 @@ export function TimeEntriesPage() {
 
   if (!user) return null;
 
-  // Filter & Sort (date range already applied in query, only client-side filters remain)
+  // Filter & Sort (date range and employee already applied server-side in query)
   const filteredEntries = useMemo(() => {
     if (!timeEntries) return [];
 
     let filtered = [...timeEntries];
 
-    // Filter by employee (admin only)
-    if (user?.role === 'admin' && filterEmployee !== 'all') {
-      filtered = filtered.filter(entry => entry.userId === filterEmployee);
-    }
-
-    // Filter by location
+    // Filter by location (client-side - only a few options)
     if (filterLocation !== 'all') {
       filtered = filtered.filter(entry => entry.location === filterLocation);
     }
@@ -403,6 +435,7 @@ export function TimeEntriesPage() {
                 value={dateRangePreset}
                 onChange={(e) => setDateRangePreset(e.target.value as DateRangePreset)}
                 options={[
+                  { value: 'all-time', label: 'Alle Zeit' },
                   { value: 'today', label: 'Heute' },
                   { value: 'this-week', label: 'Diese Woche' },
                   { value: 'last-week', label: 'Letzte Woche' },
@@ -419,14 +452,14 @@ export function TimeEntriesPage() {
                   <Input
                     type="date"
                     label="Von"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    value={customStartDateInput}
+                    onChange={(e) => setCustomStartDateInput(e.target.value)}
                   />
                   <Input
                     type="date"
                     label="Bis"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    value={customEndDateInput}
+                    onChange={(e) => setCustomEndDateInput(e.target.value)}
                   />
                 </>
               )}

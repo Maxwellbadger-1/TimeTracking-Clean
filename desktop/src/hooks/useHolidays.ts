@@ -33,8 +33,9 @@ export function useCurrentYearHolidays() {
 }
 
 /**
- * Get holidays for current year + next 2 years (3 years total)
- * Best practice: like Lexware (current year + 2 future years)
+ * Get holidays for past 2 years + current year + next 2 years (5 years total)
+ * Best practice: Covers historical data + future planning
+ * Example (2026): 2024, 2025, 2026, 2027, 2028
  */
 export function useMultiYearHolidays() {
   const currentYear = new Date().getFullYear();
@@ -42,10 +43,17 @@ export function useMultiYearHolidays() {
   return useQuery({
     queryKey: ['holidays', 'multi-year', currentYear],
     queryFn: async () => {
-      const years = [currentYear, currentYear + 1, currentYear + 2];
+      // Load: -2, -1, current, +1, +2 years (5 years total)
+      const years = [
+        currentYear - 2,
+        currentYear - 1,
+        currentYear,
+        currentYear + 1,
+        currentYear + 2
+      ];
       const allHolidays: Array<{ id: number; date: string; name: string; federal: number }> = [];
 
-      // Fetch holidays for all 3 years
+      // Fetch holidays for all 5 years
       for (const year of years) {
         const response = await apiClient.get(`/holidays?year=${year}`);
         const yearHolidays = (response.data || []) as Array<{ id: number; date: string; name: string; federal: number }>;

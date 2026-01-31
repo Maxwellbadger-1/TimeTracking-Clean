@@ -20,15 +20,18 @@ export default function OvertimeManagementPage() {
   // Transform reports to match old format with user names
   const overtimeData = useMemo(() => {
     if (!reports || !users) return undefined;
-    return reports.map(report => {
-      const user = users.find(u => u.id === report.userId);
-      return {
-        userId: report.userId,
-        firstName: user?.firstName || '',
-        lastName: user?.lastName || '',
-        totalOvertime: report.summary.overtime,
-      };
-    });
+    return reports
+      .filter(report => report?.summary) // Filter out invalid reports
+      .map(report => {
+        const user = users.find(u => u.id === report.userId);
+        return {
+          userId: report.userId,
+          firstName: user?.firstName || '',
+          lastName: user?.lastName || '',
+          email: user?.email || '',
+          totalOvertime: report.summary.overtime,
+        };
+      });
   }, [reports, users]);
 
   // Filter & Sort

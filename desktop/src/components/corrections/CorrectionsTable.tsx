@@ -9,10 +9,12 @@ import { formatHours } from '../../utils/timeUtils';
 interface CorrectionsTableProps {
   userId?: number;
   isAdmin: boolean;
+  year?: number;
+  month?: number;
 }
 
-export function CorrectionsTable({ userId, isAdmin }: CorrectionsTableProps) {
-  const { data: corrections, isLoading, error } = useOvertimeCorrections(userId);
+export function CorrectionsTable({ userId, isAdmin, year, month }: CorrectionsTableProps) {
+  const { data: corrections, isLoading, error } = useOvertimeCorrections(userId, year, month);
   const deleteCorrection = useDeleteOvertimeCorrection();
   const [deletingId, setDeletingId] = useState<number | null>(null);
 

@@ -89,29 +89,32 @@ export function useCurrentOvertimeStats(userId?: number) {
   return useQuery({
     queryKey: ['currentOvertimeStats', userId],
     queryFn: async () => {
-      const endpoint = userId
-        ? `/overtime/current?userId=${userId}`
-        : '/overtime/current';
+      if (!userId) {
+        return {
+          today: 0,
+          thisWeek: 0,
+          thisMonth: 0,
+          totalYear: 0,
+        };
+      }
 
+      // Use existing /overtime/:userId route
       const response = await apiClient.get<{
-        today: number;
-        thisWeek: number;
-        thisMonth: number;
-        totalYear: number;
-      }>(endpoint);
+        overtime: number;
+      }>(`/overtime/${userId}`);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch overtime stats');
       }
 
-      return response.data || {
-        today: 0,
-        thisWeek: 0,
-        thisMonth: 0,
-        totalYear: 0,
+      return {
+        today: 0, // Not calculated by backend
+        thisWeek: 0, // Not calculated by backend
+        thisMonth: 0, // Not calculated by backend
+        totalYear: response.data?.overtime || 0,
       };
     },
-    enabled: true,
+    enabled: !!userId,
     refetchOnWindowFocus: false,
     retry: false,
     gcTime: 0, // Disable cache - always fetch fresh data

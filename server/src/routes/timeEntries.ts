@@ -38,10 +38,17 @@ router.get(
   (req: Request, res: Response<ApiResponse<TimeEntry[]>>) => {
     try {
       const isAdmin = req.session.user!.role === 'admin';
-      const userId = isAdmin ? undefined : req.session.user!.id;
 
-      // Get pagination parameters
-      const { cursor, limit, startDate, endDate } = req.query;
+      // Get pagination parameters (including userId filter)
+      const { cursor, limit, startDate, endDate, userId: userIdParam } = req.query;
+
+      // Determine which userId to use:
+      // - Employee: always their own ID (ignore query param for security)
+      // - Admin with userId param: use the param (filter specific employee)
+      // - Admin without userId param: undefined (load all)
+      const userId = isAdmin
+        ? (userIdParam ? parseInt(userIdParam as string, 10) : undefined)
+        : req.session.user!.id;
 
       // Validate parameters
       const cursorNum = cursor ? parseInt(cursor as string, 10) : undefined;
@@ -80,13 +87,17 @@ router.get(
         endDate: endDate as string,
       });
 
+      // CRITICAL: Frontend expects { success, data: { rows, pagination } }
+      // NOT { success, data: rows, pagination }
       res.json({
         success: true,
-        data: result.rows,
-        pagination: {
-          cursor: result.cursor,
-          hasMore: result.hasMore,
-          total: result.total,
+        data: {
+          rows: result.rows,
+          pagination: {
+            cursor: result.cursor,
+            hasMore: result.hasMore,
+            total: result.total,
+          },
         },
       });
     } catch (error) {

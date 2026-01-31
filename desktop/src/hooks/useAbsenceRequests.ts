@@ -8,6 +8,7 @@ export interface AbsenceRequestFilters {
   status?: 'pending' | 'approved' | 'rejected';
   type?: 'vacation' | 'sick' | 'unpaid' | 'overtime_comp';
   year?: number;
+  month?: number;  // Optional: filter by specific month (1-12)
   page?: number;
   limit?: number;
   forTeamCalendar?: boolean; // Use /absences/team endpoint (all approved absences)
@@ -64,6 +65,7 @@ export function useAbsenceRequests(filters?: AbsenceRequestFilters) {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.type) params.append('type', filters.type);
       if (filters?.year) params.append('year', filters.year.toString());
+      if (filters?.month) params.append('month', filters.month.toString());
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
 
@@ -266,9 +268,16 @@ export function useRejectAbsenceRequest() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: RejectAbsenceData }) => {
+      // Transform frontend data format to backend format
+      // Frontend: { rejectedBy, reason }
+      // Backend: { adminNote }
+      const backendData = {
+        adminNote: data.reason,
+      };
+
       const response = await apiClient.post<AbsenceRequest>(
         `/absences/${id}/reject`,
-        data
+        backendData
       );
 
       if (!response.success) {

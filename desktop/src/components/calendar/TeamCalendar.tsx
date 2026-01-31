@@ -25,13 +25,12 @@ import {
   endOfWeek,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { CalendarHeader } from './CalendarHeader';
-import { CalendarLegend } from './CalendarLegend';
 import { getEventColor, getAbsenceTypeLabel, getAbsenceStatusLabel } from '../../utils/calendarUtils';
 import { formatHours } from '../../utils/timeUtils';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { useUIStore } from '../../store/uiStore';
 import type { User, TimeEntry, AbsenceRequest } from '../../types';
-import { useActiveEmployees, useTimeEntries, useAbsenceRequests } from '../../hooks';
+import { useActiveEmployees, useTimeEntries, useCalendarAbsences } from '../../hooks';
 
 interface TeamCalendarProps {
   onDayClick?: (date: Date, user: User) => void;
@@ -50,6 +49,7 @@ export function TeamCalendar({
 }: TeamCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const { calendarFilters } = useUIStore();
 
   // Fetch data
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
@@ -58,8 +58,14 @@ export function TeamCalendar({
   // For team calendar: Use different API based on role
   // Employees: GET /absences/team (only approved absences of all users)
   // Admins: GET /absences (all absences for management)
-  const { data: allAbsences, isLoading: loadingAbsences } = useAbsenceRequests(
-    isAdmin ? undefined : { forTeamCalendar: true } // Special flag to use /team endpoint
+  //
+  // MULTI-YEAR ABSENCE LOADING:
+  // Load absences for 3 years (previous, current, next) based on viewed month
+  // TeamCalendar has its own currentMonth state (independent from CalendarPage)
+  const absenceYear = currentMonth.getFullYear();
+  const { data: allAbsences, isLoading: loadingAbsences } = useCalendarAbsences(
+    absenceYear,
+    isAdmin ? {} : { forTeamCalendar: true } // Special flag to use /team endpoint
   );
 
   // PRIVACY FILTERING (DSGVO-compliant)
@@ -90,12 +96,26 @@ export function TeamCalendar({
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  // Filter employees by department
+  // Filter employees by department AND user filter (from centralized calendar filters)
   const filteredEmployees = useMemo(() => {
     if (!employees) return [];
-    if (selectedDepartment === 'all') return employees;
-    return employees.filter((emp: User) => emp.department === selectedDepartment);
-  }, [employees, selectedDepartment]);
+
+    let filtered = employees;
+
+    // Apply department filter
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter((emp: User) => emp.department === selectedDepartment);
+    }
+
+    // Apply user filter (from centralized calendar filters)
+    // Only filter if admin and specific users are selected
+    const hasUserFilter = isAdmin && calendarFilters.selectedUserIds.length > 0;
+    if (hasUserFilter) {
+      filtered = filtered.filter((emp: User) => calendarFilters.selectedUserIds.includes(emp.id));
+    }
+
+    return filtered;
+  }, [employees, selectedDepartment, isAdmin, calendarFilters.selectedUserIds]);
 
   // Get unique departments
   const departments = useMemo(() => {
@@ -175,15 +195,6 @@ export function TeamCalendar({
 
   return (
     <div>
-      <CalendarHeader
-        currentDate={currentMonth}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onToday={handleToday}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
-      />
-
       {/* Department Filter */}
       {departments.length > 0 && (
         <div className="mb-6 flex items-center gap-4">
@@ -217,8 +228,6 @@ export function TeamCalendar({
           </div>
         </div>
       )}
-
-      <CalendarLegend />
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full">

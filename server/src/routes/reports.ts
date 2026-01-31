@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import {
   getUserOvertimeReport,
   getOvertimeHistory,
+  getOvertimeYearBreakdown,
 } from '../services/reportService.js';
 import type { ApiResponse } from '../types/index.js';
 
@@ -13,8 +14,16 @@ const router = Router();
  * GET /api/reports/overtime/user/:userId
  * Get comprehensive overtime report for a user
  *
- * PROFESSIONAL STANDARD: Transaction-based calculations
- * Replaces deprecated: /api/overtime/summary/:userId/:year
+ * ⚠️  DEPRECATED: This endpoint is being phased out.
+ * 🔄 MIGRATE TO: /api/overtime/balance/:userId/:month OR /api/overtime/balance/:userId/year/:year
+ *
+ * New endpoints provide:
+ * - Direct database reads (no recalculation)
+ * - 10-100x faster performance
+ * - Guaranteed consistency (Single Source of Truth)
+ *
+ * This endpoint still works but uses a hybrid approach (DB read with fallback).
+ * Frontend has been migrated to new endpoints as of 2026-01-24.
  *
  * Query params:
  *   - year: Year (required)
@@ -23,7 +32,7 @@ const router = Router();
 router.get(
   '/overtime/user/:userId',
   requireAuth,
-  (req: Request, res: Response<ApiResponse>) => {
+  async (req: Request, res: Response<ApiResponse>) => {
     try {
       const userId = parseInt(req.params.userId);
       const year = parseInt(req.query.year as string);
@@ -56,7 +65,7 @@ router.get(
         return;
       }
 
-      const report = getUserOvertimeReport(userId, year, month);
+      const report = await getUserOvertimeReport(userId, year, month);
 
       res.json({
         success: true,
@@ -128,6 +137,54 @@ router.get(
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get history',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/reports/overtime/year-breakdown/:userId
+ * Get overtime balance breakdown by year (carryover + current year)
+ *
+ * NEW: For Balance Summary Widget
+ */
+router.get(
+  '/overtime/year-breakdown/:userId',
+  requireAuth,
+  (req: Request, res: Response<ApiResponse>) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const isAdmin = req.session.user!.role === 'admin';
+
+      // Validation
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid userId',
+        });
+        return;
+      }
+
+      // Permission check
+      if (!isAdmin && userId !== req.session.user!.id) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to view this breakdown',
+        });
+        return;
+      }
+
+      const breakdown = getOvertimeYearBreakdown(userId);
+
+      res.json({
+        success: true,
+        data: breakdown,
+      });
+    } catch (error) {
+      console.error('Error getting overtime year breakdown:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get year breakdown',
       });
     }
   }

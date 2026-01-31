@@ -3,31 +3,32 @@ import { useAuthStore } from '../../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { Clock, Calendar, Umbrella, TrendingUp, Download } from 'lucide-react';
+import { Clock, Calendar, Umbrella, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useTodayTimeEntries,
   useWeekTimeEntries,
-  useCurrentOvertimeStats,
   useRemainingVacationDays,
 } from '../../hooks';
-import { calculateTotalHours, formatHours, formatOvertimeHours, formatDateDE } from '../../utils';
+import { calculateTotalHours, formatHours, formatDateDE } from '../../utils';
 import type { TimeEntry, GDPRDataExport } from '../../types';
 import { TimeEntryForm } from '../timeEntries/TimeEntryForm';
 import { AbsenceRequestForm } from '../absences/AbsenceRequestForm';
+import { BalanceSummaryWidget } from '../worktime/BalanceSummaryWidget';
+import { WorkScheduleDisplay } from '../worktime/WorkScheduleDisplay';
 import { apiClient } from '../../api/client';
 
 export function EmployeeDashboard() {
   const { user } = useAuthStore();
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showAbsenceForm, setShowAbsenceForm] = useState(false);
+  const [showScheduleDetails, setShowScheduleDetails] = useState(false);
   const [exportingData, setExportingData] = useState(false);
 
   // Fetch data
   const { data: todayEntries, isLoading: loadingToday } = useTodayTimeEntries(user?.id || 0);
   const { data: weekEntries, isLoading: loadingWeek } = useWeekTimeEntries(user?.id || 0);
-  const { data: overtimeStats, isLoading: loadingOvertime } = useCurrentOvertimeStats(user?.id);
-  const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(user?.id || 0);
+  const { data: vacationBalance, remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(user?.id || 0);
 
   if (!user) return null;
 
@@ -148,9 +149,18 @@ export function EmployeeDashboard() {
                   {loadingVacation ? (
                     <LoadingSpinner size="sm" />
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {vacationDays} Tage
-                    </p>
+                    <>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                        {vacationDays} Tage
+                      </p>
+                      {vacationBalance && (vacationBalance.pending > 0 || vacationBalance.taken > 0) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {vacationBalance.pending > 0 && `${vacationBalance.pending} beantragt`}
+                          {vacationBalance.pending > 0 && vacationBalance.taken > 0 && ', '}
+                          {vacationBalance.taken > 0 && `${vacationBalance.taken} genehmigt`}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
@@ -160,50 +170,22 @@ export function EmployeeDashboard() {
             </CardContent>
           </Card>
 
-          {/* Overtime - 4 Levels */}
+          {/* Work Schedule */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Überstunden (Gesamt)
-                  </p>
-                  {loadingOvertime ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {formatOvertimeHours(overtimeStats?.totalYear || 0)}
-                    </p>
-                  )}
-                </div>
-                <div className="bg-orange-100 dark:bg-orange-900/20 p-3 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                </div>
-              </div>
-              {!loadingOvertime && overtimeStats && (
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Heute</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {formatOvertimeHours(overtimeStats.today)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Woche</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {formatOvertimeHours(overtimeStats.thisWeek)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Monat</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {formatOvertimeHours(overtimeStats.thisMonth)}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <WorkScheduleDisplay
+                user={user}
+                mode="compact"
+                onDetailsClick={() => setShowScheduleDetails(true)}
+              />
             </CardContent>
           </Card>
+
+        </div>
+
+        {/* Balance Summary - Professional Year Breakdown */}
+        <div className="mb-8">
+          <BalanceSummaryWidget userId={user.id} />
         </div>
 
         {/* Quick Actions */}
@@ -290,6 +272,30 @@ export function EmployeeDashboard() {
       {/* Modals */}
       <TimeEntryForm isOpen={showTimeEntryForm} onClose={() => setShowTimeEntryForm(false)} />
       <AbsenceRequestForm isOpen={showAbsenceForm} onClose={() => setShowAbsenceForm(false)} />
+
+      {/* Work Schedule Details Modal */}
+      {showScheduleDetails && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between z-10">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Mein Arbeitszeitmodell
+              </h2>
+              <button
+                onClick={() => setShowScheduleDetails(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <WorkScheduleDisplay user={user} mode="detailed" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

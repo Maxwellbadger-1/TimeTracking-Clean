@@ -45,13 +45,15 @@ export function useTimeEntries(filters?: TimeEntryFilters | number) {
       if (actualFilters?.limit) params.append('limit', actualFilters.limit.toString());
 
       const query = params.toString() ? `?${params.toString()}` : '';
-      const response = await apiClient.get<TimeEntry[]>(`/time-entries${query}`);
+      const response = await apiClient.get<{ rows: TimeEntry[]; pagination: any }>(`/time-entries${query}`);
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch time entries');
       }
 
-      return response.data || [];
+      // NEW: Backend now returns { rows, pagination } instead of array
+      // Extract rows array for backward compatibility with existing code
+      return response.data?.rows || [];
     },
   });
 }

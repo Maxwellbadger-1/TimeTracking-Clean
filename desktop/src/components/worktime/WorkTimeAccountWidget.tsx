@@ -1,6 +1,7 @@
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useWorkTimeAccountLive, useBalanceStatus } from '../../hooks/useWorkTimeAccounts';
+import { useAuthStore } from '../../store/authStore';
 import {
   Clock,
   TrendingUp,
@@ -9,7 +10,7 @@ import {
   CheckCircle,
   AlertTriangle,
 } from 'lucide-react';
-import { formatHours } from '../../utils/timeUtils';
+import { formatHours, formatDateDE } from '../../utils/timeUtils';
 
 interface WorkTimeAccountWidgetProps {
   userId?: number;
@@ -17,8 +18,13 @@ interface WorkTimeAccountWidgetProps {
 }
 
 export function WorkTimeAccountWidget({ userId }: WorkTimeAccountWidgetProps) {
+  const { user: currentUser } = useAuthStore();
   const { data: account, isLoading: accountLoading } = useWorkTimeAccountLive(userId);
   const { data: status, isLoading: statusLoading } = useBalanceStatus(userId);
+
+  // Show hireDate only if viewing own account (not admin viewing another user)
+  const showHireDate = !userId || (currentUser && userId === currentUser.id);
+  const hireDate = currentUser?.hireDate;
 
   const isLoading = accountLoading || statusLoading;
 
@@ -140,8 +146,8 @@ export function WorkTimeAccountWidget({ userId }: WorkTimeAccountWidgetProps) {
             {formatHours(account.currentBalance)}
           </span>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Aktueller Saldo
+        <p className="text-sm text-gray-500 dark:text-gray-400" title="Ihr kumulierter Überstundensaldo seit Eintrittsdatum">
+          Zeitkonto-Saldo (kumuliert)
         </p>
       </div>
 
@@ -212,6 +218,11 @@ export function WorkTimeAccountWidget({ userId }: WorkTimeAccountWidgetProps) {
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Stand: {new Date().toLocaleDateString('de-DE')} (Live-Berechnung)
         </p>
+        {showHireDate && hireDate && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Berechnung seit: {formatDateDE(hireDate)}
+          </p>
+        )}
       </div>
     </Card>
   );

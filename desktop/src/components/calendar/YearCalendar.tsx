@@ -23,22 +23,24 @@ import {
   eachDayOfInterval,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { DateNavigation } from './DateNavigation';
-import { UserFilter } from './UserFilter';
 import { getAbsenceTypeLabel } from '../../utils/calendarUtils';
 import { formatHours } from '../../utils/timeUtils';
 import { useUsers } from '../../hooks/useUsers';
+import { useUIStore } from '../../store/uiStore';
 import type { TimeEntry, AbsenceRequest } from '../../types';
 
 interface YearCalendarProps {
   timeEntries?: TimeEntry[];
   absences?: AbsenceRequest[];
+  holidays?: Array<{ date: string; name: string }>;
   currentUserId: number;
   currentUser: { id: number; firstName: string; lastName: string };
   isAdmin: boolean;
   onDayClick?: (date: Date) => void;
   viewMode?: 'month' | 'week' | 'year' | 'team';
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
+  currentDate?: Date; // NEW: Controlled date from parent
+  onDateChange?: (date: Date) => void; // NEW: Notify parent of date changes
 }
 
 const MONTHS = [
@@ -57,8 +59,9 @@ const MONTHS = [
 ];
 
 // Color intensity levels (based on hours worked + absence type & status)
-const getIntensityColor = (hours: number, absences: AbsenceRequest[]) => {
-  // Check if there are any approved or pending absences
+// Priority: Absence > Work hours
+const getIntensityColor = (hours: number, absences: AbsenceRequest[], isHoliday: boolean) => {
+  // Priority 1: Check if there are any approved or pending absences
   const approvedAbsence = absences.find(a => a.status === 'approved');
   const pendingAbsence = absences.find(a => a.status === 'pending');
 
@@ -110,15 +113,21 @@ const getIntensityColor = (hours: number, absences: AbsenceRequest[]) => {
 export function YearCalendar({
   timeEntries = [],
   absences = [],
+  holidays = [],
   currentUserId,
   currentUser,
   isAdmin,
   onDayClick,
   viewMode = 'year',
   onViewModeChange,
+  currentDate, // NEW: Optional controlled date
+  onDateChange, // NEW: Optional callback
 }: YearCalendarProps) {
-  const [currentYear, setCurrentYear] = useState(new Date());
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  // Use controlled date if provided, otherwise fallback to internal state
+  const [internalYear, setInternalYear] = useState(new Date());
+  const effectiveYear = currentDate || internalYear;
+
+  const { calendarFilters } = useUIStore();
 
   // Admin: Load all users for selection
   // Employee: Query disabled (prevents 403)
@@ -126,8 +135,8 @@ export function YearCalendar({
   const usersList = users || [];
 
   // Get year boundaries
-  const yearStart = startOfYear(currentYear);
-  const yearEnd = endOfYear(currentYear);
+  const yearStart = startOfYear(effectiveYear);
+  const yearEnd = endOfYear(effectiveYear);
 
   // Determine which users to display
   const displayUsers = useMemo(() => {
@@ -147,13 +156,17 @@ export function YearCalendar({
       return employeeUser;
     }
 
-    // Admin: normale User-Liste von API
+    // Admin: Use centralized calendar filter from uiStore
     const activeUsers = usersList.filter(u => !u.deletedAt);
-    if (selectedUserId) {
-      return activeUsers.filter(u => u.id === selectedUserId);
+
+    // Apply user filter if any users are selected
+    const hasUserFilter = calendarFilters.selectedUserIds.length > 0;
+    if (hasUserFilter) {
+      return activeUsers.filter(u => calendarFilters.selectedUserIds.includes(u.id));
     }
+
     return activeUsers;
-  }, [usersList, selectedUserId, isAdmin, currentUserId, timeEntries]);
+  }, [usersList, calendarFilters.selectedUserIds, isAdmin, currentUser]);
 
   // PRIVACY FILTERING (DSGVO-compliant)
   // Employee: Show ONLY own absences in Month/Week/Year calendars
@@ -206,8 +219,8 @@ export function YearCalendar({
     const weeksArray: Date[][] = [];
     let currentWeekStart = weekStart;
 
-    // Generate 52 weeks
-    for (let i = 0; i < 52; i++) {
+    // Generate 53 weeks (to cover full year including last days of December)
+    for (let i = 0; i < 53; i++) {
       const week: Date[] = [];
       for (let j = 0; j < 7; j++) {
         const day = addDays(currentWeekStart, j);
@@ -226,16 +239,46 @@ export function YearCalendar({
   }, [yearStart, yearEnd]);
 
   const handlePrevious = () => {
-    setCurrentYear((prev) => new Date(prev.getFullYear() - 1, 0, 1));
+    const newDate = new Date(effectiveYear.getFullYear() - 1, 0, 1);
+    if (onDateChange) {
+      onDateChange(newDate); // Notify parent (controlled)
+    } else {
+      setInternalYear(newDate); // Update internal state (uncontrolled)
+    }
   };
 
   const handleNext = () => {
-    setCurrentYear((prev) => new Date(prev.getFullYear() + 1, 0, 1));
+    const newDate = new Date(effectiveYear.getFullYear() + 1, 0, 1);
+    if (onDateChange) {
+      onDateChange(newDate); // Notify parent (controlled)
+    } else {
+      setInternalYear(newDate); // Update internal state (uncontrolled)
+    }
   };
 
   const handleToday = () => {
-    setCurrentYear(new Date());
+    const newDate = new Date();
+    if (onDateChange) {
+      onDateChange(newDate); // Notify parent (controlled)
+    } else {
+      setInternalYear(newDate); // Update internal state (uncontrolled)
+    }
   };
+
+  // Calculate weeks per month for grid layout alignment
+  const weeksPerMonth = useMemo(() => {
+    const monthWeeks = new Array(12).fill(0);
+
+    weeks.forEach(week => {
+      const firstDay = week[0];
+      if (firstDay) {
+        const monthIndex = firstDay.getMonth();
+        monthWeeks[monthIndex]++;
+      }
+    });
+
+    return monthWeeks;
+  }, [weeks]);
 
   // Render a single user's heatmap
   const renderUserHeatmap = (user: { id: number; firstName: string; lastName: string }) => {
@@ -279,42 +322,52 @@ export function YearCalendar({
 
         {/* Heatmap */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 overflow-x-auto">
-          {/* Month Labels */}
-          <div className="flex mb-2 ml-12">
+          {/* Unified Grid: Month Labels + Day Labels + Heatmap */}
+          <div
+            className="grid gap-1"
+            style={{
+              gridTemplateColumns: `48px ${weeksPerMonth.map(count => `repeat(${count}, minmax(12px, 1fr))`).join(' ')}`,
+              gridTemplateRows: 'auto repeat(7, minmax(12px, 1fr))',
+              maxWidth: 'calc(48px + 53 * 20px + 53 * 4px)'
+            }}
+          >
+            {/* Row 1: Empty cell + Month Labels */}
+            <div />
             {MONTHS.map((month, idx) => (
               <div
                 key={month}
-                className="text-xs text-gray-600 dark:text-gray-400 font-medium"
-                style={{ width: `${100 / 12}%`, marginLeft: idx === 0 ? '0' : '0' }}
+                className="text-xs text-gray-600 dark:text-gray-400 font-medium text-center mb-2"
+                style={{ gridColumn: `span ${weeksPerMonth[idx]}` }}
               >
                 {month}
               </div>
             ))}
-          </div>
 
-          {/* Heatmap Grid */}
-          <div className="flex">
-            {/* Day Labels */}
-            <div className="mr-2">
-              {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day, idx) => (
-                <div
-                  key={day}
-                  className="h-3 mb-1 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-end pr-1"
-                >
-                  {idx % 2 === 0 ? day : ''}
-                </div>
-              ))}
-            </div>
+            {/* Rows 2-8: Day Labels + Week Boxes */}
+            {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
+              const dayLabel = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][dayIdx];
+              return (
+                <>
+                  {/* Day Label */}
+                  <div
+                    key={`label-${dayIdx}`}
+                    className="text-xs text-gray-600 dark:text-gray-400 flex items-center justify-end pr-1"
+                  >
+                    {dayIdx % 2 === 0 ? dayLabel : ''}
+                  </div>
 
-            {/* Weeks Grid */}
-            <div className="flex gap-1">
-              {weeks.map((week, weekIdx) => (
-                <div key={weekIdx} className="flex flex-col gap-1">
-                  {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
+                  {/* Week Boxes for this day */}
+                  {weeks.map((week, weekIdx) => {
                     const day = week.find((d) => getDay(d) === (dayIdx + 1) % 7);
 
                     if (!day) {
-                      return <div key={dayIdx} className="w-3 h-3 rounded-sm" />;
+                      return (
+                        <div
+                          key={dayIdx}
+                          className="rounded-sm"
+                          style={{ aspectRatio: '1 / 1', minWidth: '12px', minHeight: '12px' }}
+                        />
+                      );
                     }
 
                     const dateKey = format(day, 'yyyy-MM-dd');
@@ -322,21 +375,31 @@ export function YearCalendar({
                     const dayEntries = entriesByDay.get(dateKey) || [];
                     const dayAbsences = absencesByDay.get(dateKey) || [];
 
+                    // Check if day is a holiday
+                    const holiday = holidays.find(h => h.date === dateKey);
+                    const isHoliday = !!holiday;
+
                     // Filter: Nur genehmigte oder pending Absences anzeigen (rejected nicht)
                     const visibleAbsences = dayAbsences.filter(a => a.status !== 'rejected');
                     const hasAbsence = visibleAbsences.length > 0;
 
-                    const colorClass = getIntensityColor(hours, visibleAbsences);
+                    const colorClass = getIntensityColor(hours, visibleAbsences, isHoliday);
                     const dayIsToday = isToday(day);
 
                     // Build tooltip
                     let tooltipText = `${format(day, 'd. MMM yyyy', { locale: de })}`;
+
+                    // Show holiday first (highest priority)
+                    if (holiday) {
+                      tooltipText += `\n\n🎉 Feiertag: ${holiday.name}`;
+                    }
+
                     if (dayEntries.length > 0) {
                       tooltipText += `\n\n📊 ${formatHours(hours)} gearbeitet`;
                       dayEntries.forEach((entry) => {
                         tooltipText += `\n• ${formatHours(entry.hours)} (${entry.startTime}-${entry.endTime})`;
                       });
-                    } else {
+                    } else if (!holiday) {
                       tooltipText += `\n${formatHours(hours)} gearbeitet`;
                     }
                     if (hasAbsence) {
@@ -365,18 +428,19 @@ export function YearCalendar({
 
                     return (
                       <div
-                        key={dateKey}
-                        className={`w-3 h-3 rounded-sm border transition-all cursor-pointer hover:scale-150 hover:shadow-lg ${colorClass} ${
+                        key={`${weekIdx}-${dayIdx}`}
+                        className={`rounded-sm border transition-all cursor-pointer hover:scale-150 hover:shadow-lg ${colorClass} ${
                           dayIsToday ? 'ring-2 ring-blue-500' : ''
                         }`}
+                        style={{ aspectRatio: '1 / 1', minWidth: '12px', minHeight: '12px' }}
                         onClick={() => onDayClick?.(day)}
                         title={tooltipText}
                       />
                     );
                   })}
-                </div>
-              ))}
-            </div>
+                </>
+              );
+            })}
           </div>
 
           {/* Legend */}
@@ -444,26 +508,6 @@ export function YearCalendar({
 
   return (
     <div>
-      <DateNavigation
-        currentDate={currentYear}
-        onDateChange={setCurrentYear}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onToday={handleToday}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange || (() => {})}
-      />
-
-      {/* User Filter - nur für Admins */}
-      {isAdmin && (
-        <div className="mb-4">
-          <UserFilter
-            users={usersList}
-            selectedUserId={selectedUserId}
-            onUserChange={setSelectedUserId}
-          />
-        </div>
-      )}
 
       {/* Render all user heatmaps */}
       {displayUsers.map((user) => renderUserHeatmap(user))}

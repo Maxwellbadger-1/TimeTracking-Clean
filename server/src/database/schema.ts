@@ -375,7 +375,7 @@ export function initializeDatabase(db: Database.Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       userId INTEGER NOT NULL,
       date TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('earned', 'compensation', 'correction', 'carryover')),
+      type TEXT NOT NULL CHECK(type IN ('earned', 'compensation', 'correction', 'carryover', 'vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment')),
       hours REAL NOT NULL,
       description TEXT,
       referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system')),

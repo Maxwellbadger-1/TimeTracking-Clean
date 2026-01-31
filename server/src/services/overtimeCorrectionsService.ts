@@ -6,6 +6,8 @@ import {
   OvertimeCorrectionWithUser,
 } from '../types/index.js';
 import { updateMonthlyOvertime } from './overtimeService.js';
+import { recordOvertimeCorrection } from './overtimeTransactionService.js';
+import { broadcastEvent } from '../websocket/server.js';
 
 /**
  * Overtime Corrections Service
@@ -72,6 +74,16 @@ export function createOvertimeCorrection(
       createdBy,
     }, '✅ Overtime correction created');
 
+    // CRITICAL: Create transaction for audit trail (overtime_transactions table)
+    recordOvertimeCorrection(
+      correction.userId,
+      correction.date,
+      correction.hours,
+      correction.reason,
+      createdBy,
+      correction.id  // referenceId to link back to overtime_corrections
+    );
+
     // Create notification for the affected user
     db.prepare(`
       INSERT INTO notifications (userId, type, title, message)
@@ -92,6 +104,14 @@ export function createOvertimeCorrection(
       // Don't fail the correction creation, but log the error
     }
 
+    // Broadcast WebSocket event
+    broadcastEvent({
+      type: 'correction:created',
+      userId: input.userId,
+      data: correction,
+      timestamp: new Date().toISOString(),
+    });
+
     return correction;
   } catch (error) {
     logger.error({ err: error, input }, '❌ Failed to create overtime correction');
@@ -101,9 +121,32 @@ export function createOvertimeCorrection(
 
 /**
  * Get all corrections for a specific user
+ * @param userId User ID
+ * @param year Optional year filter (e.g., 2026)
+ * @param month Optional month filter (1-12)
  */
-export function getOvertimeCorrectionsForUser(userId: number): OvertimeCorrectionWithUser[] {
+export function getOvertimeCorrectionsForUser(
+  userId: number,
+  year?: number,
+  month?: number
+): OvertimeCorrectionWithUser[] {
   try {
+    // Build WHERE clause dynamically
+    const whereClauses = ['oc.userId = ?'];
+    const params: (number | string)[] = [userId];
+
+    if (year) {
+      whereClauses.push("strftime('%Y', oc.date) = ?");
+      params.push(year.toString());
+    }
+
+    if (month) {
+      whereClauses.push("strftime('%m', oc.date) = ?");
+      params.push(month.toString().padStart(2, '0')); // Ensure "01", "02", ..., "12"
+    }
+
+    const whereClause = whereClauses.join(' AND ');
+
     const corrections = db.prepare(`
       SELECT
         oc.*,
@@ -120,9 +163,9 @@ export function getOvertimeCorrectionsForUser(userId: number): OvertimeCorrectio
       JOIN users u ON oc.userId = u.id
       JOIN users c ON oc.createdBy = c.id
       LEFT JOIN users a ON oc.approvedBy = a.id
-      WHERE oc.userId = ?
+      WHERE ${whereClause}
       ORDER BY oc.createdAt DESC
-    `).all(userId) as Array<{
+    `).all(...params) as Array<{
       id: number;
       userId: number;
       hours: number;
@@ -181,9 +224,30 @@ export function getOvertimeCorrectionsForUser(userId: number): OvertimeCorrectio
 
 /**
  * Get all corrections (admin only)
+ * @param year Optional year filter (e.g., 2026)
+ * @param month Optional month filter (1-12)
  */
-export function getAllOvertimeCorrections(): OvertimeCorrectionWithUser[] {
+export function getAllOvertimeCorrections(
+  year?: number,
+  month?: number
+): OvertimeCorrectionWithUser[] {
   try {
+    // Build WHERE clause dynamically
+    const whereClauses: string[] = [];
+    const params: (number | string)[] = [];
+
+    if (year) {
+      whereClauses.push("strftime('%Y', oc.date) = ?");
+      params.push(year.toString());
+    }
+
+    if (month) {
+      whereClauses.push("strftime('%m', oc.date) = ?");
+      params.push(month.toString().padStart(2, '0')); // Ensure "01", "02", ..., "12"
+    }
+
+    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
     const corrections = db.prepare(`
       SELECT
         oc.*,
@@ -200,8 +264,9 @@ export function getAllOvertimeCorrections(): OvertimeCorrectionWithUser[] {
       JOIN users u ON oc.userId = u.id
       JOIN users c ON oc.createdBy = c.id
       LEFT JOIN users a ON oc.approvedBy = a.id
+      ${whereClause}
       ORDER BY oc.createdAt DESC
-    `).all() as Array<{
+    `).all(...params) as Array<{
       id: number;
       userId: number;
       hours: number;
@@ -320,7 +385,13 @@ export function deleteOvertimeCorrection(id: number, deletedBy: number): void {
     // Delete
     db.prepare('DELETE FROM overtime_corrections WHERE id = ?').run(id);
 
-    logger.info({ correctionId: id, deletedBy }, '✅ Overtime correction deleted');
+    // CRITICAL: Delete corresponding transaction from overtime_transactions
+    db.prepare(`
+      DELETE FROM overtime_transactions
+      WHERE type = 'correction' AND referenceType = 'manual' AND referenceId = ?
+    `).run(id);
+
+    logger.info({ correctionId: id, deletedBy }, '✅ Overtime correction deleted (including transaction)');
 
     // Notify user
     db.prepare(`
@@ -341,6 +412,14 @@ export function deleteOvertimeCorrection(id: number, deletedBy: number): void {
       logger.error({ err: error, userId: correction.userId, month: correctionMonth }, '❌ Failed to recalculate overtime after correction deletion');
       // Don't fail the deletion, but log the error
     }
+
+    // Broadcast WebSocket event
+    broadcastEvent({
+      type: 'correction:deleted',
+      userId: correction.userId,
+      data: { id, date: correction.date },
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error({ err: error, id }, '❌ Failed to delete overtime correction');
     throw error;

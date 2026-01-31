@@ -36,7 +36,7 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   const [reason, setReason] = useState('');
 
   // Fetch balances for selected user (not current user if admin)
-  const { remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(selectedUserId);
+  const { data: vacationBalance, remaining: vacationDays, isLoading: loadingVacation } = useRemainingVacationDays(selectedUserId);
   const { data: overtimeStats, isLoading: loadingOvertime } = useCurrentOvertimeStats(selectedUserId);
 
   // Get total yearly overtime hours
@@ -52,7 +52,11 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   const [requiredHours, setRequiredHours] = useState(8);
 
   // Get selected user's data for work schedule
-  const selectedUser = users?.find(u => u.id === selectedUserId);
+  // Employee: Use current user from auth store (users query is disabled)
+  // Admin: Find selected user in users list
+  const selectedUser = isAdmin
+    ? users?.find(u => u.id === selectedUserId)
+    : user;
 
   useEffect(() => {
     if (isValidDate(startDate) && isValidDate(endDate) && isValidDateRange(startDate, endDate) && selectedUser) {
@@ -184,11 +188,21 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
   const getBalanceInfo = () => {
     if (type === 'vacation') {
+      const pending = vacationBalance?.pending || 0;
+      const taken = vacationBalance?.taken || 0;
+
       return (
         <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
           <p className="text-sm text-purple-900 dark:text-purple-200">
             <strong>Verfügbar:</strong> {loadingVacation ? '...' : `${vacationDays} Urlaubstage`}
           </p>
+          {!loadingVacation && (pending > 0 || taken > 0) && (
+            <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+              {pending > 0 && `${pending} beantragt`}
+              {pending > 0 && taken > 0 && ', '}
+              {taken > 0 && `${taken} genehmigt`}
+            </p>
+          )}
         </div>
       );
     }
