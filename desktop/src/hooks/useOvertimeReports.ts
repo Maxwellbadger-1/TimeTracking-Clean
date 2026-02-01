@@ -131,7 +131,7 @@ export function useOvertimeReport(userId: number, year: number, month?: number, 
     enabled: enabledOverride !== undefined ? enabledOverride : (!!userId && !!year),
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 5000, // Auto-refresh every 5 seconds (catches backend updates)
+    refetchInterval: 30000, // Auto-refresh every 30 seconds (consistent with other components)
   });
 }
 
@@ -275,6 +275,6 @@ export function useAllUsersOvertimeReports(year: number, month?: number, isAdmin
     enabled: !!year && isAdmin === true, // CRITICAL: Only fetch if user is admin!
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 5000, // Auto-refresh every 5 seconds (catches backend updates)
+    refetchInterval: 30000, // Auto-refresh every 30 seconds (consistent with other components)
   });
 }

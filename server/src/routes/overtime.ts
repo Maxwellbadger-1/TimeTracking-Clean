@@ -856,13 +856,14 @@ router.post(
  * - Reads from pre-calculated overtime_balance table
  * - Much faster than recalculating on every request
  * - Ensures consistency across all frontend components
+ * - NOW with daily breakdown for DailyOvertimeDetails component!
  *
  * Example: GET /api/overtime/balance/155/2025-12
  */
 router.get(
   '/balance/:userId/:month',
   requireAuth,
-  (req: Request, res: Response<ApiResponse>) => {
+  async (req: Request, res: Response<ApiResponse>) => {
     try {
       const userId = parseInt(req.params.userId);
       const month = req.params.month; // Format: "YYYY-MM"
@@ -922,9 +923,29 @@ router.get(
         return;
       }
 
+      // ✅ NEW: Calculate daily breakdown (for DailyOvertimeDetails component)
+      // Import calculateDailyBreakdown from reportService (same logic as overtime_balance!)
+      const { calculateDailyBreakdownForBalance } = await import('../services/reportService.js');
+
+      const [year, monthNum] = month.split('-');
+      const daily = await calculateDailyBreakdownForBalance(userId, parseInt(year), parseInt(monthNum));
+
+      // Return both summary (from DB) and daily breakdown (calculated)
       res.json({
         success: true,
-        data: balance,
+        data: {
+          userId: balance.userId,
+          month: balance.month,
+          summary: {
+            targetHours: balance.targetHours,
+            actualHours: balance.actualHours,
+            overtime: balance.overtime,
+          },
+          breakdown: {
+            daily, // ✅ NEW: Daily data for DailyOvertimeDetails!
+          },
+          carryoverFromPreviousYear: balance.carryoverFromPreviousYear,
+        },
       });
     } catch (error) {
       console.error('Error getting overtime balance:', error);

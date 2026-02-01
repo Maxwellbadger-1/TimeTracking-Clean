@@ -17,21 +17,19 @@ interface DailyOvertimeDetailsProps {
  *
  * Used inside WorkTimeAccountHistory when user clicks on a month row
  *
- * ⚠️ USES DEPRECATED ENDPOINT: /api/reports/overtime/user/:userId
- * Reason: New balance API doesn't include breakdown.daily yet
- * TODO: Create /api/overtime/balance/:userId/:month/daily endpoint
+ * ✅ NOW USES: /api/overtime/balance/:userId/:month (Single Source of Truth!)
+ * Consistent with all other components
  */
 export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProps) {
   const [yearStr, monthStr] = month.split('-');
   const year = parseInt(yearStr, 10);
   const monthNum = parseInt(monthStr, 10);
 
-  // Fetch overtime report with daily breakdown from OLD endpoint
-  // (New balance API doesn't include breakdown.daily)
+  // ✅ USE NEW BALANCE API (consistent with #1-7!)
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['overtime-report-daily', userId, year, monthNum],
     queryFn: async () => {
-      const response = await apiClient.get(`/reports/overtime/user/${userId}?year=${year}&month=${monthNum}`);
+      const response = await apiClient.get(`/overtime/balance/${userId}/${month}`);
       if (!response.success) throw new Error(response.error);
       return response.data;
     },

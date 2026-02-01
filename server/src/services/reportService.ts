@@ -586,3 +586,53 @@ export function getOvertimeYearBreakdown(userId: number): OvertimeYearBreakdown 
     },
   };
 }
+
+/**
+ * Calculate daily breakdown for a specific month (for Balance API)
+ *
+ * ✅ CONSISTENT with overtime_balance calculation logic
+ * - Uses same functions as calculateDailyBreakdown (internal)
+ * - Ensures DailyOvertimeDetails shows same values as other components
+ *
+ * Used by: GET /api/overtime/balance/:userId/:month
+ *
+ * @param userId - User ID
+ * @param year - Year (e.g., 2026)
+ * @param month - Month number (1-12)
+ * @returns Daily breakdown array
+ */
+export async function calculateDailyBreakdownForBalance(
+  userId: number,
+  year: number,
+  month: number
+): Promise<Array<{ date: string; target: number; actual: number; overtime: number }>> {
+  logger.info({ userId, year, month }, 'Calculating daily breakdown for balance API');
+
+  // Ensure holidays are loaded
+  await ensureYearCoverage(year);
+
+  // Get user data
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  // Calculate date range for the month
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate(); // Last day of month
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  // Don't include dates before hire date
+  const effectiveStartDate = startDate < user.hireDate ? user.hireDate : startDate;
+
+  // Cap to today (don't calculate future days)
+  const today = new Date().toISOString().split('T')[0];
+  const effectiveEndDate = endDate > today ? today : endDate;
+
+  // Use the same calculation logic as getUserOvertimeReport (CONSISTENT!)
+  const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, effectiveEndDate);
+
+  logger.info({ userId, year, month, daysCalculated: daily.length }, 'Daily breakdown calculated');
+
+  return daily;
+}
