@@ -260,6 +260,23 @@ export async function updateUser(
       }
     }
 
+    // If workSchedule changed, recalculate all overtime_balance entries
+    if (data.workSchedule !== undefined) {
+      const oldSchedule = existingUser.workSchedule ? JSON.stringify(existingUser.workSchedule) : null;
+      const newSchedule = data.workSchedule ? JSON.stringify(data.workSchedule) : null;
+
+      if (oldSchedule !== newSchedule) {
+        logger.info({ oldSchedule, newSchedule }, '🔄 workSchedule changed, recalculating overtime');
+        try {
+          recalculateOvertimeForUser(id);
+          logger.info('✅ Overtime recalculated');
+        } catch (error) {
+          logger.error({ err: error }, '❌ Failed to recalculate overtime');
+          // Don't fail the update, but log the error
+        }
+      }
+    }
+
     // If vacationDaysPerYear changed, update vacation_balance entitlement for all years
     if (data.vacationDaysPerYear !== undefined && data.vacationDaysPerYear !== existingUser.vacationDaysPerYear) {
       logger.info({ oldDays: existingUser.vacationDaysPerYear, newDays: data.vacationDaysPerYear }, '🔄 vacationDaysPerYear changed, updating entitlement');
@@ -283,13 +300,15 @@ export async function updateUser(
 
 /**
  * Recalculate all overtime_balance entries for a user
- * Called when weeklyHours or hireDate changes
+ * Called when weeklyHours, workSchedule, or hireDate changes
  * Best Practice (SAP/Personio): Delete and rebuild from scratch for hireDate changes
+ *
+ * ✅ NOW: Uses updateMonthlyOvertime() for correct workSchedule support!
  */
-function recalculateOvertimeForUser(userId: number): void {
+async function recalculateOvertimeForUser(userId: number): Promise<void> {
   logger.debug({ userId }, '🔄 Recalculating overtime for user');
 
-  // Get user's new weeklyHours
+  // Get user
   const user = getUserById(userId);
   if (!user) {
     throw new Error('User not found');
@@ -297,27 +316,27 @@ function recalculateOvertimeForUser(userId: number): void {
 
   // Get all existing overtime_balance entries
   const entries = db.prepare(`
-    SELECT month, actualHours
+    SELECT month
     FROM overtime_balance
     WHERE userId = ?
     ORDER BY month
-  `).all(userId) as Array<{ month: string; actualHours: number }>;
+  `).all(userId) as Array<{ month: string }>;
 
   logger.debug({ count: entries.length }, `📊 Found overtime_balance entries to recalculate`);
 
-  // Recalculate targetHours for each month
+  // Use updateMonthlyOvertime() from overtimeService (Single Source of Truth!)
+  // This handles weeklyHours AND workSchedule correctly
+  const { updateMonthlyOvertime } = await import('./overtimeService.js');
+
+  // Recalculate each month
   for (const entry of entries) {
-    const [year, monthNum] = entry.month.split('-').map(Number);
-    const newTargetHours = calculateMonthlyTargetHours(user.weeklyHours, year, monthNum);
-
-    // Update the entry with new targetHours (overtime is auto-calculated by VIRTUAL column)
-    db.prepare(`
-      UPDATE overtime_balance
-      SET targetHours = ?
-      WHERE userId = ? AND month = ?
-    `).run(newTargetHours, userId, entry.month);
-
-    logger.debug({ month: entry.month, newTargetHours }, `  ✅ targetHours updated`);
+    try {
+      updateMonthlyOvertime(userId, entry.month);
+      logger.debug({ month: entry.month }, `  ✅ Month recalculated`);
+    } catch (error) {
+      logger.error({ err: error, userId, month: entry.month }, '❌ Failed to recalculate month');
+      // Continue with other months
+    }
   }
 
   logger.info('✅ All overtime_balance entries recalculated');
