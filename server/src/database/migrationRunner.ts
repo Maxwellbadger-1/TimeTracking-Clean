@@ -66,14 +66,14 @@ export async function runMigrations(db: Database.Database): Promise<void> {
         runMigration();
         logger.info(`✅ Migration completed: ${migration.name}`);
       } catch (error) {
-        logger.error(`❌ Migration failed: ${migration.name}`, error);
+        logger.error({ error }, `❌ Migration failed: ${migration.name}`);
         throw new Error(`Migration ${migration.name} failed: ${error}`);
       }
     }
 
     logger.info(`✅ All migrations completed successfully`);
   } catch (error) {
-    logger.error('❌ Migration system error:', error);
+    logger.error({ error }, '❌ Migration system error:');
     throw error;
   }
 }

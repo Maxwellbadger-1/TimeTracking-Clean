@@ -544,7 +544,8 @@ export function updateAllOvertimeLevels(userId: number, date: string): void {
  * @param userId User ID
  * @param date Date (YYYY-MM-DD)
  */
-function updateOvertimeTransactionsForDate(userId: number, date: string): void {
+// @deprecated Not currently used - kept for reference
+export function _updateOvertimeTransactionsForDate(userId: number, date: string): void {
   // Get user for workSchedule-aware calculation
   const user = getUserById(userId);
   if (!user) {

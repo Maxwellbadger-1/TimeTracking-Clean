@@ -44,7 +44,7 @@ for (const userId of testUserIds) {
     ensureOvertimeBalanceEntries(userId, upToMonth);
     logger.info(`✅ User ${userId} recalculated successfully\n`);
   } catch (error) {
-    logger.error(`❌ Error recalculating User ${userId}:`, error);
+    logger.error({ error }, `❌ Error recalculating User ${userId}:`);
   }
 }
 

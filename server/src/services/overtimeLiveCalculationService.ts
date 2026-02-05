@@ -37,7 +37,7 @@ function getAllWorkingDaysBetween(
   startDate: string,
   endDate: string,
   workSchedule: Record<string, number> | null,
-  weeklyHours: number
+  _weeklyHours: number
 ): string[] {
   const workingDays: string[] = [];
   const start = new Date(startDate + 'T12:00:00');

@@ -90,7 +90,7 @@ router.get(
 
       // CRITICAL: Frontend expects { success, data: { rows, pagination } }
       // NOT { success, data: rows, pagination }
-      res.json({
+      const response = {
         success: true,
         data: {
           rows: result.rows,
@@ -100,7 +100,10 @@ router.get(
             total: result.total,
           },
         },
-      });
+      };
+      // Type assertion needed because res.json expects ApiResponse<TimeEntry[]>
+      // but we're sending { success, data: { rows, pagination } } for paginated results
+      res.json(response as any);
     } catch (error) {
       console.error('❌ Error getting time entries:', error);
       res.status(500).json({

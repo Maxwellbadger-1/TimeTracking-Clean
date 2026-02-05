@@ -605,7 +605,7 @@ function seedTestUsers(): void {
   addTimeEntry(user9Id, '2025-12-01', 8, 'office');
   addTimeEntry(user9Id, '2025-12-02', 8, 'office');
   // Letzter Arbeitstag: 2025-12-23
-  addTimeEntry(user9Id, '2025-12-23', 8, 'office', null, null, 'Letzter Arbeitstag');
+  addTimeEntry(user9Id, '2025-12-23', 8, 'office', undefined, undefined, 'Letzter Arbeitstag');
 
   // Vacation Balance
   initVacationBalance(user9Id, 2025, 30, 0, 5);

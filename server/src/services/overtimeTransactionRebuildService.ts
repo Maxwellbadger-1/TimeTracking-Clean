@@ -23,7 +23,6 @@
 import { db } from '../database/connection.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import { getUserById } from './userService.js';
-import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import logger from '../utils/logger.js';
 
@@ -273,7 +272,7 @@ function handleAbsenceDay(
   userId: number,
   day: DayCalculation,
   balanceBefore: number,
-  runningBalance: number
+  _runningBalance: number
 ): number {
   let transactionsCreated = 0;
   let currentBalance = balanceBefore;
@@ -422,7 +421,7 @@ function updateOvertimeBalanceForMonth(
   userId: number,
   month: string,
   dailyCalculations: DayCalculation[],
-  finalBalance: number
+  _finalBalance: number
 ): void {
   // Calculate monthly totals
   const targetHours = dailyCalculations.reduce((sum, day) => sum + day.targetHours, 0);

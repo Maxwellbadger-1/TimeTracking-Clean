@@ -367,7 +367,7 @@ export function getAbsenceRequestsPaginated(options: {
         calculatedHours,  // ✅ ECHTE Stunden!
       };
     } catch (error) {
-      logger.error(`Failed to calculate hours for absence ${absence.id}:`, error);
+      logger.error({ error }, `Failed to calculate hours for absence ${absence.id}:`);
       return absence;  // Return without calculatedHours on error
     }
   });

@@ -127,6 +127,7 @@ function validateUser(
 
   const userPublic: UserPublic = {
     id: user.id,
+    username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
@@ -134,7 +135,13 @@ function validateUser(
     workSchedule: user.workSchedule,
     hireDate: user.hireDate,
     role: user.role,
-    departmentId: user.departmentId,
+    department: user.departmentId,
+    position: null,
+    vacationDaysPerYear: 30,
+    endDate: null,
+    status: 'active',
+    privacyConsentAt: null,
+    createdAt: new Date().toISOString(),
   };
 
   // Calculate target hours
@@ -379,6 +386,7 @@ function validateScenario(scenarioName: string): void {
   // Simulate calculation
   const userPublic: UserPublic = {
     id: scenario.user.id,
+    username: scenario.user.email.split('@')[0],
     firstName: scenario.user.firstName,
     lastName: scenario.user.lastName,
     email: scenario.user.email,
@@ -386,7 +394,13 @@ function validateScenario(scenarioName: string): void {
     workSchedule: scenario.user.workSchedule,
     hireDate: scenario.user.hireDate,
     role: scenario.user.role,
-    departmentId: 1,
+    department: null,
+    position: null,
+    vacationDaysPerYear: 30,
+    endDate: null,
+    status: 'active',
+    privacyConsentAt: null,
+    createdAt: new Date().toISOString(),
   };
 
   const targetHours = calculateTargetHoursForPeriod(

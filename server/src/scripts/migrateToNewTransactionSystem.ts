@@ -18,6 +18,7 @@
  *   npm run migrate:new-transaction-system --user=5  # Migrate single user
  */
 
+import Database from 'better-sqlite3';
 import { db } from '../database/connection.js';
 import { rebuildOvertimeTransactionsForMonth } from '../services/overtimeTransactionRebuildService.js';
 

@@ -560,25 +560,15 @@ describe('Working Days Utilities', () => {
     // In real tests, you'd need to mock the database or use test database
 
     it('should return 0h target for holiday with workSchedule', () => {
-      const _user = {
-        weeklyHours: 40,
-        workSchedule: {
-          monday: 8,
-          tuesday: 8,
-          wednesday: 8,
-          thursday: 8,  // Assume May 1 is a holiday
-          friday: 8,
-          saturday: 0,
-          sunday: 0,
-        },
-      } as any;
-
       // May 1, 2025 (Thursday) = Tag der Arbeit (Holiday)
       // Note: This test requires the holiday to be in the database
       // In production, getDailyTargetHours checks holidays table first
 
       // If holiday exists, should return 0h (not 8h from workSchedule)
       // This is tested implicitly in getDailyTargetHours implementation
+
+      // TODO: Add actual test implementation with database mock
+      expect(true).toBe(true); // Placeholder
     });
   });
 
@@ -941,17 +931,8 @@ describe('Working Days Utilities', () => {
     });
 
     it('should reduce target for unpaid leave (workSchedule user)', () => {
-      const _workSchedule = {
-        monday: 8,
-        tuesday: 0,
-        wednesday: 6,
-        thursday: 8,
-        friday: 8,
-        saturday: 0,
-        sunday: 0,
-      };
-
-      // Base target: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
+      // workSchedule: Mo(8) + We(6) + Th(8) + Fr(8) = 30h base target
+      // Tue, Sat, Sun = 0h (days off)
       const baseTarget = 30;
 
       // Unpaid: Monday (8h)

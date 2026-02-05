@@ -89,7 +89,7 @@ export function initializeWebSocket(server: any): void {
 /**
  * Handle new WebSocket connection
  */
-function handleConnection(ws: WebSocket, req: IncomingMessage): void {
+function handleConnection(ws: WebSocket, _req: IncomingMessage): void {
   const authWs = ws as AuthenticatedWebSocket;
   authWs.isAlive = true;
 
@@ -118,7 +118,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage): void {
         logger.info(`✅ WebSocket authenticated: userId=${data.userId}`);
       }
     } catch (error) {
-      logger.error('WebSocket message parse error:', error);
+      logger.error({ error }, 'WebSocket message parse error:');
     }
   });
 
@@ -132,7 +132,7 @@ function handleConnection(ws: WebSocket, req: IncomingMessage): void {
 
   // Error handler
   authWs.on('error', (error) => {
-    logger.error('WebSocket error:', error);
+    logger.error({ error }, 'WebSocket error:');
   });
 }
 
@@ -219,7 +219,7 @@ export function broadcastEvent(event: WSEvent): void {
       }
     });
   } catch (error) {
-    logger.error('Failed to send event to admins:', error);
+    logger.error({ error }, 'Failed to send event to admins:');
   }
 
   logger.info(`✅ Event broadcast complete: sent to ${totalSent} connection(s) across ${sentToUsers.size} user(s)`);
