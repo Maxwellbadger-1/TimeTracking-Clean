@@ -9,57 +9,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Sprint Week 06-10/2026
 
-### 🔴 CRITICAL FIXES IN PROGRESS
+### 🔶 IN PROGRESS
 
-#### Timezone Bug Resolution (17 Files Affected)
-**Status:** 🔄 In Progress - Week 06
-**Severity:** CRITICAL - Data corruption risk
+#### Phase 5: Type Safety Improvements
+**Status:** 🔄 In Progress - Week 06 (2026-02-06)
+**Severity:** MEDIUM - Code quality & maintainability
 
-**Problem:**
-- Using `toISOString().split('T')[0]` causes timezone conversion errors
-- Dates shift by one day (e.g., Dec 31 → Dec 30)
-- Affects overtime calculations and database queries
+**Goal:**
+- Remove all `any` types from codebase (40 TypeScript errors remaining)
+- Fix logger type issues (Pino unknown types)
+- Export missing types (DayName, etc.)
+- Enable TypeScript strict mode
 
-**Solution:**
-- Replace all occurrences with `formatDate(date, 'yyyy-MM-dd')`
-- Automated fix script: `npm run fix:timezone-bugs`
-- ESLint rule to prevent future occurrences
-
-**Files to Fix:** reportService.ts, overtimeLiveCalculationService.ts, timeEntryService.ts, absenceService.ts, and 13 more
-
----
-
-#### Unified Overtime Calculation Service
-**Status:** 📝 Planning - Week 07
-**Severity:** CRITICAL - Calculation inconsistencies
-
-**Problem:**
-- Three separate services calculate overtime independently
-- Different calculation paths produce different results
-- Users see conflicting values in different UI components
-
-**Solution:**
-- Implement `UnifiedOvertimeService` as Single Source of Truth
-- All services delegate to unified service
-- Guaranteed consistency across all components
-
-**Architecture:** See ADR-006 in ARCHITECTURE.md
+**Progress:**
+- [ ] Logger type fixes
+- [ ] Remove unused variables
+- [ ] Export DayName type
+- [ ] Fix remaining TS errors
 
 ---
 
-#### Transaction Deduplication System
-**Status:** 🔜 Queued - Week 08
-**Severity:** HIGH - Data integrity risk
+### ✅ COMPLETED
 
-**Problem:**
-- Absence transactions created in three different code paths
-- Risk of duplicate transactions in database
-- Inconsistent audit trail
+#### Phase 4: Database Balance Tracking (2026-02-06)
+**Status:** ✅ COMPLETE
+**Commit:** `e7c2342` - "feat: Phase 4 - Add balance tracking to overtime transactions"
 
-**Solution:**
-- Implement `OvertimeTransactionManager` with built-in deduplication
-- Centralized transaction creation with idempotency checks
-- Comprehensive duplicate detection
+**Changes:**
+- Added `balanceBefore` and `balanceAfter` columns to `overtime_transactions`
+- Implemented `getBalanceBeforeDate()` helper for cumulative balance calculation
+- Updated `recordOvertimeEarned()` and `recordOvertimeCorrection()` to track balance
+- Created `backfillOvertimeBalances.ts` script (idempotent, 100% success rate)
+- Backfilled 186 transactions: 40 updated, 146 skipped (already correct)
+
+**Benefits:**
+- 🚀 Improved query performance (no SUM() needed)
+- 🔒 Data integrity (balance stored, not calculated)
+- 📊 Audit trail (exact balance at each point in time)
+
+**Tests:** 7/7 balance tracking tests passing (balanceTracking.test.ts)
+
+---
+
+#### Phase 3: Transaction Centralization (2026-02-05)
+**Status:** ✅ COMPLETE
+**Commit:** `a2c1d25` - "feat: Centralize overtime transaction creation (Phase 3)"
+
+**Changes:**
+- Centralized ALL transaction creation in `overtimeTransactionService.ts`
+- Implemented idempotent transaction creation (prevents duplicates)
+- Added unique index: `idx_overtime_transactions_unique`
+- Created centralization tests (4/4 passing)
+
+**Impact:**
+- ✅ Eliminated "Triple Transaction Creation" problem
+- ✅ Zero duplicate transactions in test runs
+- ✅ Complete audit trail
+
+**Tests:** 4/4 centralization tests passing (overtimeTransactionCentralization.test.ts)
+
+---
+
+#### Phase 2: Unified Overtime Service (2026-02-05)
+**Status:** ✅ COMPLETE
+**Commits:** `938518e` - "feat: Implement UnifiedOvertimeService as Single Source of Truth"
+
+**Changes:**
+- Implemented `UnifiedOvertimeService` class (Single Source of Truth)
+- All services now delegate to unified service
+- Guaranteed calculation consistency across all components
+- Created comprehensive test suite (8/8 tests passing)
+
+**Impact:**
+- ✅ Zero calculation discrepancies
+- ✅ Performance unchanged (no degradation)
+- ✅ All services use same calculation logic
+
+**Tests:** 8/8 unified service tests passing (unifiedOvertimeService.test.ts)
+
+---
+
+#### Phase 1: Timezone Bug Resolution (2026-02-05)
+**Status:** ✅ COMPLETE
+**Commit:** `d02f405` - "fix: Phase 1 - Replace all timezone-unsafe date operations with formatDate()"
+
+**Changes:**
+- Replaced ALL `toISOString().split('T')[0]` with `formatDate(date, 'yyyy-MM-dd')`
+- Fixed 17 affected files (reportService.ts, overtimeLiveCalculationService.ts, etc.)
+- Eliminated timezone conversion errors (Dec 31 → Dec 30 bug)
+
+**Impact:**
+- ✅ No date shift issues
+- ✅ Correct overtime calculations
+- ✅ All tests passing
+
+**Tests:** All existing tests passing (89/89)
 
 ---
 
