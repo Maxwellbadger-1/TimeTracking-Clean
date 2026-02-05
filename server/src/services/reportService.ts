@@ -12,10 +12,10 @@
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { getUserById } from './userService.js';
-import { getDailyTargetHours } from '../utils/workingDays.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { ensureYearCoverage } from './holidayService.js';
 import { ensureOvertimeBalanceEntries } from './overtimeService.js';
+import { unifiedOvertimeService } from './unifiedOvertimeService.js';
 
 export interface OvertimeReportSummary {
   userId: number;
@@ -150,7 +150,7 @@ export async function getUserOvertimeReport(
     } else {
       // FALLBACK: Calculate (should not happen after ensureOvertimeBalanceEntries)
       logger.warn({ monthKey }, '⚠️  overtime_balance entry missing, falling back to calculation');
-      const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
+      const daily = calculateDailyBreakdown(userId, effectiveStartDate, endDate);
       summary = {
         targetHours: daily.reduce((sum, d) => sum + d.target, 0),
         actualHours: daily.reduce((sum, d) => sum + d.actual, 0),
@@ -202,7 +202,7 @@ export async function getUserOvertimeReport(
     } else {
       // FALLBACK: Calculate (should not happen after ensureOvertimeBalanceEntries)
       logger.warn({ year }, '⚠️  No overtime_balance entries found, falling back to calculation');
-      const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
+      const daily = calculateDailyBreakdown(userId, effectiveStartDate, endDate);
       summary = {
         targetHours: daily.reduce((sum, d) => sum + d.target, 0),
         actualHours: daily.reduce((sum, d) => sum + d.actual, 0),
@@ -213,7 +213,7 @@ export async function getUserOvertimeReport(
 
   // ALWAYS calculate daily breakdown for UI visualization
   // This is needed for charts, day-by-day view, etc.
-  const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, endDate);
+  const daily = calculateDailyBreakdown(userId, effectiveStartDate, endDate);
 
   // Aggregate to weekly
   const weekly = aggregateToWeekly(daily);
@@ -247,98 +247,29 @@ export async function getUserOvertimeReport(
 
 /**
  * Calculate daily breakdown for date range
+ *
+ * MIGRATION TO UNIFIED SERVICE (Phase 2):
+ * Delegates to UnifiedOvertimeService for consistent calculation logic
  */
 function calculateDailyBreakdown(
   userId: number,
-  user: any,
   startDate: string,
   endDate: string
 ): Array<{ date: string; target: number; actual: number; overtime: number }> {
-  const days: Array<{ date: string; target: number; actual: number; overtime: number }> = [];
+  // Delegate to UnifiedOvertimeService (Single Source of Truth)
+  const periodResult = unifiedOvertimeService.calculatePeriodOvertime(
+    userId,
+    startDate,
+    endDate
+  );
 
-  // Get all dates with time entries OR working days in range
-  const dates = db.prepare(`
-    SELECT DISTINCT date
-    FROM time_entries
-    WHERE userId = ? AND date >= ? AND date <= ?
-    ORDER BY date
-  `).all(userId, startDate, endDate) as Array<{ date: string }>;
-
-  // Also include working days without entries (they have negative overtime)
-  const allDates = new Set(dates.map(d => d.date));
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    // FIX: Use formatDate() instead of toISOString() to avoid timezone issues
-    // toISOString() returns UTC, but we need Europe/Berlin timezone!
-    const dateStr = formatDate(d, 'yyyy-MM-dd');
-    const target = getDailyTargetHours(user, dateStr);
-
-    // Only include if it's a working day OR has time entries
-    if (target > 0 || allDates.has(dateStr)) {
-      allDates.add(dateStr);
-    }
-  }
-
-  // Calculate for each date
-  Array.from(allDates).sort().forEach(date => {
-    let target = getDailyTargetHours(user, date);
-
-    // Get worked hours from time_entries
-    const workedResult = db.prepare(`
-      SELECT COALESCE(SUM(hours), 0) as total
-      FROM time_entries
-      WHERE userId = ? AND date = ?
-    `).get(userId, date) as { total: number };
-
-    // Check for unpaid leave (REDUCES target hours, NO absence credit!)
-    const unpaidLeaveResult = db.prepare(`
-      SELECT COUNT(*) as hasUnpaidLeave
-      FROM absence_requests
-      WHERE userId = ?
-        AND status = 'approved'
-        AND type = 'unpaid'
-        AND ? >= startDate
-        AND ? <= endDate
-    `).get(userId, date, date) as { hasUnpaidLeave: number };
-
-    // If unpaid leave on this day, reduce target to 0 (user doesn't need to work)
-    if (unpaidLeaveResult.hasUnpaidLeave > 0 && target > 0) {
-      target = 0;
-    }
-
-    // Get absence credits (vacation, sick, overtime_comp, special)
-    // Check if date falls within any approved absence period
-    // IMPORTANT: Give credit = target hours for WORKING days only!
-    const absenceResult = db.prepare(`
-      SELECT COUNT(*) as hasAbsence
-      FROM absence_requests
-      WHERE userId = ?
-        AND status = 'approved'
-        AND type IN ('vacation', 'sick', 'overtime_comp', 'special')
-        AND ? >= startDate
-        AND ? <= endDate
-    `).get(userId, date, date) as { hasAbsence: number };
-
-    const absenceCredit = (absenceResult.hasAbsence > 0 && target > 0) ? target : 0;
-
-    // Get manual corrections for this date
-    // PROFESSIONAL: Manual adjustments work ALWAYS (like Personio)
-    const correctionsResult = db.prepare(`
-      SELECT COALESCE(SUM(hours), 0) as total
-      FROM overtime_corrections
-      WHERE userId = ? AND date = ?
-    `).get(userId, date) as { total: number };
-
-    // FINAL: Actual = Worked + Absences + Corrections (Single Source of Truth)
-    const actual = workedResult.total + absenceCredit + correctionsResult.total;
-    const overtime = actual - target;
-
-    days.push({ date, target, actual, overtime });
-  });
-
-  return days;
+  // Map DailyOvertimeResult[] to expected format
+  return periodResult.dailyResults.map(day => ({
+    date: day.date,
+    target: day.targetHours,
+    actual: day.actualHours,
+    overtime: day.overtime,
+  }));
 }
 
 /**
@@ -662,7 +593,7 @@ export async function calculateDailyBreakdownForBalance(
   const effectiveEndDate = endDate > today ? today : endDate;
 
   // Use the same calculation logic as getUserOvertimeReport (CONSISTENT!)
-  const daily = calculateDailyBreakdown(userId, user, effectiveStartDate, effectiveEndDate);
+  const daily = calculateDailyBreakdown(userId, effectiveStartDate, effectiveEndDate);
 
   logger.info({ userId, year, month, daysCalculated: daily.length }, 'Daily breakdown calculated');
 

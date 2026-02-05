@@ -22,6 +22,7 @@ import { getDailyTargetHours } from '../utils/workingDays.js';
 import type { UserPublic } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
+import { unifiedOvertimeService } from './unifiedOvertimeService.js';
 
 /**
  * Get all working days between two dates (inclusive)
@@ -91,6 +92,12 @@ export interface LiveOvertimeTransaction {
  * - Calculates from raw data (time_entries, absences, corrections)
  * - Always includes ALL days from hireDate to today
  * - Reflects changes instantly (no caching, no stale data)
+ *
+ * CONSISTENCY NOTE (Phase 2):
+ * - Uses getDailyTargetHours() - same helper as UnifiedOvertimeService
+ * - Calculation logic: overtime = actualHours - targetHours (consistent)
+ * - This function focuses on transaction-level detail for UI display
+ * - For aggregated results, use UnifiedOvertimeService or calculateCurrentOvertimeBalance()
  *
  * @param userId User ID
  * @param fromDate Optional start date (defaults to hireDate)
@@ -432,28 +439,46 @@ export function calculateLiveOvertimeTransactions(
 /**
  * Calculate current overtime balance (cumulative sum)
  *
+ * MIGRATION TO UNIFIED SERVICE (Phase 2):
+ * Delegates to UnifiedOvertimeService for consistent calculation logic
+ *
  * IMPORTANT: This matches the balance displayed in WorkTimeAccountWidget
- * - Sums all hours from earned + corrections
- * - Excludes absence credits (they're already in earned via target hours)
- * - Includes unpaid_adjustment implicitly (reduces target hours in earned calculation)
+ * - Calculates from single source of truth (UnifiedOvertimeService)
+ * - Includes worked hours, absence credits, corrections, unpaid adjustments
  *
  * @param userId User ID
  * @param fromDate Optional start date (defaults to hireDate)
  * @param toDate Optional end date (defaults to today)
- * @returns Current balance in hours
+ * @returns Total overtime balance
  */
 export function calculateCurrentOvertimeBalance(
   userId: number,
   fromDate?: string,
   toDate?: string
 ): number {
-  const transactions = calculateLiveOvertimeTransactions(userId, fromDate, toDate);
+  // Get user to determine date range
+  const user = db.prepare(`
+    SELECT id, hireDate
+    FROM users
+    WHERE id = ?
+  `).get(userId) as { id: number; hireDate: string } | undefined;
 
-  // Sum only "earned" and "correction" types
-  // Absence credits are IMPLICIT in "earned" (via targetHours)
-  const balance = transactions
-    .filter((t) => t.type === 'earned' || t.type === 'correction')
-    .reduce((sum, t) => sum + t.hours, 0);
+  if (!user) {
+    throw new Error('User not found');
+  }
 
-  return Math.round(balance * 100) / 100; // Round to 2 decimals
+  // Determine date range (never before hireDate!)
+  const startDate = fromDate && fromDate > user.hireDate
+    ? fromDate
+    : user.hireDate;
+  const endDate = toDate || formatDate(getCurrentDate(), 'yyyy-MM-dd'); // Today
+
+  // Delegate to UnifiedOvertimeService (Single Source of Truth)
+  const periodResult = unifiedOvertimeService.calculatePeriodOvertime(
+    userId,
+    startDate,
+    endDate
+  );
+
+  return Math.round(periodResult.overtime * 100) / 100; // Round to 2 decimals
 }

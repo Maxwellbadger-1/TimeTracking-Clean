@@ -6,7 +6,6 @@ import {
   getCurrentYear,
   formatDate,
 } from '../utils/timezone.js';
-import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 import { getUserById } from './userService.js';
 import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import {
@@ -20,6 +19,7 @@ import {
   recordUnpaidAdjustment
 } from './overtimeTransactionService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
+import { unifiedOvertimeService } from './unifiedOvertimeService.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -418,7 +418,7 @@ interface OvertimeSummary {
  * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateMonthlyOvertime(userId: number, month: string): void {
-  console.log(`\n🔄 updateMonthlyOvertime(userId=${userId}, month=${month})`);
+  console.log(`\n🔄 updateMonthlyOvertime(userId=${userId}, month=${month}) - UNIFIED SERVICE`);
 
   // Get user with workSchedule support
   const user = getUserById(userId);
@@ -428,12 +428,11 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   }
   console.log(`  👤 User found: ${user.firstName} ${user.lastName}`);
 
-  const [year, monthNum] = month.split('-').map(Number);
   const today = getCurrentDate();
   const currentMonth = formatDate(today, 'yyyy-MM');
 
-  // Determine start and end dates for calculation
-  const monthStart = new Date(year, monthNum - 1, 1);
+  // Determine end date for calculation
+  const [year, monthNum] = month.split('-').map(Number);
   const monthEnd = new Date(year, monthNum, 0); // Last day of month
 
   // If this is the current month, only calculate up to today
@@ -441,13 +440,6 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 
   // Determine actual start date (hire date if in this month, otherwise month start)
   const hireDate = new Date(user.hireDate);
-  const hireYear = hireDate.getFullYear();
-  const hireMonth = hireDate.getMonth() + 1;
-
-  let startDate = monthStart;
-  if (year === hireYear && monthNum === hireMonth) {
-    startDate = hireDate;
-  }
 
   // Skip this month if user wasn't hired yet (hire date is after the month ends)
   if (hireDate > endDate) {
@@ -455,96 +447,42 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     return;
   }
 
-  // Calculate target hours using individual work schedule
-  // Iterate through each working day and sum getDailyTargetHours()
-  let targetHours = 0;
-  console.log(`\n  📅 DAY-BY-DAY TARGET CALCULATION for ${month}:`);
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const dateStr = formatDate(d, 'yyyy-MM-dd');
-    const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
+  // MIGRATION TO UNIFIED SERVICE (Phase 2):
+  // Delegate to UnifiedOvertimeService for consistent calculation logic
+  console.log(`  🔄 Delegating to UnifiedOvertimeService.calculateMonthlyOvertime()`);
+  const monthlyResult = unifiedOvertimeService.calculateMonthlyOvertime(userId, month);
 
-    console.log(`    ${dateStr} (${['So','Mo','Di','Mi','Do','Fr','Sa'][dayOfWeek]}): isWeekend=${isWeekend}, isHoliday=${!!isHoliday}`);
-
-    if (isWeekend) {
-      console.log(`      → SKIPPED (weekend check BEFORE getDailyTargetHours)`);
-      continue;
-    }
-
-    if (isHoliday) {
-      console.log(`      → SKIPPED (holiday check BEFORE getDailyTargetHours)`);
-      continue;
-    }
-
-    // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
-    const dailyTarget = getDailyTargetHours(user, dateStr);
-    console.log(`      → getDailyTargetHours() returned: ${dailyTarget}h`);
-    targetHours += dailyTarget;
-  }
-  targetHours = Math.round(targetHours * 100) / 100;
-  console.log(`  ✅ TOTAL targetHours: ${targetHours}h`);
+  console.log(`\n  📊 MONTHLY HOURS BREAKDOWN (from UnifiedOvertimeService):`);
+  console.log(`    worked: ${monthlyResult.breakdown.worked}h`);
+  console.log(`    absenceCredits: ${monthlyResult.breakdown.absenceCredits}h`);
+  console.log(`    corrections: ${monthlyResult.breakdown.corrections}h`);
+  console.log(`    unpaidReduction: ${monthlyResult.breakdown.unpaidReduction}h`);
+  console.log(`    targetHours: ${monthlyResult.targetHours}h`);
+  console.log(`    actualHours: ${monthlyResult.actualHours}h`);
+  console.log(`    OVERTIME: ${monthlyResult.overtime}h\n`);
 
   logger.debug({
     month,
-    startDate: formatDate(startDate, 'yyyy-MM-dd'),
-    endDate: formatDate(endDate, 'yyyy-MM-dd'),
-    targetHours
-  }, `📅 updateMonthlyOvertime (workSchedule-aware)`);
+    targetHours: monthlyResult.targetHours,
+    actualHours: monthlyResult.actualHours,
+    overtime: monthlyResult.overtime,
+    breakdown: monthlyResult.breakdown
+  }, `📊 Monthly overtime calculated (UnifiedOvertimeService)`);
 
-  // Calculate actual worked hours for the month
-  const workedHours = db
-    .prepare(
-      `SELECT COALESCE(SUM(hours), 0) as total
-       FROM time_entries
-       WHERE userId = ? AND date LIKE ?`
-    )
-    .get(userId, `${month}%`) as { total: number };
-
-  // BEST PRACTICE: Calculate absence credits ("Krank/Urlaub = Gearbeitet")
-  // Uses centralized function that correctly handles multi-month absences
-  // NOW SUPPORTS: Individual work schedules (workSchedule)
-  const absenceCredits = calculateAbsenceCreditsForMonth(userId, month, user.hireDate, endDate);
-
-  // Calculate unpaid leave reduction (reduces target hours)
-  // Uses centralized function that correctly handles multi-month absences
-  // NOW SUPPORTS: Individual work schedules (workSchedule)
-  const unpaidLeaveReduction = calculateUnpaidLeaveForMonth(userId, month, user.hireDate, endDate);
-
-  // Adjusted target hours (Soll minus unpaid leave)
-  const adjustedTargetHours = targetHours - unpaidLeaveReduction;
-
-  // Get overtime corrections for this month
-  const overtimeCorrections = getTotalCorrectionsForUserInMonth(userId, month);
-
-  // Actual hours WITH absence credits AND corrections
-  const actualHoursWithCredits = workedHours.total + absenceCredits + overtimeCorrections;
-
-  console.log(`\n  📊 MONTHLY HOURS BREAKDOWN:`);
-  console.log(`    workedHours: ${workedHours.total}h`);
-  console.log(`    absenceCredits: ${absenceCredits}h`);
-  console.log(`    overtimeCorrections: ${overtimeCorrections}h`);
-  console.log(`    unpaidLeaveReduction: ${unpaidLeaveReduction}h`);
-  console.log(`    adjustedTargetHours: ${adjustedTargetHours}h (targetHours ${targetHours}h - unpaidLeave ${unpaidLeaveReduction}h)`);
-  console.log(`    actualHoursWithCredits: ${actualHoursWithCredits}h (worked ${workedHours.total}h + absences ${absenceCredits}h + corrections ${overtimeCorrections}h)`);
-  console.log(`    OVERTIME: ${actualHoursWithCredits - adjustedTargetHours}h\n`);
-
-  logger.debug({
-    workedHours: workedHours.total,
-    absenceCredits,
-    overtimeCorrections,
-    unpaidLeaveReduction,
-    adjustedTargetHours,
-    actualHoursWithCredits
-  }, `📊 Monthly hours breakdown`);
-
-  // Upsert monthly overtime
+  // Upsert monthly overtime (write results to overtime_balance table)
   db.prepare(
     `INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(userId, month)
      DO UPDATE SET targetHours = ?, actualHours = ?`
-  ).run(userId, month, adjustedTargetHours, actualHoursWithCredits, adjustedTargetHours, actualHoursWithCredits);
+  ).run(
+    userId,
+    month,
+    monthlyResult.targetHours,
+    monthlyResult.actualHours,
+    monthlyResult.targetHours,
+    monthlyResult.actualHours
+  );
 
   // CRITICAL: Ensure absence transactions are created for transparency
   // This creates individual transaction records for each absence day (vacation, sick, etc.)
