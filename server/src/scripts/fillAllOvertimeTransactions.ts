@@ -18,7 +18,6 @@
 
 import { db } from '../database/connection.js';
 import { ensureDailyOvertimeTransactions } from '../services/overtimeService.js';
-import logger from '../utils/logger.js';
 
 interface User {
   id: number;

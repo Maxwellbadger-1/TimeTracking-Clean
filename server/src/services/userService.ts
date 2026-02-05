@@ -3,7 +3,7 @@ import { hashPassword, comparePassword, findUserById as findUserByIdWithPassword
 import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
 import { getVacationBalance } from './absenceService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
-import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
+// UNUSED: import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 
 /**

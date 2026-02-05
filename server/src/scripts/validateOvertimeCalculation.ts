@@ -24,11 +24,9 @@ import path from 'path';
 import { formatDate } from '../utils/timezone.js';
 import {
   calculateTargetHoursForPeriod,
-  getDailyTargetHours,
   calculateAbsenceHoursWithWorkSchedule,
-  type DayName,
 } from '../utils/workingDays';
-import type { UserPublic } from '../types/api';
+import type { UserPublic } from '../types/index.js';
 import { createTestScenario, getAllScenarioNames } from '../test/generateTestData';
 
 // ============================================================================

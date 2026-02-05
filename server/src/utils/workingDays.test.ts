@@ -560,7 +560,7 @@ describe('Working Days Utilities', () => {
     // In real tests, you'd need to mock the database or use test database
 
     it('should return 0h target for holiday with workSchedule', () => {
-      const user = {
+      const _user = {
         weeklyHours: 40,
         workSchedule: {
           monday: 8,
@@ -941,7 +941,7 @@ describe('Working Days Utilities', () => {
     });
 
     it('should reduce target for unpaid leave (workSchedule user)', () => {
-      const workSchedule = {
+      const _workSchedule = {
         monday: 8,
         tuesday: 0,
         wednesday: 6,

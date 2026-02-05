@@ -2,6 +2,9 @@ import { db } from '../database/connection.js';
 import type { DayName, UserPublic } from '../types/index.js';
 import { formatDate as formatDateBerlin } from './timezone.js';
 
+// Re-export DayName type for use in other modules
+export type { DayName };
+
 /**
  * Working Days Utility Functions
  * Accurate calculation of working days and target hours
