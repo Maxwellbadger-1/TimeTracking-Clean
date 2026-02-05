@@ -16,7 +16,8 @@ import {
   recordSickCredit,
   recordOvertimeCompCredit,
   recordSpecialCredit,
-  recordUnpaidAdjustment
+  recordUnpaidAdjustment,
+  recordOvertimeCorrection
 } from './overtimeTransactionService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
@@ -1409,7 +1410,7 @@ export async function ensureCorrectionTransactions(
 
   // Get all corrections in date range
   const corrections = db.prepare(`
-    SELECT id, date, hours, reason
+    SELECT id, date, hours, reason, createdBy
     FROM overtime_corrections
     WHERE userId = ?
       AND strftime('%Y-%m', date) >= ?
@@ -1420,6 +1421,7 @@ export async function ensureCorrectionTransactions(
     date: string;
     hours: number;
     reason: string;
+    createdBy: number;
   }>;
 
   let transactionsCreated = 0;
@@ -1437,11 +1439,16 @@ export async function ensureCorrectionTransactions(
       continue;
     }
 
-    // Create correction transaction
-    db.prepare(`
-      INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
-      VALUES (?, ?, 'correction', ?, ?, 'manual', ?)
-    `).run(userId, correction.date, correction.hours, correction.reason, correction.id);
+    // PHASE 3: Use centralized transaction service (Single Source of Truth)
+    // Replaces direct INSERT to ensure consistency and proper audit trail
+    recordOvertimeCorrection(
+      userId,
+      correction.date,
+      correction.hours,
+      correction.reason,
+      correction.createdBy,
+      correction.id
+    );
 
     transactionsCreated++;
   }
@@ -1453,5 +1460,5 @@ export async function ensureCorrectionTransactions(
     correctionsProcessed: corrections.length,
     transactionsCreated,
     transactionsSkipped
-  }, '✅ Ensured correction transactions');
+  }, '✅ Ensured correction transactions (via OvertimeTransactionService)');
 }
