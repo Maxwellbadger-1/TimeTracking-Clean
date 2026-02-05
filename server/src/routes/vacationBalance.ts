@@ -80,9 +80,18 @@ router.get('/:userId', requireAuth, (req: Request, res: Response) => {
     const balances = getAllVacationBalances({ userId, year });
 
     if (!balances || balances.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Vacation balance not found for this user',
+      // No vacation balance yet - return default empty balance instead of error
+      // This prevents annoying error toasts for users without vacation setup
+      return res.json({
+        success: true,
+        data: {
+          userId,
+          year,
+          entitlement: 0,
+          carryover: 0,
+          taken: 0,
+          available: 0,
+        },
       });
     }
 

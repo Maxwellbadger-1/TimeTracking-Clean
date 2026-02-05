@@ -12,6 +12,7 @@ import { getUserById } from '../services/userService.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import fs from 'fs';
 import path from 'path';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 const db = new Database('./database/development.db');
 
@@ -30,12 +31,7 @@ interface ValidationResult {
   } | null;
 }
 
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+// Local formatDate removed - using timezone-safe version from timezone.ts
 
 function validateUser(userId: number, month: string): ValidationResult {
   const user = getUserById(userId);
@@ -67,13 +63,13 @@ function validateUser(userId: number, month: string): ValidationResult {
   // Load holidays
   const holidays = db
     .prepare('SELECT date FROM holidays WHERE date BETWEEN ? AND ?')
-    .all(formatDate(effectiveStartDate), formatDate(effectiveEndDate)) as Array<{ date: string }>;
+    .all(formatDate(effectiveStartDate, 'yyyy-MM-dd'), formatDate(effectiveEndDate, 'yyyy-MM-dd')) as Array<{ date: string }>;
   const holidaySet = new Set(holidays.map((h) => h.date));
 
   // Calculate target hours
   let totalTargetHours = 0;
   for (let d = new Date(effectiveStartDate); d <= effectiveEndDate; d.setDate(d.getDate() + 1)) {
-    const dateStr = formatDate(d);
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     const dailyTarget = getDailyTargetHours(user, dateStr);
     totalTargetHours += dailyTarget;
   }
@@ -85,7 +81,7 @@ function validateUser(userId: number, month: string): ValidationResult {
        WHERE userId = ? AND status = 'approved'
        AND ((startDate <= ? AND endDate >= ?) OR (startDate >= ? AND startDate <= ?))`
     )
-    .all(userId, formatDate(effectiveEndDate), formatDate(effectiveStartDate), formatDate(effectiveStartDate), formatDate(effectiveEndDate)) as Array<{
+    .all(userId, formatDate(effectiveEndDate, 'yyyy-MM-dd'), formatDate(effectiveStartDate, 'yyyy-MM-dd'), formatDate(effectiveStartDate, 'yyyy-MM-dd'), formatDate(effectiveEndDate, 'yyyy-MM-dd')) as Array<{
     id: number;
     type: string;
     startDate: string;
@@ -105,7 +101,7 @@ function validateUser(userId: number, month: string): ValidationResult {
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       if (isWeekend) continue;
 
-      const dateStr = formatDate(d);
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       if (holidaySet.has(dateStr)) continue;
 
       const dailyHours = getDailyTargetHours(user, dateStr);
@@ -124,7 +120,7 @@ function validateUser(userId: number, month: string): ValidationResult {
   // Get time entries
   const timeEntries = db
     .prepare('SELECT hours FROM time_entries WHERE userId = ? AND date BETWEEN ? AND ?')
-    .all(userId, formatDate(effectiveStartDate), formatDate(effectiveEndDate)) as Array<{ hours: number }>;
+    .all(userId, formatDate(effectiveStartDate, 'yyyy-MM-dd'), formatDate(effectiveEndDate, 'yyyy-MM-dd')) as Array<{ hours: number }>;
 
   const totalWorkedHours = timeEntries.reduce((sum, e) => sum + e.hours, 0);
 
@@ -248,7 +244,7 @@ if (failCount > 0) {
 // Write report
 const reportPath = path.join(process.cwd(), 'VALIDATION_ALL_USERS_REPORT.md');
 let report = `# Validation Report: All Test Users\n\n`;
-report += `**Date:** ${new Date().toISOString().split('T')[0]}\n`;
+report += `**Date:** ${formatDate(getCurrentDate(), 'yyyy-MM-dd')}\n`;
 report += `**Month:** 2026-01\n\n`;
 report += `## Summary\n\n`;
 report += `- ✅ PASS: ${passCount}/${results.length}\n`;

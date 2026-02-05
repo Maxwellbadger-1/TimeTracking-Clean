@@ -27,6 +27,7 @@ import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
 import { ensureOvertimeBalanceEntries } from '../services/overtimeService.js';
 import logger from '../utils/logger.js';
+import { formatDate } from '../utils/timezone.js';
 
 logger.info('🚀 Creating SUPER test user - MAX FEATURES!');
 
@@ -165,7 +166,7 @@ const createSuperTestUser = db.transaction(() => {
     const start = new Date(abs.startDate);
     const end = new Date(abs.endDate);
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      absenceDates.add(d.toISOString().split('T')[0]);
+      absenceDates.add(formatDate(d, 'yyyy-MM-dd'));
     }
   });
 
@@ -179,7 +180,7 @@ const createSuperTestUser = db.transaction(() => {
 
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month - 1, day);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatDate(date, 'yyyy-MM-dd');
 
         // Skip if before hire date
         if (dateStr < '2022-10-01') continue;
@@ -249,7 +250,7 @@ const createSuperTestUser = db.transaction(() => {
     const date = new Date(2026, 0, day);
     if (date > today) break;
 
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDate(date, 'yyyy-MM-dd');
 
     if (!isWorkDay(date, workSchedule)) continue;
     if (absenceDates.has(dateStr)) continue;

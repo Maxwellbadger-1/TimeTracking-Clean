@@ -130,10 +130,12 @@ export function useCreateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // NEW: Invalidate overtime reports (contains user list)
       toast.success('Benutzer erfolgreich erstellt');
     },
     onError: (error: Error) => {
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
+      console.error('Create user failed:', error);
     },
   });
 }
@@ -193,7 +195,7 @@ export function useUpdateUser() {
         queryClient.setQueryData(['users'], context.previousUsers);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: async (_, variables, context) => {
       console.log('🔥🔥🔥 USER UPDATE SUCCESS - DEBUG 🔥🔥🔥');
@@ -275,6 +277,7 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] }); // For useVacationBalance
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] }); // For useVacationBalanceSummary (ADMIN PAGE!)
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // NEW: User data changed (name, weeklyHours, etc.)
 
       console.log('✅ All relevant caches invalidated');
       console.log('🔥🔥🔥 END USER UPDATE SUCCESS DEBUG 🔥🔥🔥');
@@ -341,7 +344,7 @@ export function useReactivateUser() {
         queryClient.setQueryData(['users'], context.previousUsers);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: async (_data, variables) => {
       console.log('✅ User reactivated successfully, invalidating related queries');
@@ -358,6 +361,9 @@ export function useReactivateUser() {
       // Invalidate vacation queries
       queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
       queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+
+      // NEW: Invalidate overtime reports (reactivated user should appear again)
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] });
 
       toast.success('Benutzer reaktiviert');
       console.log('✅ All queries invalidated, UI updated');
@@ -420,7 +426,7 @@ export function useDeleteUser() {
         queryClient.setQueryData(['users'], context.previousUsers);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: async (_data, variables) => {
       console.log('✅ User deleted successfully, invalidating related queries');
@@ -441,6 +447,9 @@ export function useDeleteUser() {
 
       // Invalidate time entries
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+
+      // NEW: Invalidate overtime reports (deleted user should disappear)
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] });
 
       toast.success('Benutzer gelöscht');
       console.log('✅ All queries invalidated, UI updated');

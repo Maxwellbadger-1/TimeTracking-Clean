@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validateUserCreate, validateUserUpdate } from '../middleware/validation.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import {
   getAllUsers,
   getUserById,
@@ -302,7 +303,7 @@ router.post(
       const currentYear = new Date().getFullYear();
       try {
         // Use hire date or default to today if not provided
-        const hireDate = data.hireDate || new Date().toISOString().split('T')[0];
+        const hireDate = data.hireDate || formatDate(getCurrentDate(), 'yyyy-MM-dd');
 
         // Calculate pro-rata entitlement for current year based on hire date
         const currentYearEntitlement = calculateProRataVacationDays(

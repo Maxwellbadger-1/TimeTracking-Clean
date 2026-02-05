@@ -5,6 +5,7 @@ import { validateTimeEntryArbZG } from './arbeitszeitgesetzService.js';
 import { logAudit } from './auditService.js';
 import logger from '../utils/logger.js';
 import { broadcastEvent } from '../websocket/server.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
  * Time Entry Service
@@ -312,7 +313,7 @@ export function getTimeEntriesPaginated(options: {
     // Admin view without any date filter: default to last 30 days for performance
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const defaultStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+    const defaultStartDate = formatDate(thirtyDaysAgo, 'yyyy-MM-dd');
     query += ' AND te.date >= ?';
     params.push(defaultStartDate);
   }
@@ -411,7 +412,7 @@ export function createTimeEntry(data: TimeEntryCreateInput): TimeEntry {
 
     // CRITICAL: Also check if hire date is in the FUTURE
     // Prevents creating entries for employees who haven't started yet
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
     if (user.hireDate > today) {
       throw new Error(`Mitarbeiter tritt erst am ${user.hireDate} ein. Zeiterfassung vorher nicht möglich. Bitte warten Sie bis zum Eintrittstag.`);
     }
@@ -560,7 +561,7 @@ export function updateTimeEntry(
       throw new Error(`Zeiterfassung vor Eintrittsdatum (${user.hireDate}) nicht möglich.`);
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
     if (user.hireDate > today) {
       throw new Error(`Mitarbeiter tritt erst am ${user.hireDate} ein. Zeiterfassung vorher nicht möglich.`);
     }

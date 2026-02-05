@@ -1,7 +1,7 @@
 /**
  * Detailed Overtime Validation Script
  *
- * Purpose: Debug overtime calculations with day-by-day breakdown
+ * Purpose: Comprehensive overtime calculation validation with 3-way comparison
  *
  * Usage:
  *   npm run validate:overtime:detailed -- --userId=3
@@ -9,18 +9,37 @@
  *   npm run validate:overtime:detailed -- --all
  *
  * Features:
- * - Day-by-day target hours breakdown
- * - workSchedule visualization
- * - Holiday highlighting
- * - Absence credit calculation
- * - Database comparison (expected vs. actual)
- * - Discrepancy highlighting
+ * - Day-by-day target hours breakdown with workSchedule visualization
+ * - Holiday highlighting (federal + state-specific)
+ * - Absence credit calculation (vacation, sick, overtime comp, unpaid)
+ * - Time entries breakdown grouped by date
+ * - Manual corrections tracking
+ * - Overtime transactions analysis (earned, credits, adjustments, carryover)
+ * - Visual calculation breakdown boxes (Target → Actual → Overtime)
+ * - 3-way comparison table: Calculated vs Database vs Transactions
+ * - Component-level breakdown for all calculation inputs
+ * - Frontend API validation with discrepancy analysis
+ * - Comprehensive validation status report
+ *
+ * Output Sections:
+ * 1. User Information (work schedule, hire date)
+ * 2. Calculation Period (from hire date to today/month-end)
+ * 3. Holidays (all holidays in period)
+ * 4. Day-by-Day Breakdown (target hours per day)
+ * 5. Absences (credits vs unpaid, with day-by-day breakdown)
+ * 6. Time Entries (grouped by date, with details)
+ * 7. Overtime Corrections (manual adjustments)
+ * 8. Overtime Transactions (by type: earned, credits, corrections, carryover)
+ * 9. Detailed Calculation Breakdown (visual boxes)
+ * 10. Three-Way Comparison (Calculated vs DB vs Transactions)
+ * 11. Frontend API Validation (component-level comparison)
  */
 
 import Database from 'better-sqlite3';
 import { getUserById } from '../services/userService.js';
-import { getDailyTargetHours, calculateAbsenceHoursWithWorkSchedule } from '../utils/workingDays.js';
+import { getDailyTargetHours } from '../utils/workingDays.js';
 import { getCurrentDate } from '../utils/timezone.js';
+// @ts-expect-error - node-fetch doesn't have types in this project
 import fetch from 'node-fetch';
 
 const db = new Database('./database/development.db');
@@ -72,6 +91,73 @@ function formatDate(date: Date): string {
 
 function getDayName(date: Date): string {
   return ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][date.getDay()];
+}
+
+/**
+ * Print a visual calendar for a month
+ * Shows which days are working days, holidays, absences
+ */
+function printMonthCalendar(
+  year: number,
+  month: number,
+  workDays: Set<string>,
+  holidays: Map<string, { name: string; federal: number }>,
+  absences: Set<string>
+): void {
+  console.log(`\n📅 CALENDAR - ${getMonthName(month)} ${year}`);
+  console.log('─'.repeat(80));
+  console.log('MO    DI    MI    DO    FR    SA    SO');
+  console.log('─'.repeat(80));
+
+  // Get first day of month
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const daysInMonth = lastDay.getDate();
+
+  // Get day of week for first day (0=Sunday, 1=Monday, etc.)
+  let firstDayOfWeek = firstDay.getDay();
+  // Convert to ISO (Monday=0, Sunday=6)
+  firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+  let calendar = '';
+
+  // Add empty cells for days before month starts
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    calendar += '      ';
+  }
+
+  // Add all days of the month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayNum = String(day).padStart(2, '0');
+
+    let marker = ' ';
+    if (holidays.has(dateStr)) {
+      marker = '🎉'; // Holiday
+    } else if (absences.has(dateStr)) {
+      marker = '🏖️'; // Absence
+    } else if (workDays.has(dateStr)) {
+      marker = '✓'; // Work day
+    }
+
+    calendar += `${dayNum}${marker}   `;
+
+    // New line after Sunday
+    const currentDayOfWeek = (firstDayOfWeek + day - 1) % 7;
+    if (currentDayOfWeek === 6) {
+      calendar += '\n';
+    }
+  }
+
+  console.log(calendar);
+  console.log('─'.repeat(80));
+  console.log('Legend: ✓=Work day  🎉=Holiday  🏖️=Absence  (blank)=Weekend/Non-work day');
+}
+
+function getMonthName(month: number): string {
+  const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  return months[month - 1];
 }
 
 /**
@@ -132,6 +218,9 @@ async function validateFrontendAPI(
   calculatedTarget: number,
   calculatedActual: number,
   calculatedOvertime: number,
+  totalWorkedHours: number,
+  totalAbsenceCredits: number,
+  totalCorrections: number,
   referenceMonth?: string
 ): Promise<void> {
   // Parse month to year and month number
@@ -147,7 +236,7 @@ async function validateFrontendAPI(
   }
 
   console.log(`\n🌐 FRONTEND API VALIDATION`);
-  console.log('─'.repeat(80));
+  console.log('═'.repeat(80));
 
   const apiData = await fetchFrontendAPI(userId, year, month);
 
@@ -158,17 +247,19 @@ async function validateFrontendAPI(
 
   const tolerance = 0.01; // 1 minute tolerance
 
-  console.log(`Expected Target:    ${calculatedTarget}h`);
-  console.log(`Frontend API Target:${apiData.summary.targetHours}h`);
-  console.log(`Match:              ${Math.abs(calculatedTarget - apiData.summary.targetHours) < tolerance ? '✅ YES' : '❌ NO - MISMATCH!'}`);
-  console.log('');
-  console.log(`Expected Actual:    ${calculatedActual}h`);
-  console.log(`Frontend API Actual:${apiData.summary.actualHours}h`);
-  console.log(`Match:              ${Math.abs(calculatedActual - apiData.summary.actualHours) < tolerance ? '✅ YES' : '❌ NO - MISMATCH!'}`);
-  console.log('');
-  console.log(`Expected Overtime:  ${calculatedOvertime >= 0 ? '+' : ''}${calculatedOvertime}h`);
-  console.log(`Frontend API OT:    ${apiData.summary.overtime >= 0 ? '+' : ''}${apiData.summary.overtime}h`);
-  console.log(`Match:              ${Math.abs(calculatedOvertime - apiData.summary.overtime) < tolerance ? '✅ YES' : '❌ NO - MISMATCH!'}`);
+  // Summary comparison table
+  console.log('\n┌────────────────────────┬──────────────┬──────────────┬────────┐');
+  console.log('│ Component              │ Calculated   │ Frontend API │ Match  │');
+  console.log('├────────────────────────┼──────────────┼──────────────┼────────┤');
+
+  const targetMatch = Math.abs(calculatedTarget - apiData.summary.targetHours) < tolerance ? '✅' : '❌';
+  const actualMatch = Math.abs(calculatedActual - apiData.summary.actualHours) < tolerance ? '✅' : '❌';
+  const otMatch = Math.abs(calculatedOvertime - apiData.summary.overtime) < tolerance ? '✅' : '❌';
+
+  console.log(`│ Target Hours (Soll)    │ ${calculatedTarget.toFixed(2).padStart(10)}h  │ ${apiData.summary.targetHours.toFixed(2).padStart(10)}h  │ ${targetMatch}     │`);
+  console.log(`│ Actual Hours (Ist)     │ ${calculatedActual.toFixed(2).padStart(10)}h  │ ${apiData.summary.actualHours.toFixed(2).padStart(10)}h  │ ${actualMatch}     │`);
+  console.log(`│ Overtime Balance       │ ${(calculatedOvertime >= 0 ? '+' : '') + calculatedOvertime.toFixed(2).padStart(9)}h  │ ${(apiData.summary.overtime >= 0 ? '+' : '') + apiData.summary.overtime.toFixed(2).padStart(9)}h  │ ${otMatch}     │`);
+  console.log('└────────────────────────┴──────────────┴──────────────┴────────┘');
 
   const hasDiscrepancy =
     Math.abs(calculatedTarget - apiData.summary.targetHours) >= tolerance ||
@@ -176,10 +267,47 @@ async function validateFrontendAPI(
     Math.abs(calculatedOvertime - apiData.summary.overtime) >= tolerance;
 
   if (hasDiscrepancy) {
-    console.log('\n❌ FRONTEND API DISCREPANCY DETECTED!');
-    console.log(`   Target Diff:   ${(calculatedTarget - apiData.summary.targetHours).toFixed(2)}h`);
-    console.log(`   Actual Diff:   ${(calculatedActual - apiData.summary.actualHours).toFixed(2)}h`);
-    console.log(`   Overtime Diff: ${(calculatedOvertime - apiData.summary.overtime).toFixed(2)}h`);
+    console.log('\n📋 COMPONENT-LEVEL DISCREPANCY ANALYSIS:');
+    console.log('─'.repeat(80));
+
+    if (Math.abs(calculatedTarget - apiData.summary.targetHours) >= tolerance) {
+      const targetDiff = calculatedTarget - apiData.summary.targetHours;
+      console.log(`\n❌ TARGET HOURS MISMATCH:`);
+      console.log(`   Calculated:     ${calculatedTarget}h`);
+      console.log(`   Frontend API:   ${apiData.summary.targetHours}h`);
+      console.log(`   Difference:     ${targetDiff >= 0 ? '+' : ''}${targetDiff.toFixed(2)}h`);
+      console.log(`   → Check: workSchedule, holidays, unpaid leave handling`);
+    }
+
+    if (Math.abs(calculatedActual - apiData.summary.actualHours) >= tolerance) {
+      const actualDiff = calculatedActual - apiData.summary.actualHours;
+      console.log(`\n❌ ACTUAL HOURS MISMATCH:`);
+      console.log(`   Calculated Components:`);
+      console.log(`     - Time Entries:         ${totalWorkedHours}h`);
+      console.log(`     - Absence Credits:      +${totalAbsenceCredits}h`);
+      console.log(`     - Manual Corrections:   ${totalCorrections >= 0 ? '+' : ''}${totalCorrections}h`);
+      console.log(`     - TOTAL:                ${calculatedActual}h`);
+      console.log(`   Frontend API Total:       ${apiData.summary.actualHours}h`);
+      console.log(`   Difference:               ${actualDiff >= 0 ? '+' : ''}${actualDiff.toFixed(2)}h`);
+      console.log(`   → Check: absence credit calculation, corrections inclusion`);
+    }
+
+    if (Math.abs(calculatedOvertime - apiData.summary.overtime) >= tolerance) {
+      const overtimeDiff = calculatedOvertime - apiData.summary.overtime;
+      console.log(`\n❌ OVERTIME BALANCE MISMATCH:`);
+      console.log(`   Calculated:     ${calculatedOvertime >= 0 ? '+' : ''}${calculatedOvertime}h`);
+      console.log(`   Frontend API:   ${apiData.summary.overtime >= 0 ? '+' : ''}${apiData.summary.overtime}h`);
+      console.log(`   Difference:     ${overtimeDiff >= 0 ? '+' : ''}${overtimeDiff.toFixed(2)}h`);
+      console.log(`   → This is likely a DUAL CALCULATION SYSTEM issue!`);
+      console.log(`   → Recommendation: Use overtime_balance (Single Source of Truth)`);
+    }
+
+    console.log('\n⚠️  FRONTEND API VALIDATION: FAILED');
+    console.log('   The frontend API (reportService.ts) is calculating differently!');
+    console.log('   This is the "Dual Calculation System" problem documented in ARCHITECTURE.md');
+  } else {
+    console.log('\n✅ FRONTEND API VALIDATION: PASSED');
+    console.log('   All components match between calculated values and frontend API');
   }
 }
 
@@ -306,6 +434,50 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
 
   console.log('─'.repeat(80));
   console.log(`TOTAL TARGET HOURS: ${totalTargetHours}h`);
+
+  // 3.5 Show visual calendar (if single month requested)
+  if (referenceMonth) {
+    // Collect work days from dayDetails
+    const workDays = new Set<string>(
+      dayDetails
+        .filter(d => d.target > 0 && !d.isHoliday && !d.isWeekend)
+        .map(d => d.date)
+    );
+
+    // Load absences for calendar display
+    const allAbsences = db
+      .prepare(
+        `SELECT startDate, endDate
+         FROM absence_requests
+         WHERE userId = ?
+           AND status = 'approved'
+           AND startDate <= ?
+           AND endDate >= ?`
+      )
+      .all(userId, formatDate(endDate), formatDate(startDate)) as Array<{
+      startDate: string;
+      endDate: string;
+    }>;
+
+    // Build absence dates set
+    const absenceDates = new Set<string>();
+    for (const absence of allAbsences) {
+      const absStart = new Date(Math.max(new Date(absence.startDate).getTime(), startDate.getTime()));
+      const absEnd = new Date(Math.min(new Date(absence.endDate).getTime(), endDate.getTime()));
+      for (let d = new Date(absStart); d <= absEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = formatDate(d);
+        absenceDates.add(dateStr);
+      }
+    }
+
+    printMonthCalendar(
+      parseInt(referenceMonth.split('-')[0]),
+      parseInt(referenceMonth.split('-')[1]),
+      workDays,
+      holidayMap,
+      absenceDates
+    );
+  }
 
   // 5. Get absences - SPLIT INTO TWO QUERIES (Credits vs. Unpaid)
   // IMPORTANT: Match overtimeService.ts logic exactly!
@@ -558,59 +730,270 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
   }
   console.log(`  TOTAL CORRECTIONS: ${totalCorrections >= 0 ? '+' : ''}${totalCorrections}h`);
 
-  // 8. Calculate overtime
+  // 8. Load overtime transactions
+  const transactions = db
+    .prepare(
+      `SELECT id, date, type, hours, description, referenceType, referenceId
+       FROM overtime_transactions
+       WHERE userId = ? AND date BETWEEN ? AND ?
+       ORDER BY date, type`
+    )
+    .all(userId, formatDate(startDate), formatDate(endDate)) as Array<{
+    id: number;
+    date: string;
+    type: string;
+    hours: number;
+    description: string | null;
+    referenceType: string | null;
+    referenceId: number | null;
+  }>;
+
+  // Group transactions by type
+  const transactionsByType = transactions.reduce((acc, t) => {
+    if (!acc[t.type]) acc[t.type] = [];
+    acc[t.type].push(t);
+    return acc;
+  }, {} as Record<string, typeof transactions>);
+
+  console.log(`\n📊 OVERTIME TRANSACTIONS (${transactions.length})`);
+  console.log('─'.repeat(80));
+  if (transactions.length === 0) {
+    console.log('  (No transactions in this period)');
+  } else {
+    // Show breakdown by type
+    const typeLabels: Record<string, string> = {
+      earned: '⏱️  Earned (Time Entries)',
+      vacation_credit: '🏖️  Vacation Credit',
+      sick_credit: '🤒 Sick Credit',
+      overtime_comp_credit: '⏰ Overtime Comp Credit',
+      special_credit: '🌟 Special Leave Credit',
+      unpaid_adjustment: '💸 Unpaid Leave Adjustment',
+      correction: '🔧 Manual Correction',
+      carryover: '📦 Year-End Carryover',
+    };
+
+    Object.entries(transactionsByType).forEach(([type, txs]) => {
+      const label = typeLabels[type] || `❓ ${type}`;
+      const totalHours = txs.reduce((sum, t) => sum + t.hours, 0);
+      console.log(`\n  ${label}: ${txs.length} transactions, ${totalHours >= 0 ? '+' : ''}${totalHours}h total`);
+
+      // Show first 5 transactions, then summarize rest
+      const displayLimit = 5;
+      txs.slice(0, displayLimit).forEach((t, idx) => {
+        const refInfo = t.referenceType && t.referenceId ? ` [Ref: ${t.referenceType}#${t.referenceId}]` : '';
+        console.log(`     ${idx + 1}. ${t.date}: ${t.hours >= 0 ? '+' : ''}${t.hours}h${refInfo}`);
+        if (t.description) {
+          console.log(`        ${t.description}`);
+        }
+      });
+
+      if (txs.length > displayLimit) {
+        console.log(`     ... and ${txs.length - displayLimit} more transactions`);
+      }
+    });
+  }
+
+  // Calculate transaction totals for comparison
+  const transactionTotals = {
+    earned: transactionsByType.earned?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    vacationCredit: transactionsByType.vacation_credit?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    sickCredit: transactionsByType.sick_credit?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    overtimeCompCredit: transactionsByType.overtime_comp_credit?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    specialCredit: transactionsByType.special_credit?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    unpaidAdjustment: transactionsByType.unpaid_adjustment?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    correction: transactionsByType.correction?.reduce((sum, t) => sum + t.hours, 0) || 0,
+    carryover: transactionsByType.carryover?.reduce((sum, t) => sum + t.hours, 0) || 0,
+  };
+
+  const transactionTotal = transactions.reduce((sum, t) => sum + t.hours, 0);
+
+  console.log('\n  ─'.repeat(40));
+  console.log(`  TRANSACTION BALANCE: ${transactionTotal >= 0 ? '+' : ''}${transactionTotal}h`);
+
+  // 9. Calculate overtime
   const adjustedTargetHours = totalTargetHours - totalUnpaidReduction;
   const actualHours = totalWorkedHours + totalAbsenceCredits + totalCorrections;
   const calculatedOvertime = actualHours - adjustedTargetHours;
 
-  console.log(`\n🧮 CALCULATION`);
-  console.log('─'.repeat(80));
-  console.log(`Soll-Stunden (Target):          ${totalTargetHours}h`);
-  console.log(`Unbezahlter Urlaub (Reduktion): -${totalUnpaidReduction}h`);
-  console.log(`Angepasstes Soll:               ${adjustedTargetHours}h`);
-  console.log('');
-  console.log(`Gearbeitete Stunden:            ${totalWorkedHours}h`);
-  console.log(`Abwesenheits-Gutschriften:      +${totalAbsenceCredits}h`);
-  console.log(`Überstunden-Korrekturen:        ${totalCorrections >= 0 ? '+' : ''}${totalCorrections}h`);
-  console.log(`Ist-Stunden (Actual):           ${actualHours}h`);
-  console.log('');
-  console.log(`ÜBERSTUNDEN (Ist - Soll):       ${calculatedOvertime >= 0 ? '+' : ''}${calculatedOvertime}h`);
+  console.log(`\n🧮 DETAILED CALCULATION BREAKDOWN`);
+  console.log('═'.repeat(80));
 
-  // 8. Database comparison
+  // Box 1: Target Hours Calculation
+  console.log('\n┌─ TARGET HOURS (Soll-Stunden) ─────────────────────────────────────────────┐');
+  console.log('│                                                                            │');
+  console.log(`│  Base Target (Working Days):          ${totalTargetHours.toString().padStart(8)}h                    │`);
+  console.log(`│  Unpaid Leave Reduction:              ${('-' + totalUnpaidReduction.toString()).padStart(8)}h                    │`);
+  console.log('│  ──────────────────────────────────────────────────────────────────────  │');
+  console.log(`│  ADJUSTED TARGET:                     ${adjustedTargetHours.toString().padStart(8)}h  ◄── Final Soll  │`);
+  console.log('│                                                                            │');
+  console.log('└────────────────────────────────────────────────────────────────────────────┘');
+
+  // Box 2: Actual Hours Calculation
+  console.log('\n┌─ ACTUAL HOURS (Ist-Stunden) ──────────────────────────────────────────────┐');
+  console.log('│                                                                            │');
+  console.log(`│  Time Entries (Worked):               ${('+' + totalWorkedHours.toString()).padStart(8)}h                    │`);
+  console.log(`│  Absence Credits:                                                          │`);
+  console.log(`│    ├─ Vacation/Sick/Overtime Comp:    ${('+' + totalAbsenceCredits.toString()).padStart(8)}h                    │`);
+  console.log(`│  Manual Corrections:                  ${(totalCorrections >= 0 ? '+' : '') + totalCorrections.toString().padStart(8)}h                    │`);
+  console.log('│  ──────────────────────────────────────────────────────────────────────  │');
+  console.log(`│  TOTAL ACTUAL:                        ${actualHours.toString().padStart(8)}h  ◄── Final Ist   │`);
+  console.log('│                                                                            │');
+  console.log('└────────────────────────────────────────────────────────────────────────────┘');
+
+  // Box 3: Overtime Calculation
+  const overtimeSign = calculatedOvertime >= 0 ? '+' : '';
+  console.log('\n┌─ OVERTIME (Überstunden) ──────────────────────────────────────────────────┐');
+  console.log('│                                                                            │');
+  console.log(`│  Actual Hours (Ist):                  ${actualHours.toString().padStart(8)}h                    │`);
+  console.log(`│  Target Hours (Soll):                 ${('-' + adjustedTargetHours.toString()).padStart(8)}h                    │`);
+  console.log('│  ──────────────────────────────────────────────────────────────────────  │');
+  console.log(`│  OVERTIME BALANCE:                    ${(overtimeSign + calculatedOvertime.toString()).padStart(8)}h  ◄── Result     │`);
+  console.log('│                                                                            │');
+  console.log('└────────────────────────────────────────────────────────────────────────────┘');
+
+  console.log('\n═'.repeat(80));
+
+  // 10. Three-Way Comparison: Calculated vs Database vs Transactions
   if (referenceMonth) {
     const dbRecord = db
       .prepare('SELECT targetHours, actualHours, overtime FROM overtime_balance WHERE userId = ? AND month = ?')
       .get(userId, referenceMonth) as { targetHours: number; actualHours: number; overtime: number } | undefined;
 
-    console.log(`\n💾 DATABASE COMPARISON (Month: ${referenceMonth})`);
-    console.log('─'.repeat(80));
+    console.log(`\n🔀 THREE-WAY COMPARISON (Month: ${referenceMonth})`);
+    console.log('═'.repeat(80));
 
     if (!dbRecord) {
-      console.log('  ⚠️  No database record found for this month!');
+      console.log('  ⚠️  No database record found in overtime_balance for this month!');
       console.log(`  Run: UPDATE overtime_balance for userId=${userId}, month=${referenceMonth}`);
-    } else {
-      console.log(`Expected Target:    ${adjustedTargetHours}h`);
-      console.log(`DB Target:          ${dbRecord.targetHours}h`);
-      console.log(`Match:              ${Math.abs(adjustedTargetHours - dbRecord.targetHours) < 0.01 ? '✅ YES' : '❌ NO - MISMATCH!'}`);
       console.log('');
-      console.log(`Expected Actual:    ${actualHours}h`);
-      console.log(`DB Actual:          ${dbRecord.actualHours}h`);
-      console.log(`Match:              ${Math.abs(actualHours - dbRecord.actualHours) < 0.01 ? '✅ YES' : '❌ NO - MISMATCH!'}`);
-      console.log('');
-      console.log(`Expected Overtime:  ${calculatedOvertime >= 0 ? '+' : ''}${calculatedOvertime}h`);
-      console.log(`DB Overtime:        ${dbRecord.overtime >= 0 ? '+' : ''}${dbRecord.overtime}h`);
-      console.log(`Match:              ${Math.abs(calculatedOvertime - dbRecord.overtime) < 0.01 ? '✅ YES' : '❌ NO - MISMATCH!'}`);
+    }
 
-      if (Math.abs(calculatedOvertime - dbRecord.overtime) >= 0.01) {
-        console.log('\n❌ DISCREPANCY DETECTED!');
-        console.log(`   Difference: ${(calculatedOvertime - dbRecord.overtime).toFixed(2)}h`);
-        console.log(`   Recommendation: Recalculate overtime for this month`);
+    // Prepare values for table
+    const calcTarget = adjustedTargetHours.toFixed(2);
+    const calcActual = actualHours.toFixed(2);
+    const calcOT = calculatedOvertime.toFixed(2);
+
+    const dbTarget = dbRecord ? dbRecord.targetHours.toFixed(2) : 'N/A';
+    const dbActual = dbRecord ? dbRecord.actualHours.toFixed(2) : 'N/A';
+    const dbOT = dbRecord ? dbRecord.overtime.toFixed(2) : 'N/A';
+
+    const txTarget = '—'; // Transactions don't store target
+    const txActual = transactionTotal.toFixed(2);
+    const txOT = transactionTotal.toFixed(2); // Transaction total IS the overtime balance
+
+    // Match indicators
+    const tolerance = 0.01;
+    const targetMatch = dbRecord && Math.abs(adjustedTargetHours - dbRecord.targetHours) < tolerance ? '✅' : '❌';
+    const actualMatch = dbRecord && Math.abs(actualHours - dbRecord.actualHours) < tolerance ? '✅' : '❌';
+    const otMatch = dbRecord && Math.abs(calculatedOvertime - dbRecord.overtime) < tolerance ? '✅' : '❌';
+    const txMatch = Math.abs(calculatedOvertime - transactionTotal) < tolerance ? '✅' : '❌';
+
+    console.log('┌────────────────────────┬──────────────┬──────────────┬──────────────┬────────┐');
+    console.log('│ Component              │ Calculated   │ Database     │ Transactions │ Match  │');
+    console.log('├────────────────────────┼──────────────┼──────────────┼──────────────┼────────┤');
+    console.log(`│ Target Hours (Soll)    │ ${calcTarget.padStart(10)}h  │ ${dbTarget.padStart(10)}h  │ ${txTarget.padStart(10)}   │ ${targetMatch}     │`);
+    console.log(`│ Actual Hours (Ist)     │ ${calcActual.padStart(10)}h  │ ${dbActual.padStart(10)}h  │ ${txActual.padStart(10)}h  │ ${actualMatch}     │`);
+    console.log(`│ Overtime Balance       │ ${(calculatedOvertime >= 0 ? '+' : '') + calcOT.padStart(9)}h  │ ${(dbRecord && dbRecord.overtime >= 0 ? '+' : '') + dbOT.padStart(9)}h  │ ${(transactionTotal >= 0 ? '+' : '') + txOT.padStart(9)}h  │ ${otMatch}${txMatch}   │`);
+    console.log('└────────────────────────┴──────────────┴──────────────┴──────────────┴────────┘');
+
+    // Detailed component breakdown
+    console.log('\n📋 COMPONENT-LEVEL BREAKDOWN:');
+    console.log('─'.repeat(80));
+
+    console.log('\n🎯 TARGET HOURS:');
+    console.log(`  Working Days Calculation:  ${totalTargetHours}h`);
+    console.log(`  Unpaid Leave Reduction:    -${totalUnpaidReduction}h`);
+    console.log(`  ─────────────────────────────────`);
+    console.log(`  CALCULATED TOTAL:          ${adjustedTargetHours}h`);
+    if (dbRecord) {
+      console.log(`  DATABASE TOTAL:            ${dbRecord.targetHours}h`);
+      const targetDiff = adjustedTargetHours - dbRecord.targetHours;
+      if (Math.abs(targetDiff) >= tolerance) {
+        console.log(`  ❌ MISMATCH: ${targetDiff >= 0 ? '+' : ''}${targetDiff.toFixed(2)}h difference`);
+      } else {
+        console.log(`  ✅ MATCH`);
       }
+    }
+
+    console.log('\n⏱️  ACTUAL HOURS:');
+    console.log(`  Time Entries (Worked):     ${totalWorkedHours}h`);
+    console.log(`  Absence Credits:           +${totalAbsenceCredits}h`);
+    console.log(`  Manual Corrections:        ${totalCorrections >= 0 ? '+' : ''}${totalCorrections}h`);
+    console.log(`  ─────────────────────────────────`);
+    console.log(`  CALCULATED TOTAL:          ${actualHours}h`);
+    if (dbRecord) {
+      console.log(`  DATABASE TOTAL:            ${dbRecord.actualHours}h`);
+      const actualDiff = actualHours - dbRecord.actualHours;
+      if (Math.abs(actualDiff) >= tolerance) {
+        console.log(`  ❌ MISMATCH: ${actualDiff >= 0 ? '+' : ''}${actualDiff.toFixed(2)}h difference`);
+      } else {
+        console.log(`  ✅ MATCH`);
+      }
+    }
+
+    console.log('\n📊 TRANSACTION BREAKDOWN:');
+    console.log(`  Earned (Time Entries):     ${transactionTotals.earned >= 0 ? '+' : ''}${transactionTotals.earned}h  (${transactionsByType.earned?.length || 0} txs)`);
+    console.log(`  Vacation Credits:          +${transactionTotals.vacationCredit}h  (${transactionsByType.vacation_credit?.length || 0} txs)`);
+    console.log(`  Sick Credits:              +${transactionTotals.sickCredit}h  (${transactionsByType.sick_credit?.length || 0} txs)`);
+    console.log(`  Overtime Comp Credits:     +${transactionTotals.overtimeCompCredit}h  (${transactionsByType.overtime_comp_credit?.length || 0} txs)`);
+    console.log(`  Special Credits:           +${transactionTotals.specialCredit}h  (${transactionsByType.special_credit?.length || 0} txs)`);
+    console.log(`  Unpaid Adjustments:        ${transactionTotals.unpaidAdjustment}h  (${transactionsByType.unpaid_adjustment?.length || 0} txs)`);
+    console.log(`  Manual Corrections:        ${transactionTotals.correction >= 0 ? '+' : ''}${transactionTotals.correction}h  (${transactionsByType.correction?.length || 0} txs)`);
+    console.log(`  Year-End Carryover:        ${transactionTotals.carryover >= 0 ? '+' : ''}${transactionTotals.carryover}h  (${transactionsByType.carryover?.length || 0} txs)`);
+    console.log(`  ─────────────────────────────────`);
+    console.log(`  TRANSACTION BALANCE:       ${transactionTotal >= 0 ? '+' : ''}${transactionTotal}h`);
+    console.log(`  CALCULATED OVERTIME:       ${calculatedOvertime >= 0 ? '+' : ''}${calculatedOvertime}h`);
+    const txDiff = calculatedOvertime - transactionTotal;
+    if (Math.abs(txDiff) >= tolerance) {
+      console.log(`  ❌ MISMATCH: ${txDiff >= 0 ? '+' : ''}${txDiff.toFixed(2)}h difference`);
+    } else {
+      console.log(`  ✅ MATCH`);
+    }
+
+    // Overall status
+    console.log('\n🎯 VALIDATION STATUS:');
+    console.log('─'.repeat(80));
+
+    const hasDbMismatch = dbRecord && (
+      Math.abs(adjustedTargetHours - dbRecord.targetHours) >= tolerance ||
+      Math.abs(actualHours - dbRecord.actualHours) >= tolerance ||
+      Math.abs(calculatedOvertime - dbRecord.overtime) >= tolerance
+    );
+
+    const hasTxMismatch = Math.abs(calculatedOvertime - transactionTotal) >= tolerance;
+
+    if (!dbRecord) {
+      console.log('  ⚠️  Database record missing - cannot validate');
+    } else if (hasDbMismatch) {
+      console.log('  ❌ DATABASE MISMATCH DETECTED!');
+      console.log('     → Recommendation: Run overtime recalculation script');
+    } else {
+      console.log('  ✅ Database validation: PASSED');
+    }
+
+    if (hasTxMismatch) {
+      console.log('  ❌ TRANSACTION MISMATCH DETECTED!');
+      console.log(`     → Difference: ${txDiff >= 0 ? '+' : ''}${txDiff.toFixed(2)}h`);
+      console.log('     → Possible causes:');
+      console.log('       - Missing transactions (time entries/absences without transactions)');
+      console.log('       - Extra transactions (orphaned or duplicate records)');
+      console.log('       - Incorrect transaction types or hours');
+    } else {
+      console.log('  ✅ Transaction validation: PASSED');
     }
   }
 
-  // 9. Frontend API Validation
-  await validateFrontendAPI(userId, adjustedTargetHours, actualHours, calculatedOvertime, referenceMonth);
+  // 11. Frontend API Validation
+  await validateFrontendAPI(
+    userId,
+    adjustedTargetHours,
+    actualHours,
+    calculatedOvertime,
+    totalWorkedHours,
+    totalAbsenceCredits,
+    totalCorrections,
+    referenceMonth
+  );
 
   console.log('\n' + '='.repeat(80) + '\n');
 }

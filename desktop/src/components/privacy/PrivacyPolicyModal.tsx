@@ -66,7 +66,7 @@ export function PrivacyPolicyModal({ isOpen, onAccept }: PrivacyPolicyModalProps
       console.log('🎯🎯🎯 onAccept() COMPLETED 🎯🎯🎯');
     } catch (error) {
       console.error('❌ Privacy consent error:', error);
-      toast.error('Fehler beim Akzeptieren der Datenschutzerklärung');
+      // Error toast shown by api/client.ts (no duplicate needed)
     } finally {
       setAccepting(false);
     }

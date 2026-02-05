@@ -19,7 +19,8 @@ export default function EmailChangeForm() {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'E-Mail ändern fehlgeschlagen');
+      // Error toast shown by api/client.ts (no duplicate needed)
+      console.error('Email change failed:', error);
     },
   });
 

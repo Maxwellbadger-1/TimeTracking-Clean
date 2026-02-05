@@ -193,7 +193,7 @@ export function useCreateTimeEntry() {
       if (context?.previousEntries) {
         queryClient.setQueryData(['timeEntries'], context.previousEntries);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -284,7 +284,7 @@ export function useUpdateTimeEntry() {
         queryClient.setQueryData(['timeEntry', variables.id], context.previousEntry);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -356,7 +356,7 @@ export function useDeleteTimeEntry() {
         queryClient.setQueryData(['timeEntries'], context.previousEntries);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }

@@ -15,6 +15,7 @@
 
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
+import { formatDate } from '../utils/timezone.js';
 
 /**
  * Validate if working hours comply with ArbZG §3 (Max daily hours)
@@ -188,7 +189,7 @@ export function validateRestPeriod(
     // Calculate earliest allowed start time
     const earliestStart = new Date(lastEndDateTime.getTime() + MIN_REST_HOURS * 60 * 60 * 1000);
     const earliestStartTime = earliestStart.toTimeString().substring(0, 5);
-    const earliestStartDate = earliestStart.toISOString().split('T')[0];
+    const earliestStartDate = formatDate(earliestStart, 'yyyy-MM-dd');
 
     return {
       valid: true, // CHANGED: Always valid, just warn

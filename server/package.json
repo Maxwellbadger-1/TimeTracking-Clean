@@ -30,6 +30,8 @@
     "fill:transactions": "tsx src/scripts/fillAllOvertimeTransactions.ts",
     "validate:all-test-users": "tsx src/scripts/validateAllTestUsers.ts",
     "recalculate:overtime": "tsx src/scripts/recalculateOvertimeBalances.ts",
+    "fix:transactions:duplicates": "tsx src/scripts/fixOvertimeTransactionsDuplicates.ts",
+    "migrate:new-transaction-system": "tsx src/scripts/migrateToNewTransactionSystem.ts",
     "add:2026-entries": "tsx src/scripts/add2026TimeEntries.ts",
     "add:historical-entries": "tsx src/scripts/addHistoricalTimeEntries.ts",
     "test-users:clean": "tsx src/scripts/cleanTestUsers.ts",

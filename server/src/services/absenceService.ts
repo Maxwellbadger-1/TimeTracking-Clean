@@ -6,6 +6,7 @@ import { validateDateString } from '../utils/validation.js';
 import { getUserById } from './userService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { broadcastEvent } from '../websocket/server.js';
+import { formatDate } from '../utils/timezone.js';
 
 /**
  * Absence Service
@@ -732,7 +733,7 @@ export async function approveAbsenceRequest(
   // Get all affected months (e.g., "2026-01" if absence spans 12.01-13.01.2026)
   const affectedMonths = new Set<string>();
   for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
-    const month = d.toISOString().substring(0, 7); // "YYYY-MM"
+    const month = formatDate(d, 'yyyy-MM'); // "YYYY-MM"
     affectedMonths.add(month);
   }
 
@@ -893,7 +894,7 @@ export async function rejectAbsenceRequest(
 
       const affectedMonths = new Set<string>();
       for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
-        affectedMonths.add(d.toISOString().substring(0, 7));
+        affectedMonths.add(formatDate(d, 'yyyy-MM'));
       }
       console.log('📅 Affected months:', Array.from(affectedMonths));
 
@@ -969,7 +970,7 @@ export function deleteAbsenceRequest(id: number): void {
 
       const affectedMonths = new Set<string>();
       for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
-        affectedMonths.add(d.toISOString().substring(0, 7));
+        affectedMonths.add(formatDate(d, 'yyyy-MM'));
       }
 
       for (const month of affectedMonths) {
@@ -1030,7 +1031,7 @@ function calculateAbsenceCredits(userId: number, startDate: string, endDate: str
     }
 
     // Check if day is a holiday
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
     if (isHoliday) {
       continue;

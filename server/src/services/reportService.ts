@@ -13,7 +13,7 @@ import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { getUserById } from './userService.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
-import { formatDate } from '../utils/timezone.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { ensureYearCoverage } from './holidayService.js';
 import { ensureOvertimeBalanceEntries } from './overtimeService.js';
 
@@ -107,7 +107,7 @@ export async function getUserOvertimeReport(
   }
 
   // CRITICAL: Ensure overtime_balance entries exist BEFORE reading!
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
   const targetMonth = month
     ? `${year}-${String(month).padStart(2, '0')}`
     : `${year}-12`;
@@ -401,12 +401,19 @@ function aggregateToMonthly(
 /**
  * Get overtime history with transaction breakdown
  * FALLBACK: Uses overtime_balance if no transactions exist
+ *
+ * @param userId - User ID
+ * @param months - Number of months (default: 12) - IGNORED if year/month specified
+ * @param year - Specific year (e.g., 2026) - optional
+ * @param month - Specific month (1-12) - requires year
  */
 export function getOvertimeHistory(
   userId: number,
-  months: number = 12
+  months: number = 12,
+  year?: number,
+  month?: number
 ): OvertimeHistoryEntry[] {
-  logger.info({ userId, months }, 'Getting overtime history');
+  logger.info({ userId, months, year, month }, 'Getting overtime history');
 
   const user = getUserById(userId);
   if (!user) {
@@ -417,22 +424,47 @@ export function getOvertimeHistory(
   // Transactions are only an audit trail and may contain migration errors
   // overtime_balance is the authoritative source calculated by overtimeService
   logger.info({ userId }, 'Using overtime_balance (Single Source of Truth)');
-  return getOvertimeHistoryFromBalance(userId, months);
+  return getOvertimeHistoryFromBalance(userId, months, year, month);
 }
 
 /**
  * FALLBACK: Get overtime history from overtime_balance table
  * Used when no transactions exist (e.g., legacy users)
+ *
+ * @param userId - User ID
+ * @param months - Number of months (default: 12) - IGNORED if year/month specified
+ * @param year - Specific year (e.g., 2026) - optional
+ * @param month - Specific month (1-12) - requires year, optional
  */
 function getOvertimeHistoryFromBalance(
   userId: number,
-  months: number = 12
+  months: number = 12,
+  year?: number,
+  month?: number
 ): OvertimeHistoryEntry[] {
-  const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+  const now = getCurrentDate();
+  const currentMonth = formatDate(now, 'yyyy-MM'); // "2026-01"
 
-  // CRITICAL: Only get months up to CURRENT MONTH (don't include future months!)
-  const currentMonth = now.toISOString().substring(0, 7); // "2026-01"
+  let startMonthKey: string;
+  let endMonthKey: string;
+
+  if (year && month) {
+    // SPECIFIC MONTH: Return only that month (e.g., "2026-01")
+    startMonthKey = `${year}-${String(month).padStart(2, '0')}`;
+    endMonthKey = startMonthKey;
+    logger.info({ userId, year, month }, 'Getting specific month');
+  } else if (year) {
+    // SPECIFIC YEAR: Return all months in that year (up to current month if it's current year)
+    startMonthKey = `${year}-01`;
+    endMonthKey = year === now.getFullYear() ? currentMonth : `${year}-12`;
+    logger.info({ userId, year, endMonthKey }, 'Getting all months in year');
+  } else {
+    // LAST N MONTHS: Use traditional logic
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+    startMonthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+    endMonthKey = currentMonth;
+    logger.info({ userId, months, startMonthKey, endMonthKey }, 'Getting last N months');
+  }
 
   // Get all overtime_balance entries for this user
   const balances = db.prepare(`
@@ -444,8 +476,8 @@ function getOvertimeHistoryFromBalance(
     ORDER BY month ASC
   `).all(
     userId,
-    `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`,
-    currentMonth
+    startMonthKey,
+    endMonthKey
   ) as Array<{
     month: string;
     targetHours: number;
@@ -457,15 +489,15 @@ function getOvertimeHistoryFromBalance(
   const history: OvertimeHistoryEntry[] = [];
   let runningBalance = 0;
 
-  // Get carryover from previous year (if exists)
-  const prevYearBalance = db.prepare(`
+  // Get carryover from previous months (if exists)
+  const prevBalance = db.prepare(`
     SELECT COALESCE(SUM(overtime), 0) as carryover
     FROM overtime_balance
     WHERE userId = ?
       AND month < ?
-  `).get(userId, `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`) as { carryover: number };
+  `).get(userId, startMonthKey) as { carryover: number };
 
-  runningBalance = prevYearBalance.carryover;
+  runningBalance = prevBalance.carryover;
 
   // CRITICAL FIX: Only show months that actually exist in overtime_balance
   // Don't add "missing months" with 0 values - they didn't exist (user not hired yet or no data)
@@ -626,7 +658,7 @@ export async function calculateDailyBreakdownForBalance(
   const effectiveStartDate = startDate < user.hireDate ? user.hireDate : startDate;
 
   // Cap to today (don't calculate future days)
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
   const effectiveEndDate = endDate > today ? today : endDate;
 
   // Use the same calculation logic as getUserOvertimeReport (CONSISTENT!)

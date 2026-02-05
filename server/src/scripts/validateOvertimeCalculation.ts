@@ -21,6 +21,7 @@
 
 import Database from 'better-sqlite3';
 import path from 'path';
+import { formatDate } from '../utils/timezone.js';
 import {
   calculateTargetHoursForPeriod,
   getDailyTargetHours,
@@ -124,7 +125,7 @@ function validateUser(
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const referenceDate = today.toISOString().split('T')[0];
+  const referenceDate = formatDate(today, 'yyyy-MM-dd');
 
   const userPublic: UserPublic = {
     id: user.id,

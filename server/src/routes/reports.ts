@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import {
   getUserOvertimeReport,
   getOvertimeHistory,
@@ -89,7 +89,9 @@ router.get(
  * Replaces: /api/work-time-accounts/history
  *
  * Query params:
- *   - months: Number of months (default: 12)
+ *   - months: Number of months (default: 12) - IGNORED if year/month specified
+ *   - year: Specific year (e.g., 2026)
+ *   - month: Specific month (1-12) - requires year
  */
 router.get(
   '/overtime/history/:userId',
@@ -98,6 +100,8 @@ router.get(
     try {
       const userId = parseInt(req.params.userId);
       const months = req.query.months ? parseInt(req.query.months as string) : 12;
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
       const isAdmin = req.session.user!.role === 'admin';
 
       // Validation
@@ -117,6 +121,22 @@ router.get(
         return;
       }
 
+      if (month && !year) {
+        res.status(400).json({
+          success: false,
+          error: 'Month requires year parameter',
+        });
+        return;
+      }
+
+      if (month && (month < 1 || month > 12)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid month (must be 1-12)',
+        });
+        return;
+      }
+
       // Permission check
       if (!isAdmin && userId !== req.session.user!.id) {
         res.status(403).json({
@@ -126,7 +146,7 @@ router.get(
         return;
       }
 
-      const history = getOvertimeHistory(userId, months);
+      const history = getOvertimeHistory(userId, months, year, month);
 
       res.json({
         success: true,

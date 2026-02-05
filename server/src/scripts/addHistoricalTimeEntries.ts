@@ -16,6 +16,7 @@
 
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
+import { formatDate } from '../utils/timezone.js';
 
 // Get user IDs
 const getUserId = (username: string): number => {
@@ -68,7 +69,7 @@ const addHistoricalEntries = db.transaction(() => {
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       if (isWeekend) continue;
 
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       addTimeEntry(user.id, dateStr, 8, 'office');
     }
   });
@@ -81,7 +82,7 @@ const addHistoricalEntries = db.transaction(() => {
     const isMonOrTue = dayOfWeek === 1 || dayOfWeek === 2;
     if (!isMonOrTue) continue;
 
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     addTimeEntry(christineId, dateStr, 4, 'homeoffice');
   }
 
@@ -93,7 +94,7 @@ const addHistoricalEntries = db.transaction(() => {
     const isMonToThu = dayOfWeek >= 1 && dayOfWeek <= 4;
     if (!isMonToThu) continue;
 
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     addTimeEntry(tomId, dateStr, 10, 'office');
   }
 
@@ -105,7 +106,7 @@ const addHistoricalEntries = db.transaction(() => {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     if (isWeekend) continue;
 
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     addTimeEntry(klausId, dateStr, 8, 'office');
   }
 
@@ -117,7 +118,7 @@ const addHistoricalEntries = db.transaction(() => {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     if (!isWeekend) continue;
 
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     addTimeEntry(emmaId, dateStr, 8, 'office');
   }
 

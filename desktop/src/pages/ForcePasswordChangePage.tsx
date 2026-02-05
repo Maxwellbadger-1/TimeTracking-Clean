@@ -42,7 +42,8 @@ export default function ForcePasswordChangePage() {
       clearForcePasswordChange();
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Passwort ändern fehlgeschlagen');
+      // Error toast shown by api/client.ts (no duplicate needed)
+      console.error('Force password change failed:', error);
     },
   });
 

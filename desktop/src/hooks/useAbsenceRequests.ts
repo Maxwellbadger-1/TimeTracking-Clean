@@ -175,7 +175,7 @@ export function useCreateAbsenceRequest() {
       if (context?.previousRequests) {
         queryClient.setQueryData(['absenceRequests'], context.previousRequests);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -257,7 +257,7 @@ export function useApproveAbsenceRequest() {
       if (context?.previousRequest) {
         queryClient.setQueryData(['absenceRequest', variables.id], context.previousRequest);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -344,7 +344,7 @@ export function useRejectAbsenceRequest() {
       if (context?.previousRequest) {
         queryClient.setQueryData(['absenceRequest', variables.id], context.previousRequest);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -416,7 +416,7 @@ export function useDeleteAbsenceRequest() {
         queryClient.setQueryData(['absenceRequests'], context.previousRequests);
       }
 
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }

@@ -71,7 +71,7 @@ export function EmployeeDashboard() {
       toast.success('✅ Daten erfolgreich exportiert!');
     } catch (error) {
       console.error('❌ Data export error:', error);
-      toast.error('Fehler beim Exportieren der Daten');
+      // Error toast shown by api/client.ts (no duplicate needed)
     } finally {
       setExportingData(false);
     }

@@ -597,11 +597,37 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 
 ---
 
-# 🚫 VERBOTE (Never Do!)
+# 🚫 VERBOTE (Never Do!) - Updated 2026-02-05
+
+## 🔴 CRITICAL: Date/Time Handling (NEW!)
+- ❌ **NIEMALS** `toISOString().split('T')[0]` → Timezone bugs! Dates shift by 1 day!
+- ❌ **NIEMALS** `new Date().toString()` für DB queries → Inconsistent format
+- ❌ **NIEMALS** Date comparisons ohne `date()` function in SQL → Off-by-one errors
+- ✅ **IMMER** `formatDate(date, 'yyyy-MM-dd')` from timezone.ts nutzen
+- ✅ **IMMER** `date(column)` in SQL WHERE clauses verwenden
+
+## 🔴 CRITICAL: Overtime Calculation (UPDATED!)
+- ❌ **NIEMALS** neue Overtime Calculation Logic erstellen → Use UnifiedOvertimeService!
+- ❌ **NIEMALS** direkt overtime berechnen in Services → Delegate to UnifiedOvertimeService
+- ❌ **NIEMALS** verschiedene Calculation Paths → Single Source of Truth required
+- ❌ `toISOString().split('T')[0]` für Datumskonvertierung → Timezone Bugs!
+- ❌ reportService.ts ändern ohne overtimeService.ts → Inkonsistente Berechnungen
+- ❌ Frontend API als Source of Truth → overtime_balance ist authoritative!
+- ❌ Ohne Validation Tool testen → Immer `npm run validate:overtime:detailed` nutzen
+- ❌ Nur einen Berechnungsweg prüfen → Backend UND Frontend vergleichen!
+- ✅ **IMMER** UnifiedOvertimeService.calculateDailyOvertime() nutzen (ab v1.6.0)
+
+## 🔴 CRITICAL: Transaction Creation (NEW!)
+- ❌ **NIEMALS** direkt `INSERT INTO overtime_transactions` → Use OvertimeTransactionManager!
+- ❌ **NIEMALS** Transactions ohne Duplikat-Check erstellen → Risk of duplicates
+- ❌ **NIEMALS** Multiple transaction creation paths → Centralize in Manager
+- ✅ **IMMER** OvertimeTransactionManager.createTransaction() nutzen
+- ✅ **IMMER** Idempotency checks implementieren
 
 ## Code Quality
 - ❌ `any` Type verwenden → `unknown` + Type Guards nutzen
 - ❌ Code duplizieren → DRY Principle
+- ❌ Business Logic in mehreren Services → Extract to shared service
 - ❌ Inline Styles → Tailwind CSS nutzen
 - ❌ `console.log` in Production → Entfernen vor Commit
 - ❌ Hardcoded Values → Environment Variables oder Config
@@ -611,13 +637,7 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 - ❌ SQL Injection → IMMER Prepared Statements
 - ❌ Hard Delete → Soft Delete (`deletedAt`)
 - ❌ WAL Mode vergessen → Multi-User funktioniert nicht
-
-## Überstunden-Berechnung
-- ❌ `toISOString().split('T')[0]` für Datumskonvertierung → Timezone Bugs!
-- ❌ reportService.ts ändern ohne overtimeService.ts → Inkonsistente Berechnungen
-- ❌ Frontend API als Source of Truth → overtime_balance ist authoritative!
-- ❌ Ohne Validation Tool testen → Immer `npm run validate:overtime:detailed` nutzen
-- ❌ Nur einen Berechnungsweg prüfen → Backend UND Frontend vergleichen!
+- ❌ Verschiedene Date Query Patterns → Use standardized dateQueries utils
 
 ## Workflow
 - ❌ Direkt coden ohne Plan → IMMER Plan-First!
@@ -635,6 +655,83 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 - ❌ Browser APIs nutzen → Tauri APIs verwenden
 - ❌ `fetch()` direkt → `universalFetch` nutzen!
 - ❌ localStorage für sensible Daten → Tauri Secure Storage
+
+## Datumsberechnungen (CRITICAL!)
+
+**Verbotene Verhaltensweisen:**
+- ❌ **NIEMALS** Wochentage annehmen oder raten
+- ❌ **NIEMALS** Kalender ohne korrekten Startag zeichnen
+- ❌ **NIEMALS** Tage einfach durchnummerieren ohne Wochentag zu beachten
+- ❌ **NIEMALS** toISOString().split('T')[0] ohne Timezone-Kontext nutzen
+
+**Pflicht-Vorgehen:**
+1. ✅ **Web Search nutzen:** "which day is [date] Germany" oder "Kalender [Monat] [Jahr] Deutschland"
+2. ✅ **Ersten Tag in RICHTIGE SPALTE setzen** (Mo-So Wochentag beachten!)
+3. ✅ **Leere Felder DAVOR leer lassen** (nicht mit anderen Tagen auffüllen)
+4. ✅ **Systematisch Zeile-für-Zeile ausfüllen** (immer 7 Spalten: Mo-So)
+5. ✅ **Gegenprüfung:** Gesamt-Tage - Wochenenden - Feiertage = Werktage
+
+**Beispiel (RICHTIG) - Februar 2026:**
+```
+Web Search: "which day is February 1st 2026" → Sonntag
+
+Kalender:
+MO DI MI DO FR SA SO
+                  01  ← Sonntag (ganz rechts!)
+02 03 04 05 06 07 08
+09 10 11 12 13 14 15
+16 17 18 19 20 21 22
+23 24 25 26 27 28
+
+Zählung:
+Mo: 02, 09, 16, 23 = 4 Tage
+Di: 03, 10, 17, 24 = 4 Tage
+Mi: 04, 11, 18, 25 = 4 Tage
+Do: 05, 12, 19, 26 = 4 Tage
+Fr: 06, 13, 20, 27 = 4 Tage
+GESAMT = 20 Werktage
+
+Check: 28 Tage - 8 Wochenenden = 20 ✅
+```
+
+**Beispiel (FALSCH) - Häufiger Fehler:**
+```
+MO DI MI DO FR SA SO
+02 03 04 05 06 07 01  ← FALSCH! Ignoriert dass 01.=Sonntag
+09 10 11 12 13 14 15
+...
+
+Problem: Der 01. wurde einfach ans Ende der ersten Zeile gesetzt,
+ohne zu beachten dass 01. Februar ein SONNTAG ist!
+```
+
+**Mathematische Backup-Methode (Zeller's Congruence):**
+```javascript
+// Wenn Web Search nicht verfügbar, nutze diese Formel:
+function getDayOfWeek(year, month, day) {
+  if (month < 3) { month += 12; year -= 1; }
+  const q = day;
+  const m = month;
+  const K = year % 100;
+  const J = Math.floor(year / 100);
+  const h = (q + Math.floor((13 * (m + 1)) / 5) + K +
+             Math.floor(K / 4) + Math.floor(J / 4) - 2 * J) % 7;
+  return ((h + 5) % 7) + 1; // ISO: 1=Mo, 7=So
+}
+
+// Test: 01.01.2026
+getDayOfWeek(2026, 1, 1) // → 4 = Donnerstag ✅
+```
+
+**Checkliste für Monatsberechnung:**
+```bash
+☐ Ersten Tag des Monats bestimmen (Web Search ODER Formel)
+☐ Kalender zeichnen (mit korrektem Startag in richtiger Spalte)
+☐ Wochentag-für-Wochentag zählen (Mo: ..., Di: ..., etc.)
+☐ Summe bilden
+☐ Gegenprüfung: Gesamt-Tage - Wochenenden = Werktage
+☐ Bei Unsicherheit: Zweite Quelle prüfen
+```
 
 ---
 

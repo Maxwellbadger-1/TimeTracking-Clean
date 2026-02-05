@@ -7,7 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [Unreleased] - Sprint Week 06-10/2026
+
+### 🔴 CRITICAL FIXES IN PROGRESS
+
+#### Timezone Bug Resolution (17 Files Affected)
+**Status:** 🔄 In Progress - Week 06
+**Severity:** CRITICAL - Data corruption risk
+
+**Problem:**
+- Using `toISOString().split('T')[0]` causes timezone conversion errors
+- Dates shift by one day (e.g., Dec 31 → Dec 30)
+- Affects overtime calculations and database queries
+
+**Solution:**
+- Replace all occurrences with `formatDate(date, 'yyyy-MM-dd')`
+- Automated fix script: `npm run fix:timezone-bugs`
+- ESLint rule to prevent future occurrences
+
+**Files to Fix:** reportService.ts, overtimeLiveCalculationService.ts, timeEntryService.ts, absenceService.ts, and 13 more
+
+---
+
+#### Unified Overtime Calculation Service
+**Status:** 📝 Planning - Week 07
+**Severity:** CRITICAL - Calculation inconsistencies
+
+**Problem:**
+- Three separate services calculate overtime independently
+- Different calculation paths produce different results
+- Users see conflicting values in different UI components
+
+**Solution:**
+- Implement `UnifiedOvertimeService` as Single Source of Truth
+- All services delegate to unified service
+- Guaranteed consistency across all components
+
+**Architecture:** See ADR-006 in ARCHITECTURE.md
+
+---
+
+#### Transaction Deduplication System
+**Status:** 🔜 Queued - Week 08
+**Severity:** HIGH - Data integrity risk
+
+**Problem:**
+- Absence transactions created in three different code paths
+- Risk of duplicate transactions in database
+- Inconsistent audit trail
+
+**Solution:**
+- Implement `OvertimeTransactionManager` with built-in deduplication
+- Centralized transaction creation with idempotency checks
+- Comprehensive duplicate detection
+
+---
+
+### 🐛 Fixed
+
+#### Live Overtime Calculation - Missing Weekend/Holiday Hours (2026-02-04)
+**Issue:** `overtimeLiveCalculationService.ts` (used by "Überstunden-Transaktionen" in Reports page) was not counting hours worked on weekends and non-working days defined in `workSchedule`.
+
+**Root Cause:**
+Line 386 checked only `if (isHoliday && actualHours > 0)`, which:
+- ✅ Counted work on public holidays (e.g., Neujahr, Heilige Drei Könige)
+- ❌ **Ignored work on weekends** (Saturday/Sunday with workSchedule hours = 0)
+- ❌ **Ignored work on custom days off** (workSchedule defines specific non-working days)
+
+**Example Impact (User 5):**
+- `workSchedule`: Monday-Friday 2h/day, Saturday/Sunday 0h
+- **03.01.2026 (Saturday)**: 8.5h worked → ❌ **Not counted** (missing from balance!)
+- Result: Balance showed incorrect -12.5h instead of 0h
+
+**Fix:**
+Changed condition from `if (isHoliday && actualHours > 0)` to `if (actualHours > 0)` to count **ALL** work on non-working days (holidays, weekends, custom days off).
+
+**Files Changed:**
+- `server/src/services/overtimeLiveCalculationService.ts` (Lines 375-403)
+
+**Validation:** ✅ User 5 balance now correct (0h), ✅ Weekend hours now counted, ✅ All test users pass
+
+---
 
 ### 🚀 Changed
 

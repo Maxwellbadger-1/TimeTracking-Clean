@@ -1122,6 +1122,89 @@ npm run validate:overtime:detailed -- --userId=155 --month=2025-12 --compare
 
 **Status:** ⚠️ TECHNICAL DEBT - Requires immediate attention
 **Priority:** HIGH (data integrity issue)
+
+---
+
+#### 6.3.10 Unified Overtime Architecture (v1.6.0 - In Development)
+
+**STATUS:** 🔄 Migration in Progress (Week 06-10/2026)
+
+**Purpose:** Eliminate dual calculation system by consolidating all overtime logic into single service
+
+**Architecture Decision:** Based on ADR-006, implementing UnifiedOvertimeService as SSOT
+
+```mermaid
+graph TD
+    subgraph "Current Problem (v1.5.x)"
+        A1[reportService] --> B1[Own Calculation]
+        A2[overtimeService] --> B2[Different Calculation]
+        A3[overtimeLiveCalc] --> B3[Third Calculation]
+        B1 --> C1[Inconsistent Results]
+        B2 --> C1
+        B3 --> C1
+    end
+
+    subgraph "Target Architecture (v1.6.0)"
+        D1[reportService] --> E[UnifiedOvertimeService]
+        D2[overtimeService] --> E
+        D3[overtimeLiveCalc] --> E
+        E --> F[SINGLE Calculation Logic]
+        F --> G[overtime_balance table]
+        F --> H[overtime_transactions table]
+        G --> I[Consistent Results]
+        H --> I
+    end
+```
+
+**Implementation Components:**
+
+1. **UnifiedOvertimeService** (NEW)
+   - Location: `server/src/services/unifiedOvertimeService.ts`
+   - Single calculation engine for all overtime logic
+   - Methods:
+     - `calculateDailyOvertime(userId, date)`
+     - `calculateMonthlyOvertime(userId, month)`
+     - `calculatePeriodOvertime(userId, startDate, endDate)`
+   - All other services MUST delegate to this service
+
+2. **Migration Strategy:**
+   ```typescript
+   // Step 1: Parallel validation (v1.5.3)
+   const oldResult = reportService.calculateDailyBreakdown(userId, date);
+   const newResult = unifiedOvertimeService.calculateDailyOvertime(userId, date);
+   if (oldResult !== newResult) {
+     logger.warn('Calculation mismatch', { oldResult, newResult });
+   }
+
+   // Step 2: Feature flag rollout (v1.5.4)
+   if (featureFlags.useUnifiedOvertimeService) {
+     return unifiedOvertimeService.calculateDailyOvertime(userId, date);
+   }
+
+   // Step 3: Full migration (v1.6.0)
+   // Remove old calculation paths
+   ```
+
+3. **Data Flow (v1.6.0):**
+   - ALL overtime calculations → UnifiedOvertimeService
+   - UnifiedOvertimeService → writes to overtime_balance (aggregated)
+   - UnifiedOvertimeService → writes to overtime_transactions (audit)
+   - Frontend components → read from overtime_balance via API
+   - No service performs independent calculations
+
+4. **Benefits:**
+   - ✅ Zero calculation discrepancies
+   - ✅ 60% less code duplication
+   - ✅ Single test suite for all overtime logic
+   - ✅ Easier compliance audits
+   - ✅ Professional standard (SAP, Personio pattern)
+
+**Migration Timeline:**
+- Week 06 (2026): Design & tests
+- Week 07: Implement UnifiedOvertimeService
+- Week 08: Parallel validation in staging
+- Week 09: Feature flag rollout
+- Week 10: Full production migration
 **Owner:** Development Team
 **Target:** Q1 2026
 
@@ -1681,6 +1764,115 @@ Enable TypeScript strict mode. Ban `any` type in ESLint.
 - ✅ Better developer experience
 - ❌ More verbose code
 - ❌ Longer development time initially
+
+---
+
+### ADR-006: Unified Overtime Calculation Service
+
+**Status:** Proposed
+**Date:** 2026-02-05
+
+**Context:**
+System analysis revealed three independent services calculating overtime with different logic paths (reportService, overtimeLiveCalculationService, overtimeService), creating risk of divergent results and user confusion.
+
+**Decision:**
+Consolidate all overtime calculations into a single `UnifiedOvertimeService` that serves as the Single Source of Truth (SSOT) for all overtime-related calculations.
+
+**Rationale:**
+- **Consistency:** Guaranteed identical results across all UI components
+- **Maintainability:** Single place to update business logic
+- **Testability:** One service to test comprehensively
+- **Compliance:** Professional standard (SAP, Personio, DATEV)
+
+**Implementation:**
+```typescript
+// All services must delegate to:
+unifiedOvertimeService.calculateDailyOvertime(userId, date)
+unifiedOvertimeService.calculateMonthlyOvertime(userId, month)
+```
+
+**Consequences:**
+- ✅ Eliminates dual calculation discrepancies
+- ✅ Reduces code duplication by 60%
+- ✅ Single point for business rule changes
+- ❌ Migration effort required (est. 2 weeks)
+- ❌ All services need refactoring
+
+---
+
+### ADR-007: Mandatory Timezone-Safe Date Handling
+
+**Status:** Accepted
+**Date:** 2026-02-05
+
+**Context:**
+Critical bug found: `toISOString().split('T')[0]` pattern in 17 files causes timezone conversion errors, shifting dates by one day (e.g., Dec 31 becomes Dec 30), leading to incorrect overtime calculations and database queries.
+
+**Decision:**
+All date formatting MUST use `formatDate()` from `server/src/utils/timezone.ts`. The pattern `toISOString().split('T')[0]` is now banned and enforced by ESLint.
+
+**Rationale:**
+- **Data Integrity:** Prevents date miscalculations
+- **Timezone Safety:** Respects Europe/Berlin timezone
+- **Consistency:** Single date formatting approach
+- **Production Impact:** Fixes critical data corruption risk
+
+**Implementation:**
+```typescript
+// ❌ BANNED (causes timezone bugs):
+const date = new Date().toISOString().split('T')[0];
+
+// ✅ REQUIRED:
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
+const date = formatDate(getCurrentDate(), 'yyyy-MM-dd');
+```
+
+**Enforcement:**
+- ESLint rule added to detect banned pattern
+- Pre-commit hook blocks commits with timezone bugs
+- Automated fix script: `npm run fix:timezone-bugs`
+
+**Consequences:**
+- ✅ Eliminates timezone-related bugs
+- ✅ Consistent date handling across codebase
+- ✅ Production data integrity preserved
+- ❌ Need to refactor 17 files immediately
+- ❌ Developers must learn new pattern
+
+---
+
+### ADR-008: Centralized Transaction Management
+
+**Status:** Proposed
+**Date:** 2026-02-05
+
+**Context:**
+Absence transactions are created in three different code paths, creating risk of duplicates and inconsistent audit trails.
+
+**Decision:**
+Implement `OvertimeTransactionManager` as the single point for all overtime transaction creation, with built-in deduplication and idempotency.
+
+**Rationale:**
+- **Data Integrity:** Prevents duplicate transactions
+- **Audit Trail:** Consistent transaction recording
+- **Idempotency:** Safe to call multiple times
+- **Maintainability:** Single transaction logic
+
+**Implementation:**
+```typescript
+// All transaction creation must use:
+OvertimeTransactionManager.createTransaction({
+  userId, date, type, hours, referenceId
+});
+// Manager handles deduplication internally
+```
+
+**Consequences:**
+- ✅ Zero duplicate transactions
+- ✅ Consistent audit trail
+- ✅ Simplified transaction logic
+- ❌ Need to refactor all transaction creation points
+- ❌ Additional abstraction layer
 
 ---
 

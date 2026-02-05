@@ -10,6 +10,7 @@ import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
 import { ensureOvertimeBalanceEntries } from '../services/overtimeService.js';
 import logger from '../utils/logger.js';
+import { formatDate } from '../utils/timezone.js';
 
 logger.info('🚀 Creating ONE test user: Max Mustermann');
 
@@ -36,7 +37,7 @@ for (const year of [2024, 2025]) {
       const dayOfWeek = date.getDay();
       if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip weekends
 
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDate(date, 'yyyy-MM-dd');
       const startTime = `08:00`;
       const endTime = `16:00`;
 
@@ -58,7 +59,7 @@ for (let day = 1; day <= jan2026Days; day++) {
   if (dayOfWeek === 0 || dayOfWeek === 6) continue;
   if (date > new Date()) break;
 
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = formatDate(date, 'yyyy-MM-dd');
   const startTime = `08:00`;
   const endTime = `16:00`;
 

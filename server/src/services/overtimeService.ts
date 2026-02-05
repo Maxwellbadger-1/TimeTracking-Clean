@@ -8,6 +8,7 @@ import {
 } from '../utils/timezone.js';
 import { getTotalCorrectionsForUserInMonth } from './overtimeCorrectionsService.js';
 import { getUserById } from './userService.js';
+import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import {
   deleteEarnedTransactionsForDate,
   recordOvertimeEarned,
@@ -457,19 +458,32 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   // Calculate target hours using individual work schedule
   // Iterate through each working day and sum getDailyTargetHours()
   let targetHours = 0;
+  console.log(`\n  📅 DAY-BY-DAY TARGET CALCULATION for ${month}:`);
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const dayOfWeek = d.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    if (isWeekend) continue;
-
     const dateStr = formatDate(d, 'yyyy-MM-dd');
     const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-    if (isHoliday) continue;
+
+    console.log(`    ${dateStr} (${['So','Mo','Di','Mi','Do','Fr','Sa'][dayOfWeek]}): isWeekend=${isWeekend}, isHoliday=${!!isHoliday}`);
+
+    if (isWeekend) {
+      console.log(`      → SKIPPED (weekend check BEFORE getDailyTargetHours)`);
+      continue;
+    }
+
+    if (isHoliday) {
+      console.log(`      → SKIPPED (holiday check BEFORE getDailyTargetHours)`);
+      continue;
+    }
 
     // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
-    targetHours += getDailyTargetHours(user, dateStr);
+    const dailyTarget = getDailyTargetHours(user, dateStr);
+    console.log(`      → getDailyTargetHours() returned: ${dailyTarget}h`);
+    targetHours += dailyTarget;
   }
   targetHours = Math.round(targetHours * 100) / 100;
+  console.log(`  ✅ TOTAL targetHours: ${targetHours}h`);
 
   logger.debug({
     month,
@@ -505,6 +519,15 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 
   // Actual hours WITH absence credits AND corrections
   const actualHoursWithCredits = workedHours.total + absenceCredits + overtimeCorrections;
+
+  console.log(`\n  📊 MONTHLY HOURS BREAKDOWN:`);
+  console.log(`    workedHours: ${workedHours.total}h`);
+  console.log(`    absenceCredits: ${absenceCredits}h`);
+  console.log(`    overtimeCorrections: ${overtimeCorrections}h`);
+  console.log(`    unpaidLeaveReduction: ${unpaidLeaveReduction}h`);
+  console.log(`    adjustedTargetHours: ${adjustedTargetHours}h (targetHours ${targetHours}h - unpaidLeave ${unpaidLeaveReduction}h)`);
+  console.log(`    actualHoursWithCredits: ${actualHoursWithCredits}h (worked ${workedHours.total}h + absences ${absenceCredits}h + corrections ${overtimeCorrections}h)`);
+  console.log(`    OVERTIME: ${actualHoursWithCredits - adjustedTargetHours}h\n`);
 
   logger.debug({
     workedHours: workedHours.total,
@@ -558,18 +581,10 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 export function updateAllOvertimeLevels(userId: number, date: string): void {
   const month = date.substring(0, 7); // "2025-11"
 
-  // Wrap in transaction for atomicity (CRITICAL for data consistency!)
-  const transaction = db.transaction(() => {
-    // NEW SYSTEM: Transaction-based tracking (PRIMARY)
-    updateOvertimeTransactionsForDate(userId, date);
-
-    // SSOT: Monthly aggregation (overtime_balance table)
-    // CRITICAL: This is the authoritative source for monthly overtime!
-    updateMonthlyOvertime(userId, month);
-  });
-
-  // Execute transaction (all-or-nothing)
-  transaction();
+  // REFACTORED (2026-02-04): Use idempotent rebuild service
+  // Replaces buggy incremental updates with professional full rebuild
+  // This fixes: corrections not included, duplicates, missing balance tracking
+  rebuildOvertimeTransactionsForMonth(userId, month);
 
   // Sync Work Time Account with overtime_balance (outside transaction)
   // This ensures Work Time Account always reflects the current balance

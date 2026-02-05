@@ -5,8 +5,7 @@ import {
   OvertimeCorrectionCreateInput,
   OvertimeCorrectionWithUser,
 } from '../types/index.js';
-import { updateMonthlyOvertime } from './overtimeService.js';
-import { recordOvertimeCorrection } from './overtimeTransactionService.js';
+import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import { broadcastEvent } from '../websocket/server.js';
 
 /**
@@ -74,16 +73,6 @@ export function createOvertimeCorrection(
       createdBy,
     }, '✅ Overtime correction created');
 
-    // CRITICAL: Create transaction for audit trail (overtime_transactions table)
-    recordOvertimeCorrection(
-      correction.userId,
-      correction.date,
-      correction.hours,
-      correction.reason,
-      createdBy,
-      correction.id  // referenceId to link back to overtime_corrections
-    );
-
     // Create notification for the affected user
     db.prepare(`
       INSERT INTO notifications (userId, type, title, message)
@@ -94,13 +83,14 @@ export function createOvertimeCorrection(
       `Es wurde eine Korrektur von ${input.hours > 0 ? '+' : ''}${input.hours.toFixed(2)}h vorgenommen. Grund: ${input.reason}`
     );
 
-    // CRITICAL: Recalculate overtime_balance for the affected month
+    // CRITICAL: Rebuild entire month with new professional system
+    // This automatically creates transactions WITH balance tracking AND updates overtime_balance
     const correctionMonth = input.date.substring(0, 7); // Extract "YYYY-MM"
     try {
-      updateMonthlyOvertime(input.userId, correctionMonth);
-      logger.info({ userId: input.userId, month: correctionMonth }, '✅ Overtime recalculated after correction');
+      rebuildOvertimeTransactionsForMonth(input.userId, correctionMonth);
+      logger.info({ userId: input.userId, month: correctionMonth }, '✅ Month rebuilt after correction (transactions + overtime_balance)');
     } catch (error) {
-      logger.error({ err: error, userId: input.userId, month: correctionMonth }, '❌ Failed to recalculate overtime after correction');
+      logger.error({ err: error, userId: input.userId, month: correctionMonth }, '❌ Failed to rebuild month after correction');
       // Don't fail the correction creation, but log the error
     }
 
@@ -385,13 +375,7 @@ export function deleteOvertimeCorrection(id: number, deletedBy: number): void {
     // Delete
     db.prepare('DELETE FROM overtime_corrections WHERE id = ?').run(id);
 
-    // CRITICAL: Delete corresponding transaction from overtime_transactions
-    db.prepare(`
-      DELETE FROM overtime_transactions
-      WHERE type = 'correction' AND referenceType = 'manual' AND referenceId = ?
-    `).run(id);
-
-    logger.info({ correctionId: id, deletedBy }, '✅ Overtime correction deleted (including transaction)');
+    logger.info({ correctionId: id, deletedBy }, '✅ Overtime correction deleted');
 
     // Notify user
     db.prepare(`
@@ -403,13 +387,14 @@ export function deleteOvertimeCorrection(id: number, deletedBy: number): void {
       `Eine Korrektur von ${correction.hours > 0 ? '+' : ''}${correction.hours.toFixed(2)}h wurde entfernt.`
     );
 
-    // CRITICAL: Recalculate overtime_balance for the affected month
+    // CRITICAL: Rebuild entire month with new professional system
+    // This automatically deletes old transactions and rebuilds WITHOUT the deleted correction
     const correctionMonth = correction.date.substring(0, 7); // Extract "YYYY-MM"
     try {
-      updateMonthlyOvertime(correction.userId, correctionMonth);
-      logger.info({ userId: correction.userId, month: correctionMonth }, '✅ Overtime recalculated after correction deletion');
+      rebuildOvertimeTransactionsForMonth(correction.userId, correctionMonth);
+      logger.info({ userId: correction.userId, month: correctionMonth }, '✅ Month rebuilt after correction deletion (transactions + overtime_balance)');
     } catch (error) {
-      logger.error({ err: error, userId: correction.userId, month: correctionMonth }, '❌ Failed to recalculate overtime after correction deletion');
+      logger.error({ err: error, userId: correction.userId, month: correctionMonth }, '❌ Failed to rebuild month after correction deletion');
       // Don't fail the deletion, but log the error
     }
 

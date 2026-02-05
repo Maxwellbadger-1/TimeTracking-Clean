@@ -15,6 +15,7 @@
  */
 
 import type { DayName } from '../utils/workingDays';
+import { formatDate } from '../utils/timezone.js';
 
 // ============================================================================
 // Types
@@ -393,7 +394,7 @@ function createHolidayHeavyMonthScenario(): TestScenario {
       if (day === 0 || day === 6) return null; // Skip weekends
       return createTestTimeEntry({
         userId: user.id,
-        date: date.toISOString().split('T')[0],
+        date: formatDate(date, 'yyyy-MM-dd'),
         hours: 8,
       });
     }).filter(Boolean) as TestTimeEntry[],

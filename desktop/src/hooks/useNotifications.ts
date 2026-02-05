@@ -186,7 +186,7 @@ export function useMarkNotificationRead() {
         });
       }
       console.error('Failed to mark notification as read:', error);
-      toast.error('Fehler beim Markieren als gelesen');
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: (data) => {
       console.log('🟢 [READ] onSuccess: Mutation succeeded, server data:', data);
@@ -261,7 +261,7 @@ export function useMarkNotificationUnread() {
         });
       }
       console.error('Failed to mark notification as unread:', error);
-      toast.error('Fehler beim Markieren als ungelesen');
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSettled: () => {
       // CRITICAL FIX: Immediately refetch all notification queries
@@ -327,7 +327,7 @@ export function useMarkAllNotificationsRead() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: () => {
       toast.success('Alle Benachrichtigungen als gelesen markiert');
@@ -401,7 +401,7 @@ export function useDeleteNotification() {
         });
       }
       console.error('Failed to delete notification:', error);
-      toast.error('Fehler beim Löschen der Benachrichtigung');
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSettled: () => {
       // CRITICAL FIX: Immediately refetch all notification queries

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import {
   validateTimeEntryCreate,
   validateTimeEntryUpdate,
@@ -468,7 +469,7 @@ router.get(
 
       // Default to current month if not specified
       const targetMonth =
-        (month as string) || new Date().toISOString().substring(0, 7);
+        (month as string) || formatDate(getCurrentDate(), 'yyyy-MM');
 
       const balance = getOvertimeBalance(targetUserId, targetMonth);
 

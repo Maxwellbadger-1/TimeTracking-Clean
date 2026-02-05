@@ -17,9 +17,14 @@ import { apiClient } from '../api/client';
 interface MonthlyBalanceResponse {
   userId: number;
   month: string;
-  targetHours: number;
-  actualHours: number;
-  overtime: number;
+  summary: {
+    targetHours: number;
+    actualHours: number;
+    overtime: number;
+  };
+  breakdown?: {
+    daily: Array<{ date: string; target: number; actual: number; overtime: number }>;
+  };
   carryoverFromPreviousYear: number;
 }
 
@@ -49,11 +54,11 @@ export interface OvertimeReportSummary {
     actualHours: number;
     overtime: number;
   };
-  // breakdown is now optional (not returned by new balance endpoints)
+  // breakdown is now optional (monthly endpoint returns only daily, yearly returns nothing)
   breakdown?: {
-    daily: Array<{ date: string; target: number; actual: number; overtime: number }>;
-    weekly: Array<{ week: string; target: number; actual: number; overtime: number }>;
-    monthly: Array<{ month: string; target: number; actual: number; overtime: number }>;
+    daily?: Array<{ date: string; target: number; actual: number; overtime: number }>;
+    weekly?: Array<{ week: string; target: number; actual: number; overtime: number }>;
+    monthly?: Array<{ month: string; target: number; actual: number; overtime: number }>;
   };
 }
 
@@ -106,10 +111,11 @@ export function useOvertimeReport(userId: number, year: number, month?: number, 
           year,
           month,
           summary: {
-            targetHours: data.targetHours,
-            actualHours: data.actualHours,
-            overtime: data.overtime,
+            targetHours: data.summary.targetHours,
+            actualHours: data.summary.actualHours,
+            overtime: data.summary.overtime,
           },
+          breakdown: data.breakdown, // ✅ Pass through daily breakdown for chart
         };
       } else {
         // Yearly: Use new yearly balance endpoint (fast, no breakdown)
@@ -139,12 +145,22 @@ export function useOvertimeReport(userId: number, year: number, month?: number, 
  * Get monthly overtime history from overtime_balance (Single Source of Truth)
  * Uses /api/reports/overtime/history/:userId which reads from overtime_balance table
  * ✅ CORRECT: Includes ALL days (even days without time_entries)
+ *
+ * @param userId - User ID
+ * @param months - Number of months (default: 12) - IGNORED if year/month specified
+ * @param year - Specific year (e.g., 2026) - optional
+ * @param month - Specific month (1-12) - requires year, optional
  */
-export function useOvertimeHistory(userId: number, months: number = 12) {
+export function useOvertimeHistory(userId: number, months: number = 12, year?: number, month?: number) {
   return useQuery({
-    queryKey: ['overtime-history', userId, months],
+    queryKey: ['overtime-history', userId, months, year, month],
     queryFn: async (): Promise<OvertimeHistoryEntry[]> => {
-      const response = await apiClient.get(`/reports/overtime/history/${userId}?months=${months}`);
+      // Build query parameters
+      const params = new URLSearchParams({ months: months.toString() });
+      if (year) params.append('year', year.toString());
+      if (month) params.append('month', month.toString());
+
+      const response = await apiClient.get(`/reports/overtime/history/${userId}?${params}`);
       if (!response.success) throw new Error(response.error);
       return response.data as OvertimeHistoryEntry[];
     },
@@ -238,9 +254,9 @@ export function useAllUsersOvertimeReports(year: number, month?: number, isAdmin
                 year,
                 month,
                 summary: {
-                  targetHours: data.targetHours,
-                  actualHours: data.actualHours,
-                  overtime: data.overtime,
+                  targetHours: data.summary.targetHours,
+                  actualHours: data.summary.actualHours,
+                  overtime: data.summary.overtime,
                 },
               };
             } else {

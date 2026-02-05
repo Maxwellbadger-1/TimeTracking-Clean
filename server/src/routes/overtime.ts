@@ -2,12 +2,14 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { db } from '../database/connection.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import {
   getAllUsersOvertimeSummary,
   getOvertimeSummary,
   getAggregatedOvertimeStats,
   ensureOvertimeBalanceEntries,
   ensureDailyOvertimeTransactions,
+  updateMonthlyOvertime,
 } from '../services/overtimeService.js';
 import {
   createOvertimeCorrection,
@@ -781,8 +783,8 @@ router.post(
   requireAdmin,
   async (_req: Request, res: Response<ApiResponse>) => {
     try {
-      const today = new Date();
-      const currentMonth = today.toISOString().substring(0, 7); // YYYY-MM
+      const today = getCurrentDate();
+      const currentMonth = formatDate(today, 'yyyy-MM'); // YYYY-MM
 
       // Get all active users
       const users = db
@@ -895,6 +897,10 @@ router.get(
         return;
       }
 
+      // ✅ CRITICAL: Update this month to include all days up to today!
+      // This ensures targetHours accumulates for days without time entries
+      updateMonthlyOvertime(userId, month);
+
       // Read from overtime_balance table (Single Source of Truth)
       const balance = db.prepare(`
         SELECT
@@ -916,9 +922,23 @@ router.get(
       } | undefined;
 
       if (!balance) {
-        res.status(404).json({
-          success: false,
-          error: `No overtime balance found for user ${userId} in month ${month}`,
+        // No data yet (e.g., month before hire date) - return empty structure instead of error
+        // This prevents annoying error toasts when users navigate to months without data
+        res.json({
+          success: true,
+          data: {
+            userId,
+            month,
+            summary: {
+              targetHours: 0,
+              actualHours: 0,
+              overtime: 0,
+            },
+            breakdown: {
+              daily: [],
+            },
+            carryoverFromPreviousYear: 0,
+          },
         });
         return;
       }
@@ -970,7 +990,7 @@ router.get(
 router.get(
   '/balance/:userId/year/:year',
   requireAuth,
-  (req: Request, res: Response<ApiResponse>) => {
+  async (req: Request, res: Response<ApiResponse>) => {
     try {
       const userId = parseInt(req.params.userId);
       const year = parseInt(req.params.year);
@@ -1003,8 +1023,12 @@ router.get(
       }
 
       // Get current month (don't aggregate future months!)
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
       const currentMonth = today.substring(0, 7); // "2026-01"
+
+      // ✅ CRITICAL: Ensure ALL monthly entries exist up to current month!
+      // This fills in missing months and updates current month to today
+      await ensureOvertimeBalanceEntries(userId, currentMonth);
 
       // Aggregate monthly entries up to current month
       const monthlyEntries = db.prepare(`

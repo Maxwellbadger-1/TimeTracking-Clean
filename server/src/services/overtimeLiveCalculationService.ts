@@ -21,6 +21,7 @@ import { db } from '../database/connection.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import type { UserPublic } from '../types/index.js';
 import logger from '../utils/logger.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
  * Get all working days between two dates (inclusive)
@@ -43,7 +44,7 @@ function getAllWorkingDaysBetween(
 
   // Iterate through each day
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDate(d, 'yyyy-MM-dd');
     const dayOfWeek = d.getDay();
 
     // Check if this day is a holiday
@@ -119,7 +120,7 @@ export function calculateLiveOvertimeTransactions(
   const startDate = fromDate && fromDate > user.hireDate
     ? fromDate
     : user.hireDate;
-  const endDate = toDate || new Date().toISOString().split('T')[0]; // Today
+  const endDate = toDate || formatDate(getCurrentDate(), 'yyyy-MM-dd'); // Today
 
   logger.debug({ userId, startDate, endDate }, '📊 Calculating live overtime transactions');
 
@@ -160,7 +161,7 @@ export function calculateLiveOvertimeTransactions(
     const absenceEndDate = new Date(absence.endDate + 'T12:00:00');
 
     for (let d = new Date(absenceStartDate); d <= absenceEndDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
 
       if (dateStr < startDate || dateStr > endDate) continue;
 
@@ -269,7 +270,7 @@ export function calculateLiveOvertimeTransactions(
 
     // Iterate through each day in the absence period
     for (let d = new Date(absenceStartDate); d <= absenceEndDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
 
       // Only include days within our calculation range
       if (dateStr < startDate || dateStr > endDate) {
@@ -372,24 +373,31 @@ export function calculateLiveOvertimeTransactions(
   }
 
   // ========================================
-  // 7. Check for work on holidays (special case)
+  // 7. Check for work on non-working days (holidays, weekends, days off)
   // ========================================
-  // If someone worked on a holiday, we need to add those hours as overtime
-  // (since holidays are not in allWorkingDays and have targetHours = 0)
+  // If someone worked on a non-working day, we need to add those hours as overtime
+  // (since these days are not in allWorkingDays)
   for (const [date, actualHours] of timeEntriesMap.entries()) {
     // Skip if already processed (in allWorkingDays or absenceDates)
     if (allWorkingDays.includes(date) || absenceDates.has(date)) {
       continue;
     }
 
-    // Check if this is a holiday with work
-    const isHoliday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(date);
-    if (isHoliday && actualHours > 0) {
+    // Any work on non-working days counts as overtime
+    if (actualHours > 0) {
+      const targetHours = getDailyTargetHours(userForCalc, date);
+      const overtime = actualHours - targetHours; // Usually targetHours = 0 for non-working days
+
+      const isHoliday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(date);
+      const description = isHoliday
+        ? `Gearbeitet am Feiertag: ${actualHours}h (Soll: ${targetHours}h)`
+        : `Gearbeitet: ${actualHours}h (Soll: ${targetHours}h)`;
+
       transactions.push({
         date,
         type: 'earned',
-        hours: Math.round(actualHours * 100) / 100,
-        description: `Gearbeitet am Feiertag: ${actualHours}h (Soll: 0h)`,
+        hours: Math.round(overtime * 100) / 100,
+        description,
         source: 'time_entries',
       });
     }

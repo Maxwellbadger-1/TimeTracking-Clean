@@ -26,7 +26,7 @@ export function TeamOvertimeSummary() {
   const previousYear = currentYear - 1;
   const currentMonth = new Date().getMonth() + 1; // 1-12
 
-  const { data: reports, isLoading: loadingReports } = useAllUsersOvertimeReports(currentYear, currentMonth, true);
+  const { data: reports, isLoading: loadingReports } = useAllUsersOvertimeReports(currentYear, undefined, true);
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();
   const [showAll, setShowAll] = useState(false);
 
@@ -132,13 +132,13 @@ export function TeamOvertimeSummary() {
             <div className="flex items-center gap-2 mb-1">
               <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                Monat {currentMonth}/{currentYear}
+                Jahresübersicht {currentYear}
               </p>
             </div>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {formatOvertimeHours(reports.reduce((sum, r) => sum + r.summary.overtime, 0) / reports.length)}
+              {formatOvertimeHours(teamAverage)}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Ø aktueller Monat</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Ø pro Mitarbeiter (Jahr)</p>
           </div>
         </div>
 

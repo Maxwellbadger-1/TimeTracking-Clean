@@ -24,7 +24,8 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
 
   // ✅ CORRECT: Uses overtime_balance (Single Source of Truth) which includes ALL days
   // Includes days without time_entries (missing work = negative overtime)
-  const { data: rawHistory, isLoading, error } = useOvertimeHistory(userId, fetchMonths);
+  // ✅ FIXED: Now passes year/month for specific month selection
+  const { data: rawHistory, isLoading, error } = useOvertimeHistory(userId, fetchMonths, year, month);
 
   // Filter history by year/month if specified (maximal bis heute!)
   const today = new Date();

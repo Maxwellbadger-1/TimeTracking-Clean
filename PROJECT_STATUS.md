@@ -21,13 +21,50 @@
 
 ---
 
-## 🚀 Current Sprint (Week 05/2026)
+## 🚀 Current Sprint (Week 06/2026)
 
-### 🎯 SPRINT FOCUS: Auto-Migration System for Production Deployment
+### 🎯 SPRINT FOCUS: System Inconsistency Resolution
 
-**Goal:** Implement automatic database migration system to backfill overtime transactions on production
+**Goal:** Fix critical timezone bugs and consolidate dual calculation system to ensure data integrity
 
-**Status:** ✅ COMPLETED - Migration system tested with production data and ready for deployment
+**Status:** 🔄 IN PROGRESS - Development in feature branch `fix/system-inconsistencies`
+
+**⚠️ CRITICAL:** Production is LIVE with customers - NO direct changes to main branch!
+
+**Development Strategy:**
+- ✅ All work in feature branch: `fix/system-inconsistencies`
+- ✅ Complete ALL 5 phases before any production deployment
+- ✅ Extensive testing required (Week 8-9)
+- ✅ Single "Big Bang" release after full validation (Week 10)
+
+**Sprint Priorities:**
+- **P0:** Fix Timezone Bugs (17 files affected) - Data corruption risk
+- **P0:** Implement UnifiedOvertimeService - Eliminate dual calculation
+- **P1:** Create OvertimeTransactionManager - Prevent duplicate transactions
+- **P2:** Add database balance tracking columns - Improve audit trail
+
+### 📋 Sprint Tasks Status
+
+| Task | Status | Assignee | Notes |
+|------|--------|----------|-------|
+| Create timezone fix script | ⏳ In Progress | Team | Script template ready |
+| Implement UnifiedOvertimeService | 📝 Planning | Team | Design reviewed |
+| Write comprehensive tests | 🔜 Queued | Team | After service implementation |
+| Deploy Phase 1 fixes | 🔜 Queued | Team | Week 7 target |
+
+---
+
+### 🐛 Active Critical Issues (from System Analysis)
+
+| Issue | Severity | Impact | Status | ETA |
+|-------|----------|--------|--------|-----|
+| **Timezone Bug** (toISOString) | 🔴 Critical | Wrong dates in 17 files | 🔄 Fixing | Week 6 |
+| **Dual Calculation System** | 🔴 Critical | Inconsistent overtime values | 📝 Planning | Week 7 |
+| **Triple Absence Transactions** | 🟡 High | Risk of duplicates | 🔜 Queued | Week 8 |
+| **Type Safety Issues** | 🟡 Medium | 'any' usage in services | 🔜 Queued | Week 9 |
+| **Date Query Inconsistency** | 🟡 Medium | Off-by-one errors | 🔜 Queued | Week 9 |
+
+**📄 Full Analysis:** See [SYSTEM_INCONSISTENCIES_REPORT.md](SYSTEM_INCONSISTENCIES_REPORT.md) for detailed findings and solutions.
 
 ---
 
@@ -256,10 +293,14 @@
 
 ## 🐛 Known Issues & Workarounds
 
-### Active Issues
+### Active Issues (Updated 2026-02-05)
 | Issue | Severity | Status | Workaround | ETA |
 |-------|----------|--------|------------|-----|
-| *No critical issues* | - | - | - | - |
+| Timezone bug in date calculations | 🔴 Critical | Fixing | Use formatDate() instead of toISOString() | Week 6 |
+| Dual overtime calculation paths | 🔴 Critical | Planning | Verify values match between reports | Week 7 |
+| Duplicate transaction risk | 🟡 High | Queued | Check overtime_transactions for duplicates | Week 8 |
+| Type safety ('any' usage) | 🟡 Medium | Queued | Manual type checking | Week 9 |
+| Inconsistent date queries | 🟡 Medium | Queued | Use date() function in SQL | Week 9 |
 
 ### Resolved Recently
 | Issue | Severity | Resolved | Version |

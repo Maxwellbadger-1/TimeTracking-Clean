@@ -172,7 +172,7 @@ export function useUpsertVacationBalance() {
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -252,7 +252,7 @@ export function useUpdateVacationBalance() {
       if (context?.previousBalance) {
         queryClient.setQueryData(['vacation-balances', variables.id], context.previousBalance);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -299,7 +299,7 @@ export function useDeleteVacationBalance() {
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }
@@ -344,7 +344,7 @@ export function useBulkInitializeVacationBalances() {
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
       }
-      toast.error(`Fehler: ${error.message}`);
+      // Error toast shown by api/client.ts (no duplicate needed)
     },
   });
 }

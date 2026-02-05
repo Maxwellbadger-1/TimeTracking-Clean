@@ -33,7 +33,8 @@ export default function PasswordChangeForm() {
       setConfirmPassword('');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Passwort ändern fehlgeschlagen');
+      // Error toast shown by api/client.ts (no duplicate needed)
+      console.error('Password change failed:', error);
     },
   });
 
