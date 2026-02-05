@@ -973,36 +973,37 @@ describe('Working Days Utilities', () => {
   describe('Month-Long Scenarios', () => {
     beforeEach(() => {
       vi.useFakeTimers();
-      vi.setSystemTime(new Date('2025-01-31T12:00:00Z')); // End of January
+      vi.setSystemTime(new Date('2026-01-31T12:00:00Z')); // End of January
     });
 
-    it('should calculate full month January 2025 (21 working days after holidays)', () => {
+    it('should calculate full month January 2026 (20 working days after holidays)', () => {
       const user = {
         weeklyHours: 40,
         workSchedule: null,
-        hireDate: '2025-01-01',
+        hireDate: '2026-01-01',
       } as any;
 
-      // January 2025: 23 weekdays (Mo-Fr)
-      // MINUS Holidays: Jan 1 (Neujahr), Jan 6 (Heilige Drei Könige)
-      // = 21 working days
-      const target = calculateTargetHoursForPeriod(user, '2025-01-01', '2025-01-31');
+      // January 2026: 22 weekdays (Mo-Fr)
+      //   Mon: 4, Tue: 4, Wed: 4, Thu: 5, Fri: 5
+      // MINUS Holidays: Jan 1 (Neujahr=Thu), Jan 6 (Heilige Drei Könige=Tue)
+      // = 20 working days
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-31');
 
-      // 21 × 8h = 168h
-      expect(target).toBe(168);
+      // 20 × 8h = 160h
+      expect(target).toBe(160);
     });
 
-    it('should calculate February 2025 (20 working days)', () => {
-      vi.setSystemTime(new Date('2025-02-28T12:00:00Z'));
+    it('should calculate February 2026 (20 working days)', () => {
+      vi.setSystemTime(new Date('2026-02-28T12:00:00Z'));
 
       const user = {
         weeklyHours: 40,
         workSchedule: null,
-        hireDate: '2025-02-01',
+        hireDate: '2026-02-01',
       } as any;
 
-      // February 2025: 20 working days (not leap year)
-      const target = calculateTargetHoursForPeriod(user, '2025-02-01', '2025-02-28');
+      // February 2026: 20 working days (not leap year)
+      const target = calculateTargetHoursForPeriod(user, '2026-02-01', '2026-02-28');
 
       // 20 × 8h = 160h
       expect(target).toBe(160);
