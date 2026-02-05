@@ -31,10 +31,38 @@ export interface OvertimeTransaction {
 }
 
 /**
+ * Get balance before a specific date (for transaction tracking)
+ * PHASE 4: Used to populate balanceBefore/balanceAfter columns
+ *
+ * @param userId User ID
+ * @param date Date (YYYY-MM-DD) - get balance before this date
+ * @returns Balance before the given date
+ */
+function getBalanceBeforeDate(userId: number, date: string): number {
+  // Get the most recent transaction before this date
+  const result = db.prepare(`
+    SELECT balanceAfter
+    FROM overtime_transactions
+    WHERE userId = ? AND date < ?
+    ORDER BY date DESC, createdAt DESC
+    LIMIT 1
+  `).get(userId, date) as { balanceAfter: number | null } | undefined;
+
+  if (result && result.balanceAfter !== null) {
+    return result.balanceAfter;
+  }
+
+  // No previous transactions, start from 0
+  return 0;
+}
+
+/**
  * Record earned overtime from daily time tracking
  *
  * AUTOMATIC: Called after time entry CREATE/UPDATE/DELETE
  * Calculates daily overtime as: actualHours - targetHours
+ *
+ * PHASE 4: Now includes balanceBefore/balanceAfter tracking
  *
  * @param userId User ID
  * @param date Date (YYYY-MM-DD)
@@ -52,17 +80,23 @@ export function recordOvertimeEarned(
 
   const desc = description || `Differenz Soll/Ist ${date}`;
 
+  // PHASE 4: Calculate balance tracking
+  const balanceBefore = getBalanceBeforeDate(userId, date);
+  const balanceAfter = balanceBefore + hours;
+
   db.prepare(`
-    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType)
-    VALUES (?, ?, 'earned', ?, ?, 'time_entry')
-  `).run(userId, date, hours, desc);
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, balanceBefore, balanceAfter)
+    VALUES (?, ?, 'earned', ?, ?, 'time_entry', ?, ?)
+  `).run(userId, date, hours, desc, balanceBefore, balanceAfter);
 
   logger.debug({
     userId,
     date,
     hours,
-    type: 'earned'
-  }, `✅ Recorded earned overtime: ${hours > 0 ? '+' : ''}${hours}h`);
+    type: 'earned',
+    balanceBefore,
+    balanceAfter
+  }, `✅ Recorded earned overtime: ${hours > 0 ? '+' : ''}${hours}h (balance: ${balanceBefore} → ${balanceAfter})`);
 }
 
 /**
@@ -127,10 +161,14 @@ export function recordOvertimeCorrection(
     throw new Error('Description is required for manual corrections');
   }
 
+  // PHASE 4: Calculate balance tracking
+  const balanceBefore = getBalanceBeforeDate(userId, date);
+  const balanceAfter = balanceBefore + hours;
+
   db.prepare(`
-    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId, createdBy)
-    VALUES (?, ?, 'correction', ?, ?, 'manual', ?, ?)
-  `).run(userId, date, hours, description, correctionId || null, adminId);
+    INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId, createdBy, balanceBefore, balanceAfter)
+    VALUES (?, ?, 'correction', ?, ?, 'manual', ?, ?, ?, ?)
+  `).run(userId, date, hours, description, correctionId || null, adminId, balanceBefore, balanceAfter);
 
   logger.warn({
     userId,
@@ -139,8 +177,10 @@ export function recordOvertimeCorrection(
     adminId,
     correctionId,
     description,
-    type: 'correction'
-  }, `⚠️ Manual overtime correction: ${hours > 0 ? '+' : ''}${hours}h`);
+    type: 'correction',
+    balanceBefore,
+    balanceAfter
+  }, `⚠️ Manual overtime correction: ${hours > 0 ? '+' : ''}${hours}h (balance: ${balanceBefore} → ${balanceAfter})`);
 }
 
 /**
