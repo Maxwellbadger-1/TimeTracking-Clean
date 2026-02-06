@@ -193,4 +193,175 @@ describe('UnifiedOvertimeService', () => {
       expect(monthlyResult.breakdown.worked).toBe(periodResult.breakdown.worked);
     });
   });
+
+  describe('REGRESSION TESTS: Corrections and Hire Date (User 6 & 7 Bug)', () => {
+    it('should include overtime_corrections in daily calculation', () => {
+      // Add a correction for a specific day
+      db.prepare(`
+        INSERT INTO overtime_corrections (userId, date, hours, reason, correctionType, createdBy)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, '2026-01-13', 2, 'Test correction', 'manual', testUserId);
+
+      const result = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-13');
+
+      // Target: 8h, Actual: 0h (no work) + 2h (correction) = 2h
+      // Overtime: 2h - 8h = -6h
+      expect(result.breakdown.corrections).toBe(2);
+      expect(result.actualHours).toBe(2);
+      expect(result.overtime).toBe(-6);
+    });
+
+    it('should include overtime_corrections in monthly calculation', () => {
+      // Add corrections for multiple days
+      db.prepare(`
+        INSERT INTO overtime_corrections (userId, date, hours, reason, correctionType, createdBy)
+        VALUES
+          (?, ?, ?, ?, ?, ?),
+          (?, ?, ?, ?, ?, ?)
+      `).run(
+        testUserId, '2026-01-13', 2, 'Correction 1', 'manual', testUserId,
+        testUserId, '2026-01-15', 2, 'Correction 2', 'manual', testUserId
+      );
+
+      const result = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, '2026-01');
+
+      // Should include total of 4h corrections
+      expect(result.breakdown.corrections).toBe(4);
+      expect(result.actualHours).toBe(4); // Only corrections, no worked hours
+    });
+
+    it('should respect hire date and not include pre-employment months', () => {
+      // Create a user hired in February
+      const febUserResult = db.prepare(`
+        INSERT INTO users (
+          username, email, firstName, lastName, password, role,
+          weeklyHours, workSchedule, hireDate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        'febuser',
+        'feb@test.com',
+        'Feb',
+        'User',
+        'hash',
+        'employee',
+        10,
+        JSON.stringify({ monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 }),
+        '2026-02-01'
+      );
+      const febUserId = febUserResult.lastInsertRowid as number;
+
+      try {
+        // Calculate January (before hire date)
+        const janResult = unifiedOvertimeService.calculateMonthlyOvertime(febUserId, '2026-01');
+
+        // Should return zero values for month before employment
+        expect(janResult.targetHours).toBe(0);
+        expect(janResult.actualHours).toBe(0);
+        expect(janResult.overtime).toBe(0);
+        expect(janResult.dailyResults).toHaveLength(0);
+
+        // Calculate February (hire month)
+        const febResult = unifiedOvertimeService.calculateMonthlyOvertime(febUserId, '2026-02');
+
+        // Should start from Feb 1 and calculate up to today (Feb 6)
+        expect(febResult.dailyResults[0].date).toBe('2026-02-01');
+        expect(febResult.targetHours).toBe(10); // Feb 2-6 = 5 working days × 2h/day
+      } finally {
+        // Clean up
+        db.prepare('DELETE FROM users WHERE id = ?').run(febUserId);
+      }
+    });
+
+    it('REGRESSION: User hired on 1st of month should calculate correctly', () => {
+      // Create a user hired on Feb 1st with 10h/week schedule (2h per day)
+      const febFirstUserResult = db.prepare(`
+        INSERT INTO users (
+          username, email, firstName, lastName, password, role,
+          weeklyHours, workSchedule, hireDate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        'febfirst',
+        'febfirst@test.com',
+        'Feb',
+        'First',
+        'hash',
+        'employee',
+        10,
+        JSON.stringify({ monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 }),
+        '2026-02-01'
+      );
+      const febFirstUserId = febFirstUserResult.lastInsertRowid as number;
+
+      try {
+        // Add 4h correction for Feb 5th (within calculation period Feb 1-6)
+        db.prepare(`
+          INSERT INTO overtime_corrections (userId, date, hours, reason, correctionType, createdBy)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(febFirstUserId, '2026-02-05', 4, 'Test correction', 'manual', febFirstUserId);
+
+        // Calculate February (hire month)
+        const febResult = unifiedOvertimeService.calculateMonthlyOvertime(febFirstUserId, '2026-02');
+
+        // Debug output
+        console.log('Test Debug - User hired on Feb 1st:');
+        console.log('  targetHours:', febResult.targetHours);
+        console.log('  dailyResults.length:', febResult.dailyResults.length);
+        if (febResult.dailyResults.length > 0) {
+          console.log('  First day:', febResult.dailyResults[0]);
+        }
+
+        // February 1st is Sunday, calculation runs from Feb 1-6 (today)
+        // Working days: Mon-Fri (Feb 2-6) = 5 days
+        // User works 2h per day = 10h target
+        expect(febResult.targetHours).toBe(10); // 5 days × 2h
+        expect(febResult.breakdown.corrections).toBe(4);
+        expect(febResult.actualHours).toBe(4); // Only corrections
+        expect(febResult.overtime).toBe(-6); // 4 - 10 = -6
+        expect(febResult.dailyResults.length).toBe(6); // Feb 1-6
+
+        // Calculate January (before hire)
+        const janResult = unifiedOvertimeService.calculateMonthlyOvertime(febFirstUserId, '2026-01');
+
+        // Should return zeros for month before employment
+        expect(janResult.targetHours).toBe(0);
+        expect(janResult.actualHours).toBe(0);
+        expect(janResult.overtime).toBe(0);
+        expect(janResult.dailyResults).toHaveLength(0);
+      } finally {
+        // Clean up
+        db.prepare('DELETE FROM users WHERE id = ?').run(febFirstUserId);
+        db.prepare('DELETE FROM overtime_corrections WHERE userId = ?').run(febFirstUserId);
+      }
+    });
+
+    it('should handle User 6 scenario: corrections balance negative overtime', () => {
+      // Simulate User 6: Work some hours, add corrections to balance
+      db.prepare(`
+        INSERT INTO time_entries (userId, date, startTime, endTime, breakMinutes, hours, location)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(testUserId, '2026-02-02', '09:00', '11:00', 0, 2, 'office');
+
+      // Add vacation
+      db.prepare(`
+        INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, 'vacation', '2026-02-04', '2026-02-04', 'approved', 1);
+
+      // Add corrections
+      db.prepare(`
+        INSERT INTO overtime_corrections (userId, date, hours, reason, correctionType, createdBy)
+        VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)
+      `).run(
+        testUserId, '2026-02-03', 2, 'Testbuchung', 'manual', testUserId,
+        testUserId, '2026-02-05', 2, 'Teeeesttttt', 'manual', testUserId
+      );
+
+      const result = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, '2026-02');
+
+      // With corrections included, overtime should be closer to zero
+      expect(result.breakdown.corrections).toBe(4);
+      expect(result.breakdown.worked).toBeGreaterThan(0);
+      expect(result.breakdown.absenceCredits).toBeGreaterThan(0);
+    });
+  });
 });

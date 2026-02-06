@@ -165,9 +165,27 @@ export class UnifiedOvertimeService {
     // Cap to today if in current month
     const effectiveEndDate = endDate > today ? today : endDate;
 
-    // Respect hire date
-    const hireDate = new Date(user.hireDate);
+    // Respect hire date - parse in local timezone to match startDate/endDate
+    const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
+    const hireDate = new Date(hYear, hMonth - 1, hDay);
     const effectiveStartDate = startDate < hireDate ? hireDate : startDate;
+
+    // Skip months entirely before employment
+    if (effectiveStartDate > effectiveEndDate) {
+      return {
+        month,
+        targetHours: 0,
+        actualHours: 0,
+        overtime: 0,
+        breakdown: {
+          worked: 0,
+          absenceCredits: 0,
+          corrections: 0,
+          unpaidReduction: 0,
+        },
+        dailyResults: [],
+      };
+    }
 
     // Calculate daily overtime for each day in range
     const dailyResults: DailyOvertimeResult[] = [];
@@ -232,8 +250,9 @@ export class UnifiedOvertimeService {
       throw new Error(`User ${userId} not found`);
     }
 
-    // Respect hire date
-    const hireDate = new Date(user.hireDate);
+    // Respect hire date - parse in local timezone for consistency
+    const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
+    const hireDate = new Date(hYear, hMonth - 1, hDay);
     const requestedStart = new Date(startDate);
     const requestedEnd = new Date(endDate);
     const effectiveStartDate = requestedStart < hireDate ? hireDate : requestedStart;
@@ -295,9 +314,15 @@ export class UnifiedOvertimeService {
          weeklyHours, workSchedule, hireDate, endDate, position, department
          FROM users WHERE id = ? AND deletedAt IS NULL`
       )
-      .get(userId) as UserPublic | undefined;
+      .get(userId) as any;
 
-    return user || null;
+    if (!user) return null;
+
+    // Parse workSchedule JSON string to object
+    return {
+      ...user,
+      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null,
+    } as UserPublic;
   }
 
   private getWorkedHours(userId: number, date: string): number {
