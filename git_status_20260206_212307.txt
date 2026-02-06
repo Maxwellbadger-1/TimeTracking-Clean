@@ -1,0 +1,30 @@
+e3d4fc2 docs: Update Core Docs - Phase 5 complete, all 5 phases done
+df71496 feat(phase-5): Complete type safety improvements - 0 TypeScript errors
+143fc07 refactor: Phase 5 (Part 1) - Partial TypeScript error fixes
+08afb82 docs: Update documentation for Phases 1-4 completion
+db78b01 fix: Correct working days calculation for January 2026 test
+e7c2342 feat: Phase 4 - Add balance tracking to overtime transactions
+a2c1d25 feat: Centralize overtime transaction creation (Phase 3)
+938518e feat: Implement UnifiedOvertimeService as Single Source of Truth
+d02f405 fix: Phase 1 - Replace all timezone-unsafe date operations with formatDate()
+7f1d03d feat: Auto-update overtime_balance on user changes
+On branch fix/system-inconsistencies
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   desktop/src/components/worktime/WorkTimeAccountHistory.tsx
+	modified:   server/package.json
+	modified:   server/src/routes/overtime.ts
+	modified:   server/src/services/backupService.ts
+	modified:   server/src/services/overtimeService.ts
+	modified:   server/src/services/unifiedOvertimeService.test.ts
+	modified:   server/src/services/unifiedOvertimeService.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git_status_20260206_212307.txt
+	server/src/scripts/refreshOvertimeBalances.ts
+	server/test_backup_fix.ts
+	server/test_backup_system.ts
+
+no changes added to commit (use "git add" and/or "git commit -a")

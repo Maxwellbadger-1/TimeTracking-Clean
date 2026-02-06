@@ -29,6 +29,7 @@
     "validate:overtime:detailed": "tsx src/scripts/validateOvertimeDetailed.ts",
     "fill:transactions": "tsx src/scripts/fillAllOvertimeTransactions.ts",
     "validate:all-test-users": "tsx src/scripts/validateAllTestUsers.ts",
+    "refresh:overtime": "tsx src/scripts/refreshOvertimeBalances.ts",
     "recalculate:overtime": "tsx src/scripts/recalculateOvertimeBalances.ts",
     "fix:transactions:duplicates": "tsx src/scripts/fixOvertimeTransactionsDuplicates.ts",
     "migrate:new-transaction-system": "tsx src/scripts/migrateToNewTransactionSystem.ts",

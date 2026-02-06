@@ -2,10 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import db, { reconnectDatabase } from '../database/connection.js';
+import { databaseConfig } from '../config/database.js';
 
 // Backup directory (outside server folder)
 const BACKUP_DIR = path.join(process.cwd(), '../backups');
-const DB_PATH = path.join(process.cwd(), 'database.db');
+// Use the correct database path based on environment (development vs production)
+const DB_PATH = databaseConfig.path;
 
 console.log('💾 Backup Service initialized');
 console.log('📁 Database path:', DB_PATH);

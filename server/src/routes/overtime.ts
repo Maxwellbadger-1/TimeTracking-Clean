@@ -1030,13 +1030,30 @@ router.get(
       // This fills in missing months and updates current month to today
       await ensureOvertimeBalanceEntries(userId, currentMonth);
 
-      // Aggregate monthly entries up to current month
+      // Get user's hire date to exclude months before employment
+      const user = db.prepare(`
+        SELECT hireDate FROM users WHERE id = ?
+      `).get(userId) as { hireDate: string } | undefined;
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      // Extract hire year and month to filter out pre-employment months
+      const hireDate = new Date(user.hireDate);
+      const hireYearMonth = formatDate(hireDate, 'yyyy-MM');
+
+      // Aggregate monthly entries up to current month, EXCLUDING months before hire date
       const monthlyEntries = db.prepare(`
         SELECT month, targetHours, actualHours, overtime
         FROM overtime_balance
-        WHERE userId = ? AND month LIKE ? AND month <= ?
+        WHERE userId = ? AND month LIKE ? AND month <= ? AND month >= ?
         ORDER BY month ASC
-      `).all(userId, `${year}-%`, currentMonth) as Array<{
+      `).all(userId, `${year}-%`, currentMonth, hireYearMonth) as Array<{
         month: string;
         targetHours: number;
         actualHours: number;

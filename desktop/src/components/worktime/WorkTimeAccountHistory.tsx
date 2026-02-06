@@ -306,15 +306,15 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
                 <td className="px-4 py-3 text-sm text-right">
                   <span
                     className={`font-bold ${
-                      entry.earned > 0
+                      entry.balance > 0
                         ? 'text-green-600 dark:text-green-400'
-                        : entry.earned < 0
+                        : entry.balance < 0
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-gray-600 dark:text-gray-400'
                     }`}
                   >
-                    {entry.earned > 0 ? '+' : ''}
-                    {formatHours(entry.earned)}
+                    {entry.balance > 0 ? '+' : ''}
+                    {formatHours(entry.balance)}
                   </span>
                 </td>
               </tr>
