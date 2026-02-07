@@ -182,7 +182,7 @@ export function useCreateTimeEntry() {
       await invalidateTimeEntryAffectedQueries(queryClient);
       toast.success('Zeiteintrag erfolgreich erstellt');
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousEntries) {
         queryClient.setQueryData(['timeEntries'], context.previousEntries);
@@ -258,11 +258,11 @@ export function useUpdateTimeEntry() {
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag aktualisiert');
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       console.error('💥 UPDATE onError callback triggered!');
-      console.error('❌ Error object:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error object:', _error);
+      console.error('❌ Error message:', _error.message);
+      console.error('❌ Error stack:', _error.stack);
 
       // Rollback on error
       if (context?.previousEntries) {
@@ -327,11 +327,11 @@ export function useDeleteTimeEntry() {
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag gelöscht');
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       console.error('💥 onError callback triggered!');
-      console.error('❌ Error object:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error object:', _error);
+      console.error('❌ Error message:', _error.message);
+      console.error('❌ Error stack:', _error.stack);
 
       // Rollback on error
       if (context?.previousEntries) {

@@ -15,7 +15,7 @@ import {
   Users,
   BarChart3,
   Calendar,
-  Sparkles,
+  // Sparkles,
   AlertTriangle,
 } from 'lucide-react';
 import { formatOvertimeHours } from '../../utils/timeUtils';
@@ -23,8 +23,8 @@ import { useState } from 'react';
 
 export function TeamOvertimeSummary() {
   const currentYear = new Date().getFullYear();
-  const previousYear = currentYear - 1;
-  const currentMonth = new Date().getMonth() + 1; // 1-12
+  // const _previousYear = currentYear - 1;
+  // const _currentMonth = new Date().getMonth() + 1; // 1-12
 
   const { data: reports, isLoading: loadingReports } = useAllUsersOvertimeReports(currentYear, undefined, true);
   const { data: employees, isLoading: loadingEmployees } = useActiveEmployees();

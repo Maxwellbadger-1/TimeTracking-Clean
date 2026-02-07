@@ -167,7 +167,7 @@ export function useCreateAbsenceRequest() {
         toast.success('Abwesenheitsantrag wurde eingereicht');
       }
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousRequests) {
         queryClient.setQueryData(['absenceRequests'], context.previousRequests);
@@ -240,7 +240,7 @@ export function useApproveAbsenceRequest() {
       await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag genehmigt');
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousRequests) {
         queryClient.setQueryData(['absenceRequests'], context.previousRequests);
@@ -323,7 +323,7 @@ export function useRejectAbsenceRequest() {
       await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag abgelehnt');
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousRequests) {
         queryClient.setQueryData(['absenceRequests'], context.previousRequests);
@@ -391,8 +391,8 @@ export function useDeleteAbsenceRequest() {
       await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag gelöscht');
     },
-    onError: (error: Error, _variables, context) => {
-      console.error('💥💥💥 useDeleteAbsenceRequest onError called!', error);
+    onError: (_error: Error, _variables, context) => {
+      console.error('💥💥💥 useDeleteAbsenceRequest onError called!', _error);
 
       // Rollback on error
       if (context?.previousRequests) {

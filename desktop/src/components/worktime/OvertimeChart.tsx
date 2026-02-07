@@ -68,7 +68,7 @@ export function OvertimeChart({ data, userId, year, month }: OvertimeChartProps)
     ? // DAILY VIEW: Transform daily breakdown data
       (() => {
         let runningBalance = 0;
-        return dailyReport!.breakdown!.daily.map(day => {
+        return (dailyReport?.breakdown?.daily || []).map(day => {
           runningBalance += day.overtime;
           return {
             label: formatDate(day.date),

@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { addMonths, subMonths } from 'date-fns';
+// import { addMonths, subMonths } from 'date-fns'; // Unused - handlers commented out
 import {
   getDaysInMonth,
   formatDay,
@@ -48,15 +48,15 @@ export function MonthCalendar({
   isAdmin = false,
   currentUserId,
   onDayClick,
-  viewMode = 'month',
-  onViewModeChange,
+  viewMode: _viewMode = 'month',
+  onViewModeChange: _onViewModeChange,
   currentDate: externalDate,
-  onDateChange,
+  onDateChange: _onDateChange,
 }: MonthCalendarProps) {
   // Support both controlled (from parent) and uncontrolled (internal state) usage
-  const [internalDate, setInternalDate] = useState(new Date());
+  const [internalDate] = useState(new Date()); // setInternalDate unused - handlers commented out
   const currentMonth = externalDate || internalDate;
-  const setCurrentMonth = onDateChange || setInternalDate;
+  // const setCurrentMonth = onDateChange || setInternalDate; // Unused - handlers commented out
 
   // Track which days are expanded
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
@@ -97,9 +97,8 @@ export function MonthCalendar({
     return acc;
   }, {} as Record<string, AbsenceRequest[]>);
 
-  const handlePrevious = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const handleNext = () => setCurrentMonth(addMonths(currentMonth, 1));
-  const handleToday = () => setCurrentMonth(new Date());
+  // const handlePrevious = () => setCurrentMonth(subMonths(currentMonth, 1));
+  // const handleToday = () => setCurrentMonth(new Date()); // Unused
 
   return (
     <div>

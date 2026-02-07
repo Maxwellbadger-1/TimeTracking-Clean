@@ -31,7 +31,7 @@ export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProp
     queryFn: async () => {
       const response = await apiClient.get(`/overtime/balance/${userId}/${month}`);
       if (!response.success) throw new Error(response.error);
-      return response.data;
+      return response.data as any;
     },
     enabled: !!userId && !!year && !!monthNum,
     retry: false,
@@ -67,7 +67,7 @@ export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProp
 
   // Calculate cumulative balance for each day
   let runningBalance = 0;
-  const dailyWithBalance = daily.map(entry => {
+  const dailyWithBalance = daily.map((entry: any) => {
     runningBalance += entry.overtime;
     return {
       ...entry,
@@ -121,7 +121,7 @@ export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProp
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Arbeitstage</p>
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {daily.filter(d => d.target > 0).length}
+            {daily.filter((d: any) => d.target > 0).length}
           </p>
         </div>
       </div>
@@ -149,7 +149,7 @@ export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProp
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {dailyWithBalance.map((entry) => {
+            {dailyWithBalance.map((entry: any) => {
               const isWeekend = getDayOfWeek(entry.date) === 'Sa' || getDayOfWeek(entry.date) === 'So';
               const today = new Date().toISOString().split('T')[0];
               const isToday = entry.date === today;

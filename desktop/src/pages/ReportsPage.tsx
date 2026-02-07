@@ -64,9 +64,9 @@ export function ReportsPage() {
   );
 
   // Filter report for selected user (kept for backward compatibility, but Cards now use balanceReport)
-  const currentReport = selectedUserId === 'all'
-    ? undefined
-    : reports?.find(r => r.userId === selectedUserId);
+  // const _currentReport = selectedUserId === 'all'
+  //   ? undefined
+  //   : reports?.find(r => r.userId === selectedUserId);
 
   // Aggregate stats for all users (filter out reports without summary)
   const aggregatedStats = reports

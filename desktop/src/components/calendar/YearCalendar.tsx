@@ -60,7 +60,7 @@ const MONTHS = [
 
 // Color intensity levels (based on hours worked + absence type & status)
 // Priority: Absence > Work hours
-const getIntensityColor = (hours: number, absences: AbsenceRequest[], isHoliday: boolean) => {
+const getIntensityColor = (hours: number, absences: AbsenceRequest[], _isHoliday: boolean) => {
   // Priority 1: Check if there are any approved or pending absences
   const approvedAbsence = absences.find(a => a.status === 'approved');
   const pendingAbsence = absences.find(a => a.status === 'pending');
@@ -118,13 +118,13 @@ export function YearCalendar({
   currentUser,
   isAdmin,
   onDayClick,
-  viewMode = 'year',
-  onViewModeChange,
+  viewMode: _viewMode = 'year',
+  onViewModeChange: _onViewModeChange,
   currentDate, // NEW: Optional controlled date
-  onDateChange, // NEW: Optional callback
+  onDateChange: _onDateChange, // NEW: Optional callback (unused - handlers commented out)
 }: YearCalendarProps) {
   // Use controlled date if provided, otherwise fallback to internal state
-  const [internalYear, setInternalYear] = useState(new Date());
+  const [internalYear] = useState(new Date()); // setInternalYear unused - handlers commented out
   const effectiveYear = currentDate || internalYear;
 
   const { calendarFilters } = useUIStore();
@@ -238,6 +238,8 @@ export function YearCalendar({
     return weeksArray;
   }, [yearStart, yearEnd]);
 
+  // Unused handlers - commented out
+  /*
   const handlePrevious = () => {
     const newDate = new Date(effectiveYear.getFullYear() - 1, 0, 1);
     if (onDateChange) {
@@ -264,6 +266,7 @@ export function YearCalendar({
       setInternalYear(newDate); // Update internal state (uncontrolled)
     }
   };
+  */
 
   // Calculate weeks per month for grid layout alignment
   const weeksPerMonth = useMemo(() => {

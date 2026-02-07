@@ -9,10 +9,9 @@
  * - "Heute" button
  */
 
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import type { User } from '../../types';
 
 interface CalendarToolbarProps {
   // Date Navigation

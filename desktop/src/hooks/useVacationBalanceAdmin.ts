@@ -142,6 +142,7 @@ export function useUpsertVacationBalance() {
           entitlement: newBalance.entitlement,
           carryover: newBalance.carryover,
           taken: 0,
+          pending: 0,
           remaining: newBalance.entitlement + newBalance.carryover,
           createdAt: new Date().toISOString(),
         };
@@ -169,7 +170,7 @@ export function useUpsertVacationBalance() {
       await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich gespeichert');
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
@@ -247,7 +248,7 @@ export function useUpdateVacationBalance() {
       await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich aktualisiert');
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
@@ -298,7 +299,7 @@ export function useDeleteVacationBalance() {
       await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich gelöscht');
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       // Rollback on error
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);
@@ -344,7 +345,7 @@ export function useBulkInitializeVacationBalances() {
       await invalidateVacationAffectedQueries(queryClient);
       toast.success(data?.message || 'Urlaubskonten erfolgreich initialisiert');
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (_error: Error, _variables, context) => {
       // Rollback on error (restore snapshot)
       if (context?.previousBalances) {
         queryClient.setQueryData(['vacation-balances'], context.previousBalances);

@@ -134,9 +134,9 @@ export function useCreateUser() {
       queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // NEW: Invalidate overtime reports (contains user list)
       toast.success('Benutzer erfolgreich erstellt');
     },
-    onError: (error: Error) => {
+    onError: (_error: Error) => {
       // Error toast shown by api/client.ts (no duplicate needed)
-      console.error('Create user failed:', error);
+      console.error('Create user failed:', _error);
     },
   });
 }
@@ -185,7 +185,7 @@ export function useUpdateUser() {
       // Return context for rollback
       return { previousUser, previousUsers, data };
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       console.error('❌ Update failed, rolling back optimistic update');
 
       // Rollback on error
@@ -332,7 +332,7 @@ export function useReactivateUser() {
       // Return context for rollback
       return { previousUser, previousUsers };
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       console.error('❌ Reactivation failed, rolling back optimistic update');
 
       // Rollback on error
@@ -406,7 +406,7 @@ export function useDeleteUser() {
       // Return context for rollback
       return { previousUser, previousUsers };
     },
-    onError: (error: Error, variables, context) => {
+    onError: (_error: Error, variables, context) => {
       console.error('❌ Delete failed, rolling back optimistic update');
 
       // Rollback on error

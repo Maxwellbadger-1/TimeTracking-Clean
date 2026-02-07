@@ -80,9 +80,9 @@ export function CalendarPage() {
   const { data: holidays, isLoading: loadingHolidays } = useMultiYearHolidays();
 
   // Fetch all active employees for filter (admin only)
-  const { data: allEmployees, isLoading: loadingEmployees } = useActiveEmployees({
-    enabled: isAdmin,
-  });
+  const { data: allEmployees, isLoading: loadingEmployees } = isAdmin
+    ? useActiveEmployees()
+    : { data: undefined, isLoading: false };
 
   // Apply user filter (admin only)
   const hasUserFilter = isAdmin && calendarFilters.selectedUserIds.length > 0;

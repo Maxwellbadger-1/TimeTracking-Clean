@@ -20,7 +20,7 @@ import {
   eachDayOfInterval,
   isToday,
   parseISO,
-  addMonths,
+  // addMonths, // Unused - handlers commented out
   startOfWeek,
   endOfWeek,
 } from 'date-fns';
@@ -42,12 +42,12 @@ interface TeamCalendarProps {
 
 export function TeamCalendar({
   onDayClick,
-  viewMode = 'team',
-  onViewModeChange,
+  viewMode: _viewMode = 'team',
+  onViewModeChange: _onViewModeChange,
   isAdmin = false,
   currentUserId,
 }: TeamCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth] = useState(new Date()); // setCurrentMonth unused - handlers commented out
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const { calendarFilters } = useUIStore();
 
@@ -163,17 +163,11 @@ export function TeamCalendar({
     return map;
   }, [filteredAbsences]);
 
-  const handlePrevious = () => {
-    setCurrentMonth((prev) => addMonths(prev, -1));
-  };
+  // const handlePrevious = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  const handleNext = () => {
-    setCurrentMonth((prev) => addMonths(prev, 1));
-  };
+  // const handleNext = () => setCurrentMonth(addMonths(currentMonth, 1));
 
-  const handleToday = () => {
-    setCurrentMonth(new Date());
-  };
+  // const handleToday = () => setCurrentMonth(new Date());
 
   if (loadingEmployees || loadingEntries || loadingAbsences) {
     return (

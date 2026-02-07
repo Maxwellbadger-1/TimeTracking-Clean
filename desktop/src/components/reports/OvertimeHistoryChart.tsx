@@ -5,7 +5,7 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { OvertimeHistoryEntry } from '../../hooks/useOvertimeReports';
-import { formatHours, formatOvertimeHours } from '../../utils/timeUtils';
+import { formatOvertimeHours } from '../../utils/timeUtils';
 
 interface OvertimeHistoryChartProps {
   history: OvertimeHistoryEntry[];
@@ -33,7 +33,7 @@ export function OvertimeHistoryChart({ history }: OvertimeHistoryChartProps) {
       </h3>
 
       <div className="space-y-3">
-        {history.map((entry, index) => {
+        {history.map((entry, _index) => {
           const barWidth = (Math.abs(entry.balance) / maxAbsBalance) * 100;
           const isPositive = entry.balance >= 0;
           const changeIcon =

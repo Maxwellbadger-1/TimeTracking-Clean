@@ -51,16 +51,16 @@ export function WeekCalendarColumns({
   currentUser,
   isAdmin,
   onDayClick,
-  viewMode = 'week',
-  onViewModeChange,
+  viewMode: _viewMode = 'week',
+  onViewModeChange: _onViewModeChange,
   currentDate: externalDate,
-  onDateChange,
+  onDateChange: _onDateChange,
 }: WeekCalendarColumnsProps) {
 
   // Support both controlled (from parent) and uncontrolled (internal state) usage
-  const [internalDate, setInternalDate] = useState(new Date());
+  const [internalDate] = useState(new Date()); // setInternalDate unused - handlers commented out
   const currentWeek = externalDate || internalDate;
-  const setCurrentWeek = onDateChange || setInternalDate;
+  // const setCurrentWeek = onDateChange || setInternalDate; // Unused - handlers commented out
 
   const { calendarFilters } = useUIStore();
 
@@ -167,17 +167,11 @@ export function WeekCalendarColumns({
   const currentMinute = now.getMinutes();
   const currentTimePosition = ((currentHour - 6) * HOUR_HEIGHT) + (currentMinute / 60 * HOUR_HEIGHT);
 
-  const handlePrevious = () => {
-    setCurrentWeek((prev) => addDays(prev, -7));
-  };
+  // const handlePrevious = () => setCurrentWeek((prev) => addDays(prev, -7));
 
-  const handleNext = () => {
-    setCurrentWeek((prev) => addDays(prev, 7));
-  };
+  // const handleNext = () => setCurrentWeek((prev) => addDays(prev, 7));
 
-  const handleToday = () => {
-    setCurrentWeek(new Date());
-  };
+  // const handleToday = () => setCurrentWeek(new Date());
 
   // Calculate time entry position and height
   const getEntryStyle = (entry: TimeEntry) => {

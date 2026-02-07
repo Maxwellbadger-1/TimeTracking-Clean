@@ -177,7 +177,7 @@ export function useMarkNotificationRead() {
 
       return { previousNotifications };
     },
-    onError: (error: Error, _id, context) => {
+    onError: (_error: Error, _id, context) => {
       console.log('🔴 [READ] onError: Mutation failed, rolling back');
       // Rollback on error
       if (context?.previousNotifications) {
@@ -185,7 +185,7 @@ export function useMarkNotificationRead() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      console.error('Failed to mark notification as read:', error);
+      console.error('Failed to mark notification as read:', _error);
       // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSuccess: (data) => {
@@ -253,14 +253,14 @@ export function useMarkNotificationUnread() {
 
       return { previousNotifications };
     },
-    onError: (error: Error, _id, context) => {
+    onError: (_error: Error, _id, context) => {
       // Rollback on error
       if (context?.previousNotifications) {
         context.previousNotifications.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      console.error('Failed to mark notification as unread:', error);
+      console.error('Failed to mark notification as unread:', _error);
       // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSettled: () => {
@@ -320,7 +320,7 @@ export function useMarkAllNotificationsRead() {
 
       return { previousNotifications };
     },
-    onError: (error: Error, _userId, context) => {
+    onError: (_error: Error, _userId, context) => {
       // Rollback on error
       if (context?.previousNotifications) {
         context.previousNotifications.forEach(([queryKey, data]) => {
@@ -393,14 +393,14 @@ export function useDeleteNotification() {
 
       return { previousNotifications };
     },
-    onError: (error: Error, _id, context) => {
+    onError: (_error: Error, _id, context) => {
       // Rollback on error
       if (context?.previousNotifications) {
         context.previousNotifications.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      console.error('Failed to delete notification:', error);
+      console.error('Failed to delete notification:', _error);
       // Error toast shown by api/client.ts (no duplicate needed)
     },
     onSettled: () => {
