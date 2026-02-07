@@ -170,11 +170,8 @@ class ApiClient {
         data: { error: error instanceof Error ? error.toString() : 'Unknown error' },
       });
 
-      // Show toast notification for network errors
-      const errorMessage = error instanceof Error ? error.message : 'Netzwerkfehler';
-      toast.error('Verbindungsfehler', {
-        description: `${errorMessage}. Bitte überprüfen Sie Ihre Verbindung.`,
-      });
+      // NOTE: Toast notifications removed - OfflineBanner already shows connection status
+      // No need for redundant toasts on every failed request
 
       return {
         success: false,
