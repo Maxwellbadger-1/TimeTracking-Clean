@@ -29,6 +29,10 @@ export const QUERY_GROUPS = {
     'all-users-overtime-reports',
     'overtime-transactions',
     'overtime-corrections',
+    'overtime-report',               // For Reports page charts
+    'overtime-history',              // For Monthly Development (Monatliche Entwicklung)
+    'overtime-year-breakdown',       // For year breakdown widget
+    'overtime-history-transactions', // For transaction-based history
   ],
 
   // Vacation-related queries

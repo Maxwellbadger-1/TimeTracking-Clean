@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { User, WorkSchedule } from '../types';
 import { toast } from 'sonner';
+import { invalidateUserAffectedQueries } from './invalidationHelpers';
 
 interface CreateUserData {
   username: string;
@@ -270,14 +271,12 @@ export function useUpdateUser() {
         console.log('✅ Overtime refetch completed');
       }
 
-      // General invalidation (for queries not actively mounted)
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] }); // For useVacationBalance
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] }); // For useVacationBalanceSummary (ADMIN PAGE!)
-      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
-      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // NEW: User data changed (name, weeklyHours, etc.)
+      // Use centralized invalidation for general cache updates
+      // This ensures ALL affected queries are properly invalidated (includes overtime-history!)
+      await invalidateUserAffectedQueries(queryClient);
+
+      // Also invalidate the specific queries not covered by the helper
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // User data changed (name, weeklyHours, etc.)
 
       console.log('✅ All relevant caches invalidated');
       console.log('🔥🔥🔥 END USER UPDATE SUCCESS DEBUG 🔥🔥🔥');
@@ -349,21 +348,13 @@ export function useReactivateUser() {
     onSuccess: async (_data, variables) => {
       console.log('✅ User reactivated successfully, invalidating related queries');
 
-      // Invalidate all user-related queries
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes overtime-history and other critical queries
+      await invalidateUserAffectedQueries(queryClient);
+
+      // Also invalidate specific user query and overtime reports
       queryClient.invalidateQueries({ queryKey: ['user', variables] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-
-      // Invalidate overtime queries
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
-
-      // Invalidate vacation queries
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
-
-      // NEW: Invalidate overtime reports (reactivated user should appear again)
-      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // Reactivated user should appear again
 
       toast.success('Benutzer reaktiviert');
       console.log('✅ All queries invalidated, UI updated');
@@ -431,25 +422,15 @@ export function useDeleteUser() {
     onSuccess: async (_data, variables) => {
       console.log('✅ User deleted successfully, invalidating related queries');
 
-      // Invalidate all user-related queries
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes overtime-history and other critical queries
+      await invalidateUserAffectedQueries(queryClient);
+
+      // Also invalidate specific queries
       queryClient.invalidateQueries({ queryKey: ['user', variables] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-
-      // Invalidate overtime queries (user shouldn't appear in overtime dashboard anymore)
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
       queryClient.invalidateQueries({ queryKey: ['allUsersOvertimeSummary'] });
-
-      // Invalidate vacation queries
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
-
-      // Invalidate time entries
       queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
-
-      // NEW: Invalidate overtime reports (deleted user should disappear)
-      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['all-users-overtime-reports'] }); // Deleted user should disappear
 
       toast.success('Benutzer gelöscht');
       console.log('✅ All queries invalidated, UI updated');

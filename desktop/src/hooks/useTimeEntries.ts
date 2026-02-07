@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { TimeEntry } from '../types';
 import { toast } from 'sonner';
+import { invalidateTimeEntryAffectedQueries } from './invalidationHelpers';
 
 interface TimeEntryFilters {
   userId?: number;
@@ -175,17 +176,10 @@ export function useCreateTimeEntry() {
 
       return { previousEntries };
     },
-    onSuccess: () => {
-      // Invalidate all time entry queries
-      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
-      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
-      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+    onSuccess: async () => {
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes overtime queries and fixes cache delays
+      await invalidateTimeEntryAffectedQueries(queryClient);
       toast.success('Zeiteintrag erfolgreich erstellt');
     },
     onError: (error: Error, _variables, context) => {
@@ -253,20 +247,14 @@ export function useUpdateTimeEntry() {
 
       return { previousEntries, previousEntry };
     },
-    onSuccess: (_data: TimeEntry | undefined, variables: { id: number; data: UpdateTimeEntryData }) => {
+    onSuccess: async (_data: TimeEntry | undefined, variables: { id: number; data: UpdateTimeEntryData }) => {
       console.log('🎉 UPDATE onSuccess callback triggered! Data:', _data);
       console.log('🔄 Invalidating queries...');
-      // Invalidate specific entry and list
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes overtime queries and fixes cache delays
+      await invalidateTimeEntryAffectedQueries(queryClient);
+      // Also invalidate the specific entry
       queryClient.invalidateQueries({ queryKey: ['timeEntry', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
-      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
-      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag aktualisiert');
     },
@@ -330,18 +318,12 @@ export function useDeleteTimeEntry() {
 
       return { previousEntries };
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log('🎉 onSuccess callback triggered! Data:', data);
       console.log('🔄 Invalidating queries...');
-      queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
-      // Invalidate overtime-related queries (affects Dashboard + Überstunden page)
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['currentOvertimeStats'] });
-      queryClient.invalidateQueries({ queryKey: ['totalOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['dailyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['weeklyOvertime'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] });
-      queryClient.invalidateQueries({ queryKey: ['overtime'] });
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes overtime queries and fixes cache delays
+      await invalidateTimeEntryAffectedQueries(queryClient);
       console.log('✅ Queries invalidated!');
       toast.success('Zeiteintrag gelöscht');
     },

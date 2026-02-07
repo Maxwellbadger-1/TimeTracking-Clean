@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { invalidateOvertimeQueries } from './invalidationHelpers';
 
 // Types
 export interface OvertimeCorrection {
@@ -156,11 +157,10 @@ export function useCreateOvertimeCorrection() {
 
       return { previousCorrections };
     },
-    onSuccess: () => {
-      // Invalidate ALL overtime-related queries for immediate UI update (Berichte Tab + Arbeitszeitkonto)
-      queryClient.invalidateQueries({ queryKey: ['overtime'] }); // Matches: ['overtime', 'all', ...], ['overtime', 'aggregated', ...]
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] }); // Individual user overtime summary
-      queryClient.invalidateQueries({ queryKey: ['work-time-accounts'] });
+    onSuccess: async () => {
+      // Use centralized invalidation to ensure ALL overtime queries are updated
+      // This includes overtime-history (fixes the delay in "Monatliche Entwicklung")
+      await invalidateOvertimeQueries(queryClient);
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
@@ -200,11 +200,10 @@ export function useDeleteOvertimeCorrection() {
 
       return { previousCorrections };
     },
-    onSuccess: () => {
-      // Invalidate ALL overtime-related queries for immediate UI update (Berichte Tab + Arbeitszeitkonto)
-      queryClient.invalidateQueries({ queryKey: ['overtime'] }); // Matches: ['overtime', 'all', ...], ['overtime', 'aggregated', ...]
-      queryClient.invalidateQueries({ queryKey: ['overtimeSummary'] }); // Individual user overtime summary
-      queryClient.invalidateQueries({ queryKey: ['work-time-accounts'] });
+    onSuccess: async () => {
+      // Use centralized invalidation to ensure ALL overtime queries are updated
+      // This includes overtime-history (fixes the delay in "Monatliche Entwicklung")
+      await invalidateOvertimeQueries(queryClient);
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
