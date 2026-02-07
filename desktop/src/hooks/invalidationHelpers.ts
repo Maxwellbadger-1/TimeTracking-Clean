@@ -33,6 +33,11 @@ export const QUERY_GROUPS = {
     'overtime-history',              // For Monthly Development (Monatliche Entwicklung)
     'overtime-year-breakdown',       // For year breakdown widget
     'overtime-history-transactions', // For transaction-based history
+    'overtime-report-daily',         // For daily breakdown details (CRITICAL!)
+    'dailyOvertime',                 // For daily overtime calculations
+    'weeklyOvertime',                // For weekly overtime calculations
+    'allUsersOvertimeSummary',       // For all users overtime summary
+    'overtime-balances',             // For year-end rollover
   ],
 
   // Vacation-related queries
