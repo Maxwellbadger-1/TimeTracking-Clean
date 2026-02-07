@@ -25,6 +25,7 @@ import { getDailyTargetHours } from '../utils/workingDays.js';
 import { getUserById } from './userService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import logger from '../utils/logger.js';
+import * as transactionManager from './overtimeTransactionManager.js';
 
 interface DayCalculation {
   date: string;
@@ -380,7 +381,7 @@ function getCreditDescription(absenceType: string): string {
 
 /**
  * Insert transaction with balance tracking
- * Core function that creates transaction records
+ * REFACTORED: Now uses OvertimeTransactionManager for centralized transaction creation
  */
 function insertTransactionWithBalance(
   userId: number,
@@ -394,23 +395,17 @@ function insertTransactionWithBalance(
 ): void {
   const balanceAfter = balanceBefore + hours;
 
-  db.prepare(`
-    INSERT INTO overtime_transactions (
-      userId, date, type, hours, balanceBefore, balanceAfter,
-      description, referenceType, referenceId
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  transactionManager.createTransaction({
     userId,
     date,
-    type,
+    type: type as any, // Type assertion needed due to string type from function signature
     hours,
-    Math.round(balanceBefore * 100) / 100,
-    Math.round(balanceAfter * 100) / 100,
     description,
-    referenceType,
-    referenceId
-  );
+    referenceType: referenceType as any,
+    referenceId,
+    balanceBefore,
+    balanceAfter
+  });
 }
 
 /**

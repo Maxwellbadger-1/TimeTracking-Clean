@@ -485,13 +485,14 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
     monthlyResult.actualHours
   );
 
-  // CRITICAL: Ensure absence transactions are created for transparency
-  // This creates individual transaction records for each absence day (vacation, sick, etc.)
+  // CRITICAL: Rebuild all overtime transactions for transparency and consistency
+  // REFACTORED (2026-02-07): Use rebuildOvertimeTransactionsForMonth for consistent transaction creation
+  // This creates individual transaction records for ALL days (work + absences) with proper referenceId
   // Professional standard (SAP, Personio, DATEV): Transparent audit trail required!
   try {
-    ensureAbsenceTransactionsForMonth(userId, month);
+    rebuildOvertimeTransactionsForMonth(userId, month);
   } catch (error) {
-    logger.error({ err: error, userId, month }, '❌ Failed to create absence transactions');
+    logger.error({ err: error, userId, month }, '❌ Failed to rebuild overtime transactions');
     // Don't throw - overtime_balance is updated, transaction creation is secondary
   }
 
