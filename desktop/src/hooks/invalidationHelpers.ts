@@ -90,14 +90,24 @@ const DEFAULT_INVALIDATION_OPTIONS = {
  * - Vacation balances change
  */
 export async function invalidateOvertimeQueries(queryClient: QueryClient): Promise<void> {
-  const promises = QUERY_GROUPS.overtime.map(queryKey =>
+  // First invalidate (mark as stale)
+  const invalidatePromises = QUERY_GROUPS.overtime.map(queryKey =>
     queryClient.invalidateQueries({
       queryKey: [queryKey],
       ...DEFAULT_INVALIDATION_OPTIONS,
     })
   );
+  await Promise.all(invalidatePromises);
 
-  await Promise.all(promises);
+  // Then immediately refetch active queries for instant updates
+  const refetchPromises = QUERY_GROUPS.overtime.map(queryKey =>
+    queryClient.refetchQueries({
+      queryKey: [queryKey],
+      exact: false,
+      type: 'active',
+    })
+  );
+  await Promise.all(refetchPromises);
 }
 
 /**
@@ -109,14 +119,24 @@ export async function invalidateOvertimeQueries(queryClient: QueryClient): Promi
  * - User vacation entitlements change
  */
 export async function invalidateVacationQueries(queryClient: QueryClient): Promise<void> {
-  const promises = QUERY_GROUPS.vacation.map(queryKey =>
+  // First invalidate (mark as stale)
+  const invalidatePromises = QUERY_GROUPS.vacation.map(queryKey =>
     queryClient.invalidateQueries({
       queryKey: [queryKey],
       ...DEFAULT_INVALIDATION_OPTIONS,
     })
   );
+  await Promise.all(invalidatePromises);
 
-  await Promise.all(promises);
+  // Then immediately refetch active queries for instant updates
+  const refetchPromises = QUERY_GROUPS.vacation.map(queryKey =>
+    queryClient.refetchQueries({
+      queryKey: [queryKey],
+      exact: false,
+      type: 'active',
+    })
+  );
+  await Promise.all(refetchPromises);
 }
 
 /**
@@ -127,14 +147,24 @@ export async function invalidateVacationQueries(queryClient: QueryClient): Promi
  * - Absence requests are approved/rejected
  */
 export async function invalidateAbsenceQueries(queryClient: QueryClient): Promise<void> {
-  const promises = QUERY_GROUPS.absence.map(queryKey =>
+  // First invalidate (mark as stale)
+  const invalidatePromises = QUERY_GROUPS.absence.map(queryKey =>
     queryClient.invalidateQueries({
       queryKey: [queryKey],
       ...DEFAULT_INVALIDATION_OPTIONS,
     })
   );
+  await Promise.all(invalidatePromises);
 
-  await Promise.all(promises);
+  // Then immediately refetch active queries for instant updates
+  const refetchPromises = QUERY_GROUPS.absence.map(queryKey =>
+    queryClient.refetchQueries({
+      queryKey: [queryKey],
+      exact: false,
+      type: 'active',
+    })
+  );
+  await Promise.all(refetchPromises);
 }
 
 /**
@@ -146,14 +176,24 @@ export async function invalidateAbsenceQueries(queryClient: QueryClient): Promis
  * - User permissions change
  */
 export async function invalidateUserQueries(queryClient: QueryClient): Promise<void> {
-  const promises = QUERY_GROUPS.user.map(queryKey =>
+  // First invalidate (mark as stale)
+  const invalidatePromises = QUERY_GROUPS.user.map(queryKey =>
     queryClient.invalidateQueries({
       queryKey: [queryKey],
       ...DEFAULT_INVALIDATION_OPTIONS,
     })
   );
+  await Promise.all(invalidatePromises);
 
-  await Promise.all(promises);
+  // Then immediately refetch active queries for instant updates
+  const refetchPromises = QUERY_GROUPS.user.map(queryKey =>
+    queryClient.refetchQueries({
+      queryKey: [queryKey],
+      exact: false,
+      type: 'active',
+    })
+  );
+  await Promise.all(refetchPromises);
 }
 
 /**
@@ -163,14 +203,24 @@ export async function invalidateUserQueries(queryClient: QueryClient): Promise<v
  * - Time entries are created/modified/deleted
  */
 export async function invalidateTimeEntryQueries(queryClient: QueryClient): Promise<void> {
-  const promises = QUERY_GROUPS.timeEntries.map(queryKey =>
+  // First invalidate (mark as stale)
+  const invalidatePromises = QUERY_GROUPS.timeEntries.map(queryKey =>
     queryClient.invalidateQueries({
       queryKey: [queryKey],
       ...DEFAULT_INVALIDATION_OPTIONS,
     })
   );
+  await Promise.all(invalidatePromises);
 
-  await Promise.all(promises);
+  // Then immediately refetch active queries for instant updates
+  const refetchPromises = QUERY_GROUPS.timeEntries.map(queryKey =>
+    queryClient.refetchQueries({
+      queryKey: [queryKey],
+      exact: false,
+      type: 'active',
+    })
+  );
+  await Promise.all(refetchPromises);
 }
 
 /**
