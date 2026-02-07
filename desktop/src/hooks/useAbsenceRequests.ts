@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { AbsenceRequest } from '../types';
 import { toast } from 'sonner';
+import { invalidateAbsenceAffectedQueries } from './invalidationHelpers';
 
 export interface AbsenceRequestFilters {
   userId?: number;
@@ -154,14 +155,10 @@ export function useCreateAbsenceRequest() {
 
       return { previousRequests };
     },
-    onSuccess: (data) => {
-      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches (including filtered ones)
-      queryClient.invalidateQueries({
-        queryKey: ['absenceRequests'],
-        exact: false,
-        refetchType: 'all'
-      });
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
+    onSuccess: async (data) => {
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes absence, vacation, and OVERTIME queries (critical!)
+      await invalidateAbsenceAffectedQueries(queryClient);
 
       // Different message based on type
       if (data?.type === 'sick') {
@@ -237,16 +234,10 @@ export function useApproveAbsenceRequest() {
 
       return { previousRequests, previousRequest };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
-      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
-      queryClient.invalidateQueries({
-        queryKey: ['absenceRequests'],
-        exact: false,
-        refetchType: 'all'
-      });
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
-      queryClient.invalidateQueries({ queryKey: ['overtimeBalance'] });
+      // Use centralized invalidation to ensure all affected queries are updated
+      await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag genehmigt');
     },
     onError: (error: Error, variables, context) => {
@@ -326,14 +317,10 @@ export function useRejectAbsenceRequest() {
 
       return { previousRequests, previousRequest };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
-      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
-      queryClient.invalidateQueries({
-        queryKey: ['absenceRequests'],
-        exact: false,
-        refetchType: 'all'
-      });
+      // Use centralized invalidation to ensure all affected queries are updated
+      await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag abgelehnt');
     },
     onError: (error: Error, variables, context) => {
@@ -397,15 +384,11 @@ export function useDeleteAbsenceRequest() {
 
       return { previousRequests };
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log('✅✅✅ useDeleteAbsenceRequest onSuccess called!');
-      // CRITICAL FIX: Invalidate with exact: false to refresh ALL absence request caches
-      queryClient.invalidateQueries({
-        queryKey: ['absenceRequests'],
-        exact: false,
-        refetchType: 'all'
-      });
-      queryClient.invalidateQueries({ queryKey: ['vacationBalance'] });
+      // Use centralized invalidation to ensure all affected queries are updated
+      // This includes absence, vacation, and OVERTIME queries (critical!)
+      await invalidateAbsenceAffectedQueries(queryClient);
       toast.success('Abwesenheitsantrag gelöscht');
     },
     onError: (error: Error, _variables, context) => {

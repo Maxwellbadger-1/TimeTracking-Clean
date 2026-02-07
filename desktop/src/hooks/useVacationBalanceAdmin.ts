@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { VacationBalance } from '../types';
 import { toast } from 'sonner';
+import { invalidateVacationAffectedQueries } from '../hooks/invalidationHelpers';
 
 /**
  * Vacation Balance Admin Hooks
@@ -163,8 +164,9 @@ export function useUpsertVacationBalance() {
 
       return { previousBalances };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+    onSuccess: async () => {
+      // Use centralized invalidation - vacation changes affect overtime calculations
+      await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich gespeichert');
     },
     onError: (error: Error, _variables, context) => {
@@ -240,8 +242,9 @@ export function useUpdateVacationBalance() {
 
       return { previousBalances, previousBalance };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+    onSuccess: async () => {
+      // Use centralized invalidation - vacation changes affect overtime calculations
+      await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich aktualisiert');
     },
     onError: (error: Error, variables, context) => {
@@ -290,8 +293,9 @@ export function useDeleteVacationBalance() {
 
       return { previousBalances };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+    onSuccess: async () => {
+      // Use centralized invalidation - vacation changes affect overtime calculations
+      await invalidateVacationAffectedQueries(queryClient);
       toast.success('Urlaubskonto erfolgreich gelöscht');
     },
     onError: (error: Error, _variables, context) => {
@@ -335,8 +339,9 @@ export function useBulkInitializeVacationBalances() {
 
       return { previousBalances };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['vacation-balances'] });
+    onSuccess: async (data) => {
+      // Use centralized invalidation - vacation changes affect overtime calculations
+      await invalidateVacationAffectedQueries(queryClient);
       toast.success(data?.message || 'Urlaubskonten erfolgreich initialisiert');
     },
     onError: (error: Error, _variables, context) => {

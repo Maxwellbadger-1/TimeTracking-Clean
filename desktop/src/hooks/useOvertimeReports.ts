@@ -137,7 +137,8 @@ export function useOvertimeReport(userId: number, year: number, month?: number, 
     enabled: enabledOverride !== undefined ? enabledOverride : (!!userId && !!year),
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds (consistent with other components)
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    // Removed refetchInterval - data will update immediately via invalidation
   });
 }
 
@@ -167,7 +168,8 @@ export function useOvertimeHistory(userId: number, months: number = 12, year?: n
     enabled: !!userId,
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds (catches backend updates)
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    // Removed refetchInterval - data will update immediately via invalidation
   });
 }
 
@@ -291,6 +293,7 @@ export function useAllUsersOvertimeReports(year: number, month?: number, isAdmin
     enabled: !!year && isAdmin === true, // CRITICAL: Only fetch if user is admin!
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds (consistent with other components)
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    // Removed refetchInterval - data will update immediately via invalidation
   });
 }
