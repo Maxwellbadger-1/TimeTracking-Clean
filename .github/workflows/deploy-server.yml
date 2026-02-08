@@ -106,12 +106,20 @@ jobs:
               echo "TZ=Europe/Berlin" >> .env
               echo "PORT=3000" >> .env
             else
-              SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
+              # More robust extraction of SESSION_SECRET (handles spaces, quotes, etc.)
+              SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
             fi
 
             if [ -z "$SESSION_SECRET" ]; then
               echo "❌ SESSION_SECRET could not be set!"
-              exit 1
+              echo "Generating new SESSION_SECRET..."
+              SESSION_SECRET=$(openssl rand -hex 32)
+              # Update or append to .env
+              if grep -q "^SESSION_SECRET=" .env 2>/dev/null; then
+                sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$SESSION_SECRET/" .env
+              else
+                echo "SESSION_SECRET=$SESSION_SECRET" >> .env
+              fi
             fi
 
             # Restart PM2
