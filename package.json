@@ -32,5 +32,8 @@
     "@tauri-apps/cli-darwin-arm64": "^2.9.2",
     "@tauri-apps/cli-darwin-universal": "npm:null@*",
     "@tauri-apps/cli-darwin-x64": "^2.9.2"
+  },
+  "dependencies": {
+    "@tauri-apps/cli": "^2.10.0"
   }
 }
