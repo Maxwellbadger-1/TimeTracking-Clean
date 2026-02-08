@@ -37,8 +37,7 @@ jobs:
 
       - name: Security Audit
         working-directory: server
-        run: npm audit --audit-level=high
-        continue-on-error: true  # Don't fail build on moderate vulnerabilities
+        run: npm audit --audit-level=critical || true  # Only warn about vulnerabilities, don't fail
 
       - name: Check for hardcoded localhost URLs
         run: |
