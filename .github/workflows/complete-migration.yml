@@ -1,0 +1,139 @@
+name: 'Complete BLUE to GREEN Migration'
+
+# Manual trigger only - no user inputs
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: 'Execute Full Migration'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Complete Migration
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🔄 BLUE to GREEN Migration - Start"
+            echo "=================================="
+            echo ""
+
+            # Static paths - no user input
+            BLUE_DB="/home/ubuntu/TimeTracking-BLUE/server/database.db"
+            GREEN_DB="/home/ubuntu/TimeTracking-Clean/server/database.db"
+            GREEN_SERVER_DIR="/home/ubuntu/TimeTracking-Clean/server"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+            echo "📋 Configuration:"
+            echo "   BLUE DB:  $BLUE_DB"
+            echo "   GREEN DB: $GREEN_DB"
+            echo "   Backup:   ${BLUE_DB}.backup.${TIMESTAMP}"
+            echo ""
+
+            # Step 1: Backup BLUE database
+            echo "💾 Step 1: Create BLUE database backup..."
+            cp "$BLUE_DB" "${BLUE_DB}.backup.${TIMESTAMP}"
+            ls -lh "${BLUE_DB}.backup.${TIMESTAMP}"
+            echo "✅ BLUE backup created"
+            echo ""
+
+            # Step 2: Backup GREEN database
+            echo "💾 Step 2: Create GREEN database backup..."
+            cp "$GREEN_DB" "${GREEN_DB}.backup.${TIMESTAMP}"
+            ls -lh "${GREEN_DB}.backup.${TIMESTAMP}"
+            echo "✅ GREEN backup created"
+            echo ""
+
+            # Step 3: Stop GREEN server
+            echo "🛑 Step 3: Stop GREEN server..."
+            pm2 stop timetracking-server || echo "Server already stopped"
+            pm2 list
+            echo "✅ GREEN server stopped"
+            echo ""
+
+            # Step 4: Copy BLUE DB to GREEN
+            echo "📋 Step 4: Copy BLUE database to GREEN..."
+            cp "$BLUE_DB" "$GREEN_DB"
+            ls -lh "$GREEN_DB"
+            echo "✅ Database copied"
+            echo ""
+
+            # Step 5: Run migrations
+            echo "🔄 Step 5: Run database migrations..."
+            cd "$GREEN_SERVER_DIR"
+            NODE_ENV=production npm run migrate:prod
+            echo "✅ Migrations completed"
+            echo ""
+
+            # Step 6: Start GREEN server
+            echo "🚀 Step 6: Start GREEN server..."
+            pm2 start dist/server.js \
+              --name timetracking-server \
+              --cwd "$GREEN_SERVER_DIR" \
+              --time \
+              --update-env
+            pm2 save
+            echo "✅ GREEN server started"
+            echo ""
+
+            # Step 7: Wait for server
+            echo "⏳ Step 7: Wait for server to start..."
+            sleep 5
+
+            # Step 8: Health check
+            echo "🏥 Step 8: Health check..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+            else
+              echo "❌ Health check failed (HTTP $HTTP_CODE)"
+              pm2 logs timetracking-server --lines 30
+              exit 1
+            fi
+            echo ""
+
+            # Step 9: Show final status
+            echo "📊 Final Status:"
+            echo "================"
+            pm2 status
+            echo ""
+            echo "✅ Migration completed successfully!"
+            echo ""
+            echo "📝 Backups created:"
+            echo "   BLUE: ${BLUE_DB}.backup.${TIMESTAMP}"
+            echo "   GREEN: ${GREEN_DB}.backup.${TIMESTAMP}"
+
+      - name: Migration Summary
+        if: success()
+        run: |
+          echo "✅ BLUE to GREEN Migration erfolgreich abgeschlossen!"
+          echo ""
+          echo "🎯 Was wurde gemacht:"
+          echo "1. ✅ BLUE DB Backup erstellt"
+          echo "2. ✅ GREEN DB Backup erstellt"
+          echo "3. ✅ GREEN Server gestoppt"
+          echo "4. ✅ BLUE DB nach GREEN kopiert"
+          echo "5. ✅ Position-Column Migration angewendet"
+          echo "6. ✅ GREEN Server neu gestartet"
+          echo "7. ✅ Health Check bestanden"
+          echo ""
+          echo "🌐 Server URL: http://129.159.8.19:3000"
+          echo "📱 Teste jetzt mit localhost:1420!"
+
+      - name: Migration Failed
+        if: failure()
+        run: |
+          echo "❌ Migration fehlgeschlagen!"
+          echo ""
+          echo "🔙 Rollback Schritte:"
+          echo "1. SSH: ssh ubuntu@129.159.8.19"
+          echo "2. Stop Server: pm2 stop timetracking-server"
+          echo "3. Restore GREEN: cp GREEN_DB.backup.* GREEN_DB"
+          echo "4. Start Server: pm2 start dist/server.js --name timetracking-server"
