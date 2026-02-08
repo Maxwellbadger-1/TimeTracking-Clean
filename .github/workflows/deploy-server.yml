@@ -31,6 +31,14 @@ jobs:
             set -e  # Exit on error
 
             echo "🚀 Starting deployment..."
+
+            # Check if repository exists, if not clone it
+            if [ ! -d "/home/ubuntu/TimeTracking-Clean" ]; then
+              echo "📥 Repository not found. Cloning..."
+              cd /home/ubuntu
+              git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
+            fi
+
             cd /home/ubuntu/TimeTracking-Clean
 
             # Backup current database (safety!)
