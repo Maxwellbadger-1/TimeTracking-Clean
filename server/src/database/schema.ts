@@ -83,15 +83,9 @@ export function initializeDatabase(db: Database.Database): void {
     // Column already exists - ignore error
   }
 
-  // Migration: Add position column if it doesn't exist
-  try {
-    db.exec(`
-      ALTER TABLE users ADD COLUMN position TEXT DEFAULT NULL;
-    `);
-    logger.info('✅ Added position column to users table');
-  } catch (error) {
-    // Column already exists - ignore error
-  }
+  // Note: The position column migration has been moved to SQL migration file:
+  // database/migrations/20260208_add_position_column.sql
+  // This will be handled by the migration system on deployment
 
   // Migration: Make email column nullable (email is optional)
   // SQLite doesn't support ALTER COLUMN, so we need to recreate the table

@@ -77,6 +77,15 @@ jobs:
             }
             echo "✅ Migrations completed successfully"
 
+            # Validate database schema
+            echo "🔍 Validating database schema..."
+            NODE_ENV=production npm run validate:schema || {
+              echo "❌ Schema validation failed! Database is missing required columns."
+              echo "💡 Check logs above for details."
+              exit 1
+            }
+            echo "✅ Database schema validated successfully"
+
             # Fix overtime calculations (ensure all months exist)
             echo "📊 Fixing overtime calculations..."
             npx tsx scripts/fix-overtime.ts || {

@@ -5,7 +5,12 @@ import { toast } from 'sonner';
 
 // DEVELOPMENT: Use localhost
 // PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// Ensure API_BASE_URL always ends with /api
+export const API_BASE_URL = rawApiUrl.endsWith('/api')
+  ? rawApiUrl
+  : `${rawApiUrl}/api`;
 
 // Base URL without /api suffix (for direct exports endpoints that include /api in path)
 export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');

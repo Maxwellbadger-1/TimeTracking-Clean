@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Sprint Week 06-10/2026
 
+### 🔧 Fixed (2026-02-08)
+
+#### Database Migration System Improvements
+- **Fixed missing `position` column on production server**
+  - Root cause: Migration in schema.ts had try/catch that silently ignored errors
+  - Created proper SQL migration: `database/migrations/20260208_add_position_column.sql`
+  - Removed error-hiding try/catch blocks from schema.ts
+  - Added schema validation script (`validateSchema.ts`) for deployment verification
+  - Updated deployment workflow to validate schema after migrations
+
+#### Client API Configuration
+- **Fixed API endpoint routing issues**
+  - Added automatic `/api` prefix handling in client.ts
+  - Ensures compatibility with both `VITE_API_URL=http://server:3000` and `http://server:3000/api`
+
 ### ✅ COMPLETED
 
 #### Phase 5: Type Safety & Code Quality (2026-02-06)

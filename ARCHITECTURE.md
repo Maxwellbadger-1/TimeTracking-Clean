@@ -1636,7 +1636,50 @@ app.get('/api/time-entries', (req, res) => {
 
 ---
 
-## 9. Architecture Decisions
+## 9. Database Migration System
+
+### 9.1 Migration Architecture
+
+**Three-Tier Migration System:**
+
+1. **SQL Migrations** (`server/database/migrations/*.sql`)
+   - Production-critical schema changes
+   - Tracked in migrations table
+   - Run via `npm run migrate:prod`
+
+2. **TypeScript Migrations** (`server/src/database/migrations/*.ts`)
+   - Data transformations and backfills
+   - Complex business logic migrations
+   - Run automatically on server start
+
+3. **Schema Initialization** (`server/src/database/schema.ts`)
+   - Initial table creation only
+   - NO ALTER TABLE statements here
+   - All schema changes via SQL migrations
+
+**Migration Workflow:**
+```bash
+# Create new migration
+npm run migrate:create "add_new_column"
+
+# Run locally
+npm run migrate
+
+# Production (via CI/CD)
+npm run migrate:prod
+npm run validate:schema  # Verify schema integrity
+```
+
+**Key Principles:**
+- ✅ Migrations MUST be idempotent
+- ✅ Errors MUST NOT be silently ignored
+- ✅ Schema validation after each deployment
+- ❌ NO try/catch blocks that hide errors
+- ❌ NO schema changes in schema.ts
+
+---
+
+## 10. Architecture Decisions
 
 ### ADR-001: Use Tauri instead of Electron
 
