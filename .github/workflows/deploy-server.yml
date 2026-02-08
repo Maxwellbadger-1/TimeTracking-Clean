@@ -91,11 +91,23 @@ jobs:
             (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab -
             echo "✅ Cron job configured (runs daily at 3 AM)"
 
-            # Read SESSION_SECRET from .env file (created during initial setup)
-            echo "🔐 Loading SESSION_SECRET..."
-            SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
+            # Create .env file if it doesn't exist
+            echo "🔐 Setting up environment..."
+            if [ ! -f ".env" ]; then
+              echo "Creating .env file..."
+              SESSION_SECRET=$(openssl rand -hex 32)
+              cat > .env << EOF
+SESSION_SECRET=$SESSION_SECRET
+NODE_ENV=production
+TZ=Europe/Berlin
+PORT=3000
+EOF
+            else
+              SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
+            fi
+
             if [ -z "$SESSION_SECRET" ]; then
-              echo "❌ SESSION_SECRET not found in .env file!"
+              echo "❌ SESSION_SECRET could not be set!"
               exit 1
             fi
 
@@ -103,7 +115,12 @@ jobs:
             echo "🔄 Restarting PM2..."
             pm2 stop timetracking-server || true
             pm2 delete timetracking-server || true
-            TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET pm2 start dist/server.js \
+
+            # Set ALLOWED_ORIGINS for CORS
+            export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+
+            TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+              pm2 start dist/server.js \
               --name timetracking-server \
               --cwd /home/ubuntu/TimeTracking-Clean/server \
               --time \
