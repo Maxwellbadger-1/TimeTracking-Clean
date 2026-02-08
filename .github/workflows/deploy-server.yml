@@ -96,12 +96,10 @@ jobs:
             if [ ! -f ".env" ]; then
               echo "Creating .env file..."
               SESSION_SECRET=$(openssl rand -hex 32)
-              cat > .env << EOF
-SESSION_SECRET=$SESSION_SECRET
-NODE_ENV=production
-TZ=Europe/Berlin
-PORT=3000
-EOF
+              echo "SESSION_SECRET=$SESSION_SECRET" > .env
+              echo "NODE_ENV=production" >> .env
+              echo "TZ=Europe/Berlin" >> .env
+              echo "PORT=3000" >> .env
             else
               SESSION_SECRET=$(grep SESSION_SECRET .env | cut -d= -f2)
             fi
