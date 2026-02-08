@@ -1,0 +1,77 @@
+name: 'Migrate BLUE to GREEN Database'
+
+# Manual trigger only - no user inputs
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: 'Copy BLUE DB to GREEN Server'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Migration on Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🔍 Step 1: Lokalisiere BLUE und GREEN Server"
+            echo "============================================"
+            pm2 list
+            echo ""
+
+            echo "📂 Suche alle database.db Dateien:"
+            find /home/ubuntu -name "database.db" -type f 2>/dev/null
+            echo ""
+
+            echo "🌐 Zeige alle Node.js Prozesse mit Ports:"
+            netstat -tulpn 2>/dev/null | grep node || ps aux | grep node | grep -v grep
+            echo ""
+
+            echo "📊 Zeige PM2 Details:"
+            pm2 describe timetracking-server || echo "timetracking-server nicht gefunden"
+            echo ""
+
+            echo "⏸️  Bitte überprüfe die Ausgabe oben:"
+            echo "   1. Welcher PM2 Prozess ist BLUE? (anderer Port als 3000)"
+            echo "   2. Wo liegt die BLUE database.db?"
+            echo ""
+            echo "💡 Workflow pausiert. Führe die restlichen Schritte manuell aus:"
+            echo ""
+            echo "# Schritt 2: Backup erstellen"
+            echo "BLUE_DB_PATH=/pfad/zur/blue/database.db"
+            echo "cp \$BLUE_DB_PATH \${BLUE_DB_PATH}.backup.\$(date +%Y%m%d_%H%M%S)"
+            echo ""
+            echo "# Schritt 3: GREEN stoppen"
+            echo "pm2 stop timetracking-server"
+            echo ""
+            echo "# Schritt 4: BLUE nach GREEN kopieren"
+            echo "GREEN_DB_PATH=/home/ubuntu/TimeTracking-Clean/server/database.db"
+            echo "cp \$BLUE_DB_PATH \$GREEN_DB_PATH"
+            echo ""
+            echo "# Schritt 5: Migration ausführen"
+            echo "cd /home/ubuntu/TimeTracking-Clean/server"
+            echo "NODE_ENV=production npm run migrate:prod"
+            echo ""
+            echo "# Schritt 6: GREEN neu starten"
+            echo "pm2 start dist/server.js --name timetracking-server --update-env"
+            echo "pm2 save"
+            echo ""
+            echo "# Schritt 7: Test"
+            echo "curl http://localhost:3000/api/health"
+
+      - name: Show Instructions
+        if: success()
+        run: |
+          echo "✅ Server Info wurde gesammelt!"
+          echo ""
+          echo "📋 Nächste Schritte:"
+          echo "1. Prüfe die Logs oben"
+          echo "2. Identifiziere BLUE Server Pfad"
+          echo "3. Führe die manuellen Befehle per SSH aus"
