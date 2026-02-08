@@ -39,6 +39,7 @@ BUG FIX
 DEPLOYMENT / SCRIPTS
 └─ Read: ENV.md (Environment Config, SSH, Scripts)
 └─ Read: ARCHITECTURE.md (Deployment View)
+└─ IMPORTANT: SSH Keys sind im Projekt-Root: .ssh/oracle_server.key
 
 ARCHITECTURE CHANGE
 └─ Read: ARCHITECTURE.md (ADRs, Building Blocks)
