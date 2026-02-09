@@ -8,7 +8,7 @@
  * - Compliance with German labor law (Arbeitszeitgesetz)
  *
  * TRANSACTION TYPES:
- * - 'earned': Daily overtime from time entries (Soll/Ist difference)
+ * - 'time_entry': Daily overtime from time entries (Soll/Ist difference)
  * - 'compensation': Overtime deduction when taking time off
  * - 'correction': Manual adjustments by admin
  * - 'carryover': Year-end transfer (audit trail only, 0 hours)
@@ -21,7 +21,7 @@ export interface OvertimeTransaction {
   id: number;
   userId: number;
   date: string;
-  type: 'earned' | 'compensation' | 'correction' | 'carryover';
+  type: 'time_entry' | 'compensation' | 'correction' | 'carryover';
   hours: number;
   description: string | null;
   referenceType: 'time_entry' | 'absence' | 'manual' | 'system' | null;
@@ -86,14 +86,14 @@ export function recordOvertimeEarned(
 
   db.prepare(`
     INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, balanceBefore, balanceAfter)
-    VALUES (?, ?, 'earned', ?, ?, 'time_entry', ?, ?)
+    VALUES (?, ?, 'time_entry', ?, ?, 'time_entry', ?, ?)
   `).run(userId, date, hours, desc, balanceBefore, balanceAfter);
 
   logger.debug({
     userId,
     date,
     hours,
-    type: 'earned',
+    type: 'time_entry',
     balanceBefore,
     balanceAfter
   }, `✅ Recorded earned overtime: ${hours > 0 ? '+' : ''}${hours}h (balance: ${balanceBefore} → ${balanceAfter})`);
@@ -381,14 +381,14 @@ export function recordUnpaidAdjustment(
 
   db.prepare(`
     INSERT INTO overtime_transactions (userId, date, type, hours, description, referenceType, referenceId)
-    VALUES (?, ?, 'unpaid_adjustment', ?, ?, 'absence', ?)
+    VALUES (?, ?, 'unpaid_deduction', ?, ?, 'absence', ?)
   `).run(userId, date, hours, desc, absenceId || null);
 
   logger.debug({
     userId,
     date,
     hours,
-    type: 'unpaid_adjustment'
+    type: 'unpaid_deduction'
   }, `✅ Recorded unpaid adjustment: +${hours}h`);
 }
 
@@ -502,7 +502,7 @@ export function getOvertimeBalanceAtDate(
  * Delete all transactions for a specific date
  *
  * INTERNAL USE: Called when recalculating daily overtime
- * Only deletes 'earned' transactions to avoid data loss
+ * Only deletes 'time_entry' transactions to avoid data loss
  *
  * @param userId User ID
  * @param date Date (YYYY-MM-DD)
@@ -515,7 +515,7 @@ export function deleteEarnedTransactionsForDate(
     DELETE FROM overtime_transactions
     WHERE userId = ?
       AND date = ?
-      AND type = 'earned'
+      AND type = 'time_entry'
   `).run(userId, date);
 
   logger.debug({ userId, date }, 'Deleted earned transactions for recalculation');
@@ -604,7 +604,7 @@ export function hasSufficientOvertimeBalance(
  */
 export interface MonthlyTransactionSummary {
   month: string;           // "2025-11"
-  earned: number;          // Sum of 'earned' transactions
+  earned: number;          // Sum of 'time_entry' transactions
   compensation: number;    // Sum of 'compensation' transactions
   correction: number;      // Sum of 'correction' transactions
   carryover: number;       // Sum of 'carryover' transactions (usually 0 except January)
@@ -649,7 +649,7 @@ export function getMonthlyTransactionSummary(
     ORDER BY month ASC
   `).all(userId, `${startMonth}-01`, `${currentMonth}-31`) as Array<{
     month: string;
-    type: 'earned' | 'compensation' | 'correction' | 'carryover';
+    type: 'time_entry' | 'compensation' | 'correction' | 'carryover';
     totalHours: number;
   }>;
 

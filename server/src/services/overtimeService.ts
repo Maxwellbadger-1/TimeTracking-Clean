@@ -253,7 +253,7 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
     SELECT COUNT(*) as count FROM overtime_transactions
     WHERE userId = ?
       AND date BETWEEN ? AND ?
-      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment')
+      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_deduction')
   `).get(userId, monthFirstDay, monthLastDay) as { count: number };
   console.log(`    📊 Existing absence transactions BEFORE: ${transactionsBefore.count}`);
 
@@ -264,7 +264,7 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
     DELETE FROM overtime_transactions
     WHERE userId = ?
       AND date BETWEEN ? AND ?
-      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment')
+      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_deduction')
   `).run(userId, monthFirstDay, monthLastDay);
   console.log(`    ✅ Deleted ${deleteResult.changes} old transactions`);
 
@@ -835,7 +835,7 @@ export async function ensureDailyOvertimeTransactions(
     // Check if transaction already exists
     const existing = db.prepare(`
       SELECT id FROM overtime_transactions
-      WHERE userId = ? AND date = ? AND type = 'earned'
+      WHERE userId = ? AND date = ? AND type = 'time_entry'
     `).get(userId, dateStr);
 
     if (existing) {
@@ -1325,7 +1325,7 @@ export async function ensureAbsenceTransactions(
 
       // Check if transaction already exists
       const transactionType = absence.type === 'unpaid'
-        ? 'unpaid_adjustment'
+        ? 'unpaid_deduction'
         : `${absence.type}_credit` as 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit';
 
       const existing = db.prepare(`

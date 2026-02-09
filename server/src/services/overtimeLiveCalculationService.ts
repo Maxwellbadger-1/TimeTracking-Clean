@@ -8,12 +8,12 @@
  * - Single Source of Truth: time_entries + absence_requests + overtime_corrections
  *
  * TRANSACTION TYPES (calculated):
- * - 'earned': Daily overtime from time entries (actualHours - targetHours)
+ * - 'time_entry': Daily overtime from time entries (actualHours - targetHours)
  * - 'vacation_credit': Approved vacation (credits target hours)
  * - 'sick_credit': Approved sick leave (credits target hours)
  * - 'overtime_comp_credit': Approved overtime compensation (credits target hours)
  * - 'special_credit': Approved special leave (credits target hours)
- * - 'unpaid_adjustment': Unpaid leave (reduces target hours, shown as 0h)
+ * - 'unpaid_deduction': Unpaid leave (reduces target hours, shown as 0h)
  * - 'correction': Manual admin corrections
  */
 
@@ -78,7 +78,7 @@ function getAllWorkingDaysBetween(
 
 export interface LiveOvertimeTransaction {
   date: string;
-  type: 'earned' | 'feiertag' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment' | 'correction';
+  type: 'time_entry' | 'feiertag' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_deduction' | 'correction';
   hours: number;
   description: string;
   source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays';
@@ -259,7 +259,7 @@ export function calculateLiveOvertimeTransactions(
 
       transactions.push({
         date,
-        type: 'earned',
+        type: 'time_entry',
         hours: Math.round(overtime * 100) / 100, // Round to 2 decimals
         description,
         source: 'time_entries',
@@ -327,7 +327,7 @@ export function calculateLiveOvertimeTransactions(
           description = `Sonderurlaub (genehmigt #${absence.id})`;
           break;
         case 'unpaid':
-          transactionType = 'unpaid_adjustment';
+          transactionType = 'unpaid_deduction';
           description = `Unbezahlter Urlaub (genehmigt #${absence.id})`;
           break;
         default:
@@ -402,7 +402,7 @@ export function calculateLiveOvertimeTransactions(
 
       transactions.push({
         date,
-        type: 'earned',
+        type: 'time_entry',
         hours: Math.round(overtime * 100) / 100,
         description,
         source: 'time_entries',
