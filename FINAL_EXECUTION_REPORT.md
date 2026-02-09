@@ -1,7 +1,7 @@
 # 📊 Final Execution Report - Blue-Green Database Fix
 
 **Datum:** 2026-02-09
-**Zeit:** 19:28 - 19:35 CET (7 Minuten)
+**Zeit:** 19:28 - 19:44 CET (16 Minuten)
 **Status:** ✅ ALLE PHASEN ERFOLGREICH ABGESCHLOSSEN
 
 ---
@@ -61,7 +61,7 @@
 
 ---
 
-### ✅ CORS-Fix (Ausgeführt 19:34)
+### ✅ CORS-Fix (Ausgeführt 19:34-19:44)
 **Ziel:** Desktop-App kann auf Production Server zugreifen
 
 **Problem:**
@@ -70,13 +70,27 @@ Access to fetch at 'http://129.159.8.19:3000/api/auth/me'
 from origin 'http://localhost:1420' has been blocked by CORS policy
 ```
 
-**Lösung:**
-1. `.env` Backup erstellt
-2. `ALLOWED_ORIGINS` hinzugefügt:
-   ```
-   ALLOWED_ORIGINS=tauri://localhost,https://tauri.localhost,http://localhost:1420,http://localhost:1421
-   ```
-3. BLUE Server mit `--update-env` neu gestartet
+**Lösungsversuche:**
+1. ❌ `.env` mit `ALLOWED_ORIGINS` → PM2 lädt keine .env files
+2. ❌ `ecosystem.config.js` erstellen → ES module scope error
+3. ❌ Direktes sed patching → Korrupte Config (falsche Arrays)
+4. ✅ **Final Fix:**
+   - Backup restore: `server.ts.backup` → `server.ts`
+   - Production origins hardcoded in `server.ts`:
+     ```typescript
+     origin: isDevelopment
+       ? [/* dev origins */]
+       : [
+           'tauri://localhost',
+           'https://tauri.localhost',
+           'http://localhost:1420',
+           'http://127.0.0.1:1420',
+           ...allowedOrigins, // Additional from .env
+         ]
+     ```
+   - `npm run build` → TypeScript kompiliert
+   - `pm2 restart timetracking-server`
+   - CORS Preflight Test: ✅ `Access-Control-Allow-Origin: http://localhost:1420`
 
 **Ergebnis:** ✅ Desktop-App kann jetzt connecten
 
@@ -155,8 +169,8 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 ## 📈 Performance Metriken
 
 ### Server Health:
-- **BLUE (Port 3000):** ✅ HTTP 200, 101.5 MB RAM, 0% CPU
-- **GREEN (Port 3001):** ✅ HTTP 200, 90.6 MB RAM, 0% CPU
+- **BLUE (Port 3000):** ✅ HTTP 200, 103.6 MB RAM, 0% CPU
+- **GREEN (Port 3001):** ✅ HTTP 200, 83.4 MB RAM, 0% CPU
 
 ### Database:
 - **Größe:** 460 KB (Shared DB)
@@ -164,10 +178,10 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 - **Status:** Konsistent zwischen beiden Servern
 
 ### Execution Time:
-- **Phase 1:** ~3 Minuten
-- **Phase 2:** ~2 Minuten
-- **CORS-Fix:** ~1 Minute
-- **Gesamt:** ~7 Minuten
+- **Phase 1:** ~3 Minuten (19:28-19:30)
+- **Phase 2:** ~2 Minuten (19:33-19:34)
+- **CORS-Fix:** ~10 Minuten (19:34-19:44, 3 Failed Attempts + Final Fix)
+- **Gesamt:** ~16 Minuten
 
 ---
 
@@ -261,8 +275,11 @@ Alle Ziele erreicht:
 
 ### Für nächstes Mal:
 - 💡 CORS von Anfang an konfigurieren
+- 💡 PM2 lädt KEINE .env files → Origins direkt in Code hardcoden
+- 💡 Bei PM2: `ecosystem.config.js` NICHT mit "type": "module" kompatibel
 - 💡 Shared DB direkt beim Setup erwägen
 - 💡 Schema-Validation in CI/CD Pipeline
+- 💡 Immer Backup vor Direktem File-Editing (sed/awk)
 
 ---
 
@@ -282,7 +299,7 @@ ls -lh TimeTracking-*/server/database.db.*
 
 ---
 
-**Report erstellt:** 2026-02-09 19:36 CET
+**Report erstellt:** 2026-02-09 19:45 CET
 **Autor:** Claude Code AI
 **Status:** ✅ PRODUCTION READY
 **Confidentiality:** Internal Use
