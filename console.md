@@ -1,316 +1,46 @@
-notificationService.ts:46 Failed to check notification permission: TypeError: Cannot read properties of undefined (reading 'invoke')
-    at invoke (chunk-3GOR44ID.js?v=8b2110a3:101:37)
-    at isPermissionGranted (@tauri-apps_plugin-notification.js?v=8b2110a3:60:16)
-    at NotificationService.checkPermission (notificationService.ts:36:30)
-    at new NotificationService (notificationService.ts:28:10)
-    at notificationService.ts:188:36
-checkPermission @ notificationService.ts:46
-await in checkPermission
-NotificationService @ notificationService.ts:28
-(anonymous) @ notificationService.ts:188
-notificationService.ts:46 Failed to check notification permission: TypeError: Cannot read properties of undefined (reading 'invoke')
-    at invoke (chunk-3GOR44ID.js?v=8b2110a3:101:37)
-    at isPermissionGranted (@tauri-apps_plugin-notification.js?v=8b2110a3:60:16)
-    at NotificationService.checkPermission (notificationService.ts:36:30)
-    at NotificationService.send (notificationService.ts:80:18)
-    at sendDesktopNotification (useDesktopNotifications.ts:77:27)
-    at useDesktopNotifications.ts:31:7
-    at Array.forEach (<anonymous>)
-    at useDesktopNotifications.ts:30:22
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=8b2110a3:18567:20)
-    at runWithFiberInDEV (react-dom_client.js?v=8b2110a3:997:72)
-checkPermission @ notificationService.ts:46
-await in checkPermission
-send @ notificationService.ts:80
-sendDesktopNotification @ useDesktopNotifications.ts:77
-(anonymous) @ useDesktopNotifications.ts:31
-(anonymous) @ useDesktopNotifications.ts:30
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18567
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-commitHookEffectListMount @ react-dom_client.js?v=8b2110a3:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=8b2110a3:9465
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11040
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11033
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11066
-flushPassiveEffects @ react-dom_client.js?v=8b2110a3:13150
-flushPendingEffects @ react-dom_client.js?v=8b2110a3:13088
-flushSpawnedWork @ react-dom_client.js?v=8b2110a3:13062
-commitRoot @ react-dom_client.js?v=8b2110a3:12804
-commitRootWhenReady @ react-dom_client.js?v=8b2110a3:12016
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11950
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-(anonymous) @ main.tsx:22
-notificationService.ts:46 Failed to check notification permission: TypeError: Cannot read properties of undefined (reading 'invoke')
-    at invoke (chunk-3GOR44ID.js?v=8b2110a3:101:37)
-    at isPermissionGranted (@tauri-apps_plugin-notification.js?v=8b2110a3:60:16)
-    at NotificationService.checkPermission (notificationService.ts:36:30)
-    at NotificationService.send (notificationService.ts:80:18)
-    at sendDesktopNotification (useDesktopNotifications.ts:77:27)
-    at useDesktopNotifications.ts:31:7
-    at Array.forEach (<anonymous>)
-    at useDesktopNotifications.ts:30:22
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=8b2110a3:18567:20)
-    at runWithFiberInDEV (react-dom_client.js?v=8b2110a3:997:72)
-checkPermission @ notificationService.ts:46
-await in checkPermission
-send @ notificationService.ts:80
-sendDesktopNotification @ useDesktopNotifications.ts:77
-(anonymous) @ useDesktopNotifications.ts:31
-(anonymous) @ useDesktopNotifications.ts:30
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18567
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-commitHookEffectListMount @ react-dom_client.js?v=8b2110a3:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=8b2110a3:9465
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11040
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11033
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11066
-flushPassiveEffects @ react-dom_client.js?v=8b2110a3:13150
-flushPendingEffects @ react-dom_client.js?v=8b2110a3:13088
-flushSpawnedWork @ react-dom_client.js?v=8b2110a3:13062
-commitRoot @ react-dom_client.js?v=8b2110a3:12804
-commitRootWhenReady @ react-dom_client.js?v=8b2110a3:12016
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11950
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-(anonymous) @ main.tsx:22
-notificationService.ts:46 Failed to check notification permission: TypeError: Cannot read properties of undefined (reading 'invoke')
-    at invoke (chunk-3GOR44ID.js?v=8b2110a3:101:37)
-    at isPermissionGranted (@tauri-apps_plugin-notification.js?v=8b2110a3:60:16)
-    at NotificationService.checkPermission (notificationService.ts:36:30)
-    at NotificationService.send (notificationService.ts:80:18)
-    at sendDesktopNotification (useDesktopNotifications.ts:77:27)
-    at useDesktopNotifications.ts:31:7
-    at Array.forEach (<anonymous>)
-    at useDesktopNotifications.ts:30:22
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=8b2110a3:18567:20)
-    at runWithFiberInDEV (react-dom_client.js?v=8b2110a3:997:72)
-checkPermission @ notificationService.ts:46
-await in checkPermission
-send @ notificationService.ts:80
-sendDesktopNotification @ useDesktopNotifications.ts:77
-(anonymous) @ useDesktopNotifications.ts:31
-(anonymous) @ useDesktopNotifications.ts:30
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18567
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-commitHookEffectListMount @ react-dom_client.js?v=8b2110a3:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=8b2110a3:9465
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11040
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11033
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11066
-flushPassiveEffects @ react-dom_client.js?v=8b2110a3:13150
-flushPendingEffects @ react-dom_client.js?v=8b2110a3:13088
-flushSpawnedWork @ react-dom_client.js?v=8b2110a3:13062
-commitRoot @ react-dom_client.js?v=8b2110a3:12804
-commitRootWhenReady @ react-dom_client.js?v=8b2110a3:12016
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11950
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-(anonymous) @ main.tsx:22
-notificationService.ts:46 Failed to check notification permission: TypeError: Cannot read properties of undefined (reading 'invoke')
-    at invoke (chunk-3GOR44ID.js?v=8b2110a3:101:37)
-    at isPermissionGranted (@tauri-apps_plugin-notification.js?v=8b2110a3:60:16)
-    at NotificationService.checkPermission (notificationService.ts:36:30)
-    at NotificationService.send (notificationService.ts:80:18)
-    at sendDesktopNotification (useDesktopNotifications.ts:77:27)
-    at useDesktopNotifications.ts:31:7
-    at Array.forEach (<anonymous>)
-    at useDesktopNotifications.ts:30:22
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=8b2110a3:18567:20)
-    at runWithFiberInDEV (react-dom_client.js?v=8b2110a3:997:72)
-checkPermission @ notificationService.ts:46
-await in checkPermission
-send @ notificationService.ts:80
-sendDesktopNotification @ useDesktopNotifications.ts:77
-(anonymous) @ useDesktopNotifications.ts:31
-(anonymous) @ useDesktopNotifications.ts:30
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18567
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-commitHookEffectListMount @ react-dom_client.js?v=8b2110a3:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=8b2110a3:9465
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11040
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11033
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=8b2110a3:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=8b2110a3:11066
-flushPassiveEffects @ react-dom_client.js?v=8b2110a3:13150
-flushPendingEffects @ react-dom_client.js?v=8b2110a3:13088
-flushSpawnedWork @ react-dom_client.js?v=8b2110a3:13062
-commitRoot @ react-dom_client.js?v=8b2110a3:12804
-commitRootWhenReady @ react-dom_client.js?v=8b2110a3:12016
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11950
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-(anonymous) @ main.tsx:22
-tauriHttpClient.ts:56  POST http://129.159.8.19:3000/api/time-entries 500 (Internal Server Error)
-universalFetch @ tauriHttpClient.ts:56
-request @ client.ts:99
-post @ client.ts:195
-mutationFn @ useTimeEntries.ts:140
-fn @ @tanstack_react-query.js?v=8b2110a3:1967
-run @ @tanstack_react-query.js?v=8b2110a3:773
-start @ @tanstack_react-query.js?v=8b2110a3:815
-execute @ @tanstack_react-query.js?v=8b2110a3:2006
-await in execute
-mutate @ @tanstack_react-query.js?v=8b2110a3:2329
-handleSubmit @ TimeEntryForm.tsx:100
-executeDispatch @ react-dom_client.js?v=8b2110a3:13622
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-processDispatchQueue @ react-dom_client.js?v=8b2110a3:13658
-(anonymous) @ react-dom_client.js?v=8b2110a3:14071
-batchedUpdates$1 @ react-dom_client.js?v=8b2110a3:2626
-dispatchEventForPluginEventSystem @ react-dom_client.js?v=8b2110a3:13763
-dispatchEvent @ react-dom_client.js?v=8b2110a3:16784
-dispatchDiscreteEvent @ react-dom_client.js?v=8b2110a3:16765
-<form>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-TimeEntryForm @ TimeEntryForm.tsx:141
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<TimeEntryForm>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-TimeEntriesPage @ TimeEntriesPage.tsx:660
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<TimeEntriesPage>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-App @ App.tsx:175
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-TimeEntryForm.tsx:114 Failed to create time entry: Error: Failed to create time entry
-    at Object.mutationFn (useTimeEntries.ts:143:15)
-handleSubmit @ TimeEntryForm.tsx:114
-await in handleSubmit
-executeDispatch @ react-dom_client.js?v=8b2110a3:13622
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-processDispatchQueue @ react-dom_client.js?v=8b2110a3:13658
-(anonymous) @ react-dom_client.js?v=8b2110a3:14071
-batchedUpdates$1 @ react-dom_client.js?v=8b2110a3:2626
-dispatchEventForPluginEventSystem @ react-dom_client.js?v=8b2110a3:13763
-dispatchEvent @ react-dom_client.js?v=8b2110a3:16784
-dispatchDiscreteEvent @ react-dom_client.js?v=8b2110a3:16765
-<form>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-TimeEntryForm @ TimeEntryForm.tsx:141
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<TimeEntryForm>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-TimeEntriesPage @ TimeEntriesPage.tsx:660
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
-<TimeEntriesPage>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=8b2110a3:247
-App @ App.tsx:175
-react_stack_bottom_frame @ react-dom_client.js?v=8b2110a3:18509
-renderWithHooksAgain @ react-dom_client.js?v=8b2110a3:5729
-renderWithHooks @ react-dom_client.js?v=8b2110a3:5665
-updateFunctionComponent @ react-dom_client.js?v=8b2110a3:7475
-beginWork @ react-dom_client.js?v=8b2110a3:8525
-runWithFiberInDEV @ react-dom_client.js?v=8b2110a3:997
-performUnitOfWork @ react-dom_client.js?v=8b2110a3:12561
-workLoopSync @ react-dom_client.js?v=8b2110a3:12424
-renderRootSync @ react-dom_client.js?v=8b2110a3:12408
-performWorkOnRoot @ react-dom_client.js?v=8b2110a3:11766
-performSyncWorkOnRoot @ react-dom_client.js?v=8b2110a3:13517
-flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=8b2110a3:13414
-processRootScheduleInMicrotask @ react-dom_client.js?v=8b2110a3:13437
-(anonymous) @ react-dom_client.js?v=8b2110a3:13531
+(index):1 Access to fetch at 'http://129.159.8.19:3000/api/auth/me' from origin 'http://localhost:1420' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+129.159.8.19:3000/api/auth/me:1  Failed to load resource: net::ERR_FAILED
+client.ts:168 API Request Error: TypeError: Failed to fetch
+    at universalFetch (tauriHttpClient.ts:56:28)
+    at ApiClient.request (client.ts:99:30)
+    at ApiClient.get (client.ts:189:17)
+    at checkSession (authStore.ts:145:40)
+    at App.tsx:68:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=2c79d791:18567:20)
+    at runWithFiberInDEV (react-dom_client.js?v=2c79d791:997:72)
+    at commitHookEffectListMount (react-dom_client.js?v=2c79d791:9411:163)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=2c79d791:9465:60)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=2c79d791:11040:29)
+request @ client.ts:168
+(index):1 Access to fetch at 'http://129.159.8.19:3000/api/auth/me' from origin 'http://localhost:1420' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+129.159.8.19:3000/api/auth/me:1  Failed to load resource: net::ERR_FAILED
+client.ts:168 API Request Error: TypeError: Failed to fetch
+    at universalFetch (tauriHttpClient.ts:56:28)
+    at ApiClient.request (client.ts:99:30)
+    at ApiClient.get (client.ts:189:17)
+    at checkSession (authStore.ts:145:40)
+    at App.tsx:68:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=2c79d791:18567:20)
+    at runWithFiberInDEV (react-dom_client.js?v=2c79d791:997:72)
+    at commitHookEffectListMount (react-dom_client.js?v=2c79d791:9411:163)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=2c79d791:9465:60)
+    at reconnectPassiveEffects (react-dom_client.js?v=2c79d791:11273:13)
+request @ client.ts:168
+(index):1 Access to fetch at 'http://129.159.8.19:3000/api/auth/login' from origin 'http://localhost:1420' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+129.159.8.19:3000/api/auth/login:1  Failed to load resource: net::ERR_FAILED
+client.ts:168 API Request Error: TypeError: Failed to fetch
+    at universalFetch (tauriHttpClient.ts:56:28)
+    at ApiClient.request (client.ts:99:30)
+    at ApiClient.post (client.ts:195:17)
+    at login (authStore.ts:33:40)
+    at handleSubmit (Login.tsx:51:27)
+    at executeDispatch (react-dom_client.js?v=2c79d791:13622:11)
+    at runWithFiberInDEV (react-dom_client.js?v=2c79d791:997:72)
+    at processDispatchQueue (react-dom_client.js?v=2c79d791:13658:37)
+    at react-dom_client.js?v=2c79d791:14071:11
+    at batchedUpdates$1 (react-dom_client.js?v=2c79d791:2626:42)
+request @ client.ts:168
+authStore.ts:65 ❌ Login failed: Failed to fetch
+login @ authStore.ts:65
+Login.tsx:55 Login failed
+handleSubmit @ Login.tsx:55

@@ -20,171 +20,55 @@ Test12345
 
 
 
-Perfekt! Jetzt kann ich die korrekte Berechnung machen:
+  Das Skript zeigt jetzt für Test Test (Januar 2026):
 
-  Test Workflow - Dezember 2025 Berechnung
+  🏖️ ABWESENHEITEN (2 Urlaubsanträge)
 
-  Ist-Stunden (aus DB):
+  1. Urlaub 12-13.01.2026:
+    - 2026-01-12 (Mo) - 4h Gutschrift ✅
+    - 2026-01-13 (Di) - 4h Gutschrift ✅
+    - SUMME: 8h Gutschrift
+  2. Urlaub 08-09.01.2026:
+    - 2026-01-08 (Do) - 4h Gutschrift ✅
+    - 2026-01-09 (Fr) - 4h Gutschrift ✅
+    - SUMME: 8h Gutschrift
 
-  | Datum | Tag | Stunden |
-  |-------|-----|---------|
-  | 02.12 | Di  | 10.0h   |
-  | 03.12 | Mi  | 8.0h    |
-  | 04.12 | Do  | 6.0h    |
-  | 05.12 | Fr  | 8.0h    |
-  | 06.12 | Sa  | 6.0h    |
-  | 09.12 | Di  | 11.0h   |
-  | 10.12 | Mi  | 9.0h    |
-  | 11.12 | Do  | 7.0h    |
-  | 12.12 | Fr  | 9.0h    |
-  | 13.12 | Sa  | 7.0h    |
-  | 16.12 | Di  | 10.0h   |
-  | 17.12 | Mi  | 8.0h    |
-  | 23.12 | Di  | 10.0h   |
-  | 24.12 | Mi  | 8.0h    |
-  | 30.12 | Di  | 10.0h   |
-  | 31.12 | Mi  | 8.0h    |
+  ⏱️ ZEITERFASSUNGEN (6 Tage)
 
-  Summe Ist-Stunden: 135h
+  - 15.01. - 08:00-17:00 (0 Min Pause) = 9h 🏢
+  - 22.01. - 08:00-17:00 (0 Min Pause) = 9h 🏢
+  - 23.01. - 08:00-17:00 (30 Min Pause) = 8.5h 🏢
+  - 24.01. - 08:00-17:00 (30 Min Pause) = 8.5h 🏢
+  - 26.01. - 08:00-17:00 (30 Min Pause) = 8.5h 🏢
+  - 27.01. - 08:00-17:00 (0 Min Pause) = 9h 🏢
+  - GESAMT: 52.5h gearbeitet
 
-  Soll-Stunden (workSchedule: Mo 10h, Di 8h, Mi 6h, Do 8h, Fr 6h):
+  🔧 KORREKTUREN (2)
 
-  Dezember 2025 Arbeitstage:
-  - Montage: 01, 08, 15, 22, 29 = 5 × 10h = 50h
-  - Dienstage: 02, 09, 16, 23, 30 = 5 × 8h = 40h
-  - Mittwoche: 03, 10, 17, 24, 31 = 5 × 6h = 30h
-  - Donnerstage: 04, 11, 18, 25 (Feiertag) = 3 × 8h = 24h
-  - Freitage: 05, 12, 19, 26 (Feiertag) = 3 × 6h = 18h
+  - 28.01.: +10h (Manual)
+  - 29.01.: +10h (Manual)
+  - GESAMT: +20h Korrekturen
 
-  Summe Soll-Stunden: 162h
+  🧮 BERECHNUNG
 
-  Überstunden:
+  - Soll: 76h
+  - Ist: 52.5h (gearbeitet) + 16h (Urlaubs-Gutschrift) + 20h (Korrekturen) = 88.5h
+  - Überstunden: +12.5h
 
-  135h (Ist) - 162h (Soll) = -27h
+  ⚠️ DISKREPANZ GEFUNDEN!
 
-  Test Workflow hat im Dezember 2025 -27 Minusstunden!
+  - Erwartet: 88.5h Ist / +12.5h Überstunden
+  - DB & Frontend API: 68.5h Ist / -7.5h Überstunden
+  - Differenz: 20h (= genau die 2 Korrekturen!)
 
-  Zeigt das System -42h an? Dann gibt es definitiv einen Berechnungsfehler!
+  Problem: Die Datenbank berücksichtigt die manuellen Korrekturen nicht! Das deutet darauf hin, dass overtime_balance nicht
+  aktualisiert wurde nachdem die Korrekturen hinzugefügt wurden.
 
+  Das verbesserte Skript zeigt jetzt perfekt:
+  - ✅ Alle Zeiterfassungen mit Start/Ende/Pause/Location/Projekt/Tätigkeit
+  - ✅ Alle Abwesenheiten mit Tag-für-Tag-Aufschlüsselung
+  - ✅ Welche Tage Gutschrift geben (✅) und welche nicht (❌)
+  - ✅ Korrekturen mit Typ und Begründung
+  - ✅ Vergleich zwischen erwarteten und tatsächlichen DB-Werten
 
-
-⏺ ✅ OVERTIME VALIDATION - Test Workflow Dezember 2025
-
-  📊 Zusammenfassung
-
-  User: Test Workflow (ID: 155)Zeitraum: 01.12.2025 -
-  31.12.2025Hire Date: 01.12.2025
-
-  Individuelle Arbeitszeiten:
-
-  - Montag: 10h
-  - Dienstag: 8h
-  - Mittwoch: 6h
-  - Donnerstag: 8h
-  - Freitag: 6h
-  - Wochenende: 0h (kein Arbeitstag!)
-
-  ---
-  📋 Berechnungsdetails
-
-  Soll-Stunden (Target):
-
-  - 20 Arbeitstage im Dezember 2025
-  - 2 Feiertage: 25.12 + 26.12 (Weihnachten)
-  - Total Target: 156h
-
-  Ist-Stunden (Actual):
-
-  Gearbeitete Stunden: 135h
-  - 16 Zeiteinträge von 02.12 bis 31.12
-  - Täglich zwischen 3h und 11h
-
-  Abwesenheiten (3):
-  1. Krankheit: 18.12-19.12 (Do+Fr) → +14h Gutschrift
-    - 8h (Do) + 6h (Fr) = 14h
-  2. Überstundenausgleich: 20.12 (Sa) → 0h (Wochenende!)
-  3. Überstundenausgleich: 27.12 (Sa) → 0h (Wochenende!)
-
-  Overtime Corrections: 0h
-
-  Total Actual: 135h + 14h + 0h = 149h
-
-  ---
-  🧮 Endergebnis
-
-  Soll-Stunden (Target):          156h
-  Unbezahlter Urlaub (Reduktion): -0h
-  Angepasstes Soll:               156h
-
-  Gearbeitete Stunden:            135h
-  Abwesenheits-Gutschriften:      +14h
-  Überstunden-Korrekturen:        +0h
-  Ist-Stunden (Actual):           149h
-
-  ÜBERSTUNDEN (Ist - Soll):       -7h
-
-  ---
-  ✅ Database Verification
-
-  Database Comparison:
-  - Expected Target: 156h | DB Target: 156h | ✅ MATCH
-  - Expected Actual: 149h | DB Actual: 149h | ✅ MATCH
-  - Expected Overtime: -7h | DB Overtime: -7h | ✅ MATCH
-
-  Status: Alle Werte stimmen perfekt überein! Die
-  Überstunden-Berechnung ist korrekt.
-
-  ⏺ 📋 ZUSAMMENFASSUNG - JANUAR 2026 BERECHNUNG
-
-  ✅ WAS IN DIE BERECHNUNG EINFLIESST:
-
-  1. SOLL-STUNDEN (98h):
-
-  - Basis: Arbeitstage × workSchedule-Stunden
-    - 3 Montage × 10h = 30h
-    - 2 Dienstage × 8h = 16h (20.01 wird später reduziert)
-    - 3 Mittwoche × 6h = 18h (21.01 wird später reduziert)
-    - 3 Donnerstage × 8h = 24h
-    - 4 Freitage × 6h = 24h
-    - Zwischensumme: 112h
-  - Abzüge:
-    - Feiertage: 01.01 (Do, 8h) + 06.01 (Di, 8h) = Bereits 0h
-  in Basis ✅
-    - Unbezahlter Urlaub: 20.01 (Di, -8h) + 21.01 (Mi, -6h) =
-  -14h
-  - FINALES SOLL: 112h - 14h = 98h ✅
-
-  2. IST-STUNDEN (90.5h):
-
-  - Gearbeitet (76.5h):
-    - 10 Tage mit time_entries
-    - Inkl. Samstag (03.01, 6h) und Feiertag (06.01, 8h) =
-  Plusstunden!
-  - Gutschriften (+14h):
-    - Urlaub 14.01 (Mi): +6h
-    - Urlaub 15.01 (Do): +8h
-  - FINALES IST: 76.5h + 14h = 90.5h ✅
-
-  3. ÜBERSTUNDEN:
-
-  - 90.5h - 98h = -7.5h ✅
-
-  ---
-  ❌ WARUM FRONTEND FALSCH LIEGT (-20:30 statt -14:30):
-
-  Das Problem ist die Kumulierung über Monate:
-
-  | Monat    | Balance (korrekt) | Transactions (falsch) |
-  Differenz |
-  |----------|-------------------|-----------------------|-----
-  ------|
-  | Dezember | -7h               | -13h                  | -6h
-  ❌     |
-  | Januar   | -7.5h             | -7.5h                 | 0h
-  ✅      |
-  | SUMME    | -14.5h ✅          | -20.5h ❌              |
-  -6h ❌     |
-
-  Die -6h Diskrepanz kommt aus Dezember, weil die earned
-  Transactions die Kranken-Gutschriften NICHT korrekt in die
-  Balance einrechnen!
+  Möchtest du, dass ich die Diskrepanz behebe (die 20h Korrekturen in der DB aktualisieren)?
