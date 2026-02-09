@@ -88,7 +88,14 @@ app.use(cors({
         'http://localhost:1420',  // Vite dev server (actual)
         'http://127.0.0.1:1420',  // Alternative IP
       ]
-    : allowedOrigins, // Production: Only explicitly allowed origins
+    : [
+        // Production: Desktop App origins + any from .env
+        'tauri://localhost',
+        'https://tauri.localhost',
+        'http://localhost:1420',
+        'http://127.0.0.1:1420',
+        ...allowedOrigins, // Additional origins from ALLOWED_ORIGINS env var
+      ],
   credentials: true, // MUST be true for cookies to work
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
