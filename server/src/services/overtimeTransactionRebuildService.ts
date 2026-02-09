@@ -142,7 +142,7 @@ export function rebuildOvertimeTransactionsForMonth(
           overtime,
           balanceBefore,
           `Differenz Soll/Ist ${day.date}`,
-          'worked',
+          null,
           null
         );
 
