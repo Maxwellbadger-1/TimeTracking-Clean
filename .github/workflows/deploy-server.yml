@@ -101,28 +101,25 @@ jobs:
             # Create .env file if it doesn't exist
             echo "🔐 Setting up environment..."
             if [ ! -f ".env" ]; then
-              echo "Creating .env file..."
+              echo "Creating new .env file..."
               SESSION_SECRET=$(openssl rand -hex 32)
-              echo "SESSION_SECRET=$SESSION_SECRET" > .env
-              echo "NODE_ENV=production" >> .env
-              echo "TZ=Europe/Berlin" >> .env
-              echo "PORT=3000" >> .env
-            else
-              # More robust extraction of SESSION_SECRET (handles spaces, quotes, etc.)
-              SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs)
+              cat > .env << EOF
+SESSION_SECRET=$SESSION_SECRET
+NODE_ENV=production
+TZ=Europe/Berlin
+PORT=3000
+EOF
             fi
+
+            # Extract SESSION_SECRET (simple and safe)
+            SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2 || echo "")
 
             if [ -z "$SESSION_SECRET" ]; then
-              echo "❌ SESSION_SECRET could not be set!"
-              echo "Generating new SESSION_SECRET..."
+              echo "⚠️  SESSION_SECRET empty, generating new one..."
               SESSION_SECRET=$(openssl rand -hex 32)
-              # Remove old SESSION_SECRET and write new one
-              grep -v "^SESSION_SECRET=" .env > .env.tmp 2>/dev/null || touch .env.tmp
-              echo "SESSION_SECRET=$SESSION_SECRET" >> .env.tmp
-              mv .env.tmp .env
             fi
 
-            echo "✅ Environment setup completed successfully"
+            echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
 
             # Restart PM2
             echo "🔄 Restarting PM2..."
