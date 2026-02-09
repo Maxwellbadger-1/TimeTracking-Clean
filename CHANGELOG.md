@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✅ Fixed (2026-02-09)
 
+#### Overtime Transaction Type Validation Error (20:25 CET)
+**Issue:** `SqliteError: CHECK constraint failed` when creating time entries
+**Cause:** Overtime transaction logging used invalid transaction types not in database CHECK constraint:
+- `'earned'` (invalid) → Changed to `'time_entry'` (valid)
+- `'unpaid_adjustment'` (invalid) → Changed to `'unpaid_deduction'` (valid)
+
+**Impact:** Time entries were being saved correctly, but overtime transaction logging failed with 500 error in UI
+
+**Fixed in:** `server/src/services/overtimeTransactionRebuildService.ts`
+- Line 141: 'earned' → 'time_entry'
+- Line 287: 'earned' → 'time_entry'
+- Line 321: 'unpaid_adjustment' → 'unpaid_deduction'
+- Line 365: Fallback 'earned' → 'time_entry'
+
+**Resolution:**
+1. Applied hotfix on production server (sed replacement in compiled JS)
+2. Fixed source code in TypeScript
+3. Committed and deployed via GitHub Actions
+4. Time entries now save AND overtime transactions log successfully
+
 #### Production Blue-Green Database Fix - EXECUTED & COMPLETED
 **Execution Time:** 19:28 - 19:59 CET (31 minutes)
 **Status:** ✅ ALL PHASES SUCCESSFULLY COMPLETED
