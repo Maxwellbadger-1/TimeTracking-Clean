@@ -84,17 +84,19 @@ jobs:
 
             # Fix overtime calculations (ensure all months exist)
             echo "📊 Fixing overtime calculations..."
-            npx tsx scripts/fix-overtime.ts || {
+            NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
               echo "⚠️  Overtime fix had issues, but continuing deployment..."
             }
             echo "✅ Overtime calculations updated"
 
             # Setup automatic daily cron job (runs at 3 AM every day)
             echo "⏰ Setting up automatic daily overtime recalculation..."
-            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
             mkdir -p /home/ubuntu/logs
-            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab -
-            echo "✅ Cron job configured (runs daily at 3 AM)"
+            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
+              echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+            }
+            echo "✅ Cron job setup attempted"
 
             # Create .env file if it doesn't exist
             echo "🔐 Setting up environment..."
@@ -121,6 +123,8 @@ jobs:
                 echo "SESSION_SECRET=$SESSION_SECRET" >> .env
               fi
             fi
+
+            echo "✅ Environment setup completed successfully"
 
             # Restart PM2
             echo "🔄 Restarting PM2..."

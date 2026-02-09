@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "set execute_bash nopromt"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

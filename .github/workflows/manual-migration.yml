@@ -1,0 +1,117 @@
+name: 'Manual Database Migration'
+
+# Manual trigger only - for emergency fixes when deploy fails
+on:
+  workflow_dispatch:
+    inputs:
+      migration_file:
+        description: 'Migration file to run (e.g., 20260208_add_time_entry_type.sql)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - 20260208_add_time_entry_type.sql
+
+jobs:
+  migrate:
+    name: 'Run Database Migration'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Migration on Server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          MIGRATION_TARGET: ${{ github.event.inputs.migration_file }}
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script_stop: true  # Stop on first error
+          envs: MIGRATION_TARGET
+          script: |
+            set -e  # Exit on error
+
+            echo "🗄️  Manual Migration Start"
+            echo "========================"
+            echo ""
+
+            # Navigate to server directory
+            cd /home/ubuntu/TimeTracking-Clean/server
+
+            # Pull latest code to get migration files
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Create backup first
+            echo "💾 Creating database backup..."
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            cp database.db "database.backup.manual.$TIMESTAMP.db"
+            ls -lh "database.backup.manual.$TIMESTAMP.db"
+            echo "✅ Backup created"
+            echo ""
+
+            # Run migrations - using environment variable for safety
+            if [ "$MIGRATION_TARGET" = "all" ]; then
+              echo "🔄 Running ALL migrations..."
+              NODE_ENV=production npm run migrate:prod || {
+                echo "❌ Migration failed!"
+                echo "💡 Restore backup: cp database.backup.manual.$TIMESTAMP.db database.db"
+                exit 1
+              }
+            else
+              # Validate migration file name (only allow specific pattern)
+              if [[ "$MIGRATION_TARGET" =~ ^[0-9]{8}_[a-z_]+\.sql$ ]]; then
+                echo "🔄 Running specific migration: $MIGRATION_TARGET"
+                if [ -f "database/migrations/$MIGRATION_TARGET" ]; then
+                  NODE_ENV=production npx tsx src/utils/runMigration.ts "database/migrations/$MIGRATION_TARGET" || {
+                    echo "❌ Migration failed!"
+                    echo "💡 Restore backup: cp database.backup.manual.$TIMESTAMP.db database.db"
+                    exit 1
+                  }
+                else
+                  echo "❌ Migration file not found: database/migrations/$MIGRATION_TARGET"
+                  exit 1
+                fi
+              else
+                echo "❌ Invalid migration file name format"
+                exit 1
+              fi
+            fi
+
+            echo "✅ Migration completed successfully"
+            echo ""
+
+            # Restart server
+            echo "🔄 Restarting server..."
+            pm2 restart timetracking-server || {
+              echo "⚠️  Could not restart server, please restart manually"
+            }
+
+            echo ""
+            echo "✅ Manual migration completed!"
+            echo "📊 Database backup: database.backup.manual.$TIMESTAMP.db"
+
+      - name: Success Summary
+        if: success()
+        run: |
+          echo "✅ Migration applied successfully!"
+          echo "🌐 Server URL: http://129.159.8.19:3000"
+          echo "🏥 Health Check: http://129.159.8.19:3000/api/health"
+
+      - name: Failure Instructions
+        if: failure()
+        run: |
+          echo "❌ Migration failed!"
+          echo ""
+          echo "🔙 Rollback Steps:"
+          echo "1. SSH: ssh ubuntu@129.159.8.19"
+          echo "2. cd /home/ubuntu/TimeTracking-Clean/server"
+          echo "3. Find latest backup: ls -lt database.backup.manual.*.db | head -1"
+          echo "4. Restore: cp database.backup.manual.TIMESTAMP.db database.db"
+          echo "5. Restart: pm2 restart timetracking-server"
