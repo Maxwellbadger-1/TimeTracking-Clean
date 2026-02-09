@@ -138,7 +138,7 @@ export function rebuildOvertimeTransactionsForMonth(
         insertTransactionWithBalance(
           userId,
           day.date,
-          'earned',
+          'time_entry',
           overtime,
           balanceBefore,
           `Differenz Soll/Ist ${day.date}`,
@@ -284,7 +284,7 @@ function handleAbsenceDay(
   insertTransactionWithBalance(
     userId,
     day.date,
-    'earned',
+    'time_entry',
     earnedHours,
     currentBalance,
     `Abwesenheit (${day.absence.type}): Soll/Ist-Differenz`,
@@ -318,7 +318,7 @@ function handleAbsenceDay(
     insertTransactionWithBalance(
       userId,
       day.date,
-      'unpaid_adjustment',
+      'unpaid_deduction',
       day.targetHours,
       currentBalance,
       `Unbezahlter Urlaub Anpassung ${day.date}`,
@@ -362,7 +362,7 @@ function getCreditType(absenceType: string): string {
     'special': 'special_credit'
   };
 
-  return mapping[absenceType] || 'earned';
+  return mapping[absenceType] || 'time_entry';
 }
 
 /**
