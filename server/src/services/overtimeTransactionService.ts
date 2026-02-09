@@ -649,7 +649,7 @@ export function getMonthlyTransactionSummary(
     ORDER BY month ASC
   `).all(userId, `${startMonth}-01`, `${currentMonth}-31`) as Array<{
     month: string;
-    type: 'time_entry' | 'compensation' | 'correction' | 'carryover';
+    type: string; // Can be any transaction type (earned, time_entry, compensation, correction, vacation_credit, etc.)
     totalHours: number;
   }>;
 
@@ -674,7 +674,16 @@ export function getMonthlyTransactionSummary(
       monthsMap.set(t.month, { earned: 0, compensation: 0, correction: 0, carryover: 0 });
     }
     const monthData = monthsMap.get(t.month)!;
-    monthData[t.type] += t.totalHours;
+
+    // Map modern types to legacy types for this summary (backward compatibility)
+    // 'time_entry' and 'earned' are semantically identical (daily overtime from time entries)
+    const mappedType = t.type === 'time_entry' ? 'earned' : t.type;
+
+    // Only count the 4 main types (ignore credit types like vacation_credit, etc.)
+    if (mappedType === 'earned' || mappedType === 'compensation' ||
+        mappedType === 'correction' || mappedType === 'carryover') {
+      monthData[mappedType] += t.totalHours;
+    }
   });
 
   // Build summary array with cumulative balance

@@ -1,52 +1,30 @@
-tauriHttpClient.ts:56  GET http://129.159.8.19:3000/api/auth/me 401 (Unauthorized)
-universalFetch @ tauriHttpClient.ts:56
-request @ client.ts:99
-get @ client.ts:189
-checkSession @ authStore.ts:145
-(anonymous) @ App.tsx:68
-react_stack_bottom_frame @ react-dom_client.js?v=2c79d791:18567
-runWithFiberInDEV @ react-dom_client.js?v=2c79d791:997
-commitHookEffectListMount @ react-dom_client.js?v=2c79d791:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=2c79d791:9465
-commitPassiveMountOnFiber @ react-dom_client.js?v=2c79d791:11040
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=2c79d791:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=2c79d791:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=2c79d791:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=2c79d791:11033
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=2c79d791:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=2c79d791:11201
-recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=2c79d791:11010
-commitPassiveMountOnFiber @ react-dom_client.js?v=2c79d791:11066
-flushPassiveEffects @ react-dom_client.js?v=2c79d791:13150
-(anonymous) @ react-dom_client.js?v=2c79d791:12776
-performWorkUntilDeadline @ react-dom_client.js?v=2c79d791:36
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=2c79d791:247
-(anonymous) @ main.tsx:22
-tauriHttpClient.ts:56  GET http://129.159.8.19:3000/api/auth/me 401 (Unauthorized)
-universalFetch @ tauriHttpClient.ts:56
-request @ client.ts:99
-get @ client.ts:189
-checkSession @ authStore.ts:145
-(anonymous) @ App.tsx:68
-react_stack_bottom_frame @ react-dom_client.js?v=2c79d791:18567
-runWithFiberInDEV @ react-dom_client.js?v=2c79d791:997
-commitHookEffectListMount @ react-dom_client.js?v=2c79d791:9411
-commitHookPassiveMountEffects @ react-dom_client.js?v=2c79d791:9465
-reconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11273
-recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11240
-reconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11317
-recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11240
-reconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11265
-recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11240
-reconnectPassiveEffects @ react-dom_client.js?v=2c79d791:11317
-doubleInvokeEffectsOnFiber @ react-dom_client.js?v=2c79d791:13339
-runWithFiberInDEV @ react-dom_client.js?v=2c79d791:997
-recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=2c79d791:13312
-commitDoubleInvokeEffectsInDEV @ react-dom_client.js?v=2c79d791:13347
-flushPassiveEffects @ react-dom_client.js?v=2c79d791:13157
-(anonymous) @ react-dom_client.js?v=2c79d791:12776
-performWorkUntilDeadline @ react-dom_client.js?v=2c79d791:36
-<App>
-exports.jsxDEV @ react_jsx-dev-runtime.js?v=2c79d791:247
-(anonymous) @ main.tsx:22
+[Error] Failed to load resource: the server responded with a status of 400 (Bad Request) (absences, line 0)
+[Error] Failed to create absence request: – Error: Überschneidung mit beantragter Urlaub (2026-03-01 - 2026-03-08). Bitte anderen Zeitraum wählen.
+Error: Überschneidung mit beantragter Urlaub (2026-03-01 - 2026-03-08). Bitte anderen Zeitraum wählen.
+	(anonymous function) (index-CrKD0Ts-.js:74:4499)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (33, line 0)
+[Error] ❌ API returned error: – "Failed to delete absence request"
+	(anonymous function) (index-CrKD0Ts-.js:42:12045)
+[Error] 💥💥💥 useDeleteAbsenceRequest onError called! – Error: Failed to delete absence request
+Error: Failed to delete absence request
+	onError (index-CrKD0Ts-.js:42:12496)
+	(anonymous function) (index-CrKD0Ts-.js:9:61758)
+[Error] 💥 Failed to delete absence: – Error: Failed to delete absence request
+Error: Failed to delete absence request
+	(anonymous function) (index-CrKD0Ts-.js:114:3253)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (31, line 0)
+[Error] ❌ API returned error: – "Failed to delete absence request"
+	(anonymous function) (index-CrKD0Ts-.js:42:12045)
+[Error] 💥💥💥 useDeleteAbsenceRequest onError called! – Error: Failed to delete absence request
+Error: Failed to delete absence request
+	onError (index-CrKD0Ts-.js:42:12496)
+	(anonymous function) (index-CrKD0Ts-.js:9:61758)
+[Error] 💥 Failed to delete absence: – Error: Failed to delete absence request
+Error: Failed to delete absence request
+	(anonymous function) (index-CrKD0Ts-.js:114:3253)
+> Selected Element
+< <h3 class="
+        text-lg font-semibold
+        text-gray-900 dark:text-gray-100
+        
+      ">…</h3>
