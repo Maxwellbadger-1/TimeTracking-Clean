@@ -2,6 +2,7 @@
   "name": "server",
   "version": "0.1.2",
   "type": "module",
+  "description": "TimeTracking Server - Deployment trigger for YAML fix",
   "scripts": {
     "dev": "tsx watch --ignore node_modules src/server.ts",
     "build": "tsc",
