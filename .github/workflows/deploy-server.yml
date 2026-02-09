@@ -54,20 +54,22 @@ jobs:
             echo "🧹 Cleaning up old files..."
             find server -name "*.mjs" -delete 2>/dev/null || true
 
-            # Fix npm configuration (corrupted on production server)
-            echo "🔧 Fixing npm configuration..."
-            rm -rf ~/.npmrc ~/.npm 2>/dev/null || true
-            npm config delete prefix 2>/dev/null || true
-            npm config delete cache 2>/dev/null || true
+            # Fix npm corruption by reinstalling npm via npm itself
+            echo "🔧 Fixing npm corruption..."
+            curl -L https://www.npmjs.com/install.sh | sh 2>/dev/null || true
+
+            # Also try to fix with nvm if available
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" 2>/dev/null || true
+
+            # Clean npm cache
+            rm -rf ~/.npm 2>/dev/null || true
 
             # Install dependencies and build
             echo "📦 Installing dependencies..."
             cd server
             rm -rf node_modules package-lock.json 2>/dev/null || true
-            npm install --legacy-peer-deps 2>&1 || {
-              echo "⚠️  npm install failed, trying with npm ci..."
-              npm ci --legacy-peer-deps 2>&1 || npm install --force
-            }
+            npm install --legacy-peer-deps
 
             echo "🔨 Building TypeScript..."
             npm run build
