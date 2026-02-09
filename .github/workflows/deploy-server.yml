@@ -57,8 +57,11 @@ jobs:
             # Install dependencies and build
             echo "📦 Installing dependencies..."
             cd server
-            npm cache clean --force 2>/dev/null || true
-            npm install --legacy-peer-deps
+            rm -rf node_modules package-lock.json 2>/dev/null || true
+            npm install --legacy-peer-deps 2>&1 || {
+              echo "⚠️  npm install failed, trying with npm ci..."
+              npm ci --legacy-peer-deps 2>&1 || npm install --force
+            }
 
             echo "🔨 Building TypeScript..."
             npm run build
