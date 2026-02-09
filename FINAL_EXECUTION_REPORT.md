@@ -1,7 +1,7 @@
-# 📊 Final Execution Report - Blue-Green Database Fix
+# 📊 Final Execution Report - Blue-Green Database Fix + Overtime Transaction Fix
 
 **Datum:** 2026-02-09
-**Zeit:** 19:28 - 19:44 CET (16 Minuten)
+**Zeit:** 19:28 - 20:28 CET (60 Minuten)
 **Status:** ✅ ALLE PHASEN ERFOLGREICH ABGESCHLOSSEN
 
 ---
@@ -96,6 +96,51 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 
 ---
 
+### ✅ Phase 3: Overtime Transaction Type Fix (Ausgeführt 20:16-20:28)
+**Ziel:** 500 Error beim Erstellen von Zeiteinträgen beheben
+
+**Problem:**
+```
+SqliteError: CHECK constraint failed: type IN (
+    'worked', 'time_entry', 'vacation_credit', 'sick_credit',
+    'overtime_comp_credit', 'special_credit', 'unpaid_deduction',
+    'holiday_credit', 'weekend_credit', 'carry_over', 'payout',
+    'correction', 'initial_balance', 'year_end_balance'
+)
+```
+
+**Root Cause:**
+- Zeiteinträge wurden korrekt gespeichert
+- ABER: Overtime Transaction Logging nutzte ungültige Typen:
+  - `'earned'` → Nicht in CHECK constraint
+  - `'unpaid_adjustment'` → Nicht in CHECK constraint
+- User sah 500 Error in UI, aber nach Reload war Entry da
+
+**Lösungsweg:**
+1. **Hotfix auf Production (20:16-20:18):**
+   - SSH zum Server
+   - `sed` Replacement in kompilierter JS:
+     - `'earned'` → `'time_entry'` (4 Vorkommen)
+     - `'unpaid_adjustment'` → `'unpaid_deduction'` (1 Vorkommen)
+   - `pm2 restart timetracking-server`
+
+2. **Source Code Fix (20:18-20:20):**
+   - Datei: `server/src/services/overtimeTransactionRebuildService.ts`
+   - Line 141: `'earned'` → `'time_entry'`
+   - Line 287: `'earned'` → `'time_entry'`
+   - Line 321: `'unpaid_adjustment'` → `'unpaid_deduction'`
+   - Line 365: Fallback `'earned'` → `'time_entry'`
+
+3. **Deployment (20:25-20:28):**
+   - Commit & Push zu GitHub
+   - GitHub Actions Workflow: ✅ Success (1m58s)
+   - Health Check: ✅ HTTP 200
+   - PM2 Status: ✅ Online (90s uptime)
+
+**Ergebnis:** ✅ Zeiteinträge speichern OHNE 500 Error, Overtime Transactions loggen korrekt
+
+---
+
 ## 📊 Vorher/Nachher Vergleich
 
 ### VORHER (bis 19:28):
@@ -104,8 +149,9 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 - ❌ Sync-Probleme möglich
 - ❌ CORS-Fehler: Desktop-App kann nicht connecten
 - ❌ Missing `position` column (potentiell)
+- ❌ 500 Error beim Erstellen von Zeiteinträgen (Overtime Transaction Bug)
 
-### NACHHER (ab 19:35):
+### NACHHER (ab 20:28):
 - ✅ **Eine** Shared Database für beide Environments
 - ✅ Migrations nur noch 1x ausführen nötig
 - ✅ Kein Sync-Problem mehr möglich
@@ -113,6 +159,7 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 - ✅ Schema vollständig aktuell
 - ✅ Alle Daten intakt (14 Users, alle Einträge)
 - ✅ Rollback-Optionen vorhanden
+- ✅ Zeiteinträge speichern ohne 500 Error (Overtime Transaction gefixt)
 
 ---
 
@@ -180,8 +227,9 @@ from origin 'http://localhost:1420' has been blocked by CORS policy
 ### Execution Time:
 - **Phase 1:** ~3 Minuten (19:28-19:30)
 - **Phase 2:** ~2 Minuten (19:33-19:34)
-- **CORS-Fix:** ~10 Minuten (19:34-19:44, 3 Failed Attempts + Final Fix)
-- **Gesamt:** ~16 Minuten
+- **CORS-Fix:** ~25 Minuten (19:34-19:59, 3 Failed Attempts + Final Fix + Development DB Symlinks)
+- **Phase 3:** ~12 Minuten (20:16-20:28, Overtime Transaction Fix + Deployment)
+- **Gesamt:** ~60 Minuten (1 Stunde)
 
 ---
 
