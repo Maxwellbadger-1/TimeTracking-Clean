@@ -1,25 +1,53 @@
 # Database Migration Strategy für Blue-Green Deployment
 
-## Aktuelle Situation
+**Status:** 🟢 ACTIVE - Shared Database Approach Empfohlen
+**Letzte Aktualisierung:** 2026-02-09
+**Vollständiger Plan:** Siehe [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md)
 
-Nach der Analyse des Systems haben wir folgende Struktur:
+---
+
+## 📊 Aktuelle Situation (Updated 2026-02-09)
+
+Nach umfassender Analyse des Systems haben wir folgende Struktur:
 
 ### 1. Deployment Struktur
-- **BLUE Environment** (Production): `/home/ubuntu/TimeTracking-BLUE/server/database.db`
-- **GREEN Environment** (Staging): `/home/ubuntu/TimeTracking-GREEN/server/database.db`
-- **BLUE Server**: Port 3000 (aktuell live)
-- **GREEN Server**: Port 3001 (staging/test)
+- **BLUE Environment**: `/home/ubuntu/TimeTracking-BLUE/server/database.db`
+  - Status: Alte Production-Version
+  - Server Port: Unbekannt (nicht 3000)
+  - PM2 Name: `timetracking-blue` (vermutlich)
 
-### 2. Migration System
-- Migration Script: `server/scripts/migrate.ts`
-- Migration Commands:
+- **GREEN Environment** (AKTUELL LIVE): `/home/ubuntu/TimeTracking-Clean/server/database.db`
+  - Status: ❌ FEHLER - Missing `position` column
+  - Server Port: 3000 (aktuelle Production)
+  - PM2 Name: `timetracking-server`
+
+### 2. Migration System ✅
+- **Migration Script**: `server/scripts/migrate.ts` (SQL-basiert)
+- **Migration Directory**: `server/database/migrations/*.sql`
+- **Migration Commands**:
   - `npm run migrate` - Dev Umgebung
   - `npm run migrate:prod` - Production Umgebung
-  - `npm run migrate:create` - Neue Migration erstellen
-- Migration Tracking: `migrations` Tabelle in jeder DB
+  - `npm run migrate:create <name>` - Neue Migration erstellen
+- **Migration Tracking**: `migrations` Tabelle in jeder DB
+- **Schema Validation**: `npm run validate:schema` (verfügbar!)
 
-### 3. Problem
+### 3. Aktuelles Problem ❌
+**GREEN DB fehlt `position` Column** → 500 Error beim `/api/auth/me` Call
+
+**Root Cause:**
+- Migration `20260208_add_position_column.sql` existiert
+- Migration wurde NICHT auf GREEN Production DB ausgeführt
+- Development DB hat die Column → funktioniert
+- GREEN DB fehlt die Column → bricht Production
+
+### 4. Grundproblem: Zwei separate Datenbanken
 Bei Blue-Green Deployments haben wir **ZWEI separate Datenbanken**, die synchron gehalten werden müssen!
+
+**Herausforderungen:**
+- ❌ Migrations müssen auf BEIDEN DBs ausgeführt werden
+- ❌ Daten müssen synchronisiert werden
+- ❌ Fehleranfällig bei manuellem Process
+- ❌ Risiko von Diskrepanzen (wie aktuell!)
 
 ## Migration Strategy
 
@@ -281,6 +309,41 @@ sqlite3 database.db ".restore backup.db"
 
 ---
 
+## 🎯 Empfohlene Nächste Schritte
+
+### Sofort (Heute):
+1. **Führe Phase 1 aus** (15 Min): [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md#phase-1-sofort-fix-für-green-db--15-min)
+   - Backup erstellen
+   - Migration ausführen
+   - Server neu starten
+   - Testen
+
+### Diese Woche:
+2. **Führe Phase 2 aus** (30 Min): [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md#phase-2-shared-database-setup--30-min)
+   - Shared Database Setup
+   - Beide Environments auf eine DB
+   - Nie wieder Sync-Probleme!
+
+### Optional (Wenn Zeit):
+3. **Phase 3 Verbesserungen**: [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md#phase-3-langfristige-verbesserungen--1-2-stunden)
+   - Monitoring Scripts
+   - Automatische Backups
+   - Blue-Green Switch Script
+
+---
+
+## 📚 Zusätzliche Dokumentation
+
+- **Vollständiger Fix-Plan**: [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md) (~700 Zeilen, Schritt-für-Schritt)
+- **Schema Validation**: `server/scripts/validateSchema.ts`
+- **Migration System**: `server/scripts/migrate.ts`
+- **Migration Files**: `server/database/migrations/*.sql`
+- **GitHub Workflow**: `.github/workflows/deploy-server.yml` (bereits korrekt!)
+- **Complete Migration Workflow**: `.github/workflows/complete-migration.yml`
+
+---
+
 **Author**: Claude
-**Date**: 2026-02-07
-**Status**: ACTIVE - Requires immediate action for pending migrations
+**Date**: 2026-02-07 (Created), 2026-02-09 (Updated)
+**Status**: 🟡 IN PROGRESS - Phase 1 ready to execute
+**Next Action**: Execute Phase 1 from BLUE_GREEN_FIX_PLAN.md

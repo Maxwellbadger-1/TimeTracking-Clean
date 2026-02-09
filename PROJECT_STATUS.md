@@ -21,19 +21,34 @@
 
 ---
 
-## 🚨 CRITICAL: Database Migration Fix (2026-02-08)
+## 🚨 CRITICAL: Blue-Green Database Fix (2026-02-09)
 
-### Issue: Missing `position` column on GREEN production server
-- **Root Cause:** Migration in schema.ts had try/catch that silently ignored errors
-- **Impact:** 500 Internal Server Error on `/api/auth/me` endpoint
-- **Solution:** Proper SQL migration system implemented
+### Issue: GREEN production server has schema mismatch with Development
+- **Root Cause:** Separate BLUE and GREEN databases not synchronized
+- **Impact:**
+  - ❌ 500 Internal Server Error on `/api/auth/me` endpoint
+  - ❌ Missing `position` column in GREEN DB
+  - ❌ Cannot upgrade to latest version (v1.6.x)
+- **Solution:** Three-Phase Fix Plan implemented
 
 ### Fix Implementation:
 1. ✅ Created SQL migration: `database/migrations/20260208_add_position_column.sql`
 2. ✅ Removed error-hiding try/catch from schema.ts
 3. ✅ Added schema validation script for deployment verification
 4. ✅ Updated deployment workflow to validate schema after migrations
-5. 🔄 Deployment in progress...
+5. ✅ Created comprehensive fix plan: [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md)
+6. ✅ Updated [DATABASE_MIGRATION_STRATEGY.md](DATABASE_MIGRATION_STRATEGY.md) with detailed steps
+7. 🔄 **Phase 1 ready to execute** (15 Min) - Sofort-Fix für GREEN DB
+8. ⏳ Phase 2 pending - Shared Database Setup (30 Min)
+9. ⏳ Phase 3 pending - Long-term improvements (Optional)
+
+### Next Steps:
+**HEUTE:** Execute Phase 1 from [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md#phase-1-sofort-fix-für-green-db--15-min)
+- SSH to server
+- Backup GREEN DB
+- Run migration
+- Restart server
+- Test with production app
 
 ---
 
