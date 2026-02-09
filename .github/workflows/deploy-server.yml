@@ -54,6 +54,12 @@ jobs:
             echo "🧹 Cleaning up old files..."
             find server -name "*.mjs" -delete 2>/dev/null || true
 
+            # Fix npm configuration (corrupted on production server)
+            echo "🔧 Fixing npm configuration..."
+            rm -rf ~/.npmrc ~/.npm 2>/dev/null || true
+            npm config delete prefix 2>/dev/null || true
+            npm config delete cache 2>/dev/null || true
+
             # Install dependencies and build
             echo "📦 Installing dependencies..."
             cd server
