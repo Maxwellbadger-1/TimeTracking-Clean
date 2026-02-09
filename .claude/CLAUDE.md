@@ -521,6 +521,47 @@ SESSION_SECRET=<secure-random>    # Cookie Encryption
 
 **Monitor:** http://129.159.8.19:3000/api/health
 
+### Deployment Verification Rules (CRITICAL!)
+
+**User Request (2026-02-08):** "du checkst in zukunft bitte immer ab ob die deployments und releases auch wirklich durchgegangen sind. und wenn nicht was die fehler sind. schreibe das als regel"
+
+**PFLICHT nach JEDEM Deployment oder Release:**
+
+```bash
+# 1. GitHub Actions Status prüfen (SOFORT nach Push)
+gh run list --workflow="deploy-server.yml" --limit 1
+# Erwartung: Status = "completed" + Conclusion = "success"
+# Bei "failure": Logs analysieren mit gh run view <run-id>
+
+# 2. Health Check ausführen (nach 2-3 Min Wartezeit)
+curl -s http://129.159.8.19:3000/api/health | jq
+# Erwartung: {"status":"ok","database":"connected","timestamp":"..."}
+# Bei Fehler: pm2 logs timetracking-server prüfen
+
+# 3. Funktionstest durchführen
+# Test 1: Login testen (Production App oder localhost:1420)
+# Test 2: Zeiterfassung erstellen
+# Test 3: Überstunden prüfen
+# Bei 500 Errors: Server logs analysieren
+
+# 4. Bei Fehler: Rollback-Plan
+# - Database Backup vorhanden? (database.backup.TIMESTAMP.db)
+# - Letzter funktionierender Commit bekannt?
+# - Server Logs gesichert?
+```
+
+**Häufige Fehlerquellen:**
+- ❌ Deployment failed wegen TypeScript Errors → `npx tsc --noEmit` lokal prüfen
+- ❌ Migration failed → Manuell via `manual-migration.yml` ausführen
+- ❌ PM2 restart failed → SSH + `pm2 status` + `pm2 logs` prüfen
+- ❌ Health Check 502/503 → Server ist down, PM2 restart nötig
+- ❌ 500 Errors bei API Calls → Server logs analysieren, CHECK constraints prüfen
+
+**Dokumentation:**
+- Jedes fehlgeschlagene Deployment in console.md dokumentieren
+- Fix in CHANGELOG.md unter [Unreleased] eintragen
+- Bei Production Issues: Sofortiges Rollback erwägen
+
 ---
 
 # 🔄 WORKFLOWS (Kompakt)
