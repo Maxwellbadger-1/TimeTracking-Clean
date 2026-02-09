@@ -116,12 +116,10 @@ jobs:
               echo "❌ SESSION_SECRET could not be set!"
               echo "Generating new SESSION_SECRET..."
               SESSION_SECRET=$(openssl rand -hex 32)
-              # Update or append to .env
-              if grep -q "^SESSION_SECRET=" .env 2>/dev/null; then
-                sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$SESSION_SECRET/" .env
-              else
-                echo "SESSION_SECRET=$SESSION_SECRET" >> .env
-              fi
+              # Remove old SESSION_SECRET and write new one
+              grep -v "^SESSION_SECRET=" .env > .env.tmp 2>/dev/null || touch .env.tmp
+              echo "SESSION_SECRET=$SESSION_SECRET" >> .env.tmp
+              mv .env.tmp .env
             fi
 
             echo "✅ Environment setup completed successfully"
