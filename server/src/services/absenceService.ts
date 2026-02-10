@@ -397,167 +397,254 @@ export function getAbsenceRequestById(id: number): AbsenceRequest | null {
 export function createAbsenceRequest(
   data: AbsenceRequestCreateInput
 ): AbsenceRequest {
-  logger.debug('🚀🚀🚀 CREATE ABSENCE REQUEST DEBUG 🚀🚀🚀');
-  logger.debug({ data }, '📥 Input data');
+  try {
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 1: Function entry with input data
+    // ============================================================================
+    logger.info('🚀🚀🚀 createAbsenceRequest() CALLED 🚀🚀🚀');
+    logger.info({ data }, '📥 Input data');
 
-  // BEST PRACTICE (SAP/Personio): Check hire date FIRST!
-  // Fetch user with workSchedule for WorkSchedule-aware day counting
-  const user = db.prepare('SELECT hireDate, weeklyHours, workSchedule FROM users WHERE id = ?').get(data.userId) as
-    { hireDate: string; weeklyHours: number; workSchedule: string | null } | undefined;
-  if (!user) {
-    throw new Error('User not found');
-  }
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 2: User lookup
+    // ============================================================================
+    logger.info({ userId: data.userId }, '🔍 Looking up user in database...');
+    const user = db.prepare('SELECT hireDate, weeklyHours, workSchedule FROM users WHERE id = ?').get(data.userId) as
+      { hireDate: string; weeklyHours: number; workSchedule: string | null } | undefined;
 
-  if (data.startDate < user.hireDate) {
-    throw new Error(`Abwesenheit vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
-  }
-
-  // Parse workSchedule from JSON
-  const workSchedule = user.workSchedule ? JSON.parse(user.workSchedule) : null;
-
-  // Validate dates
-  const validation = validateAbsenceDates(data);
-  if (!validation.valid) {
-    throw new Error(validation.error);
-  }
-
-  // Calculate days - BEST PRACTICE (Personio, DATEV, SAP):
-  // ALL absence types respect individual work schedules!
-  // Days with 0 hours in workSchedule do NOT count as working days!
-  let days: number;
-
-  if (data.type === 'vacation' || data.type === 'overtime_comp') {
-    logger.debug('📊 Calculating VACATION/OVERTIME days (WorkSchedule-aware, excludes 0h days + weekends + holidays)...');
-    // Vacation & Overtime: Exclude holidays
-    days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, db);
-    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (with holiday exclusion)');
-  } else {
-    logger.debug('📊 Calculating SICK/UNPAID days (WorkSchedule-aware, excludes 0h days + weekends, INCLUDES holidays)...');
-    // Sick & Unpaid: Include holidays (user can be sick on holidays)
-    // BUT still respect individual work schedule!
-    days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, undefined); // undefined = no holiday exclusion
-    logger.debug({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (without holiday exclusion)');
-  }
-
-  logger.debug({ days }, '📊 CALCULATED DAYS');
-
-  if (days <= 0) {
-    logger.error('❌ DAYS <= 0! Throwing error...');
-    throw new Error('Absence request must span at least one business day');
-  }
-
-  // Check for overlapping absences
-  logger.debug('🔍 Checking for overlapping absences...');
-  const overlappingAbsence = checkOverlappingAbsence(data.userId, data.startDate, data.endDate);
-  logger.debug({ hasOverlap: !!overlappingAbsence }, '📊 Overlapping absence check');
-  if (overlappingAbsence) {
-    const typeLabels: Record<string, string> = {
-      vacation: 'Urlaub',
-      sick: 'Krankmeldung',
-      overtime_comp: 'Überstundenausgleich',
-      unpaid: 'Unbezahlter Urlaub'
-    };
-    const typeLabel = typeLabels[overlappingAbsence.type] || overlappingAbsence.type;
-    const statusLabel = overlappingAbsence.status === 'approved' ? 'genehmigter' : 'beantragter';
-    throw new Error(
-      `Überschneidung mit ${statusLabel} ${typeLabel} (${overlappingAbsence.startDate} - ${overlappingAbsence.endDate}). Bitte anderen Zeitraum wählen.`
-    );
-  }
-
-  // Check for existing time entries in this period
-  const timeEntriesCheck = checkTimeEntriesInPeriod(data.userId, data.startDate, data.endDate);
-  if (timeEntriesCheck.hasEntries) {
-    logger.error({ totalHours: timeEntriesCheck.totalHours, dates: timeEntriesCheck.dates }, `❌ User has time entries in absence period`);
-
-    // Format dates for display
-    const formattedDates = timeEntriesCheck.dates
-      .map(d => {
-        const [year, month, day] = d.split('-');
-        return `${day}.${month}.${year}`;
-      })
-      .join(', ');
-
-    throw new Error(
-      `In diesem Zeitraum existieren bereits Zeiterfassungen (${timeEntriesCheck.totalHours}h an folgenden Tagen: ${formattedDates}). Bitte zuerst die Zeiterfassungen löschen.`
-    );
-  }
-
-  // For vacation: check if user has enough days
-  if (data.type === 'vacation') {
-    const year = parseInt(data.startDate.substring(0, 4));
-    if (!hasEnoughVacationDays(data.userId, year, days)) {
-      throw new Error('Insufficient vacation days remaining');
+    if (!user) {
+      logger.error({ userId: data.userId }, '❌ User not found in database');
+      throw new Error('User not found');
     }
-  }
+    logger.info({
+      userId: data.userId,
+      hireDate: user.hireDate,
+      weeklyHours: user.weeklyHours,
+      workSchedule: user.workSchedule,
+    }, '✅ User found');
 
-  // For overtime compensation: check if user has enough overtime
-  if (data.type === 'overtime_comp') {
-    logger.debug('🔥🔥🔥 OVERTIME COMP VALIDATION DEBUG 🔥🔥🔥');
-    logger.debug({ userId: data.userId, days, startDate: data.startDate, endDate: data.endDate }, '📌 Parameters');
-
-    // PROFESSIONAL: Use transaction-based balance (like SAP SuccessFactors, Personio, DATEV)
-    const overtimeHours = getOvertimeBalance(data.userId);
-    logger.debug({ overtimeHours }, '📊 overtimeHours from transaction-based system');
-
-    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
-    const requiredHours = calculateAbsenceCredits(data.userId, data.startDate, data.endDate);
-    logger.debug({ overtimeHours, requiredHours, hasEnough: overtimeHours >= requiredHours }, '📊 Comparison (using work schedule)');
-    logger.debug('🔥🔥🔥 END OVERTIME COMP VALIDATION 🔥🔥🔥');
-
-    if (overtimeHours < requiredHours) {
-      throw new Error(
-        `Insufficient overtime hours (need ${requiredHours}h, have ${overtimeHours}h)`
-      );
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 3: Hire date validation
+    // ============================================================================
+    logger.info({
+      startDate: data.startDate,
+      hireDate: user.hireDate,
+      isBeforeHireDate: data.startDate < user.hireDate,
+    }, '🔍 Checking hire date constraint...');
+    if (data.startDate < user.hireDate) {
+      logger.error({ startDate: data.startDate, hireDate: user.hireDate }, '❌ Start date before hire date');
+      throw new Error(`Abwesenheit vor Eintrittsdatum (${user.hireDate}) nicht möglich. Keine Einträge vor Beschäftigungsbeginn erlaubt.`);
     }
-  }
+    logger.info('✅ Hire date constraint passed');
 
-  // Set initial status: sick leave is auto-approved, others are pending
-  const status = data.type === 'sick' ? 'approved' : 'pending';
+    // Parse workSchedule from JSON
+    const workSchedule = user.workSchedule ? JSON.parse(user.workSchedule) : null;
+    logger.info({ workSchedule }, '📊 Parsed workSchedule');
 
-  // Insert request
-  const query = `
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 4: Date validation
+    // ============================================================================
+    logger.info({ startDate: data.startDate, endDate: data.endDate }, '🔍 Validating date format and range...');
+    const validation = validateAbsenceDates(data);
+    if (!validation.valid) {
+      logger.error({ validation }, '❌ Date validation failed');
+      throw new Error(validation.error);
+    }
+    logger.info('✅ Date validation passed');
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 5: Day calculation
+    // ============================================================================
+    let days: number;
+
+    if (data.type === 'vacation' || data.type === 'overtime_comp') {
+      logger.info('📊 Calculating VACATION/OVERTIME days (WorkSchedule-aware, excludes 0h days + weekends + holidays)...');
+      // Vacation & Overtime: Exclude holidays
+      days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, db);
+      logger.info({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (with holiday exclusion)');
+    } else {
+      logger.info('📊 Calculating SICK/UNPAID days (WorkSchedule-aware, excludes 0h days + weekends, INCLUDES holidays)...');
+      // Sick & Unpaid: Include holidays (user can be sick on holidays)
+      // BUT still respect individual work schedule!
+      days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, undefined); // undefined = no holiday exclusion
+      logger.info({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (without holiday exclusion)');
+    }
+
+    logger.info({ days }, '📊 CALCULATED DAYS');
+
+    if (days <= 0) {
+      logger.error({ days, startDate: data.startDate, endDate: data.endDate }, '❌ DAYS <= 0! No business days in period');
+      throw new Error('Absence request must span at least one business day');
+    }
+    logger.info('✅ Day calculation passed (days > 0)');
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 6: Overlap check
+    // ============================================================================
+    logger.info({ userId: data.userId, startDate: data.startDate, endDate: data.endDate }, '🔍 Checking for overlapping absences...');
+    const overlappingAbsence = checkOverlappingAbsence(data.userId, data.startDate, data.endDate);
+    logger.info({ hasOverlap: !!overlappingAbsence, overlappingAbsence }, '📊 Overlapping absence check result');
+    if (overlappingAbsence) {
+      const typeLabels: Record<string, string> = {
+        vacation: 'Urlaub',
+        sick: 'Krankmeldung',
+        overtime_comp: 'Überstundenausgleich',
+        unpaid: 'Unbezahlter Urlaub'
+      };
+      const typeLabel = typeLabels[overlappingAbsence.type] || overlappingAbsence.type;
+      const statusLabel = overlappingAbsence.status === 'approved' ? 'genehmigter' : 'beantragter';
+      const errorMsg = `Überschneidung mit ${statusLabel} ${typeLabel} (${overlappingAbsence.startDate} - ${overlappingAbsence.endDate}). Bitte anderen Zeitraum wählen.`;
+      logger.error({ errorMsg, overlappingAbsence }, '❌ Overlap detected');
+      throw new Error(errorMsg);
+    }
+    logger.info('✅ No overlapping absences');
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 7: Time entry conflict check
+    // ============================================================================
+    logger.info({ userId: data.userId, startDate: data.startDate, endDate: data.endDate }, '🔍 Checking for existing time entries in period...');
+    const timeEntriesCheck = checkTimeEntriesInPeriod(data.userId, data.startDate, data.endDate);
+    logger.info({
+      hasEntries: timeEntriesCheck.hasEntries,
+      totalHours: timeEntriesCheck.totalHours,
+      dates: timeEntriesCheck.dates,
+    }, '📊 Time entry check result');
+
+    if (timeEntriesCheck.hasEntries) {
+      // Format dates for display
+      const formattedDates = timeEntriesCheck.dates
+        .map(d => {
+          const [year, month, day] = d.split('-');
+          return `${day}.${month}.${year}`;
+        })
+        .join(', ');
+
+      const errorMsg = `In diesem Zeitraum existieren bereits Zeiterfassungen (${timeEntriesCheck.totalHours}h an folgenden Tagen: ${formattedDates}). Bitte zuerst die Zeiterfassungen löschen.`;
+      logger.error({ errorMsg, timeEntriesCheck }, '❌ Time entries conflict detected');
+      throw new Error(errorMsg);
+    }
+    logger.info('✅ No time entry conflicts');
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 8: Balance validation (vacation)
+    // ============================================================================
+    if (data.type === 'vacation') {
+      const year = parseInt(data.startDate.substring(0, 4));
+      logger.info({ userId: data.userId, year, requestedDays: days }, '🔍 Checking vacation balance...');
+      const hasEnough = hasEnoughVacationDays(data.userId, year, days);
+      logger.info({ hasEnough }, '📊 Vacation balance check result');
+      if (!hasEnough) {
+        logger.error({ userId: data.userId, year, requestedDays: days }, '❌ Insufficient vacation days');
+        throw new Error('Insufficient vacation days remaining');
+      }
+      logger.info('✅ Sufficient vacation days');
+    }
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 9: Balance validation (overtime_comp)
+    // ============================================================================
+    if (data.type === 'overtime_comp') {
+      logger.info('🔥🔥🔥 OVERTIME COMP VALIDATION 🔥🔥🔥');
+      logger.info({ userId: data.userId, days, startDate: data.startDate, endDate: data.endDate }, '📌 Parameters');
+
+      // PROFESSIONAL: Use transaction-based balance (like SAP SuccessFactors, Personio, DATEV)
+      const overtimeHours = getOvertimeBalance(data.userId);
+      logger.info({ overtimeHours }, '📊 overtimeHours from transaction-based system');
+
+      // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
+      const requiredHours = calculateAbsenceCredits(data.userId, data.startDate, data.endDate);
+      logger.info({ overtimeHours, requiredHours, hasEnough: overtimeHours >= requiredHours }, '📊 Comparison (using work schedule)');
+
+      if (overtimeHours < requiredHours) {
+        const errorMsg = `Insufficient overtime hours (need ${requiredHours}h, have ${overtimeHours}h)`;
+        logger.error({ errorMsg, overtimeHours, requiredHours }, '❌ Insufficient overtime hours');
+        throw new Error(errorMsg);
+      }
+      logger.info('✅ Sufficient overtime hours');
+    }
+
+    // Set initial status: sick leave is auto-approved, others are pending
+    const status = data.type === 'sick' ? 'approved' : 'pending';
+    logger.info({ type: data.type, status }, '📌 Determined initial status');
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 10: Database INSERT
+    // ============================================================================
+    const query = `
     INSERT INTO absence_requests (userId, type, startDate, endDate, days, status, reason)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const result = db
-    .prepare(query)
-    .run(
-      data.userId,
-      data.type,
-      data.startDate,
-      data.endDate,
-      days,
-      status,
-      data.reason || null
-    );
+    const params = [data.userId, data.type, data.startDate, data.endDate, days, status, data.reason || null];
+    logger.info('💾 Executing INSERT query...');
+    logger.info({ query, params }, '📝 SQL details');
 
-  // If auto-approved (sick), update balances immediately
-  if (status === 'approved') {
-    updateBalancesAfterApproval(result.lastInsertRowid as number);
+    const result = db.prepare(query).run(...params);
+
+    logger.info({
+      lastInsertRowid: result.lastInsertRowid,
+      changes: result.changes,
+    }, '✅ INSERT successful');
+
+    // If auto-approved (sick), update balances immediately
+    if (status === 'approved') {
+      logger.info({ requestId: result.lastInsertRowid }, '⚙️ Updating balances after auto-approval (sick leave)...');
+      updateBalancesAfterApproval(result.lastInsertRowid as number);
+      logger.info('✅ Balances updated');
+    }
+
+    // If pending vacation request, increment pending balance
+    if (data.type === 'vacation' && status === 'pending') {
+      const year = parseInt(data.startDate.substring(0, 4));
+      logger.info({ userId: data.userId, year, days }, '⚙️ Incrementing pending vacation balance...');
+      incrementVacationPending(data.userId, year, days);
+      logger.info('✅ Pending balance incremented');
+    }
+
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 11: Fetch created record
+    // ============================================================================
+    logger.info({ requestId: result.lastInsertRowid }, '🔍 Fetching created absence request from database...');
+    const request = getAbsenceRequestById(result.lastInsertRowid as number);
+    if (!request) {
+      logger.error({ requestId: result.lastInsertRowid }, '❌ Failed to fetch created request from database');
+      throw new Error('Failed to create absence request');
+    }
+    logger.info({
+      requestId: request.id,
+      userId: request.userId,
+      type: request.type,
+      status: request.status,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      days: request.days,
+    }, '✅ Created request fetched successfully');
+
+    // Broadcast WebSocket event
+    logger.info({ requestId: request.id }, '📡 Broadcasting WebSocket event...');
+    broadcastEvent({
+      type: 'absence:created',
+      userId: data.userId,
+      data: request,
+      timestamp: new Date().toISOString(),
+    });
+    logger.info('✅ WebSocket event broadcasted');
+
+    logger.info('🎉 createAbsenceRequest() COMPLETED SUCCESSFULLY 🎉');
+    return request;
+  } catch (error) {
+    // ============================================================================
+    // 🔥 SERVICE DEBUG POINT 12: Catch block with full error context
+    // ============================================================================
+    logger.error('❌❌❌ createAbsenceRequest() ERROR ❌❌❌');
+    logger.error({
+      err: error,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      errorName: error instanceof Error ? error.name : undefined,
+      inputData: data,
+    }, '❌ Full error context in service layer');
+    throw error; // Re-throw to be caught by routes layer
   }
-
-  // If pending vacation request, increment pending balance
-  if (data.type === 'vacation' && status === 'pending') {
-    const year = parseInt(data.startDate.substring(0, 4));
-    incrementVacationPending(data.userId, year, days);
-  }
-
-  // Return created request
-  const request = getAbsenceRequestById(result.lastInsertRowid as number);
-  if (!request) {
-    throw new Error('Failed to create absence request');
-  }
-
-  // Broadcast WebSocket event
-  broadcastEvent({
-    type: 'absence:created',
-    userId: data.userId,
-    data: request,
-    timestamp: new Date().toISOString(),
-  });
-
-  return request;
 }
 
 /**
@@ -1271,15 +1358,21 @@ function incrementVacationPending(userId: number, year: number, days: number): v
 /**
  * Decrement pending vacation days (when request is approved/rejected/deleted)
  */
+/**
+ * FIXED: This function previously tried to update a non-existent 'pending' column.
+ *
+ * REASON: Pending vacation requests are NOT tracked in vacation_balance.
+ * Only APPROVED requests update the 'taken' column (via revertVacationBalance).
+ *
+ * When a pending request is deleted, there's NOTHING to revert since it was never
+ * counted in the first place.
+ *
+ * Schema: vacation_balance only has: entitlement, carryover, taken, remaining(virtual)
+ */
 function decrementVacationPending(userId: number, year: number, days: number): void {
-  const query = `
-    UPDATE vacation_balance
-    SET pending = pending - ?
-    WHERE userId = ? AND year = ?
-  `;
-
-  db.prepare(query).run(days, userId, year);
-  logger.debug({ userId, year, days }, '✅ Decremented pending vacation days');
+  // No-op: Pending requests don't affect vacation_balance table
+  // Only approved requests update the 'taken' column
+  logger.debug({ userId, year, days }, '✅ Pending vacation request deleted (no balance update needed)');
 }
 
 // REMOVED: getTotalOvertimeHours() - replaced by overtimeTransactionService.getOvertimeBalance()

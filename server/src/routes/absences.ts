@@ -25,6 +25,7 @@ import {
 } from '../services/notificationService.js';
 import { getUserById } from '../services/userService.js';
 import { logAudit } from '../services/auditService.js';
+import logger from '../utils/logger.js';
 import type { ApiResponse, AbsenceRequest } from '../types/index.js';
 
 const router = Router();
@@ -241,11 +242,42 @@ router.post(
   validateAbsenceCreate,
   (req: Request, res: Response<ApiResponse<AbsenceRequest>>) => {
     try {
+      // ============================================================================
+      // 🔥 DEBUG POINT 1: Request received with full body
+      // ============================================================================
+      logger.info('🚀🚀🚀 POST /api/absences - REQUEST RECEIVED 🚀🚀🚀');
+      logger.info({
+        body: req.body,
+        sessionUser: req.session.user ? {
+          id: req.session.user.id,
+          username: req.session.user.username,
+          role: req.session.user.role,
+        } : null,
+      }, '📥 Full request context');
+
       const data = req.body;
 
-      // Determine userId: Admin can create for any user, Employee only for self
+      // ============================================================================
+      // 🔥 DEBUG POINT 2: User ID determination
+      // ============================================================================
       const isAdmin = req.session.user!.role === 'admin';
       const userId = isAdmin && data.userId ? data.userId : req.session.user!.id;
+      logger.info({
+        isAdmin,
+        requestedUserId: data.userId,
+        finalUserId: userId,
+      }, '📌 User ID determination');
+
+      // ============================================================================
+      // 🔥 DEBUG POINT 3: Before createAbsenceRequest call
+      // ============================================================================
+      logger.info({
+        userId,
+        type: data.type,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      }, '🔄 Calling createAbsenceRequest() with params');
 
       // Create absence request
       const request = createAbsenceRequest({
@@ -256,14 +288,31 @@ router.post(
         reason: data.reason,
       });
 
+      // ============================================================================
+      // 🔥 DEBUG POINT 4: After createAbsenceRequest success
+      // ============================================================================
+      logger.info({
+        requestId: request.id,
+        userId: request.userId,
+        type: request.type,
+        status: request.status,
+        days: request.days,
+      }, '✅ createAbsenceRequest() returned successfully');
+
+      // ============================================================================
+      // 🔥 DEBUG POINT 5: Notification steps
+      // ============================================================================
       // Notify admins about new absence request (only if employee created it)
       if (!isAdmin || (isAdmin && data.userId && data.userId !== req.session.user!.id)) {
+        logger.info({ userId, requestId: request.id }, '📧 Preparing notification...');
         // CRITICAL FIX: Get ACTUAL employee's name (not admin's name!)
         const employee = getUserById(userId);
         if (!employee) {
+          logger.error({ userId }, '❌ Employee not found for notification');
           throw new Error('Employee not found for notification');
         }
         const employeeName = `${employee.firstName} ${employee.lastName}`;
+        logger.info({ employeeName, type: request.type }, '📧 Sending notification to admins...');
         notifyAbsenceRequested(
           employeeName,
           request.type,
@@ -271,22 +320,43 @@ router.post(
           request.endDate,
           request.days
         );
+        logger.info('✅ Notification sent');
+      } else {
+        logger.info('⏭️  Skipping notification (admin created for self)');
       }
 
-      // Log audit
+      // ============================================================================
+      // 🔥 DEBUG POINT 6: Audit logging
+      // ============================================================================
+      logger.info({ requestId: request.id, userId: req.session.user!.id }, '📝 Logging audit entry...');
       logAudit(req.session.user!.id, 'create', 'absence_request', request.id, {
         type: request.type,
         startDate: request.startDate,
         endDate: request.endDate,
         days: request.days,
       });
+      logger.info('✅ Audit logged');
 
+      logger.info('🎉 POST /api/absences - SUCCESS 🎉');
       res.status(201).json({
         success: true,
         data: request,
         message: 'Absence request created successfully',
       });
     } catch (error) {
+      // ============================================================================
+      // 🔥 DEBUG POINT 7: Enhanced catch block with full error details
+      // ============================================================================
+      logger.error('❌❌❌ POST /api/absences - ERROR CAUGHT ❌❌❌');
+      logger.error({
+        err: error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        requestBody: req.body,
+        sessionUserId: req.session.user?.id,
+      }, '❌ Full error context');
+
       // Handle specific errors
       if (error instanceof Error) {
         if (
@@ -296,6 +366,7 @@ router.post(
           error.message.includes('Überschneidung') ||
           error.message.includes('existieren bereits Zeiterfassungen')
         ) {
+          logger.warn({ errorMessage: error.message }, '⚠️ Business logic validation error (400)');
           res.status(400).json({
             success: false,
             error: error.message,
@@ -304,6 +375,7 @@ router.post(
         }
       }
 
+      logger.error('❌ Unexpected error - returning 500');
       res.status(500).json({
         success: false,
         error: 'Failed to create absence request',
@@ -633,9 +705,18 @@ router.delete(
         return;
       }
 
+      // Enhanced error logging for debugging
+      logger.error({
+        err: error,
+        absenceId: req.params.id,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+      }, '❌ Failed to delete absence request');
+
       res.status(500).json({
         success: false,
-        error: 'Failed to delete absence request',
+        error: `Failed to delete absence request: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
   }
