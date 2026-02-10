@@ -1336,23 +1336,20 @@ function updateVacationTaken(userId: number, year: number, days: number): void {
 }
 
 /**
- * Increment pending vacation days (when request is created)
+ * FIXED: This function previously tried to update a non-existent 'pending' column.
+ *
+ * REASON: Pending vacation requests are NOT tracked in vacation_balance.
+ * Only APPROVED requests update the 'taken' column (via updateVacationTaken).
+ *
+ * When a pending request is created, there's NOTHING to update since it hasn't been
+ * approved yet. Only after approval does the 'taken' column get updated.
+ *
+ * Schema: vacation_balance only has: entitlement, carryover, taken, remaining(virtual)
  */
 function incrementVacationPending(userId: number, year: number, days: number): void {
-  // Ensure balance exists
-  let balance = getVacationBalance(userId, year);
-  if (!balance) {
-    balance = initializeVacationBalance(userId, year);
-  }
-
-  const query = `
-    UPDATE vacation_balance
-    SET pending = pending + ?
-    WHERE userId = ? AND year = ?
-  `;
-
-  db.prepare(query).run(days, userId, year);
-  logger.debug({ userId, year, days }, '✅ Incremented pending vacation days');
+  // No-op: Pending requests don't affect vacation_balance table
+  // Only approved requests update the 'taken' column
+  logger.debug({ userId, year, days }, '✅ Pending vacation request created (no balance update needed)');
 }
 
 /**
