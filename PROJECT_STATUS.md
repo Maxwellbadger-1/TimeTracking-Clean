@@ -51,11 +51,90 @@
 - ✅ Health Checks passed auf Port 3000 und 3001
 - ✅ Backups erstellt: 20260209_193325
 
-**Current Status:**
-- Production Server (Port 3000): ✅ Running with Shared DB
-- Staging Server (Port 3001): ✅ Running with Shared DB
-- Desktop App (localhost:1420): ✅ CORS fixed, can connect
-- Database: Shared DB (/home/ubuntu/database-shared.db) - 14 active users
+**Current Status (Updated 2026-02-10):**
+- Production Server - Blue (Port 3000): ✅ Running - /home/ubuntu/TimeTracking-BLUE
+- Staging Server - Green (Port 3001): ✅ Running - /home/ubuntu/TimeTracking-Staging
+- Desktop App (localhost:1420): ✅ Environment switching enabled
+- Database Architecture: 3-Tier (development.db, staging.db, production.db)
+
+---
+
+## 🔄 3-Tier Development Workflow (NEW - 2026-02-10)
+
+**Status:** ✅ FULLY OPERATIONAL
+
+### Environment Overview
+
+```
+Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
+  development.db         staging.db (prod copy)    production.db
+  Small dataset          Real production data       Live customer data
+```
+
+### What Changed
+
+**Previous Setup (Before 2026-02-10):**
+- ❌ Single shared database for both servers
+- ❌ No true staging environment
+- ❌ Bugs in development.db wouldn't surface until production
+
+**New Setup (After 2026-02-10):**
+- ✅ Three separate databases (development, staging, production)
+- ✅ Staging uses production data snapshot (weekly sync)
+- ✅ Desktop App can switch environments via `VITE_ENV`
+- ✅ Dual CI/CD pipelines (staging branch → Port 3001, main branch → Port 3000)
+- ✅ Weekly automatic DB sync (Production → Staging, Sundays 2:00 AM)
+
+### Infrastructure Details
+
+**Oracle Cloud Configuration:**
+- Firewall: Port 3000 (Production) + Port 3001 (Staging) open
+- PM2 Processes: `timetracking-server` (Blue) + `timetracking-staging` (Green)
+- Cron Job: Weekly DB sync script (`sync-prod-to-staging.sh`)
+
+**Files Created:**
+- `desktop/.env.development` - localhost:3000 config
+- `desktop/.env.staging` - Green Server:3001 config
+- `desktop/.env.production` - Blue Server:3000 config
+- `.github/workflows/deploy-staging.yml` - Staging deployment pipeline
+- `server/scripts/sync-prod-to-staging.sh` - Weekly DB sync
+- `DEVELOPMENT_WORKFLOW.md` - Comprehensive workflow guide
+
+### Usage
+
+**Desktop App Environment Switching:**
+```bash
+cd desktop
+
+# Development (localhost:3000)
+npm run dev
+
+# Staging (Green Server:3001 - real data!)
+VITE_ENV=staging npm run dev
+
+# Production (Blue Server:3000)
+VITE_ENV=production npm run dev
+```
+
+**Git Workflow:**
+```
+1. Feature development → feature/* branch
+2. Local testing → npm run dev (localhost)
+3. Merge to staging → git push origin staging
+4. Desktop testing → VITE_ENV=staging npm run dev
+5. Verify with real production data
+6. Merge to main → Auto-deploy to Blue Server
+```
+
+### Benefits
+
+- ✅ **Catch bugs early:** Test with real production data before deployment
+- ✅ **Migration safety:** Test migrations on production snapshot first
+- ✅ **Fast development:** Small local dataset for quick iteration
+- ✅ **Zero customer impact:** All testing happens on staging
+- ✅ **Professional workflow:** Matches industry standards (Dev → Staging → Prod)
+
+**Documentation:** See `DEVELOPMENT_WORKFLOW.md` for complete guide
 
 ---
 
