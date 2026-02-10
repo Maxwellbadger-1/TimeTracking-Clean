@@ -1,58 +1,99 @@
 # Environment Variables - Complete Guide
 
-**Centralized Configuration System for TimeTracking**
+**3-Tier Environment Configuration System for TimeTracking**
 
-## 📂 File Structure
+**Updated:** 2026-02-10 - Professional Development Workflow
+
+## 🎯 3-Tier Environment Overview
 
 ```
-.env                        # 🔐 MASTER CONFIG (gitignored, all secrets)
-.env.example                # 📄 Template for setup
-.env.ssh                    # SSH config (kept separate, also gitignored)
+Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
+  development.db          staging.db (prod copy)    production.db
+  Small dataset           Real production data       Live customer data
+```
 
+## 📂 File Structure (Updated 2026-02-10)
+
+```
 server/
-└── .env  (symlink → ../.env)
+├── .env.development         # Local development config
+└── .env.production          # Production server config (not in repo)
 
 desktop/
-└── .env.production  (symlink → ../.env)
+├── .env.development         # Desktop → localhost:3000
+├── .env.staging             # Desktop → Green Server:3001
+├── .env.production          # Desktop → Blue Server:3000
+└── .env                     # Active config (gitignored, user switches)
+
+.github/workflows/
+├── deploy-server.yml        # Production deployment (main branch)
+└── deploy-staging.yml       # Staging deployment (staging branch)
 ```
 
-**Key Concept:** ONE central `.env` file for ALL configurations!
+**Key Changes (2026-02-10):**
+- ❌ No more single central `.env` file
+- ✅ Separate configs per environment (development, staging, production)
+- ✅ Desktop App can switch environments via `VITE_ENV` variable
+- ✅ Server configs managed per deployment target
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Initial Setup
+### 1. Desktop App - Environment Switching
 
 ```bash
-# Copy template
-cp .env.example .env
+# Development (localhost:3000 - small dataset)
+cd desktop
+npm run dev                      # Uses .env.development (default)
+# OR explicitly:
+VITE_ENV=development npm run dev
 
-# Edit with your values
-nano .env  # or use any editor
+# Staging (Green Server:3001 - real production data)
+VITE_ENV=staging npm run dev
+
+# Production (Blue Server:3000 - live customer data)
+VITE_ENV=production npm run dev
+
+# Manual switching (alternative):
+cp .env.staging .env && npm run dev
 ```
 
-### 2. Required Values
+### 2. Server Development
 
-**MUST fill in:**
 ```bash
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx    # From https://github.com/settings/tokens
-SESSION_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx  # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-SSH_HOST=YOUR_SERVER_IP                  # Your production server IP
+# Local development server
+cd server
+npm run dev                      # Uses .env.development automatically
+# Runs on localhost:3000 with development.db
 ```
 
-### 3. Verify Setup
+### 3. Production Server Setup (Oracle Cloud)
 
+**Production (Blue Server - Port 3000):**
 ```bash
-# Check symlinks
-ls -la server/.env desktop/.env.production
+ssh ubuntu@129.159.8.19
+cd /home/ubuntu/TimeTracking-Clean/server
 
-# Should show:
-# server/.env -> ../.env
-# desktop/.env.production -> ../.env
+# Environment managed by PM2:
+NODE_ENV=production
+PORT=3000
+TZ=Europe/Berlin
+DATABASE_PATH=/home/ubuntu/database-production.db
+SESSION_SECRET=<secure-random>
+```
 
-# Test server can read config
-cd server && node -e "require('dotenv').config(); console.log('PORT:', process.env.PORT)"
+**Staging (Green Server - Port 3001):**
+```bash
+ssh ubuntu@129.159.8.19
+cd /home/ubuntu/TimeTracking-Staging/server
+
+# Environment managed by PM2:
+NODE_ENV=staging
+PORT=3001
+TZ=Europe/Berlin
+DATABASE_PATH=/home/ubuntu/database-staging.db
+SESSION_SECRET=<secure-random>
 ```
 
 ---

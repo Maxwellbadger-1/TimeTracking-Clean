@@ -1212,7 +1212,9 @@ graph TD
 
 ## 7. Deployment View
 
-### 7.1 Infrastructure Overview
+### 7.1 Infrastructure Overview - 3-Tier Environment
+
+**Updated:** 2026-02-10 - Professional Development Workflow
 
 ```mermaid
 graph TB
@@ -1222,26 +1224,56 @@ graph TB
         A3[Linux Desktop]
     end
 
-    subgraph "Internet"
-        B[HTTPS/WSS]
+    subgraph "Development Environment"
+        DEV1[localhost:3000]
+        DEV2[development.db]
+        DEV3[Small Test Dataset]
     end
 
-    subgraph "Oracle Cloud Free Tier - Frankfurt"
-        C[VM.Standard.E2.1.Micro]
-        D[Ubuntu 22.04 LTS]
-        E[Node.js 20 + PM2]
-        F[SQLite Database]
-        G[Backup Storage]
+    subgraph "Oracle Cloud - Staging Green Server"
+        STG1[Port 3001]
+        STG2[staging.db]
+        STG3[Production Snapshot]
+        STG4[Weekly Sync from Prod]
     end
 
-    A1 --> B
-    A2 --> B
-    A3 --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
+    subgraph "Oracle Cloud - Production Blue Server"
+        PROD1[Port 3000]
+        PROD2[production.db]
+        PROD3[Live Customer Data]
+        PROD4[Backup Storage]
+    end
+
+    A1 -->|Development| DEV1
+    A2 -->|Development| DEV1
+    A3 -->|Development| DEV1
+
+    A1 -->|Staging Testing| STG1
+    A2 -->|Staging Testing| STG1
+    A3 -->|Staging Testing| STG1
+
+    A1 -->|Production| PROD1
+    A2 -->|Production| PROD1
+    A3 -->|Production| PROD1
+
+    DEV1 --> DEV2
+    DEV2 --> DEV3
+
+    STG1 --> STG2
+    STG2 --> STG3
+    PROD2 -->|Weekly Sync| STG2
+
+    PROD1 --> PROD2
+    PROD2 --> PROD3
+    PROD3 --> PROD4
+```
+
+**Environment Flow:**
+```
+Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
+  development.db         staging.db (prod copy)     production.db
+  Small dataset          Real production data       Live customer data
+  Fast iteration         Pre-prod testing           Zero downtime
 ```
 
 ---
@@ -1261,14 +1293,42 @@ graph TB
 - **VCN:** Default Virtual Cloud Network
 - **Subnet:** Public subnet (0.0.0.0/0 internet access)
 - **Security List:**
-  - Ingress: Port 22 (SSH), Port 3000 (API)
+  - Ingress: Port 22 (SSH), Port 3000 (Production), Port 3001 (Staging)
   - Egress: All protocols, all ports (0.0.0.0/0)
 
 **Firewall (UFW):**
 ```bash
 ufw allow 22/tcp    # SSH
-ufw allow 3000/tcp  # API Server
+ufw allow 3000/tcp  # Production API Server (Blue)
+ufw allow 3001/tcp  # Staging API Server (Green)
 ufw enable
+```
+
+**Server Directories:**
+```bash
+/home/ubuntu/
+├── TimeTracking-Clean/        # Production (Blue Server)
+│   ├── server/
+│   └── database-production.db
+├── TimeTracking-Staging/      # Staging (Green Server)
+│   ├── server/
+│   └── database-staging.db
+├── backups/                   # DB Backups
+│   ├── database-production.backup.*.db
+│   └── staging.before-sync.*.db
+└── logs/
+    └── db-sync.log            # Weekly sync logs
+```
+
+**PM2 Processes:**
+```bash
+pm2 list
+┌─────┬────────────────────────┬─────────┬──────┐
+│ id  │ name                   │ status  │ port │
+├─────┼────────────────────────┼─────────┼──────┤
+│ 7   │ timetracking-server    │ online  │ 3000 │ ← Production (Blue)
+│ 8   │ timetracking-staging   │ online  │ 3001 │ ← Staging (Green)
+└─────┴────────────────────────┴─────────┴──────┘
 ```
 
 ---
@@ -1310,35 +1370,114 @@ Node.js 20.19.5 LTS (via NodeSource PPA)
 
 ---
 
-### 7.4 CI/CD Pipeline (GitHub Actions)
+### 7.4 CI/CD Pipeline (GitHub Actions) - Dual Deployment
+
+**Updated:** 2026-02-10 - Separate Pipelines for Staging & Production
 
 ```mermaid
-graph LR
-    A[Git Push] -->|Trigger| B[GitHub Actions]
-    B --> C[Type Check]
-    C --> D[Security Audit]
-    D --> E[SSH to Oracle]
-    E --> F[Database Backup]
-    F --> G[npm ci & build]
-    G --> H[PM2 Reload]
-    H --> I[Health Check]
+graph TB
+    subgraph "Git Branches"
+        A1[staging branch]
+        A2[main branch]
+    end
+
+    subgraph "GitHub Actions"
+        B1[deploy-staging.yml]
+        B2[deploy-server.yml]
+    end
+
+    subgraph "Oracle Cloud"
+        C1[Green Server :3001]
+        C2[Blue Server :3000]
+    end
+
+    A1 -->|Push to staging| B1
+    B1 --> C1
+    A2 -->|Push to main| B2
+    B2 --> C2
 ```
+
+#### 7.4.1 Production Deployment (Blue Server)
 
 **Workflow File:** `.github/workflows/deploy-server.yml`
 
+**Trigger:** Push to `main` branch (only if `server/**` changed)
+
 **Steps:**
-1. **Trigger:** Push to `main` branch (only if `server/**` changed)
-2. **Type Check:** `npx tsc --noEmit` (fail fast on TypeScript errors)
-3. **Security Audit:** `npm audit --audit-level=high` (check dependencies)
-4. **SSH Connection:** Connect to Oracle Cloud (SSH key from GitHub Secrets)
-5. **Database Backup:** Run backup script before deployment
+1. **Type Check:** `npx tsc --noEmit` (fail fast on TypeScript errors)
+2. **Security Audit:** `npm audit --audit-level=high` (check dependencies)
+3. **SSH Connection:** Connect to Oracle Cloud (SSH key from GitHub Secrets)
+4. **Database Backup:** Run backup script before deployment
+5. **Navigate:** `cd /home/ubuntu/TimeTracking-Clean/server`
 6. **Install & Build:** `npm ci && npm run build`
 7. **PM2 Reload:** `pm2 reload timetracking-server` (zero-downtime)
 8. **Health Check:** `curl http://localhost:3000/api/health`
 
 **Deployment Time:** ~2-3 minutes
 
-**Zero-Downtime:** PM2 cluster mode keeps old process running until new one is ready.
+**Target:**
+- Directory: `/home/ubuntu/TimeTracking-Clean`
+- PM2 Process: `timetracking-server`
+- Port: 3000
+- Database: `/home/ubuntu/database-production.db`
+
+#### 7.4.2 Staging Deployment (Green Server)
+
+**Workflow File:** `.github/workflows/deploy-staging.yml`
+
+**Trigger:** Push to `staging` branch (only if `server/**` changed)
+
+**Steps:**
+1. **Type Check:** `npx tsc --noEmit`
+2. **Security Audit:** `npm audit --audit-level=high`
+3. **SSH Connection:** Connect to Oracle Cloud
+4. **Database Backup:** Backup staging.db before deployment
+5. **Navigate:** `cd /home/ubuntu/TimeTracking-Staging/server`
+6. **Install & Build:** `npm ci && npm run build`
+7. **PM2 Reload:** `pm2 reload timetracking-staging` (zero-downtime)
+8. **Health Check:** `curl http://localhost:3001/api/health`
+
+**Deployment Time:** ~2-3 minutes
+
+**Target:**
+- Directory: `/home/ubuntu/TimeTracking-Staging`
+- PM2 Process: `timetracking-staging`
+- Port: 3001
+- Database: `/home/ubuntu/database-staging.db`
+
+**Environment Variables:**
+```bash
+NODE_ENV=staging
+PORT=3001
+TZ=Europe/Berlin
+SESSION_SECRET=<secure-random>
+DATABASE_PATH=/home/ubuntu/database-staging.db
+```
+
+#### 7.4.3 Git Workflow Strategy
+
+```
+feature/xyz      →     staging         →        main
+   ↓                      ↓                       ↓
+Development          Green :3001             Blue :3000
+localhost:3000       staging.db          production.db
+(small dataset)   (production copy)    (live customer data)
+```
+
+**Development Cycle:**
+1. Create feature branch from `main`
+2. Develop locally with development.db
+3. Merge to `staging` branch → Auto-deploy to Green Server
+4. Test with Desktop App: `VITE_ENV=staging npm run dev`
+5. Verify with real production data (staging.db)
+6. If OK: Merge `staging` to `main` → Auto-deploy to Blue Server
+7. Production health check + user testing
+
+**Benefits:**
+- Bugs caught with real data before production
+- Migrations tested on production snapshot
+- Zero customer impact during testing
+- Professional workflow matching industry standards
 
 ---
 
