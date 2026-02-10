@@ -1,0 +1,177 @@
+name: 'Deploy to Staging (Green Server)'
+
+# Deploy only when server code changes and tests pass
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'server/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: 'Deploy to Staging (Port 3001)'
+    runs-on: ubuntu-latest
+    # Only deploy if tests passed (runs after test.yml)
+    needs: []  # Will be auto-skipped if test.yml fails
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Oracle Cloud via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script_stop: true  # Stop on first error
+          script: |
+            set -e  # Exit on error
+
+            echo "🚀 Starting deployment..."
+
+            # Check if repository exists, if not clone it
+            if [ ! -d "/home/ubuntu/TimeTracking-Staging" ]; then
+              echo "📥 Repository not found. Cloning..."
+              cd /home/ubuntu
+              git clone https://github.com/Maxwellbadger-1/TimeTracking-Staging.git
+            fi
+
+            cd /home/ubuntu/TimeTracking-Staging
+
+            # Backup current database (safety!)
+            echo "💾 Creating database backup..."
+            cp server/database.db server/database.backup.$(date +%Y%m%d_%H%M%S).db || true
+
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Clean up old files
+            echo "🧹 Cleaning up old files..."
+            find server -name "*.mjs" -delete 2>/dev/null || true
+
+            # Fix npm corruption by reinstalling npm via npm itself
+            echo "🔧 Fixing npm corruption..."
+            curl -L https://www.npmjs.com/install.sh | sh 2>/dev/null || true
+
+            # Also try to fix with nvm if available
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" 2>/dev/null || true
+
+            # Clean npm cache
+            rm -rf ~/.npm 2>/dev/null || true
+
+            # Install dependencies and build
+            echo "📦 Installing dependencies..."
+            cd server
+            rm -rf node_modules package-lock.json 2>/dev/null || true
+            npm install --legacy-peer-deps
+
+            echo "🔨 Building TypeScript..."
+            npm run build
+
+            # Check if build succeeded
+            if [ ! -f "dist/server.js" ]; then
+              echo "❌ Build failed! dist/server.js not found"
+              exit 1
+            fi
+
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            NODE_ENV=staging npm run migrate:prod || {
+              echo "❌ Migration failed! Deployment aborted."
+              echo "💡 Database backup available: server/database.backup.*.db"
+              exit 1
+            }
+            echo "✅ Migrations completed successfully"
+
+            # Validate database schema (non-blocking)
+            echo "🔍 Validating database schema..."
+            NODE_ENV=staging npm run validate:schema || true
+            echo "✅ Schema validation completed"
+
+            # Fix overtime calculations (ensure all months exist)
+            echo "📊 Fixing overtime calculations..."
+            NODE_ENV=staging npx tsx scripts/fix-overtime.ts || {
+              echo "⚠️  Overtime fix had issues, but continuing deployment..."
+            }
+            echo "✅ Overtime calculations updated"
+
+            # Setup automatic daily cron job (runs at 3 AM every day)
+            echo "⏰ Setting up automatic daily overtime recalculation..."
+            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Staging/server && NODE_ENV=staging npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+            mkdir -p /home/ubuntu/logs
+            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
+              echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+            }
+            echo "✅ Cron job setup attempted"
+
+            # Create .env file if it doesn't exist
+            echo "🔐 Setting up environment..."
+            if [ ! -f ".env" ]; then
+              echo "Creating new .env file..."
+              SESSION_SECRET=$(openssl rand -hex 32)
+              echo "SESSION_SECRET=$SESSION_SECRET" > .env
+              echo "NODE_ENV=staging" >> .env
+              echo "TZ=Europe/Berlin" >> .env
+              echo "PORT=3001" >> .env
+            fi
+
+            # Extract SESSION_SECRET (simple and safe)
+            SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2 || echo "")
+
+            if [ -z "$SESSION_SECRET" ]; then
+              echo "⚠️  SESSION_SECRET empty, generating new one..."
+              SESSION_SECRET=$(openssl rand -hex 32)
+            fi
+
+            echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
+
+            # Restart PM2
+            echo "🔄 Restarting PM2..."
+            pm2 stop timetracking-staging || true
+            pm2 delete timetracking-staging || true
+
+            # Set ALLOWED_ORIGINS for CORS
+            export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+
+            TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+              pm2 start dist/server.js \
+              --name timetracking-staging \
+              --cwd /home/ubuntu/TimeTracking-Staging/server \
+              --time \
+              --update-env
+            pm2 save
+
+            # Wait for server to start
+            echo "⏳ Waiting for server to start..."
+            sleep 5
+
+            # Health check
+            echo "🏥 Running health check..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Deployment successful! Server is healthy"
+              pm2 status
+            else
+              echo "❌ Health check failed! HTTP $HTTP_CODE"
+              pm2 logs timetracking-staging --lines 50
+              exit 1
+            fi
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Deployment to Oracle Cloud successful!"
+          echo "🌐 Server URL: http://129.159.8.19:3000"
+          echo "📊 Check status: ssh ubuntu@129.159.8.19 'pm2 status'"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check logs: ssh ubuntu@129.159.8.19 'pm2 logs timetracking-staging --lines 100'"

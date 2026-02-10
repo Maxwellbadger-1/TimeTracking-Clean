@@ -9,6 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Sprint Week 06-10/2026
 
+### ✅ Fixed (2026-02-10)
+
+#### Absence Management - incrementVacationPending / decrementVacationPending Bugs (CRITICAL)
+**Issue:** 500 errors when creating or deleting vacation requests despite data being saved to database
+
+**User Observation:** "ich bekomme die fehlermeldung. doch wenn ich reloade sehe ich den urlaub doch als pending. also gehts doch durch zur db."
+
+**Timeline:**
+1. User creates/deletes vacation request via Desktop App
+2. DB INSERT/DELETE succeeds in `absence_requests` table
+3. Server calls `incrementVacationPending()` or `decrementVacationPending()`
+4. SQL Error: "no such column: pending"
+5. Server returns 500 error to frontend
+6. Frontend shows error message
+7. BUT: Data is actually in database (visible after page reload)
+
+**Root Cause:**
+Both functions tried to UPDATE non-existent `pending` column in `vacation_balance` table:
+```sql
+UPDATE vacation_balance
+SET pending = pending + ?  -- ❌ Column doesn't exist!
+WHERE userId = ? AND year = ?
+```
+
+**Database Schema:**
+- `vacation_balance` only has: entitlement, carryover, taken, remaining (VIRTUAL)
+- NO `pending` column exists
+- Pending requests are stored in `absence_requests` with `status='pending'`
+- Only APPROVED requests update `vacation_balance.taken` column
+
+**Fix Applied:**
+Converted both functions to no-ops with comprehensive documentation:
+- `incrementVacationPending()` (Line 1341-1356): Pending requests don't affect vacation_balance
+- `decrementVacationPending()` (Line 1274-1289): Same pattern (already fixed earlier)
+- Only approval operations via `updateVacationTaken()` modify the balance
+
+**Files Changed:**
+- `server/src/services/absenceService.ts` (Lines 1274-1289, 1341-1356)
+
+**Result:**
+- ✅ Absence creation returns 201 success (no error message)
+- ✅ Absence deletion returns 204 success (no error message)
+- ✅ Data immediately visible in UI (no reload needed)
+- ✅ User confirmed: "jetzt funktioniert es"
+
+**Commit:** f1f37bb
+
+**Pattern Recognition:** Copy-paste bug from similar function led to identical issue in both increment/decrement operations.
+
+---
+
 ### ✅ Fixed (2026-02-09)
 
 #### Overtime Transaction Type Validation Error (20:25 CET)

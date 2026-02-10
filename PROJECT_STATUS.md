@@ -1,8 +1,8 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-02-08
-**Version:** v1.6.3 (in deployment)
-**Status:** 🟡 Deployment in Progress - Database Migration Fix
+**Last Updated:** 2026-02-10
+**Version:** v1.6.6 (deployed)
+**Status:** 🟢 Healthy - Absence Management Fix Deployed
 
 ---
 
