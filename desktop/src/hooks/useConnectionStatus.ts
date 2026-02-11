@@ -53,7 +53,8 @@ export function useConnectionStatus(): ConnectionState {
     }
 
     const checkServerHealth = async () => {
-      const healthUrl = `${apiUrl}/api/health`;
+      // Note: apiUrl already contains '/api', so we only append '/health'
+      const healthUrl = `${apiUrl}/health`;
 
       try {
         const response = await universalFetch(healthUrl, {
