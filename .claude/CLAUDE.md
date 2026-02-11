@@ -1,7 +1,7 @@
 # TimeTracking System - AI Development Guidelines
 
-**Version:** 2.0
-**Last Updated:** 2026-01-15
+**Version:** 2.2
+**Last Updated:** 2026-02-11
 **Purpose:** AI-friendly development guidelines for efficient context loading
 
 ---
@@ -606,6 +606,90 @@ curl -s http://129.159.8.19:3000/api/health | jq
 6. Test: All 19 calculation factors (siehe Validation Checklist)
 ```
 
+## Production Deployment (3-Tier Workflow)
+
+**WICHTIG:** Professioneller Development → Staging → Production Workflow!
+
+```bash
+# ═══════════════════════════════════════
+# 🎯 COMPLETE DEPLOYMENT WORKFLOW
+# ═══════════════════════════════════════
+
+# ─────────────────────────────────────
+# TIER 1: Development (Local)
+# ─────────────────────────────────────
+1. Develop Feature auf lokalem Branch
+   cd server && npm run dev  # localhost:3000, development.db
+
+2. Commit zu 'staging' Branch
+   git checkout staging
+   git add . && git commit -m "feat: New feature"
+   git push origin staging
+
+# ─────────────────────────────────────
+# TIER 2: Staging (Green Server)
+# ─────────────────────────────────────
+3. GitHub Actions deployed automatisch auf Green Server (Port 3001)
+   Workflow: 'Deploy to Staging (Green Server)'
+
+4. Test auf Green Server via Desktop App
+   /green && npm run dev  # Desktop App → Green Server
+
+5. Manuelle Tests durchführen
+   - Feature testen (Happy Path + Edge Cases)
+   - Database Migrations prüfen
+   - Performance checken
+   - Error Handling verifizieren
+
+6. OPTIONAL: Green DB Sync (wenn Production Daten benötigt)
+   /sync-green  # Kopiert Blue DB → Green DB
+
+# ─────────────────────────────────────
+# TIER 3: Production (Blue Server)
+# ─────────────────────────────────────
+7. Wenn alles getestet → Production Deployment
+   /promote-to-prod  # Merged staging → main, triggert Auto-Deploy
+
+   Was passiert:
+   - Merge staging → main (Git)
+   - GitHub Actions builds & deploys (Port 3000)
+   - Database Migrations automatisch
+   - Health Check nach Deployment
+   - ~30s Downtime (PM2 Restart)
+
+8. Post-Deployment Verification
+   curl http://129.159.8.19:3000/api/health
+   # Desktop App testen (/dev)
+   # Monitor logs: pm2 logs timetracking-server
+
+# ─────────────────────────────────────
+# EMERGENCY: Production Rollback
+# ─────────────────────────────────────
+9. FALLS kritischer Bug auf Production
+   /rollback-prod  # Reverted letzten Commit, Auto-Deploy
+
+   Was passiert:
+   - Git revert HEAD
+   - GitHub Actions deployed Rollback
+   - Optional: Database Backup Restore
+   - Health Check Verification
+```
+
+**Best Practices:**
+- ✅ NIEMALS direkt auf `main` pushen → Immer über `staging`!
+- ✅ IMMER auf Green Server testen bevor `/promote-to-prod`!
+- ✅ Database Migrations MÜSSEN backward-compatible sein!
+- ✅ Nach Deployment IMMER CHANGELOG.md updaten!
+
+**Command Reference:**
+- `/dev` - Desktop App → localhost:3000 (Development)
+- `/green` - Desktop App → Green Server Port 3001 (Staging)
+- `/sync-green` - Sync Blue DB → Green DB (Production Data für Tests)
+- `/promote-to-prod` - Deploy Staging Code → Production (Code Deployment)
+- `/rollback-prod` - Emergency Rollback Production (bei kritischen Bugs)
+
+**Details:** `.claude/commands/*.md` für jeden Command
+
 ## Release (Desktop App)
 
 ```bash
@@ -697,6 +781,121 @@ curl -s http://129.159.8.19:3000/api/health | jq
 - ❌ Browser APIs nutzen → Tauri APIs verwenden
 - ❌ `fetch()` direkt → `universalFetch` nutzen!
 - ❌ localStorage für sensible Daten → Tauri Secure Storage
+
+## Environment Switching (CRITICAL!)
+- ❌ **NIEMALS** `export VITE_API_URL=...` verwenden → Shell variable overrides ALL .env files!
+- ❌ **NIEMALS** `VITE_ENV=staging npm run dev` verwenden → Deprecated approach
+- ❌ **NIEMALS** Manuell .env files editieren → Fehleranfällig, inkonsistent
+- ✅ **IMMER** `/dev` slash command nutzen für localhost:3000
+- ✅ **IMMER** `/green` slash command nutzen für Green Server Port 3001
+- ✅ **IMMER** `/sync-green` für Green DB Sync mit Production (Blue → Green)
+- ✅ **IMMER** `/promote-to-prod` für Production Deployment (Staging Code → Production)
+- ✅ **NUR EMERGENCY** `/rollback-prod` für Production Rollback bei kritischen Fehlern
+
+**Warum kritisch?**
+```
+Vite Priority: Shell vars > .env.[mode].local > .env.[mode] > .env.local > .env
+                ↑ HIGHEST - Overrides everything!
+```
+
+**Root Cause der Bug (2026-02-11):**
+- User hatte `export VITE_API_URL=http://localhost:3000/api` in Shell
+- Overrode alle .env files → Desktop App connected to wrong server
+- Slash commands haben jetzt automatischen Check!
+
+**Troubleshooting:**
+```bash
+# Check für shell variable override:
+printenv | grep VITE_API_URL
+
+# If found → Problem! Fix:
+unset VITE_API_URL
+
+# Then use slash command:
+/dev  # or /green
+```
+
+**Details:** ENV.md → Section "Problem: Desktop app connects to wrong server"
+
+## 🟢 Green Server (Staging) Deployment & Troubleshooting (CRITICAL!)
+
+### Problem: Server lädt .env files NICHT automatisch!
+
+**Root Cause:**
+- ❌ Code hat **KEIN** `import 'dotenv/config'` in server.ts
+- ❌ `.env` files werden komplett ignoriert
+- ❌ `getDatabasePath()` ignoriert `DATABASE_PATH` Environment Variable
+- ✅ Nur ENV vars als **PREFIX** zum PM2 Command funktionieren
+
+**Korrekter PM2 Start Command:**
+```bash
+TZ=Europe/Berlin NODE_ENV=staging DATABASE_PATH=/home/ubuntu/database-staging.db PORT=3001 SESSION_SECRET=$SECRET \
+  pm2 start dist/server.js \
+  --name timetracking-staging \
+  --cwd /home/ubuntu/TimeTracking-Staging/server \
+  --time \
+  --update-env
+
+pm2 save
+```
+
+**DATABASE_PATH Environment Variable (KRITISCH!):**
+- `getDatabasePath()` in `server/src/config/database.ts` prüft standardmäßig nur `NODE_ENV`
+- **Fix implementiert (2026-02-11):** Check `process.env.DATABASE_PATH` BEFORE NODE_ENV logic
+- Ohne Patch: Server lädt falsche Database (`development.db` statt `database-staging.db`)
+- Resultat: 500 Errors mit "no such column: position" (alte DB ohne Migrations!)
+
+### 5-Step Debugging Workflow
+
+**Wenn Green Server Probleme hat:**
+
+```bash
+# Step 1: PM2 Status prüfen
+pm2 list
+# Erwartung: Status = "online" (NICHT "errored" oder "stopped")
+
+# Step 2: Welche Database ist offen?
+PM2_PID=$(pgrep -f 'timetracking-staging' | head -1)
+lsof -p $PM2_PID 2>/dev/null | grep '.db'
+# Erwartung: /home/ubuntu/database-staging.db (NICHT development.db!)
+
+# Step 3: Environment Variables gesetzt?
+pm2 env <ID>
+# Erwartung: DATABASE_PATH=/home/ubuntu/database-staging.db, NODE_ENV=staging, PORT=3001
+
+# Step 4: Logs prüfen
+pm2 logs timetracking-staging --lines 50
+# Erwartung: "env":"staging" (NICHT "development"!)
+# Erwartung: "Listening on http://0.0.0.0:3001" (NICHT 3000!)
+
+# Step 5: Health Check
+curl -s http://localhost:3001/api/health
+# Erwartung: {"status":"ok", ...}
+```
+
+### Häufige Fehlerquellen
+
+1. **Server nutzt development.db statt staging.db**
+   - Symptom: 500 Errors "no such column: position"
+   - Fix: `DATABASE_PATH=/home/ubuntu/database-staging.db` als ENV var setzen
+
+2. **Server startet auf Port 3000 statt 3001**
+   - Symptom: "EADDRINUSE" Error (Port conflict mit Blue Server)
+   - Fix: `PORT=3001` als ENV var setzen
+
+3. **Server crasht sofort (↺ > 0 restarts)**
+   - Symptom: PM2 zeigt "errored" oder hohe restart count
+   - Check: `pm2 logs timetracking-staging --err --lines 100`
+   - Häufig: Database path falsch oder Port blockiert
+
+4. **ENV vars nicht übernommen**
+   - Symptom: `pm2 env <ID>` zeigt DATABASE_PATH nicht
+   - Fix: Neu starten mit ENV vars als **PREFIX** (nicht --env flag!)
+
+5. **Health Check 404 Error**
+   - Symptom: Desktop App zeigt `/api/api/health` statt `/api/health`
+   - Fix: Frontend bug in `useConnectionStatus.ts` (doppeltes /api)
+   - Fixed: 2026-02-11
 
 ## Datumsberechnungen (CRITICAL!)
 
@@ -850,6 +1049,11 @@ scripts/                       # Deployment & Utility Scripts
 npm run dev                    # Start Server (in server/)
 npm run dev                    # Start Desktop App (in desktop/)
 
+# Environment Switching (Desktop App)
+/dev                           # Switch to localhost:3000 (with shell var check!)
+/green                         # Switch to Green Server Port 3001 (with connectivity test!)
+/sync-green                    # Sync Green DB with Production (manual backup + sync)
+
 # TypeScript Check
 npx tsc --noEmit              # Check TS ohne Build
 
@@ -970,12 +1174,20 @@ git show HEAD~1:.claude/CLAUDE.md > .claude/CLAUDE.md
 
 ---
 
-**Version:** 2.1 (Overtime System Dokumentation)
-**Lines:** ~840 (v2.0: 480 lines, +75% für Overtime Details)
-**Last Updated:** 2026-01-24
+**Version:** 2.2 (Production Deployment Workflow)
+**Lines:** ~1180 (+340 lines, Professional 3-Tier Deployment)
+**Last Updated:** 2026-02-11
 **Status:** ✅ AKTIV
 
 **Changelog:**
+- v2.2 (2026-02-11): Production Deployment Workflow (3-Tier System)
+  - Added: Complete Production Deployment Workflow Section
+  - Added: `/promote-to-prod` Command (Staging → Production Code Deployment)
+  - Added: `/rollback-prod` Command (Emergency Production Rollback)
+  - Updated: Environment Switching Section (3 neue Commands)
+  - Documented: Development → Staging → Production Workflow
+  - Industry Best Practice: Git-based Code Deployment (nicht DB Sync!)
+  - Safety Features: Rollback, Health Checks, User Confirmation
 - v2.1 (2026-01-24): Overtime System Architecture & Debugging Tools
   - Added: Dual Calculation System Warning
   - Added: Timezone Bug Locations & Fixes

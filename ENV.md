@@ -42,22 +42,40 @@ desktop/
 
 ### 1. Desktop App - Environment Switching
 
+**RECOMMENDED: Use Slash Commands (Automated Setup)**
 ```bash
-# Development (localhost:3000 - small dataset)
 cd desktop
-npm run dev                      # Uses .env.development (default)
-# OR explicitly:
-VITE_ENV=development npm run dev
+
+# Development (localhost:3000 - small dataset)
+/dev && npm run dev              # Slash command (checks for shell variable!)
 
 # Staging (Green Server:3001 - real production data)
-VITE_ENV=staging npm run dev
+/green && npm run dev            # Slash command (tests connectivity!)
 
-# Production (Blue Server:3000 - live customer data)
-VITE_ENV=production npm run dev
-
-# Manual switching (alternative):
-cp .env.staging .env && npm run dev
+# Manual Sync Green DB with Production (when needed)
+/sync-green                      # Creates backup, syncs, restarts server
 ```
+
+**Alternative: Manual .env Management (NOT recommended)**
+```bash
+# Development
+npm run dev                      # Uses .env.development (default)
+
+# Staging (Green Server)
+cp .env.staging .env && npm run dev
+
+# ⚠️ WARNING: This approach is error-prone!
+# Shell environment variables can override .env files!
+# Use slash commands instead.
+```
+
+**Why Slash Commands?**
+- ✅ Automatic check for shell variable overrides (prevents common bug!)
+- ✅ Connectivity test (Green Server health check)
+- ✅ Consistent setup (no manual .env editing)
+- ✅ Documented in slash command files (`.claude/commands/`)
+
+**See also:** `.claude/commands/dev.md`, `.claude/commands/green.md`, `.claude/commands/sync-green.md`
 
 ### 2. Server Development
 
@@ -88,13 +106,85 @@ SESSION_SECRET=<secure-random>
 ssh ubuntu@129.159.8.19
 cd /home/ubuntu/TimeTracking-Staging/server
 
-# Environment managed by PM2:
+# Environment managed by PM2 (CRITICAL: Set as PREFIX, not via .env!)
 NODE_ENV=staging
 PORT=3001
 TZ=Europe/Berlin
-DATABASE_PATH=/home/ubuntu/database-staging.db
+DATABASE_PATH=/home/ubuntu/database-staging.db  # REQUIRED! See troubleshooting below
 SESSION_SECRET=<secure-random>
 ```
+
+**⚠️ Green Server Critical Notes:**
+
+1. **DATABASE_PATH is REQUIRED:**
+   - Code does NOT auto-load .env files (no `import 'dotenv/config'`)
+   - `getDatabasePath()` checks `NODE_ENV` but `staging` ≠ `production`
+   - Without explicit `DATABASE_PATH`: Server loads `development.db` ❌
+   - Result: 500 Errors "no such column: position" (old DB without migrations)
+
+2. **Environment Variables MUST be PREFIX to PM2 command:**
+   ```bash
+   # ✅ CORRECT (works):
+   TZ=Europe/Berlin NODE_ENV=staging DATABASE_PATH=/home/ubuntu/database-staging.db PORT=3001 \
+     pm2 start dist/server.js --name timetracking-staging --time --update-env
+
+   # ❌ WRONG (doesn't work):
+   pm2 start dist/server.js --env staging  # Ignores .env files!
+   ```
+
+3. **Complete PM2 Start Template:**
+   ```bash
+   # Extract SESSION_SECRET from .env
+   SESSION_SECRET=$(grep '^SESSION_SECRET=' .env | cut -d= -f2)
+
+   # Start with ALL env vars as prefix
+   TZ=Europe/Berlin \
+   NODE_ENV=staging \
+   DATABASE_PATH=/home/ubuntu/database-staging.db \
+   PORT=3001 \
+   SESSION_SECRET=$SESSION_SECRET \
+     pm2 start dist/server.js \
+     --name timetracking-staging \
+     --cwd /home/ubuntu/TimeTracking-Staging/server \
+     --time \
+     --update-env
+
+   pm2 save
+   ```
+
+4. **Troubleshooting Checklist:**
+   ```bash
+   # ☐ PM2 Status = "online" (not "errored")
+   pm2 list
+
+   # ☐ Correct Database loaded
+   PM2_PID=$(pgrep -f 'timetracking-staging' | head -1)
+   lsof -p $PM2_PID | grep '.db'
+   # Expected: /home/ubuntu/database-staging.db (NOT development.db!)
+
+   # ☐ Environment Variables set
+   pm2 env <ID> | grep -E '(DATABASE_PATH|NODE_ENV|PORT)'
+   # Expected: DATABASE_PATH=/home/ubuntu/database-staging.db
+
+   # ☐ Logs show correct environment
+   pm2 logs timetracking-staging --lines 20
+   # Expected: "env":"staging", "Listening on http://0.0.0.0:3001"
+
+   # ☐ Health Check passes
+   curl http://localhost:3001/api/health
+   # Expected: {"status":"ok", ...}
+   ```
+
+5. **Common Issues & Fixes:**
+   - **500 Errors:** Wrong DB loaded → Set `DATABASE_PATH` explicitly
+   - **Port Conflict (EADDRINUSE):** Server tries 3000 → Set `PORT=3001`
+   - **Crash Loop:** Check `pm2 logs timetracking-staging --err --lines 100`
+
+**See also:**
+- CLAUDE.md → Section "Green Server (Staging) Deployment & Troubleshooting"
+- ARCHITECTURE.md → Section 7.3 "Green Server (Staging) Architecture"
+- `.claude/commands/green.md` - Desktop App switch to Green Server
+- `.claude/commands/sync-green.md` - Sync Blue DB → Green DB
 
 ---
 
@@ -392,6 +482,65 @@ curl http://localhost:3000/api/health
 # If server not running:
 ./scripts/dev/start.sh
 ```
+
+---
+
+### Problem: Desktop app connects to wrong server (shell variable override)
+
+**Symptom:** Desktop App connects to wrong API server despite correct .env files
+
+**Root Cause:** Shell environment variable `VITE_API_URL` overrides ALL .env files!
+
+**Vite's Priority (Highest → Lowest):**
+```
+Shell environment variables  (HIGHEST - overrides everything!)
+  ↓
+.env.[mode].local
+  ↓
+.env.[mode]
+  ↓
+.env.local
+  ↓
+.env  (LOWEST)
+```
+
+**Diagnosis:**
+```bash
+# Check for shell environment variable:
+printenv | grep VITE_API_URL
+
+# If output shows anything → That's the problem!
+# Example problematic output:
+# VITE_API_URL=http://localhost:3000/api
+```
+
+**Solution:**
+```bash
+# Step 1: Unset the shell variable
+unset VITE_API_URL
+
+# Step 2: Verify it's gone
+printenv | grep VITE_API_URL
+# Should show nothing
+
+# Step 3: Use slash commands (RECOMMENDED)
+cd desktop
+/dev      # For localhost:3000
+/green    # For Green Server Port 3001
+
+# Step 4: Restart Desktop App
+npm run dev
+```
+
+**Prevention:**
+- ❌ **NEVER** use: `export VITE_API_URL=...`
+- ✅ **ALWAYS** use: `/dev` or `/green` slash commands
+- ✅ **OR** manually edit `.env.development` file
+
+**How it happened:**
+- Previous manual `export VITE_API_URL=...` command
+- Persists across terminal sessions (depending on shell config)
+- Overrides all .env files due to Vite's priority system
 
 ---
 

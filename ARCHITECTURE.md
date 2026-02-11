@@ -1232,14 +1232,14 @@ graph TB
 
     subgraph "Oracle Cloud - Staging Green Server"
         STG1[Port 3001]
-        STG2[staging.db]
-        STG3[Production Snapshot]
-        STG4[Weekly Sync from Prod]
+        STG2[database-staging.db]
+        STG3[Production Snapshot - Separate File]
+        STG4[Manual Sync from Prod]
     end
 
     subgraph "Oracle Cloud - Production Blue Server"
         PROD1[Port 3000]
-        PROD2[production.db]
+        PROD2[database-shared.db via symlink]
         PROD3[Live Customer Data]
         PROD4[Backup Storage]
     end
@@ -1261,7 +1261,7 @@ graph TB
 
     STG1 --> STG2
     STG2 --> STG3
-    PROD2 -->|Weekly Sync| STG2
+    PROD2 -.->|Manual Sync (/sync-green)| STG2
 
     PROD1 --> PROD2
     PROD2 --> PROD3
@@ -1271,10 +1271,16 @@ graph TB
 **Environment Flow:**
 ```
 Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
-  development.db         staging.db (prod copy)     production.db
-  Small dataset          Real production data       Live customer data
+  development.db         database-staging.db        database-shared.db (symlink)
+  Small dataset          Prod snapshot (manual sync) Live customer data
   Fast iteration         Pre-prod testing           Zero downtime
 ```
+
+**Database Architecture Notes:**
+- **Blue Server (Production):** Uses symlink `server/database.db` → `/home/ubuntu/database-shared.db`
+- **Green Server (Staging):** Uses separate file `/home/ubuntu/database-staging.db`
+- **Sync Strategy:** Manual on-demand via `/sync-green` command (not automatic)
+- **Why Manual?** Allows controlled testing without unexpected production data changes
 
 ---
 
@@ -1307,18 +1313,28 @@ ufw enable
 **Server Directories:**
 ```bash
 /home/ubuntu/
-├── TimeTracking-Clean/        # Production (Blue Server)
+├── database-shared.db           # Production Database (accessed via symlink)
+├── database-staging.db          # Staging Database (separate file)
+├── TimeTracking-Clean/          # Production (Blue Server)
 │   ├── server/
-│   └── database-production.db
-├── TimeTracking-Staging/      # Staging (Green Server)
+│   │   └── database.db → /home/ubuntu/database-shared.db (symlink)
+│   └── ...
+├── TimeTracking-Staging/        # Staging (Green Server)
 │   ├── server/
-│   └── database-staging.db
-├── backups/                   # DB Backups
-│   ├── database-production.backup.*.db
-│   └── staging.before-sync.*.db
+│   │   └── (uses DATABASE_PATH env var → /home/ubuntu/database-staging.db)
+│   └── ...
+├── backups/                     # DB Backups
+│   ├── database-shared.backup.*.db
+│   ├── database-staging.backup.*.db
+│   └── database-staging.db.backup-* (manual sync backups)
 └── logs/
-    └── db-sync.log            # Weekly sync logs
+    └── pm2-*.log               # PM2 process logs
 ```
+
+**Database Setup Explanation:**
+- **Blue Server:** Symlink approach for easy backup management
+- **Green Server:** Separate file allows independent testing
+- **Manual Sync:** `/sync-green` creates timestamped backups before overwriting
 
 **PM2 Processes:**
 ```bash
@@ -1333,7 +1349,109 @@ pm2 list
 
 ---
 
-### 7.3 Server Software Stack
+### 7.3 Green Server (Staging) Architecture
+
+**Purpose:** Pre-production testing environment with production data snapshot
+
+**URL:** http://129.159.8.19:3001
+**Database:** `/home/ubuntu/database-staging.db` (492KB, synced from Blue)
+**PM2 Process:** `timetracking-staging`
+**Git Branch:** `staging`
+**Code Location:** `/home/ubuntu/TimeTracking-Staging/`
+
+**3-Tier Environment System:**
+```
+Development (localhost:3000)
+    ↓ git push origin staging
+Staging (Green Server Port 3001)
+    ↓ /promote-to-prod
+Production (Blue Server Port 3000)
+```
+
+**Critical Differences vs Blue Server:**
+
+| Aspect | Blue Server (Production) | Green Server (Staging) |
+|--------|--------------------------|------------------------|
+| **Port** | 3000 | 3001 |
+| **Database** | `/home/ubuntu/database-shared.db` (symlink) | `/home/ubuntu/database-staging.db` (separate file) |
+| **NODE_ENV** | `production` | `staging` |
+| **DATABASE_PATH** | Not needed (symlink works) | **REQUIRED!** `/home/ubuntu/database-staging.db` |
+| **Data Source** | Live customer data | Production snapshot (manual sync via `/sync-green`) |
+| **Auto-Deploy** | On push to `main` branch | On push to `staging` branch |
+| **Deployment Command** | `/promote-to-prod` | Automatic (GitHub Actions) |
+
+**Environment Variables (CRITICAL!):**
+```bash
+TZ=Europe/Berlin                              # German timezone
+NODE_ENV=staging                              # Staging environment
+DATABASE_PATH=/home/ubuntu/database-staging.db  # CRITICAL! Must be explicitly set
+PORT=3001                                     # Staging port
+SESSION_SECRET=<random-secret>                # Separate from Blue Server
+```
+
+**Why DATABASE_PATH is required:**
+- `getDatabasePath()` function in `server/src/config/database.ts` checks `NODE_ENV`
+- `NODE_ENV=staging` is NOT `production` → defaults to `development.db` ❌
+- Without explicit `DATABASE_PATH`: Server loads wrong database
+- Symptom: 500 Errors "no such column: position" (old DB without migrations)
+- **Fix (2026-02-11):** Patch `getDatabasePath()` to check `process.env.DATABASE_PATH` first
+
+**PM2 Start Command (Template):**
+```bash
+TZ=Europe/Berlin NODE_ENV=staging DATABASE_PATH=/home/ubuntu/database-staging.db PORT=3001 SESSION_SECRET=$SECRET \
+  pm2 start dist/server.js \
+  --name timetracking-staging \
+  --cwd /home/ubuntu/TimeTracking-Staging/server \
+  --time \
+  --update-env
+
+pm2 save
+```
+
+**Database Sync Strategy:**
+```bash
+# Manual sync from Blue → Green (on-demand)
+/sync-green
+
+# What happens:
+# 1. Backup Green DB: database-staging.db.backup-<timestamp>
+# 2. Copy Blue DB → Green DB: cp database-shared.db database-staging.db
+# 3. Restart Green Server: pm2 restart timetracking-staging
+# 4. Health Check + Schema Verification
+```
+
+**Debugging Checklist:**
+```bash
+# 1. PM2 Status
+pm2 list
+# Expected: timetracking-staging = "online" (not "errored")
+
+# 2. Which Database?
+PM2_PID=$(pgrep -f 'timetracking-staging' | head -1)
+lsof -p $PM2_PID | grep '.db'
+# Expected: /home/ubuntu/database-staging.db (NOT development.db!)
+
+# 3. Environment Variables
+pm2 env <ID> | grep -E '(DATABASE_PATH|NODE_ENV|PORT)'
+# Expected: DATABASE_PATH=/home/ubuntu/database-staging.db
+
+# 4. Logs
+pm2 logs timetracking-staging --lines 20
+# Expected: "env":"staging", "Listening on http://0.0.0.0:3001"
+
+# 5. Health Check
+curl http://localhost:3001/api/health
+# Expected: {"status":"ok", ...}
+```
+
+**Common Issues:**
+- **500 Errors:** Wrong database loaded (development.db) → Set `DATABASE_PATH`
+- **Port Conflict:** Server tries port 3000 → Set `PORT=3001`
+- **Crash Loop:** Check `pm2 logs timetracking-staging --err`
+
+---
+
+### 7.4 Server Software Stack
 
 **Operating System Layer:**
 ```
@@ -1370,7 +1488,7 @@ Node.js 20.19.5 LTS (via NodeSource PPA)
 
 ---
 
-### 7.4 CI/CD Pipeline (GitHub Actions) - Dual Deployment
+### 7.5 CI/CD Pipeline (GitHub Actions) - Dual Deployment
 
 **Updated:** 2026-02-10 - Separate Pipelines for Staging & Production
 
@@ -1419,7 +1537,7 @@ graph TB
 - Directory: `/home/ubuntu/TimeTracking-Clean`
 - PM2 Process: `timetracking-server`
 - Port: 3000
-- Database: `/home/ubuntu/database-production.db`
+- Database: `/home/ubuntu/database-shared.db` (accessed via symlink: `server/database.db` → `/home/ubuntu/database-shared.db`)
 
 #### 7.4.2 Staging Deployment (Green Server)
 
@@ -1460,18 +1578,19 @@ DATABASE_PATH=/home/ubuntu/database-staging.db
 feature/xyz      →     staging         →        main
    ↓                      ↓                       ↓
 Development          Green :3001             Blue :3000
-localhost:3000       staging.db          production.db
-(small dataset)   (production copy)    (live customer data)
+localhost:3000     database-staging.db    database-shared.db
+(small dataset)   (manual prod sync)    (live customer data)
 ```
 
 **Development Cycle:**
 1. Create feature branch from `main`
 2. Develop locally with development.db
 3. Merge to `staging` branch → Auto-deploy to Green Server
-4. Test with Desktop App: `VITE_ENV=staging npm run dev`
-5. Verify with real production data (staging.db)
-6. If OK: Merge `staging` to `main` → Auto-deploy to Blue Server
-7. Production health check + user testing
+4. Test with Desktop App: `/green && npm run dev` (slash command)
+5. Verify with real production data (database-staging.db)
+6. If needed: `/sync-green` to update staging DB with latest production data
+7. If OK: Merge `staging` to `main` → Auto-deploy to Blue Server
+8. Production health check + user testing
 
 **Benefits:**
 - Bugs caught with real data before production
