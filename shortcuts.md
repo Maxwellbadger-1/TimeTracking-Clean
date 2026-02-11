@@ -353,6 +353,145 @@ curl http://localhost:3000/api/health
 
 ---
 
+## 💾 Git Workflow & Speicherplatz-Management
+
+### Mac ↔ Windows Workflow (Modern & Professional)
+
+**Problem gelöst:** Projekte werden RIESIG (7+ GB) durch Build-Artifacts!
+**Lösung:** Git-basierter Workflow → NUR Source Code synchronisieren
+
+#### Daily Workflow
+
+```bash
+# ════════════════════════════════════════
+# AUF MAC (Ende Arbeitstag)
+# ════════════════════════════════════════
+git add .
+git commit -m "feat: Implemented feature XYZ"
+git push origin main
+# → Dauer: ~10 Sekunden
+# → Größe: Nur Änderungen (meist < 1 MB)
+
+# ════════════════════════════════════════
+# AUF WINDOWS PC (Start Arbeitstag)
+# ════════════════════════════════════════
+git pull origin main
+# → Dauer: ~5 Sekunden
+# → Lädt nur Änderungen!
+
+# Falls package.json geändert wurde:
+npm install  # Aktualisiert Dependencies
+```
+
+#### Erstmaliges Windows PC Setup
+
+```bash
+# 1. Projekt clonen (lädt NUR Source Code, ~90 MB!)
+cd C:\Projects
+git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
+cd TimeTracking-Clean
+
+# 2. Dependencies installieren
+npm install                  # Root
+cd desktop && npm install    # Desktop App
+cd ../server && npm install  # Server
+
+# 3. Entwicklung starten
+cd server && npm run dev     # Server (localhost:3000)
+cd desktop && npm run dev    # Desktop App (baut Tauri target/, 5-10 Min beim ersten Mal)
+```
+
+### Speicherplatz-Optimierung (Bei Bedarf)
+
+**Symptom:** Projekt ist > 2 GB? Wahrscheinlich Build-Artifacts!
+
+```bash
+# 1. Check Projektgröße
+du -sh .
+
+# 2. Finde große Ordner
+du -sh ./* | sort -hr | head -10
+
+# 3. Cleanup (SICHER - ist in .gitignore)
+rm -rf desktop/src-tauri/target     # Rust Build-Cache (~6-8 GB!)
+rm -rf node_modules                  # Node Dependencies (~500 MB)
+rm -rf desktop/node_modules
+rm -rf server/node_modules
+rm -rf dist/                         # Build Output
+rm -rf build/
+rm -rf .next/                        # Next.js Cache (falls vorhanden)
+
+# 4. Dependencies neu installieren (wenn du weiterarbeiten willst)
+npm install
+cd desktop && npm install
+cd ../server && npm install
+
+# 5. Verify
+du -sh .  # Sollte ~100-500 MB sein (statt 5-8 GB!)
+```
+
+### Was wird NICHT synchronisiert? (in .gitignore)
+
+Diese Ordner sind **LOKAL** und werden automatisch neu gebaut:
+- ✅ `node_modules/` - NPM Dependencies (~500 MB)
+- ✅ `desktop/src-tauri/target/` - Rust Build-Cache (~6-8 GB!)
+- ✅ `dist/`, `build/` - Build Output
+- ✅ `.env.local` - Lokale Secrets
+- ❌ `server/database.db` - **IST in Git** (für Sync zwischen Systemen)
+
+### Beste Praktiken
+
+#### ✅ DO's
+- Push **täglich** zu GitHub → Automatisches Backup!
+- Lösche `target/` & `node_modules/` **regelmäßig** (monatlich)
+- Nutze `.gitignore` für große Binärdateien
+- Clone Projekt **neu** statt kopieren (zwischen Mac & Windows)
+
+#### ❌ DON'Ts
+- **NIEMALS** `node_modules/` oder `target/` manuell kopieren!
+- **NIEMALS** komplettes Projekt auf Festplatte kopieren (nutze Git!)
+- **NIEMALS** große Binärdateien zu Git hinzufügen (Videos, große DBs > 10 MB)
+- **NIEMALS** `.env` Secrets committen
+
+### Troubleshooting
+
+**Problem:** Projekt zu groß auf Mac?
+```bash
+# Lösung: Cleanup (siehe oben)
+rm -rf desktop/src-tauri/target node_modules desktop/node_modules server/node_modules
+# Ergebnis: 7.3 GB → 100 MB! (98% Ersparnis)
+```
+
+**Problem:** Git sagt "Changes not staged"?
+```bash
+# Diese Dateien sollten in .gitignore sein:
+git check-ignore -v desktop/src-tauri/target/
+git check-ignore -v node_modules/
+# Falls NICHT in .gitignore → zu .gitignore hinzufügen!
+```
+
+**Problem:** Zu viel Disk Space auf beiden Systemen?
+```bash
+# Strategie: Immer nur auf EINEM System voll gebaut
+# Mac: Nur Source Code (~100 MB)
+# Windows: Full Build mit target/ (~7 GB)
+# → Spare 7 GB auf Mac!
+```
+
+### Projekt-Größen Übersicht
+
+| Was | Größe | In Git? |
+|-----|-------|---------|
+| Source Code (ohne Builds) | ~90 MB | ✅ Ja |
+| + node_modules | ~500 MB | ❌ Nein |
+| + Rust target/ (Tauri) | ~7 GB | ❌ Nein |
+| **Gesamt (Full Build)** | **~7.5 GB** | - |
+| **Auf GitHub** | **~90 MB** | ✅ |
+
+**Fazit:** Git synchronisiert nur 90 MB, Rest wird lokal gebaut!
+
+---
+
 ## 📚 Documentation
 
 ### Core Documentation (⭐ Start here!)
