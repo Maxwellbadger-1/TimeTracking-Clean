@@ -2,7 +2,7 @@
 
 **3-Tier Environment Configuration System for TimeTracking**
 
-**Updated:** 2026-02-10 - Professional Development Workflow
+**Updated:** 2026-02-11 - Shell Variable Override Fix + Workflow Clarification
 
 ## 🎯 3-Tier Environment Overview
 
@@ -74,6 +74,11 @@ cp .env.staging .env && npm run dev
 - ✅ Connectivity test (Green Server health check)
 - ✅ Consistent setup (no manual .env editing)
 - ✅ Documented in slash command files (`.claude/commands/`)
+
+**Recent Improvements (2026-02-11):**
+- `/green` command now includes mandatory shell variable check (exits with error if `VITE_API_URL` is set)
+- `/dev` command also checks for shell variables before switching
+- Both commands now test server connectivity before completing
 
 **See also:** `.claude/commands/dev.md`, `.claude/commands/green.md`, `.claude/commands/sync-green.md`
 

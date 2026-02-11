@@ -1,531 +1,332 @@
-# Development Workflow - 3-Tier Environment
+# Development Workflow Guide
 
-**Version:** 1.0
-**Last Updated:** 2026-02-10
-**Status:** ✅ AKTIV
+**TimeTracking 3-Tier Development System**
+
+**Version:** 2.0
+**Last Updated:** 2026-02-11
+**Status:** Production-Ready
 
 ---
 
-## 📋 Overview
+## 📋 Table of Contents
 
-Professional 3-tier development workflow für das TimeTracking System:
+1. [Overview](#overview)
+2. [Database Strategy: Code vs. Data Flow](#database-strategy-code-vs-data-flow)
+3. [Daily Development Workflow](#daily-development-workflow)
+4. [Database Sync Commands](#database-sync-commands)
+5. [Troubleshooting](#troubleshooting)
+6. [Best Practices](#best-practices)
+
+---
+
+## 🎯 Overview
+
+### 3-Tier Architecture
 
 ```
 Development (Local)  →  Staging (Green Server)  →  Production (Blue Server)
-     localhost:3000         129.159.8.19:3001         129.159.8.19:3000
-   development.db             staging.db              production.db
-   (Small dataset)      (Production snapshot)        (Live customer data)
+  localhost:3000          129.159.8.19:3001         129.159.8.19:3000
+  development.db          staging.db                production.db
+  Test Data               Production Snapshot       Live Customer Data
 ```
 
-**Ziel:** Bugs mit echten Production-Daten testen BEVOR sie live gehen!
+### Key Principles
+
+1. **Code flows forward:** Development → Staging → Production
+2. **Data flows backward:** Production → Staging → Development
+3. **Never mix directions:** Code and Data are separate flows!
 
 ---
 
-## 🎯 Environment-Übersicht
+## 🗄️ Database Strategy: Code vs. Data Flow
 
-### 1. Development (Lokal)
+### ⚠️ CRITICAL: Code-Flow vs. Daten-Flow
 
-**Zweck:** Schnelle Feature-Entwicklung mit kleinem Dataset
+#### **Daten-Flow (nur Database, KEIN Code!)**
 
-```bash
-# Server
-cd server
-npm run dev                    # Startet localhost:3000
+```
+Blue Server (Production)  →  Green Server (Staging)  →  Development (Local)
+  492KB echte Kundendaten      492KB Prod-Kopie            Kleinere Test-Version
+  production.db                staging.db                  development.db
+  (NIEMALS ändern!)            (/sync-green)               (/sync-dev - planned)
 
-# Desktop App
-cd desktop
-npm run dev                    # Nutzt .env.development (Standard)
-# ODER explizit:
-VITE_ENV=development npm run dev
+  Richtung: Production → Development (COPY only!)
+  Zweck: Testing mit realistischen Daten
 ```
 
-**Database:** `server/database/development.db`
-**Merkmale:**
-- ✅ Kleines Test-Dataset (schnell zu resetten)
-- ✅ Schnelle Iteration ohne Production-Impact
-- ✅ Kann mit `npm run dev:reset` zurückgesetzt werden
+#### **Code-Flow (nur Code, KEINE Daten!)**
 
-**Wann nutzen?**
-- Neue Features entwickeln
-- UI/UX Experimente
-- Schnelle Prototypen
+```
+Development (local)  →  Staging Branch  →  Main Branch
+      ↓                      ↓                   ↓
+localhost:3000        Green Server:3001   Blue Server:3000
+development.db        staging.db          production.db
+(Test-Daten!)         (Prod-Kopie!)       (LIVE Kunden!)
+
+  Richtung: Development → Production (DEPLOY only!)
+  Zweck: Code & Migrations deployen, Datenbank-Struktur bleibt erhalten!
+```
+
+### ⚠️ WARNINGS
+
+- ❌ **NIEMALS** development.db Daten zu Green/Blue Server übertragen!
+- ❌ **NIEMALS** production.db Daten überschreiben!
+- ✅ **NUR** Code (Features, Bugfixes) wird deployed!
+- ✅ **NUR** Migrations (Database-Schema) wird deployed, NICHT Daten!
+- ✅ Daten fließen **NUR** von Production → Development (für Tests)!
+
+**Warum diese Trennung:**
+- Development.db hat **Test-User & Test-Daten** (nicht echt!)
+- Production.db hat **echte Kundendaten** (DSGVO-geschützt!)
+- Wenn du Code deployest: Database bleibt auf Server, nur Schema ändert sich!
 
 ---
 
-### 2. Staging (Green Server)
+## 🚀 Daily Development Workflow
 
-**Zweck:** Pre-Production Testing mit echten Daten
-
-```bash
-# Desktop App
-cd desktop
-VITE_ENV=staging npm run dev   # Verbindet zu Green Server
-
-# ODER .env switchen:
-cp .env.staging .env
-npm run dev
-```
-
-**Server:** http://129.159.8.19:3001
-**Database:** `/home/ubuntu/database-staging.db`
-**PM2 Process:** `timetracking-staging`
-
-**Merkmale:**
-- ✅ Production-Snapshot (echte Daten, wöchentlich aktualisiert)
-- ✅ Separate Server-Instanz (kein Production-Impact)
-- ✅ Migrations-Testing vor Production
-- ⚠️ KEINE Anonymisierung (wie vom User gewünscht)
-
-**Wann nutzen?**
-- Bug-Reproduktion mit echten Daten
-- Migration-Testing
-- Performance-Tests mit realistischem Dataset
-- Finale QA vor Production-Deployment
-
-**Daten-Update:**
-- 🔄 Automatisch: Jeden Sonntag 2:00 Uhr (Cron Job)
-- 📁 Backup vor Sync: `/home/ubuntu/backups/staging.before-sync.*.db`
-
----
-
-### 3. Production (Blue Server)
-
-**Zweck:** Live System für Kunden
+### Step 1: Setup & Branch erstellen
 
 ```bash
-# Desktop App (NUR für Testing!)
-cd desktop
-VITE_ENV=production npm run dev
-
-# ODER .env switchen:
-cp .env.production .env
-npm run dev
-```
-
-**Server:** http://129.159.8.19:3000
-**Database:** `/home/ubuntu/database-production.db`
-**PM2 Process:** `timetracking-server`
-
-**Merkmale:**
-- 🔴 Live customer data
-- 🔴 NIEMALS für Entwicklung/Testing nutzen!
-- 🔴 Blue Server bleibt UNBERÜHRT während Workflow-Changes
-
-**Wann nutzen?**
-- Production Builds erstellen
-- Production Issues debuggen (read-only!)
-- Health Checks
-
----
-
-## 🔄 Git Workflow
-
-### Branch Strategy
-
-```
-main           → Production (Blue Server, Port 3000)
-staging        → Staging (Green Server, Port 3001)
-feature/*      → Development (Lokal)
-```
-
-### Feature Development Flow
-
-```bash
-# 1. Neue Feature-Branch erstellen
-git checkout main
-git pull origin main
+# Pull latest code
+cd ~/Desktop/TimeTracking-Clean
+git checkout staging
+git pull origin staging
 git checkout -b feature/my-new-feature
+```
 
-# 2. Development (Lokal mit development.db)
-cd server && npm run dev
-cd desktop && npm run dev          # Nutzt localhost:3000
+### Step 2: Lokal entwickeln
 
-# 3. Feature implementieren
+```bash
+# Start local server
+cd server
+npm run dev  # Runs on localhost:3000 mit development.db
+
+# Start Desktop App
+cd desktop
+/dev              # Slash command: Switch to localhost:3000
+npm run dev       # Desktop App on localhost:1420
+```
+
+**Was du jetzt hast:**
+- ✅ Localhost Server mit development.db (kleine Testdaten)
+- ✅ Desktop App connected to localhost
+- ✅ Schnelle Entwicklung & Testing
+
+### Step 3: Code schreiben & committen
+
+```bash
+# Make changes...
+
+# Commit
 git add .
-git commit -m "feat: Implement my new feature"
+git commit -m "feat: Implement new feature
 
-# 4. Push zu Staging testen
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+### Step 4: Push zu Staging Branch
+
+```bash
+# Merge to staging
 git checkout staging
 git merge feature/my-new-feature
 git push origin staging
+```
 
-# 5. Desktop App auf Staging testen
+**Was passiert:**
+- ✅ GitHub Actions deployed automatisch zu Green Server (Port 3001)
+- ✅ Migrations laufen automatisch
+- ✅ PM2 restartet `timetracking-staging`
+- ✅ Health check verifiziert Deployment
+- ⏱️ Dauer: ~2-3 Minuten
+
+### Step 5: Testen auf Green Server
+
+```bash
+# Desktop App → Green Server
 cd desktop
-VITE_ENV=staging npm run dev       # Nutzt Green Server:3001
+/green            # Slash command: Switch to Green Server:3001
+npm run dev       # Restart Desktop App
 
-# 6. QA auf Staging (echte Daten!)
-# - Feature mit echten Production-Daten testen
-# - Edge Cases prüfen
-# - Performance checken
+# Jetzt testest du mit ECHTEN Production-Daten! (staging.db snapshot)
+```
 
-# 7. Wenn alles OK: Merge zu Main
+**Wichtig:** Green Server hat:
+- ✅ Gleiches Schema wie Production
+- ✅ Echte Production-Daten (snapshot)
+- ✅ Isoliert von Production (keine Kundenauswirkung)
+
+### Step 6: Deploy zu Production
+
+```bash
+# Wenn alle Tests auf Green Server OK:
 git checkout main
 git merge staging
-git push origin main                # Deployment zu Blue Server (Production)
+git push origin main
+```
 
-# 8. Production Health Check
+**Was passiert:**
+- ✅ GitHub Actions deployed automatisch zu Blue Server (Port 3000)
+- ✅ Database Backup wird erstellt
+- ✅ Migrations laufen automatisch
+- ✅ PM2 restartet `timetracking-server`
+- ✅ Health check verifiziert Deployment
+- ⏱️ Dauer: ~2-3 Minuten, ~30s Downtime
+
+### Step 7: Verify Production
+
+```bash
+# Health check
 curl http://129.159.8.19:3000/api/health
+
+# Monitor logs
+ssh ubuntu@129.159.8.19 'pm2 logs timetracking-server --lines 50'
 ```
 
 ---
 
-## 🗄️ Database Migration Workflow
+## 💾 Database Sync Commands
 
-**KRITISCH:** Migrations IMMER erst auf Staging testen!
+### `/sync-green` - Production → Staging
 
-### Sichere Migration-Durchführung
+**Wann nutzen:**
+- Vor Testing von Migrations auf Green Server
+- Wenn du frische Production-Daten brauchst
+- Nach signifikanten Production-Datenänderungen
 
+**Was es tut:**
+1. SSH to Oracle Cloud
+2. Backup staging.db → `database-staging.backup.TIMESTAMP.db`
+3. Copy production.db → staging.db
+4. Restart Green Server
+5. Verify health
+
+**Usage:**
 ```bash
-# 1. Migration entwickeln (Lokal)
-cd server
-npm run migrate:create my_migration
-
-# Edit: server/migrations/YYYYMMDDHHMMSS_my_migration.sql
-
-# 2. Lokal testen
-npm run migrate                    # Auf development.db
-
-# 3. Staging Branch
-git checkout staging
-git add migrations/
-git commit -m "db: Add my_migration"
-git push origin staging
-
-# 4. Staging Deployment wartet ab (GitHub Actions)
-gh run watch
-
-# 5. Staging Server prüfen (SSH)
-ssh ubuntu@129.159.8.19
-cd TimeTracking-Staging/server
-sqlite3 ../database-staging.db ".schema"    # Migration angewandt?
-pm2 logs timetracking-staging               # Errors?
-
-# 6. Desktop App auf Staging testen
-cd desktop
-VITE_ENV=staging npm run dev
-# Feature testen: Funktioniert Migration mit echten Daten?
-
-# 7. Wenn OK: Production Deployment
-git checkout main
-git merge staging
-git push origin main                # Auto-Deploy zu Blue Server
+/sync-green
 ```
 
-**Warum dieser Workflow?**
-- ✅ Migrations werden mit echten Daten getestet (staging.db = production snapshot)
-- ✅ Fehler werden BEVOR Production-Deployment gefunden
-- ✅ Rollback möglich wenn Staging-Tests fehlschlagen
+⚠️ **WARNING:** Überschreibt staging.db komplett!
+
+### `/sync-dev` - Staging → Development (Planned)
+
+**Wann nutzen:**
+- Vor Start von Development mit Schema-Änderungen
+- Wenn development.db veraltet ist (Schema-Mismatch)
+- Um mit realistischen Daten lokal zu testen
+
+**Manual Workaround** (bis implementiert):
+```bash
+scp ubuntu@129.159.8.19:/home/ubuntu/database-staging.db server/database/development.db
+```
+
+⚠️ **WARNING:** Überschreibt development.db komplett!
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Desktop App verbindet nicht zu Server
+### Problem: Desktop App connects to wrong server
 
-**Problem:** "Network error" oder "Failed to fetch"
+**Symptom:** Desktop App zeigt falsche Daten trotz `/dev` oder `/green`
 
+**Diagnosis:**
 ```bash
-# 1. Check welche Umgebung aktiv ist
-cd desktop
-cat .env | grep VITE_API_URL
+printenv | grep VITE_API_URL
+# Wenn output → Shell variable override!
+```
 
-# Development: http://localhost:3000/api
-# Staging:     http://129.159.8.19:3001/api
-# Production:  http://129.159.8.19:3000/api
+**Solution:**
+```bash
+unset VITE_API_URL
+/dev  # oder /green
+cd desktop && npm run dev
+```
 
-# 2. Server läuft?
+---
+
+### Problem: "no such column" error
+
+**Symptom:** 500 errors, logs zeigen "no such column: X"
+
+**Root Cause:** Database hat veraltetes Schema (Migrations fehlen)
+
+**Solution:**
+```bash
+# Green Server:
+/sync-green  # Sync Production DB → Staging DB
+
 # Development:
-curl http://localhost:3000/api/health
-
-# Staging/Production:
-curl http://129.159.8.19:3001/api/health    # Staging
-curl http://129.159.8.19:3000/api/health    # Production
-
-# 3. Desktop App neu starten mit korrekter Umgebung
-npm run dev                         # Development
-VITE_ENV=staging npm run dev        # Staging
-VITE_ENV=production npm run dev     # Production
-```
-
-### Staging DB ist veraltet
-
-**Problem:** Staging hat nicht die aktuellsten Production-Daten
-
-```bash
-# Manueller Sync (als ubuntu@129.159.8.19)
-ssh ubuntu@129.159.8.19
-bash /home/ubuntu/TimeTracking-Staging/server/scripts/sync-prod-to-staging.sh
-
-# Check letzter automatischer Sync
-cat /home/ubuntu/logs/db-sync.log | tail -20
-
-# Cron Job Status
-crontab -l | grep sync-prod-to-staging
-```
-
-### GitHub Actions Deployment failed
-
-**Problem:** Staging oder Production Deployment schlägt fehl
-
-```bash
-# 1. Logs anschauen
-gh run list --workflow="deploy-staging.yml" --limit 5
-gh run view <run-id> --log-failed
-
-# 2. TypeScript Errors lokal prüfen
-cd server
-npx tsc --noEmit
-
-# 3. Migration Errors?
-ssh ubuntu@129.159.8.19
-pm2 logs timetracking-staging --lines 100 | grep -i error
-
-# 4. Rollback falls nötig
-git revert HEAD
-git push origin staging
-```
-
-### Server läuft nicht nach Deployment
-
-**Problem:** PM2 Prozess crashed
-
-```bash
-ssh ubuntu@129.159.8.19
-
-# 1. Status prüfen
-pm2 status
-
-# 2. Logs checken
-pm2 logs timetracking-staging       # Staging
-pm2 logs timetracking-server        # Production
-
-# 3. Manueller Restart
-pm2 restart timetracking-staging
-pm2 restart timetracking-server
-
-# 4. Falls immer noch down: Database Permissions?
-ls -la /home/ubuntu/database-*.db
-# Sollte: -rw-r--r-- ubuntu ubuntu
-
-# 5. Database Backup wiederherstellen (falls korrupt)
-ls -la /home/ubuntu/backups/
-cp /home/ubuntu/backups/database-staging.backup.*.db /home/ubuntu/database-staging.db
-pm2 restart timetracking-staging
+/sync-dev    # Sync Staging DB → Development DB (oder manual scp)
 ```
 
 ---
 
-## 📊 Monitoring & Health Checks
+### Problem: Green Server has old data
 
-### Development (Lokal)
+**Symptom:** Green Server doesn't have latest production changes
 
+**Root Cause:** staging.db ist stale (nicht kürzlich gesynced)
+
+**Solution:**
 ```bash
-# Server Health
-curl http://localhost:3000/api/health | jq
-
-# Database Check
-cd server
-sqlite3 database/development.db "SELECT COUNT(*) FROM users;"
-
-# Desktop App Console
-# F12 → Console (sollte keine Errors zeigen)
+/sync-green  # Manual sync Production → Staging
 ```
 
-### Staging (Green Server)
-
-```bash
-# Health Check
-curl http://129.159.8.19:3001/api/health | jq
-
-# Server Logs
-ssh ubuntu@129.159.8.19
-pm2 logs timetracking-staging --lines 50
-
-# Database Size
-ssh ubuntu@129.159.8.19
-du -h /home/ubuntu/database-staging.db
-
-# Last Sync Timestamp
-ssh ubuntu@129.159.8.19
-stat /home/ubuntu/database-staging.db | grep Modify
-```
-
-### Production (Blue Server)
-
-```bash
-# Health Check
-curl http://129.159.8.19:3000/api/health | jq
-
-# Server Logs (READ ONLY!)
-ssh ubuntu@129.159.8.19
-pm2 logs timetracking-server --lines 50
-
-# Database Size
-ssh ubuntu@129.159.8.19
-du -h /home/ubuntu/database-production.db
-
-# Uptime
-ssh ubuntu@129.159.8.19
-pm2 info timetracking-server | grep uptime
-```
+**Note:** Dies ist EXPECTED! Green Server nutzt Snapshot, nicht live data.
 
 ---
 
-## 🚀 Quick Reference
+## ✅ Best Practices
 
-### Desktop App Environment Switching
+### Git Workflow
+- ✅ IMMER feature branches nutzen (`feature/*`)
+- ✅ IMMER zu `staging` mergen, testen auf Green Server
+- ✅ IMMER `staging` → `main` nach Green verification
+- ❌ NIEMALS direkt zu `main` pushen
+- ❌ NIEMALS Green Server überspringen
 
-```bash
-# Option 1: Environment Variable (EMPFOHLEN)
-npm run dev                         # Development (localhost)
-VITE_ENV=staging npm run dev        # Staging (Green:3001)
-VITE_ENV=production npm run dev     # Production (Blue:3000)
+### Database
+- ✅ IMMER Migrations auf Green testen (mit echten Daten!)
+- ✅ IMMER idempotente Migrations schreiben (`IF NOT EXISTS`)
+- ❌ NIEMALS production.db manuell editieren
+- ❌ NIEMALS development.db Daten zu Servern pushen
 
-# Option 2: .env File switching
-cp .env.development .env && npm run dev    # Development
-cp .env.staging .env && npm run dev        # Staging
-cp .env.production .env && npm run dev     # Production
-```
+### Testing
+- ✅ IMMER lokal testen (development.db) zuerst
+- ✅ IMMER auf Green Server testen (echte Daten) vor Production
+- ✅ IMMER Health Checks nach Deployment
+- ❌ NIEMALS Green Server Testing überspringen
 
-### Git Commands
-
-```bash
-# Feature Development
-git checkout -b feature/xyz
-git commit -m "feat: ..."
-git push origin feature/xyz
-
-# Deploy to Staging
-git checkout staging
-git merge feature/xyz
-git push origin staging              # Auto-Deploy zu Green Server
-
-# Deploy to Production
-git checkout main
-git merge staging
-git push origin main                 # Auto-Deploy zu Blue Server
-```
-
-### SSH Commands
-
-```bash
-# Connect
-ssh ubuntu@129.159.8.19
-
-# PM2
-pm2 status
-pm2 logs timetracking-staging
-pm2 logs timetracking-server
-pm2 restart timetracking-staging
-pm2 restart timetracking-server
-
-# Database Sync (manuell)
-bash /home/ubuntu/TimeTracking-Staging/server/scripts/sync-prod-to-staging.sh
-
-# Logs
-tail -f /home/ubuntu/logs/db-sync.log
-pm2 logs --lines 100
-```
+### Environment Switching
+- ✅ IMMER `/dev` und `/green` slash commands nutzen
+- ❌ NIEMALS `export VITE_API_URL=...` verwenden
+- ❌ NIEMALS manual .env editing
 
 ---
 
-## ⚠️ WICHTIGE REGELN
+## 🔗 Quick Reference
 
-### ❌ NIEMALS:
-- Auf Production (Blue Server) entwickeln
-- Production.db manuell editieren
-- Migrations direkt auf Production ausführen ohne Staging-Test
-- Staging Branch direkt zu Main mergen ohne Testing
-- .env Files ins Git committen
-
-### ✅ IMMER:
-- Features lokal entwickeln (development.db)
-- Migrations auf Staging testen (echte Daten!)
-- Desktop App auf Staging testen vor Production-Deploy
-- Git Workflow einhalten (feature → staging → main)
-- Health Checks nach Deployment durchführen
+| Command | Purpose |
+|---------|---------|
+| `/dev` | Desktop App → localhost:3000 (Development) |
+| `/green` | Desktop App → Green Server:3001 (Staging) |
+| `/sync-green` | Sync Production → Staging Database |
+| `/sync-dev` (planned) | Sync Staging → Development Database |
 
 ---
 
-## 📝 Checkliste: Bug Fix Workflow
+## 📚 Related Documentation
 
-```bash
-☐ 1. Bug reproduzieren (Development)
-☐ 2. Fix implementieren & lokal testen
-☐ 3. Feature-Branch pushen
-☐ 4. Staging Branch mergen
-☐ 5. Desktop App auf Staging testen (VITE_ENV=staging)
-☐ 6. Mit echten Daten verifizieren (staging.db)
-☐ 7. Wenn OK: Main Branch mergen
-☐ 8. Production Deployment abwarten
-☐ 9. Health Check: curl http://129.159.8.19:3000/api/health
-☐ 10. Desktop App auf Production testen (kurz!)
-☐ 11. CHANGELOG.md aktualisieren
-☐ 12. PROJECT_STATUS.md aktualisieren
-```
+- **ENV.md** - Environment configuration
+- **CLAUDE.md** - AI development guidelines
+- **PROJECT_STATUS.md** - Current status
+- **WORKFLOW_QUICK_REF.md** - Quick reference cheat sheet
 
 ---
 
-## 🎓 Best Practices
-
-### 1. Database-Snapshots
-
-Staging DB wird wöchentlich aktualisiert (Sonntags 2 AM). Falls du SOFORT neueste Daten brauchst:
-
-```bash
-ssh ubuntu@129.159.8.19
-bash /home/ubuntu/TimeTracking-Staging/server/scripts/sync-prod-to-staging.sh
-```
-
-### 2. Migration Testing
-
-IMMER Migrations auf Staging testen:
-- Staging hat echte Daten (production snapshot)
-- Fehler werden gefunden BEVOR Production betroffen ist
-- Rollback auf Staging hat keinen Customer-Impact
-
-### 3. Desktop App Environment Management
-
-Nutze Environment Variables statt .env switching:
-```bash
-# Gut:
-VITE_ENV=staging npm run dev
-
-# Weniger gut (vergisst man leicht zurückzusetzen):
-cp .env.staging .env && npm run dev
-```
-
-### 4. Health Checks nach Deployment
-
-Nach JEDEM Production-Deployment:
-```bash
-# 1. GitHub Actions Status
-gh run list --workflow="deploy-server.yml" --limit 1
-
-# 2. Server Health
-curl http://129.159.8.19:3000/api/health
-
-# 3. PM2 Status
-ssh ubuntu@129.159.8.19 "pm2 status"
-
-# 4. Desktop App Test (kurz!)
-cd desktop && VITE_ENV=production npm run dev
-# Login testen, Feature testen
-```
-
----
-
-## 📚 Weitere Dokumentation
-
-- **ARCHITECTURE.md**: System Architecture & Tech Stack
-- **PROJECT_SPEC.md**: API Specifications & Requirements
-- **ENV.md**: Environment Variables & Server Setup
-- **CHANGELOG.md**: Version History & Bug Fixes
-- **.github/workflows/**: CI/CD Pipeline Definitions
-
----
-
-**Fragen oder Probleme?**
-- Check: ENV.md → Section "Troubleshooting"
-- Check: ARCHITECTURE.md → Section "Deployment View"
-- Check: Console logs (`pm2 logs` oder Desktop F12)
+**Version:** 2.0
+**Last Updated:** 2026-02-11
+**Maintained by:** Claude Code AI + Max Fegg

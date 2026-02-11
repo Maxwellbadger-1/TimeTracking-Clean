@@ -1,8 +1,8 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-11
 **Version:** v1.6.6 (deployed)
-**Status:** 🟢 Healthy - Absence Management Fix Deployed
+**Status:** 🟢 Healthy - 3-Tier Workflow Fully Operational
 
 ---
 
@@ -42,20 +42,35 @@
 8. ⏳ Phase 2 pending - Shared Database Setup (30 Min)
 9. ⏳ Phase 3 pending - Long-term improvements (Optional)
 
-### ✅ COMPLETED (2026-02-09):
-**Phase 1 & 2 Successfully Executed:**
-- ✅ Phase 1: Migration auf BLUE und GREEN Server ausgeführt
-- ✅ Phase 2: Shared Database Setup abgeschlossen
+### ✅ COMPLETED (2026-02-09 + 2026-02-11):
+**Phase 1: Migration ausgeführt:**
+- ✅ Migration auf BLUE Server ausgeführt (`position` column added)
+- ✅ Migration auf GREEN Server ausgeführt (`position` column added)
 - ✅ CORS-Fix implementiert für Desktop-App Zugriff
-- ✅ Beide Server nutzen jetzt database-shared.db
 - ✅ Health Checks passed auf Port 3000 und 3001
-- ✅ Backups erstellt: 20260209_193325
 
-**Current Status (Updated 2026-02-10):**
-- Production Server - Blue (Port 3000): ✅ Running - /home/ubuntu/TimeTracking-BLUE
-- Staging Server - Green (Port 3001): ✅ Running - /home/ubuntu/TimeTracking-Staging
-- Desktop App (localhost:1420): ✅ Environment switching enabled
-- Database Architecture: 3-Tier (development.db, staging.db, production.db)
+**Phase 2 Update (2026-02-11):**
+- ✅ Environment Switching Fixed (Shell Variable Issue resolved)
+- ✅ Desktop App kann jetzt korrekt zwischen Development/Green/Production switchen
+- ✅ Slash Commands `/dev`, `/green`, `/sync-green` erstellt und verbessert
+- ✅ Shell Variable Override Protection: Commands prüfen automatisch auf `VITE_API_URL`
+- ✅ Workflow Clarification: Code-Flow vs. Daten-Flow dokumentiert (CLAUDE.md)
+- ✅ Development Workflow komplett dokumentiert mit Best Practices
+
+**Current Status (Updated 2026-02-11):**
+- **Blue Server (Production - Port 3000):** ✅ Running
+  - Path: `/home/ubuntu/TimeTracking-Clean/`
+  - Database: `database.db` → **SYMLINK** → `/home/ubuntu/database-shared.db` (503KB)
+  - PM2: `timetracking-server`
+
+- **Green Server (Staging - Port 3001):** ✅ Running
+  - Path: `/home/ubuntu/TimeTracking-Staging/`
+  - Database: `/home/ubuntu/database-staging.db` (**SEPARATE** file, 495KB)
+  - PM2: `timetracking-staging`
+  - Sync: Manual (via `/sync-green` command)
+
+- **Desktop App (localhost:1420):** ✅ Environment switching operational
+  - Switch commands: `/dev` (localhost:3000), `/green` (Port 3001)
 
 ---
 
@@ -78,26 +93,36 @@ Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
 - ❌ No true staging environment
 - ❌ Bugs in development.db wouldn't surface until production
 
-**New Setup (After 2026-02-10):**
-- ✅ Three separate databases (development, staging, production)
-- ✅ Staging uses production data snapshot (weekly sync)
-- ✅ Desktop App can switch environments via `VITE_ENV`
+**New Setup (After 2026-02-10, Updated 2026-02-11):**
+- ✅ Blue Server uses **symlink** to shared database (Blue + Clean paths → same DB)
+- ✅ Green Server uses **SEPARATE** database (isolated testing environment)
+- ✅ Desktop App can switch environments via `/dev` and `/green` slash commands
 - ✅ Dual CI/CD pipelines (staging branch → Port 3001, main branch → Port 3000)
-- ✅ Weekly automatic DB sync (Production → Staging, Sundays 2:00 AM)
+- ✅ **Manual DB Sync** (Production → Staging, on-demand via `/sync-green`)
 
 ### Infrastructure Details
 
 **Oracle Cloud Configuration:**
 - Firewall: Port 3000 (Production) + Port 3001 (Staging) open
 - PM2 Processes: `timetracking-server` (Blue) + `timetracking-staging` (Green)
-- Cron Job: Weekly DB sync script (`sync-prod-to-staging.sh`)
+- DB Sync: Manual on-demand (no automatic Cron Job)
 
-**Files Created:**
-- `desktop/.env.development` - localhost:3000 config
-- `desktop/.env.staging` - Green Server:3001 config
-- `desktop/.env.production` - Blue Server:3000 config
+**Database Setup (Actual):**
+```
+Blue Server (Production):
+├── /home/ubuntu/TimeTracking-Clean/server/database.db
+│   └──> SYMLINK to /home/ubuntu/database-shared.db (503KB)
+
+Green Server (Staging):
+├── /home/ubuntu/database-staging.db (SEPARATE file, 495KB)
+│   └──> Manual sync via /sync-green command
+```
+
+**Slash Commands Created:**
+- `/dev` - Switch Desktop App → Development (localhost:3000)
+- `/green` - Switch Desktop App → Green Server (Port 3001)
+- `/sync-green` - Manually sync Green DB with Production
 - `.github/workflows/deploy-staging.yml` - Staging deployment pipeline
-- `server/scripts/sync-prod-to-staging.sh` - Weekly DB sync
 - `DEVELOPMENT_WORKFLOW.md` - Comprehensive workflow guide
 
 ### Usage
@@ -107,24 +132,48 @@ Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
 cd desktop
 
 # Development (localhost:3000)
-npm run dev
+/dev                    # Slash command (RECOMMENDED)
+npm run dev             # Alternative (uses .env.development)
 
-# Staging (Green Server:3001 - real data!)
-VITE_ENV=staging npm run dev
+# Staging/Green Server (129.159.8.19:3001 - real production data!)
+/green                  # Slash command (RECOMMENDED)
 
-# Production (Blue Server:3000)
-VITE_ENV=production npm run dev
+# Production/Blue Server (129.159.8.19:3000)
+# Note: Typically not needed locally, use Green for testing
 ```
+
+**Slash Commands (Automated Setup):**
+- `/dev` - Switches Desktop App to localhost:3000 (includes shell variable check!)
+- `/green` - Switches Desktop App to Green Server Port 3001 (includes connectivity test!)
+- `/sync-green` - Synchronizes Green Server database with Production (manual on-demand)
 
 **Git Workflow:**
 ```
 1. Feature development → feature/* branch
-2. Local testing → npm run dev (localhost)
+2. Local testing → /dev && npm run dev (localhost)
 3. Merge to staging → git push origin staging
-4. Desktop testing → VITE_ENV=staging npm run dev
+4. Desktop testing → /green && npm run dev (Green Server)
 5. Verify with real production data
 6. Merge to main → Auto-deploy to Blue Server
 ```
+
+**⚠️ IMPORTANT: Shell Environment Variables**
+
+If Desktop App connects to wrong server despite using slash commands:
+```bash
+# Check for shell variable override:
+printenv | grep VITE_API_URL
+
+# If found, unset it:
+unset VITE_API_URL
+
+# Then run slash command again:
+/dev  # or /green
+```
+
+**Why?** Vite's priority: Shell vars > .env.[mode].local > .env.[mode] > .env.local > .env
+
+Shell environment variables OVERRIDE all .env files!
 
 ### Benefits
 
@@ -133,8 +182,10 @@ VITE_ENV=production npm run dev
 - ✅ **Fast development:** Small local dataset for quick iteration
 - ✅ **Zero customer impact:** All testing happens on staging
 - ✅ **Professional workflow:** Matches industry standards (Dev → Staging → Prod)
+- ✅ **Clear separation:** Code flows Development → Production, Data flows Production → Development
+- ✅ **No schema mismatches:** development.db synced from Green Server prevents "no such column" errors
 
-**Documentation:** See `DEVELOPMENT_WORKFLOW.md` for complete guide
+**Documentation:** See `DEVELOPMENT_WORKFLOW.md` for complete guide (created 2026-02-11)
 
 ---
 
@@ -416,7 +467,7 @@ VITE_ENV=production npm run dev
 
 ## 🐛 Known Issues & Workarounds
 
-### Active Issues (Updated 2026-02-05)
+### Active Issues (Updated 2026-02-11)
 | Issue | Severity | Status | Workaround | ETA |
 |-------|----------|--------|------------|-----|
 | Timezone bug in date calculations | 🔴 Critical | Fixing | Use formatDate() instead of toISOString() | Week 6 |
@@ -428,6 +479,9 @@ VITE_ENV=production npm run dev
 ### Resolved Recently
 | Issue | Severity | Resolved | Version |
 |-------|----------|----------|---------|
+| Shell variable override (VITE_API_URL) | 🔴 Critical | 2026-02-11 | v1.6.6 |
+| Desktop App connects to wrong server | 🟡 High | 2026-02-11 | v1.6.6 |
+| Workflow unclear (Code vs. Data Flow) | 🟡 Medium | 2026-02-11 | Docs |
 | Overtime corrections not calculated | 🔴 High | 2026-01-18 | v1.5.2 |
 | Absence credits missing from reports | 🔴 High | 2026-01-18 | v1.5.2 |
 | "Aktuell" badge on wrong month | 🟡 Medium | 2026-01-18 | v1.5.2 |

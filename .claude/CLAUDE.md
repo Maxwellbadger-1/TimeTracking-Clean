@@ -580,9 +580,15 @@ curl -s http://129.159.8.19:3000/api/health | jq
 1. Read: PROJECT_SPEC.md (Requirements für Feature)
 2. Read: ARCHITECTURE.md (Tech Patterns, ADRs)
 3. Plan erstellen → User Review
-4. Implementieren (Tests + Docs)
-5. Update: PROJECT_STATUS.md (Sprint Items completed)
+4. Implementieren & Lokal testen (localhost:3000 + development.db)
+5. Push zu staging branch → Auto-Deploy Green Server
+6. Testen auf Green Server (/green command) mit echten Production-Daten
+7. Wenn OK: Push zu main branch → Auto-Deploy Blue Server
+8. Update: PROJECT_STATUS.md (Sprint Items completed)
 ```
+
+**Wichtig:** IMMER 3-Tier Workflow nutzen (Development → Staging → Production)!
+Siehe "Production Deployment (3-Tier Workflow)" für Details.
 
 ## Bug Fix
 
@@ -609,6 +615,45 @@ curl -s http://129.159.8.19:3000/api/health | jq
 ## Production Deployment (3-Tier Workflow)
 
 **WICHTIG:** Professioneller Development → Staging → Production Workflow!
+
+### ⚠️ KRITISCH: Code-Flow vs. Daten-Flow (NIEMALS vermischen!)
+
+**Daten-Flow (nur Database, KEIN Code!):**
+```
+Blue Server (Production)  →  Green Server (Staging)  →  Development (Local)
+  492KB echte Kundendaten      492KB Prod-Kopie            Kleinere Test-Version
+  production.db                staging.db                  development.db
+  (NIEMALS ändern!)            (/sync-green)               (/sync-dev - geplant)
+
+  Richtung: Production → Development (COPY only!)
+  Zweck: Testing mit realistischen Daten
+```
+
+**Code-Flow (nur Code, KEINE Daten!):**
+```
+Development (local)  →  Staging Branch  →  Main Branch
+      ↓                      ↓                   ↓
+localhost:3000        Green Server:3001   Blue Server:3000
+development.db        staging.db          production.db
+(Test-Daten!)         (Prod-Kopie!)       (LIVE Kunden!)
+
+  Richtung: Development → Production (DEPLOY only!)
+  Zweck: Code & Migrations deployen, Datenbank-Struktur bleibt erhalten!
+```
+
+**WARNUNG:**
+- ❌ **NIEMALS** development.db Daten zu Green/Blue Server übertragen!
+- ❌ **NIEMALS** production.db Daten überschreiben!
+- ✅ **NUR** Code (Features, Bugfixes) wird deployed!
+- ✅ **NUR** Migrations (Database-Schema) wird deployed, NICHT Daten!
+- ✅ Daten fließen **NUR** von Production → Development (für Tests)!
+
+**Warum diese Trennung:**
+- Development.db hat **Test-User & Test-Daten** (nicht echt!)
+- Production.db hat **echte Kundendaten** (DSGVO-geschützt!)
+- Wenn du Code deployest: Database bleibt auf Server, nur Schema ändert sich!
+
+---
 
 ```bash
 # ═══════════════════════════════════════
