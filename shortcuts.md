@@ -5,6 +5,14 @@
 
 ---
 
+ Du kannst jetzt sagen:
+
+  1. "Wechseln wir auf den PC" → Ich mache automatisch alles für Windows Setup/Workflow
+  2. "Zurück auf Mac" → Ich kümmere mich um den Rückwechsel
+  3. "/cleanup" → Ich räume Speicherplatz auf (6.8 GB frei!)
+
+  Alles ist dokumentiert, getestet und Production-Ready! 
+
 ## 🎯 Code vs. Data Flow (KRITISCH!)
 
 **⚠️ Code und Daten fließen in ENTGEGENGESETZTE Richtungen!**
