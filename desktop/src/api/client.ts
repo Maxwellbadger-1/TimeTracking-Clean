@@ -3,24 +3,9 @@ import { universalFetch } from '../lib/tauriHttpClient';
 import { debugLog } from '../components/DebugPanel';
 import { toast } from 'sonner';
 
-// ========================================
-// 🔥 MASSIVE DEBUG MODE - ENVIRONMENT VARIABLES 🔥
-// ========================================
-console.log('🔥🔥🔥 === VITE ENV DEBUG START === 🔥🔥🔥');
-console.log('📦 import.meta.env:', import.meta.env);
-console.log('📦 import.meta.env.VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('📦 import.meta.env.VITE_ENV:', import.meta.env.VITE_ENV);
-console.log('📦 import.meta.env.MODE:', import.meta.env.MODE);
-console.log('📦 import.meta.env.DEV:', import.meta.env.DEV);
-console.log('📦 import.meta.env.PROD:', import.meta.env.PROD);
-console.log('🔥🔥🔥 === VITE ENV DEBUG END === 🔥🔥🔥');
-
 // DEVELOPMENT: Use localhost
 // PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-console.log('🔧 rawApiUrl NACH Zuweisung:', rawApiUrl);
-console.log('🔧 Falls undefined → Fallback zu localhost:3000');
 
 // Ensure API_BASE_URL always ends with /api
 export const API_BASE_URL = rawApiUrl.endsWith('/api')
