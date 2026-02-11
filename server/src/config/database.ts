@@ -2,6 +2,7 @@
  * Database Configuration
  * Environment-based database path selection
  *
+ * - DATABASE_PATH env var: Explicitly set database path (highest priority!)
  * - Development: Uses local database copy (database/development.db)
  * - Production: Uses production database (database.db in server root)
  */
@@ -13,9 +14,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Get the database path based on NODE_ENV
+ * Get the database path based on environment variables
+ * Priority: DATABASE_PATH > NODE_ENV-based logic
  */
 export function getDatabasePath(): string {
+  // 1. Check for explicit DATABASE_PATH env var (highest priority!)
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+
+  // 2. Fall back to NODE_ENV-based logic
   const env = process.env.NODE_ENV || 'development';
 
   if (env === 'production') {
