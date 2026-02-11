@@ -72,14 +72,23 @@ git push origin staging                 # Auto-Deploy zu Green Server (Port 3001
 ## 🔄 Environment Switching (Desktop App)
 
 ```bash
-/dev        # Desktop App → localhost:3000 (Development)
+/dev        # Full Stack: Startet Server + Desktop App (localhost:3000)
+            # → Automatisch: Port 3000 freigeben, Server starten, Health Check, Desktop App starten
 /green      # Desktop App → Green Server Port 3001 (Staging)
 
-# Nach Command ausführen:
-cd desktop && npm run dev
+# /dev macht ALLES automatisch - kein npm run dev nötig!
 ```
 
-**Was passiert:**
+**Was /dev macht:**
+- ✅ Checks für shell variable overrides
+- ✅ Freed port 3000 (kills old server)
+- ✅ Starts Development Server (background)
+- ✅ Waits for health check (30s timeout)
+- ✅ Updates .env files
+- ✅ Kills old Vite server
+- ✅ Starts Desktop App (background)
+
+**Was /green macht:**
 - Checks für shell variable overrides
 - Updated .env files automatisch
 - Kills running Vite server

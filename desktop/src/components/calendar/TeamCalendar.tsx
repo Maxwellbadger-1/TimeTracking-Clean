@@ -38,6 +38,8 @@ interface TeamCalendarProps {
   onViewModeChange?: (mode: 'month' | 'week' | 'year' | 'team') => void;
   isAdmin?: boolean; // Controls data visibility (employees see only approved absences)
   currentUserId?: number; // Current user's ID for privacy filtering
+  currentDate: Date; // Current viewed month (from parent CalendarPage)
+  onDateChange?: (date: Date) => void; // Optional callback for date changes
 }
 
 export function TeamCalendar({
@@ -46,8 +48,10 @@ export function TeamCalendar({
   onViewModeChange: _onViewModeChange,
   isAdmin = false,
   currentUserId,
+  currentDate, // Use prop instead of internal state
+  onDateChange: _onDateChange,
 }: TeamCalendarProps) {
-  const [currentMonth] = useState(new Date()); // setCurrentMonth unused - handlers commented out
+  // REMOVED: const [currentMonth] = useState(new Date()); - Now uses currentDate prop
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const { calendarFilters } = useUIStore();
 
@@ -61,8 +65,8 @@ export function TeamCalendar({
   //
   // MULTI-YEAR ABSENCE LOADING:
   // Load absences for 3 years (previous, current, next) based on viewed month
-  // TeamCalendar has its own currentMonth state (independent from CalendarPage)
-  const absenceYear = currentMonth.getFullYear();
+  // TeamCalendar uses currentDate prop from parent CalendarPage
+  const absenceYear = currentDate.getFullYear();
   const { data: allAbsences, isLoading: loadingAbsences } = useCalendarAbsences(
     absenceYear,
     isAdmin ? {} : { forTeamCalendar: true } // Special flag to use /team endpoint
@@ -70,7 +74,7 @@ export function TeamCalendar({
 
   // PRIVACY FILTERING (DSGVO-compliant)
   // Admin: Show ALL absences (approved + pending) for all users (not rejected)
-  // Employee: Show approved absences from others + all own absences (approved/pending/sick)
+  // Employee: Show ALL own absences + ONLY approved vacation from others
   const filteredAbsences = useMemo(() => {
     if (!allAbsences) return [];
 
@@ -78,20 +82,24 @@ export function TeamCalendar({
       // Admin: Show approved + pending (not rejected)
       return allAbsences.filter(a => a.status !== 'rejected');
     } else {
-      // Employee: Show approved from others + all own absences
+      // Employee: Show ALL own absences + ONLY approved vacation from others
       return allAbsences.filter(a => {
         const isOwnAbsence = a.userId === currentUserId;
+        const isVacation = a.type === 'vacation';
         const isApproved = a.status === 'approved';
 
-        // Show if: own absence (any status) OR approved absence from others
-        return isOwnAbsence || isApproved;
+        // Show if:
+        // - Own absence (any type, any status)
+        // OR
+        // - Vacation from others (approved only)
+        return isOwnAbsence || (isVacation && isApproved);
       });
     }
   }, [allAbsences, isAdmin, currentUserId]);
 
   // Get all days of current month including buffer for full weeks
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });

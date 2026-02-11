@@ -236,6 +236,8 @@ export function CalendarPage() {
                 onViewModeChange={setViewMode}
                 isAdmin={isAdmin}
                 currentUserId={user.id}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
                 onDayClick={(date, user) => {
                   console.log('Day clicked:', date, 'User:', user);
                   // TODO: Open user day detail modal

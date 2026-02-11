@@ -68,11 +68,21 @@ export function MonthCalendar({
   const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   // PRIVACY FILTERING (DSGVO-compliant)
-  // Employee: Show ONLY own absences in Month/Week/Year calendars
-  // Admin: Show all absences
+  // Admin: Show ALL absences (approved + pending) for all users (not rejected)
+  // Employee: Show ALL own absences + ONLY approved vacation from others
   const filteredAbsences = isAdmin
-    ? absences
-    : absences.filter(a => a.userId === currentUserId);
+    ? absences.filter(a => a.status !== 'rejected')
+    : absences.filter(a => {
+        const isOwnAbsence = a.userId === currentUserId;
+        const isVacation = a.type === 'vacation';
+        const isApproved = a.status === 'approved';
+
+        // Show if:
+        // - Own absence (any type, any status)
+        // OR
+        // - Vacation from others (approved only)
+        return isOwnAbsence || (isVacation && isApproved);
+      });
 
   // Group time entries by date
   const entriesByDate = timeEntries.reduce((acc, entry) => {
