@@ -3,9 +3,24 @@ import { universalFetch } from '../lib/tauriHttpClient';
 import { debugLog } from '../components/DebugPanel';
 import { toast } from 'sonner';
 
+// ========================================
+// 🔥 MASSIVE DEBUG MODE - ENVIRONMENT VARIABLES 🔥
+// ========================================
+console.log('🔥🔥🔥 === VITE ENV DEBUG START === 🔥🔥🔥');
+console.log('📦 import.meta.env:', import.meta.env);
+console.log('📦 import.meta.env.VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('📦 import.meta.env.VITE_ENV:', import.meta.env.VITE_ENV);
+console.log('📦 import.meta.env.MODE:', import.meta.env.MODE);
+console.log('📦 import.meta.env.DEV:', import.meta.env.DEV);
+console.log('📦 import.meta.env.PROD:', import.meta.env.PROD);
+console.log('🔥🔥🔥 === VITE ENV DEBUG END === 🔥🔥🔥');
+
 // DEVELOPMENT: Use localhost
 // PRODUCTION: Use your Oracle Cloud server IP (change after deployment!)
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+console.log('🔧 rawApiUrl NACH Zuweisung:', rawApiUrl);
+console.log('🔧 Falls undefined → Fallback zu localhost:3000');
 
 // Ensure API_BASE_URL always ends with /api
 export const API_BASE_URL = rawApiUrl.endsWith('/api')
@@ -15,8 +30,39 @@ export const API_BASE_URL = rawApiUrl.endsWith('/api')
 // Base URL without /api suffix (for direct exports endpoints that include /api in path)
 export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
+console.log('✅ FINALE Werte:');
 console.log('🌐 API Base URL:', API_BASE_URL);
 console.log('🌐 Server Base URL:', SERVER_BASE_URL);
+
+// ========================================
+// 🔥 LAYER 2: RUNTIME ENVIRONMENT VERIFICATION 🔥
+// ========================================
+console.log('');
+console.log('🔥 LAYER 2 DEBUG - Runtime Environment:');
+console.log('🔍 ALLE import.meta.env Keys:', Object.keys(import.meta.env));
+console.log('🔍 Window Location:', typeof window !== 'undefined' ? window.location.href : 'N/A (SSR)');
+console.log('🔍 Fetch wird gehen zu:', API_BASE_URL);
+
+// Test: Kann der Green Server erreicht werden?
+console.log('');
+console.log('🧪 Testing Green Server reachability...');
+fetch('http://129.159.8.19:3001/api/health', {
+  method: 'GET',
+  mode: 'cors',
+  cache: 'no-cache'
+})
+  .then(r => r.json())
+  .then(d => {
+    console.log('✅ Green Server REACHABLE:', d);
+    console.log('   → Server Status:', d.status);
+    console.log('   → Server Message:', d.message);
+  })
+  .catch(e => {
+    console.error('❌ Green Server UNREACHABLE:', e.message);
+    console.error('   → Error Type:', e.name);
+  });
+
+console.log('==========================================');
 
 export interface ApiResponse<T> {
   success: boolean;

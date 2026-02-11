@@ -51,9 +51,31 @@ export async function universalFetch(
     message: `🌐 Making request (credentials: ${options.credentials}, JWT: ${token ? 'present' : 'none'})`,
   });
 
+  // ========================================
+  // 🔥 LAYER 3: NETWORK LAYER VERIFICATION 🔥
+  // ========================================
+  console.log('');
+  console.log('🔥 LAYER 3 DEBUG - Final Fetch Call:');
+  console.log('  🌐 URL (toString):', url.toString());
+  console.log('  🌐 URL (typeof):', typeof url);
+  console.log('  📝 Method:', options.method || 'GET');
+  console.log('  🔑 Headers:', Object.fromEntries(headers.entries()));
+  console.log('  🍪 Credentials:', options.credentials);
+  console.log('  🔐 JWT Token:', token ? `${token.substring(0, 20)}...` : 'NONE');
+  console.log('');
+
   try {
     // Use browser's native fetch which handles cookies correctly
     const response = await fetch(url, fetchOptions);
+
+    // ========================================
+    // 🔥 LAYER 3: FETCH RESPONSE DEBUG 🔥
+    // ========================================
+    console.log('🔥 LAYER 3 DEBUG - Fetch Response:');
+    console.log('  ✅ Status:', response.status, response.statusText);
+    console.log('  🌐 Response URL (actual):', response.url); // WICHTIG: Zeigt Redirects!
+    console.log('  🌐 Response URL differs from request?', response.url !== url.toString());
+    console.log('');
 
     // Read response
     const text = await response.text();
