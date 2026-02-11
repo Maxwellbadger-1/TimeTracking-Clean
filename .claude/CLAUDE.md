@@ -366,6 +366,118 @@ Siehe "Production Deployment (3-Tier Workflow)" für Details.
 6. Test: All 19 calculation factors (siehe Validation Checklist)
 ```
 
+## PC Wechsel (Mac ↔ Windows)
+
+**WICHTIG:** Wenn User sagt "wechseln wir auf den PC" → Kontext ist Windows PC, nicht Mac!
+
+### Erstes Mal Setup (Windows PC)
+
+**User Intent:** "Setup auf Windows PC" oder "Projekt auf Windows einrichten"
+
+```bash
+# 1. Check Prerequisites
+# - Git installiert? (git --version)
+# - Node.js installiert? (node --version)
+# - Falls nicht: Installationsanleitung geben
+
+# 2. Projekt clonen (lädt NUR Source Code, ~90 MB!)
+cd C:\Projects
+git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
+cd TimeTracking-Clean
+
+# 3. Dependencies installieren
+npm install                          # Root (~1-2 Min)
+cd desktop && npm install            # Desktop (~1 Min)
+cd ../server && npm install          # Server (~30 Sek)
+
+# 4. Verify Setup
+git status                           # Sollte clean sein
+du -sh . 2>/dev/null || echo "Windows: Check mit 'dir' command"
+
+# 5. Entwicklung starten
+# Option A: Server + Desktop separat
+cd server && npm run dev             # Terminal 1 (Server)
+cd desktop && npm run dev            # Terminal 2 (Desktop, ~5-10 Min beim ersten Mal)
+
+# Option B: /dev Command (wenn auf Windows)
+/dev                                 # Startet Server + Desktop automatisch
+```
+
+**Dauer:** ~15 Minuten Setup (einmalig), davon ~5-10 Min Tauri Build beim ersten Mal
+
+**Erwartete Ergebnisse:**
+- ✅ Projekt-Größe: ~500 MB (mit node_modules)
+- ✅ Server läuft auf localhost:3000
+- ✅ Desktop App öffnet sich automatisch
+- ✅ Beim ersten Build: `desktop/src-tauri/target/` wird erstellt (~6-8 GB)
+
+### Täglicher Wechsel (Windows PC)
+
+**User Intent:** "Wechseln wir auf den PC" oder "Arbeite jetzt auf Windows"
+
+```bash
+# 1. Hole neueste Änderungen
+cd C:\Projects\TimeTracking-Clean
+git pull origin main                 # ~5 Sekunden
+
+# 2. Check ob Dependencies aktualisiert wurden
+git log -1 --name-only | grep package.json
+# Falls package.json geändert → npm install
+
+# 3. Entwicklung starten
+cd server && npm run dev             # Server
+cd desktop && npm run dev            # Desktop App
+```
+
+**Dauer:** ~5-10 Sekunden (nur `git pull`, kein Rebuild nötig!)
+
+### Zurück zu Mac
+
+**User Intent:** "Zurück auf Mac" oder "Wechseln wir zurück auf Mac"
+
+```bash
+# AUF WINDOWS (vor Wechsel):
+git add .
+git commit -m "feat: Changes from Windows PC"
+git push origin main                 # ~10 Sekunden
+
+# AUF MAC (nach Wechsel):
+cd ~/Desktop/TimeTracking-Clean
+git pull origin main                 # ~5 Sekunden
+# Optional: npm install (falls package.json geändert)
+```
+
+### Troubleshooting (Windows)
+
+**Problem: Git nicht installiert**
+```bash
+# Download & Install: https://git-scm.com/download/win
+# Verify: git --version
+```
+
+**Problem: Node.js nicht installiert**
+```bash
+# Download & Install: https://nodejs.org/
+# Verify: node --version && npm --version
+```
+
+**Problem: Projekt zu groß (> 2 GB)?**
+```bash
+# Cleanup: Lösche Build-Artifacts
+rm -rf desktop/src-tauri/target node_modules desktop/node_modules server/node_modules
+# Dann: npm install (Dependencies neu installieren)
+```
+
+**Problem: Tauri Build schlägt fehl**
+```bash
+# Install Rust & dependencies (Windows):
+# 1. Rust: https://rustup.rs/
+# 2. Visual Studio Build Tools: https://visualstudio.microsoft.com/downloads/
+# 3. WebView2: https://developer.microsoft.com/en-us/microsoft-edge/webview2/
+```
+
+**Details:** shortcuts.md → "Git Workflow & Speicherplatz-Management"
+
 ## Production Deployment (3-Tier Workflow)
 
 **Code-Flow:** Local → `staging` branch → Green Server:3001 → `/promote-to-prod` → `main` branch → Blue Server:3000
@@ -614,19 +726,24 @@ git show HEAD~1:.claude/CLAUDE.md > .claude/CLAUDE.md
 
 ---
 
-**Version:** 2.3 (Streamlined & Optimized)
-**Lines:** ~643 (-606 lines, -48.5% reduction)
+**Version:** 2.4 (Mac ↔ Windows Workflow)
+**Lines:** ~750 (+107 lines for PC Wechsel Workflow)
 **Last Updated:** 2026-02-11
 **Status:** ✅ AKTIV
 
 **Changelog:**
-- v2.3 (2026-02-11): Streamlined & Optimized
-  - **MAJOR:** Reduced from 1249 to 643 lines (-48.5%) without losing critical info
-  - Überstunden-Berechnung: Condensed from 305 to 58 lines (kept essentials, references ARCHITECTURE.md)
-  - VERBOTE: Consolidated from 250 to 44 lines (removed redundancies)
-  - Deployment Workflow: Streamlined from 122 to 32 lines (kept 3-Tier essentials)
-  - Quick Reference: Optimized from 90 to 27 lines (removed duplicate Core Docs sections)
-  - All important information preserved, better readability for AI context loading
+- v2.4 (2026-02-11): Mac ↔ Windows Workflow & Speicherplatz-Management
+  - **NEW:** Complete "PC Wechsel (Mac ↔ Windows)" workflow section in CLAUDE.md
+  - Added: Erstes Mal Setup (Windows PC) - ~15 Min initial setup guide
+  - Added: Täglicher Wechsel - Fast git pull workflow (~5 sec)
+  - Added: Zurück zu Mac - Bidirectional workflow
+  - Added: Windows-specific troubleshooting (Git, Node.js, Rust, Tauri)
+  - **NEW:** `/cleanup` command for build-artifact removal (saves 6.8 GB)
+  - **NEW:** Pre-commit hook to prevent large files (> 10 MB)
+  - shortcuts.md: Added complete Git workflow & best practices
+  - **RESULT:** 7.3 GB → 458 MB project size (93.7% reduction)
+  - User can now seamlessly switch between Mac & Windows PC
+- v2.3 (2026-02-11): Streamlined & Optimized (-48.5% reduction)
 - v2.2 (2026-02-11): Production Deployment Workflow (3-Tier System)
 - v2.1 (2026-01-24): Overtime System Architecture & Debugging Tools
 - v2.0 (2026-01-15): AI-freundliche Neustrukturierung, Core Docs Integration
