@@ -81,6 +81,7 @@ export interface SessionUser {
   lastName: string;
   role: 'admin' | 'employee';
   weeklyHours: number;
+  workSchedule?: WorkSchedule | null; // Individual work schedule (NULL = use weeklyHours/5 fallback)
   vacationDaysPerYear: number;
   hireDate: string;
   privacyConsentAt?: string | null; // GDPR: Privacy policy acceptance timestamp

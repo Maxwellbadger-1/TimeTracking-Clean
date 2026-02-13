@@ -77,6 +77,11 @@ export function userToPublic(user: User): UserPublic {
  * Convert User to SessionUser
  */
 export function userToSession(user: User): SessionUser {
+  // Parse workSchedule from JSON string (DB stores it as TEXT)
+  const workSchedule = user.workSchedule
+    ? (typeof user.workSchedule === 'string' ? JSON.parse(user.workSchedule) : user.workSchedule)
+    : null;
+
   return {
     id: user.id,
     username: user.username,
@@ -85,6 +90,7 @@ export function userToSession(user: User): SessionUser {
     lastName: user.lastName,
     role: user.role,
     weeklyHours: user.weeklyHours,
+    workSchedule, // Parsed WorkSchedule object or null
     vacationDaysPerYear: user.vacationDaysPerYear,
     hireDate: user.hireDate,
     privacyConsentAt: user.privacyConsentAt, // GDPR: Include privacy consent status in session
