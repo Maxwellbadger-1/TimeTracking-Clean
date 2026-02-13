@@ -519,22 +519,30 @@ printenv | grep VITE_API_URL
 # VITE_API_URL=http://localhost:3000/api
 ```
 
-**Solution:**
+**Solution (AUTOMATIC - v2.5+):**
+
+The `/dev` and `/restart-dev` commands now **automatically detect and clear** this variable!
+
 ```bash
-# Step 1: Unset the shell variable
+# Just run the command - it handles everything:
+/dev           # Auto-clears VITE_API_URL if set, then starts dev environment
+/restart-dev   # Auto-clears VITE_API_URL if set, then restarts
+
+# You'll see:
+# ⚠️  WARNING: Shell variable VITE_API_URL detected!
+#    Current value: http://localhost:3000/api
+#    → Automatically clearing...
+#    ✅ Cleared! Continuing...
+```
+
+**Manual Solution (if needed):**
+```bash
+# Option 1: Use utility command
+/clean-env     # Diagnostic + cleanup
+
+# Option 2: Manual unset (old way)
 unset VITE_API_URL
-
-# Step 2: Verify it's gone
-printenv | grep VITE_API_URL
-# Should show nothing
-
-# Step 3: Use slash commands (RECOMMENDED)
-cd desktop
-/dev      # For localhost:3000
-/green    # For Green Server Port 3001
-
-# Step 4: Restart Desktop App
-npm run dev
+printenv | grep VITE_API_URL  # Verify it's gone
 ```
 
 **Prevention:**

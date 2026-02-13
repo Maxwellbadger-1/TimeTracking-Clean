@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Sprint Week 06-10/2026
 
+### 🚀 Added (2026-02-14)
+
+#### Backup Download Feature
+**Feature:** Admins können Backup-Dateien lokal herunterladen
+
+**Implementation:**
+- **Backend:** Neue Download-Route `GET /api/backup/download/:filename`
+  - Security: `requireAuth` + `requireAdmin` (nur Admins haben Zugriff)
+  - Nutzt Express `res.download()` für File-Transfer
+  - Validation: File existence check, nur Dateien aus BACKUP_DIR
+  - Helper-Funktion `getBackupPath()` in backupService.ts
+
+- **Frontend:** Download-Button in BackupPage
+  - Nutzt `universalFetch()` für Tauri-Kompatibilität (Session Cookies)
+  - Download via `downloadBlob()` utility (Browser-kompatibel)
+  - Toast Notifications für Success/Error
+  - Loading State während Download
+  - Grüner Button mit Download-Icon neben Restore/Delete
+
+**Benefits:**
+- ✅ Lokale Sicherheitskopien für Admins
+- ✅ Archivierung außerhalb des Servers
+- ✅ Migration zu anderen Systemen möglich
+- ✅ Folgt bestehendem Export-Pattern (CSV-Downloads)
+
+**Files Changed:**
+- `server/src/routes/backup.ts` - Download-Route hinzugefügt
+- `server/src/services/backupService.ts` - `getBackupPath()` Helper-Funktion
+- `desktop/src/pages/BackupPage.tsx` - Download-Button & Mutation
+
+**Commit:** [pending]
+
+---
+
 ### ✅ Fixed (2026-02-10)
 
 #### Absence Management - incrementVacationPending / decrementVacationPending Bugs (CRITICAL)

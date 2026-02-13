@@ -22,23 +22,17 @@
 
 ```bash
 # ═══════════════════════════════════════
-# 🔍 STEP 1: Check for Shell Variable
+# 🔍 STEP 1: Check & Clean Shell Variable
 # ═══════════════════════════════════════
 if [ ! -z "$VITE_API_URL" ]; then
-  echo "⚠️  ⚠️  ⚠️  CRITICAL WARNING ⚠️  ⚠️  ⚠️"
+  echo "⚠️  WARNING: Shell environment variable VITE_API_URL detected!"
+  echo "   Current value: $VITE_API_URL"
   echo ""
-  echo "Shell environment variable VITE_API_URL is set!"
-  echo "Current value: $VITE_API_URL"
+  echo "   ℹ️  This would OVERRIDE all .env files (Vite's highest priority)!"
+  echo "   → Automatically clearing for this session..."
+  unset VITE_API_URL
+  echo "   ✅ Cleared! Continuing with /dev startup..."
   echo ""
-  echo "❌ This OVERRIDES all .env files (highest priority in Vite)!"
-  echo ""
-  echo "🔧 FIX: Run these commands first:"
-  echo "   unset VITE_API_URL"
-  echo "   printenv | grep VITE    # Verify it's gone"
-  echo ""
-  echo "Then run /dev again."
-  echo ""
-  exit 1
 fi
 
 # ═══════════════════════════════════════

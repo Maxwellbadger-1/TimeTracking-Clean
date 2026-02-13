@@ -207,6 +207,15 @@ export function getBackupStats(): {
 }
 
 /**
+ * Get full path to a backup file
+ * @param filename Backup filename
+ * @returns Full path to backup file
+ */
+export function getBackupPath(filename: string): string {
+  return path.join(BACKUP_DIR, filename);
+}
+
+/**
  * Delete a specific backup
  */
 export function deleteBackup(backupFilename: string): void {

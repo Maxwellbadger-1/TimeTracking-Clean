@@ -7,7 +7,20 @@ tags: [dev, restart, server, desktop]
 
 Stop all running processes and restart the development environment (server + desktop app).
 
-## Step 1: Kill all processes on ports 3000 and 5173
+## Step 1: Check & Clean Shell Variable
+
+```bash
+if [ ! -z "$VITE_API_URL" ]; then
+  echo "⚠️  WARNING: Shell variable VITE_API_URL detected!"
+  echo "   Current value: $VITE_API_URL"
+  echo "   → Automatically clearing..."
+  unset VITE_API_URL
+  echo "   ✅ Cleared!"
+  echo ""
+fi
+```
+
+## Step 2: Kill all processes on ports 3000 and 5173
 
 ```bash
 lsof -ti:3000 | xargs kill -9 2>/dev/null
@@ -15,7 +28,7 @@ lsof -ti:5173 | xargs kill -9 2>/dev/null
 echo "Ports freed"
 ```
 
-## Step 2: Start server in background
+## Step 3: Start server in background
 
 ```bash
 cd server && npm start
@@ -23,7 +36,7 @@ cd server && npm start
 
 Run this command in the background using the Bash tool with `run_in_background: true`.
 
-## Step 3: Start desktop app in background
+## Step 4: Start desktop app in background
 
 ```bash
 cd desktop && npm run dev
@@ -31,7 +44,7 @@ cd desktop && npm run dev
 
 Run this command in the background using the Bash tool with `run_in_background: true`.
 
-## Step 4: Wait and verify
+## Step 5: Wait and verify
 
 Wait 5 seconds, then check:
 

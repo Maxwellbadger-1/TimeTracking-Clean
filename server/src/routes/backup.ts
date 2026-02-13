@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import fs from 'fs';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import {
   createBackup,
@@ -7,6 +8,7 @@ import {
   restoreBackup,
   deleteBackup,
   getBackupStats,
+  getBackupPath,
 } from '../services/backupService.js';
 import { getSchedulerStatus } from '../services/cronService.js';
 import type { ApiResponse } from '../types/index.js';
@@ -63,6 +65,64 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to get backup stats',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/backup/download/:filename
+ * Download a backup file
+ */
+router.get(
+  '/download/:filename',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+
+      if (!filename) {
+        res.status(400).json({
+          success: false,
+          error: 'Backup filename is required',
+        });
+        return;
+      }
+
+      // Get full path to backup file
+      const backupPath = getBackupPath(filename);
+
+      // Security check: File must exist
+      if (!fs.existsSync(backupPath)) {
+        res.status(404).json({
+          success: false,
+          error: 'Backup file not found',
+        });
+        return;
+      }
+
+      // Send file for download
+      console.log(`📥 Sending backup file for download: ${filename}`);
+      res.download(backupPath, filename, (err) => {
+        if (err) {
+          console.error('❌ Failed to send backup file:', err);
+          // Don't send response if headers already sent
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
+              error: 'Failed to download backup',
+            });
+          }
+        } else {
+          console.log(`✅ Backup file downloaded successfully: ${filename}`);
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to download backup:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to download backup',
       });
     }
   }

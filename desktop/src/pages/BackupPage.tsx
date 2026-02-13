@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Download, RefreshCw, Trash2, Clock, Database } from 'lucide-react';
-import { apiClient } from '../api/client';
+import { apiClient, API_BASE_URL } from '../api/client';
+import { universalFetch } from '../lib/tauriHttpClient';
+import { downloadBlob } from '../utils/downloadFile';
 
 interface Backup {
   filename: string;
@@ -106,6 +108,35 @@ export default function BackupPage() {
     },
     onError: (error: Error) => {
       toast.error(`Löschen fehlgeschlagen: ${error.message}`);
+    },
+  });
+
+  // Download backup mutation
+  const downloadBackupMutation = useMutation({
+    mutationFn: async (filename: string) => {
+      // Fetch backup file as blob
+      const url = `${API_BASE_URL}/backup/download/${filename}`;
+      const response = await universalFetch(url, {
+        method: 'GET',
+        credentials: 'include', // Send session cookie
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Download fehlgeschlagen: ${error}`);
+      }
+
+      // Get blob and trigger download
+      const blob = await response.blob();
+      downloadBlob(blob, filename);
+
+      return filename;
+    },
+    onSuccess: (filename) => {
+      toast.success(`Backup "${filename}" heruntergeladen`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Download fehlgeschlagen: ${error.message}`);
     },
   });
 
@@ -244,6 +275,17 @@ export default function BackupPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Download Button */}
+                        <button
+                          onClick={() => downloadBackupMutation.mutate(backup.filename)}
+                          disabled={downloadBackupMutation.isPending}
+                          className="flex items-center gap-1 px-3 py-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Backup herunterladen"
+                        >
+                          <Download className="h-4 w-4" />
+                          Herunterladen
+                        </button>
+
                         {/* Restore Button */}
                         {confirmRestore === backup.filename ? (
                           <div className="flex items-center gap-2">
