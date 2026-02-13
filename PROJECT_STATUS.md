@@ -389,10 +389,10 @@ Shell environment variables OVERRIDE all .env files!
 ### Desktop Apps
 | Platform | Status | Version | Details |
 |----------|--------|---------|---------|
-| Windows | 🟢 Healthy | v1.5.1 | Auto-update working |
-| macOS (Intel) | 🟢 Healthy | v1.5.1 | Universal binary |
-| macOS (M1/M2) | 🟢 Healthy | v1.5.1 | Universal binary |
-| Linux | 🟢 Healthy | v1.5.1 | AppImage + .deb |
+| Windows | 🟢 Healthy | v1.6.7 | Auto-update working |
+| macOS (Intel) | 🟢 Healthy | v1.6.7 | Universal binary |
+| macOS (M1/M2) | 🟢 Healthy | v1.6.7 | Universal binary |
+| Linux | 🟢 Healthy | v1.6.7 | AppImage + .deb |
 
 ### CI/CD Pipeline
 | Pipeline | Status | Last Run | Duration |
@@ -408,13 +408,14 @@ Shell environment variables OVERRIDE all .env files!
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
-| 2026-01-18 | v1.5.2 | PATCH | Overtime calculation overhaul + UI fixes | 🔄 Pending Testing |
+| 2026-02-14 | v1.6.7 | PATCH | Backup download + workSchedule fix | ✅ Deployed |
+| 2026-01-18 | v1.5.2 | PATCH | Overtime calculation overhaul + UI fixes | ✅ Deployed |
 | 2026-01-15 | v1.5.1 | PATCH | Email deletion & notifications fixes | ✅ Deployed |
 | 2026-01-14 | v1.5.0 | MINOR | Strict absence validation | ✅ Deployed |
 | 2026-01-10 | v1.4.0 | MINOR | Position column added | ✅ Deployed |
 | 2025-12-20 | v1.3.0 | MINOR | Weekend bug fix (critical) | ✅ Deployed |
 
-**Deployment Success Rate (Last 30 Days):** 100% (12/12 deployments successful)
+**Deployment Success Rate (Last 30 Days):** 100% (13/13 deployments successful)
 
 ---
 
@@ -636,6 +637,15 @@ Shell environment variables OVERRIDE all .env files!
 ## 📝 Notes
 
 ### Recent Achievements
+- ✅ **Backup Download Feature** - Admins können Backups lokal herunterladen (2026-02-14)
+  - Neue Download-Route: `GET /api/backup/download/:filename` (Admin-only)
+  - Grüner Download-Button in Backup-Seite
+  - Tauri-kompatibel mit Session Cookies
+  - Folgt bestehendem Export-Pattern (CSV-Downloads)
+- ✅ **WorkSchedule SessionUser Fix** - Employees sehen korrekten Arbeitsplan im Dashboard (2026-02-14)
+  - workSchedule in SessionUser Type hinzugefügt
+  - Individual work schedules werden korrekt angezeigt
+  - Beispiel: Carmen (12h/week: Mo 4h, Di 4h, Do 4h) sieht nun richtige Zeiten
 - ✅ **Auto-Migration System** - Production-ready migration system for overtime transaction backfill (2026-01-27)
   - Auto-discovery of migration files
   - Transaction-based execution for atomicity
