@@ -342,12 +342,12 @@ Du musst nichts manuell konvertieren.
 **Nach Setup solltest du haben:**
 - ✅ Server läuft auf http://localhost:3000
 - ✅ Desktop App öffnet sich automatisch
-- ✅ Login funktioniert (Username: admin, Password: admin123)
+- ✅ Login funktioniert mit bereitgestellten Credentials
 - ✅ Git status zeigt: "nothing to commit, working tree clean"
 
 **Test:**
 1. Öffne Desktop App
-2. Login mit admin/admin123
+2. Login mit bereitgestellten Credentials
 3. Erstelle einen Test-Zeiteintrag
 4. Check ob er gespeichert wird
 

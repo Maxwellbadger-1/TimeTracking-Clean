@@ -80,18 +80,7 @@
 
 Die App verbindet sich automatisch mit dem Oracle Cloud Server - **keine weitere Konfiguration nötig!**
 
-### 3️⃣ Erster Login (Admin)
-
-Beim ersten Start des Systems:
-
-```
-Username: admin
-Passwort: admin123
-```
-
-**⚠️ WICHTIG:** Ändere das Admin-Passwort sofort nach dem ersten Login!
-
-### 4️⃣ Multi-User
+### 3️⃣ Multi-User
 
 **Alle weiteren Benutzer:**
 1. Download & Installation wie oben

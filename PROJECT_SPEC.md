@@ -2540,8 +2540,8 @@ describe('POST /api/auth/login', () => {
     const response = await request(app)
       .post('/api/auth/login')
       .send({
-        username: 'admin',
-        password: 'admin123'
+        username: 'testuser',
+        password: 'secure-password'
       });
 
     expect(response.status).toBe(200);
