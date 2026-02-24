@@ -4,7 +4,6 @@ import { useCurrentUser } from '../hooks';
 import PasswordChangeForm from '../components/settings/PasswordChangeForm';
 import EmailChangeForm from '../components/settings/EmailChangeForm';
 import UpdateChecker from '../components/settings/UpdateChecker';
-import { WorkScheduleDisplay } from '../components/worktime/WorkScheduleDisplay';
 import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 
@@ -174,13 +173,6 @@ export default function SettingsPage() {
                   ℹ️ Diese Werte können nur von einem Administrator geändert werden
                 </p>
               </div>
-
-              {/* Work Schedule Section */}
-              {currentUser && (
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <WorkScheduleDisplay user={currentUser} mode="detailed" />
-                </div>
-              )}
 
               <EmailChangeForm />
             </div>

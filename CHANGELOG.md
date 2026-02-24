@@ -39,6 +39,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `server/src/services/backupService.ts` - `getBackupPath()` Helper-Funktion
 - `desktop/src/pages/BackupPage.tsx` - Download-Button & Mutation
 
+**Commit:** fbe2f14
+
+---
+
+### ✅ Fixed (2026-02-24)
+
+#### Remove Duplicate Work Schedule Display from Settings
+**Issue:** Work schedule information was displayed in both Employee Dashboard and Settings page
+
+**Analysis:**
+- **Dashboard:** Compact mode in grid + detailed mode in modal (with "Details anzeigen" button)
+- **Settings:** Detailed mode directly in Profile tab → Duplication!
+
+**Fix Applied:**
+Removed `WorkScheduleDisplay` from Settings page (desktop/src/pages/SettingsPage.tsx):
+- Removed import of `WorkScheduleDisplay` component
+- Removed Work Schedule Section from Profile tab (Lines 178-183)
+- Work schedule remains accessible in Dashboard (compact + detailed modes)
+
+**Benefits:**
+- ✅ No UI duplication - Single source of truth in Dashboard
+- ✅ Better UX - Settings focused on account configuration only
+- ✅ Consistent user experience - All work time info in one place
+
+**Files Changed:**
+- `desktop/src/pages/SettingsPage.tsx` - Removed WorkScheduleDisplay section
+
 **Commit:** [pending]
 
 ---
