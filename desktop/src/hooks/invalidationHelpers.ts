@@ -203,24 +203,24 @@ export async function invalidateUserQueries(queryClient: QueryClient): Promise<v
  * - Time entries are created/modified/deleted
  */
 export async function invalidateTimeEntryQueries(queryClient: QueryClient): Promise<void> {
-  // First invalidate (mark as stale)
-  const invalidatePromises = QUERY_GROUPS.timeEntries.map(queryKey =>
-    queryClient.invalidateQueries({
-      queryKey: [queryKey],
-      ...DEFAULT_INVALIDATION_OPTIONS,
-    })
-  );
-  await Promise.all(invalidatePromises);
+  // Use predicate-based invalidation to match ALL timeEntries queries
+  // This includes: ['timeEntries'], ['timeEntry', id], ['timeEntries', 'infinite', ...]
+  await queryClient.invalidateQueries({
+    predicate: (query) => {
+      const firstKey = query.queryKey[0];
+      return firstKey === 'timeEntries' || firstKey === 'timeEntry';
+    },
+    ...DEFAULT_INVALIDATION_OPTIONS,
+  });
 
   // Then immediately refetch active queries for instant updates
-  const refetchPromises = QUERY_GROUPS.timeEntries.map(queryKey =>
-    queryClient.refetchQueries({
-      queryKey: [queryKey],
-      exact: false,
-      type: 'active',
-    })
-  );
-  await Promise.all(refetchPromises);
+  await queryClient.refetchQueries({
+    predicate: (query) => {
+      const firstKey = query.queryKey[0];
+      return firstKey === 'timeEntries' || firstKey === 'timeEntry';
+    },
+    type: 'active',
+  });
 }
 
 /**
