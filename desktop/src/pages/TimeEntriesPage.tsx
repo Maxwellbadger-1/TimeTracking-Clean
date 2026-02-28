@@ -73,6 +73,11 @@ export function TimeEntriesPage() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    // Helper: Format Date to YYYY-MM-DD (timezone-safe, no UTC conversion!)
+    const formatDateLocal = (date: Date): string => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
     switch (dateRangePreset) {
       case 'all-time':
         return {
@@ -80,11 +85,13 @@ export function TimeEntriesPage() {
           end: '',
         };
 
-      case 'today':
+      case 'today': {
+        const dateStr = formatDateLocal(today);
         return {
-          start: today.toISOString().split('T')[0],
-          end: today.toISOString().split('T')[0],
+          start: dateStr,
+          end: dateStr,
         };
+      }
 
       case 'this-week': {
         const dayOfWeek = today.getDay();
@@ -93,8 +100,8 @@ export function TimeEntriesPage() {
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
         return {
-          start: monday.toISOString().split('T')[0],
-          end: sunday.toISOString().split('T')[0],
+          start: formatDateLocal(monday),
+          end: formatDateLocal(sunday),
         };
       }
 
@@ -105,8 +112,8 @@ export function TimeEntriesPage() {
         const lastSunday = new Date(lastMonday);
         lastSunday.setDate(lastMonday.getDate() + 6);
         return {
-          start: lastMonday.toISOString().split('T')[0],
-          end: lastSunday.toISOString().split('T')[0],
+          start: formatDateLocal(lastMonday),
+          end: formatDateLocal(lastSunday),
         };
       }
 
@@ -114,8 +121,8 @@ export function TimeEntriesPage() {
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         return {
-          start: firstDay.toISOString().split('T')[0],
-          end: lastDay.toISOString().split('T')[0],
+          start: formatDateLocal(firstDay),
+          end: formatDateLocal(lastDay),
         };
       }
 
@@ -123,8 +130,8 @@ export function TimeEntriesPage() {
         const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
         return {
-          start: firstDay.toISOString().split('T')[0],
-          end: lastDay.toISOString().split('T')[0],
+          start: formatDateLocal(firstDay),
+          end: formatDateLocal(lastDay),
         };
       }
 
@@ -132,8 +139,8 @@ export function TimeEntriesPage() {
         const firstDay = new Date(today.getFullYear(), 0, 1);
         const lastDay = new Date(today.getFullYear(), 11, 31);
         return {
-          start: firstDay.toISOString().split('T')[0],
-          end: lastDay.toISOString().split('T')[0],
+          start: formatDateLocal(firstDay),
+          end: formatDateLocal(lastDay),
         };
       }
 
