@@ -231,8 +231,8 @@ export function useAllUsersOvertimeReports(year: number, month?: number, isAdmin
   return useQuery({
     queryKey: ['all-users-overtime-reports', year, month],
     queryFn: async (): Promise<OvertimeReportSummary[]> => {
-      // Fetch all users first
-      const usersResponse = await apiClient.get('/users');
+      // Fetch all active users (exclude soft-deleted users)
+      const usersResponse = await apiClient.get('/users/active');
       if (!usersResponse.success) throw new Error(usersResponse.error);
 
       const users = usersResponse.data as User[];
