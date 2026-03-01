@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-02-24
-**Version:** v1.6.8 (deployed)
+**Last Updated:** 2026-03-01
+**Version:** v1.7.0 (deployed)
 **Status:** 🟢 Healthy - 3-Tier Workflow Fully Operational
 
 ---
@@ -408,6 +408,7 @@ Shell environment variables OVERRIDE all .env files!
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-03-01 | v1.7.0 | MINOR | Timezone-safe date formatting + Backup download | ✅ Deployed |
 | 2026-02-24 | v1.6.8 | PATCH | Remove duplicate work schedule display | ✅ Deployed |
 | 2026-02-14 | v1.6.7 | PATCH | Backup download + workSchedule fix | ✅ Deployed |
 | 2026-01-18 | v1.5.2 | PATCH | Overtime calculation overhaul + UI fixes | ✅ Deployed |
