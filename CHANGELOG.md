@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] - Sprint Week 06-10/2026
+## [Unreleased]
+
+---
+
+## [1.7.0] - 2026-03-01
 
 ### 🚀 Added (2026-02-14)
 
@@ -84,7 +88,7 @@ function formatDateLocal(date: Date): string {
 
 **Related:** This completes the timezone bug fixes started in Phase 1 (server-side) - now frontend is also timezone-safe!
 
-**Commit:** [pending]
+**Commit:** 17c5e05
 
 ---
 
@@ -111,9 +115,11 @@ Removed `WorkScheduleDisplay` from Settings page (desktop/src/pages/SettingsPage
 **Files Changed:**
 - `desktop/src/pages/SettingsPage.tsx` - Removed WorkScheduleDisplay section
 
-**Commit:** [pending]
+**Commit:** [Not committed - removed duplicate UI section]
 
 ---
+
+## [1.6.9] - 2026-02-14
 
 ### ✅ Fixed (2026-02-10)
 
