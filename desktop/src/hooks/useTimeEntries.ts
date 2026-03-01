@@ -76,9 +76,14 @@ export function useTimeEntry(id: number) {
   });
 }
 
+// Helper: Format Date to YYYY-MM-DD (timezone-safe, no UTC conversion!)
+function formatDateLocal(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 // Get today's time entries
 export function useTodayTimeEntries(userId: number) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateLocal(new Date());
 
   return useTimeEntries({
     userId,
@@ -101,8 +106,8 @@ export function useWeekTimeEntries(userId: number) {
   const lastDay = new Date(firstDay);
   lastDay.setDate(firstDay.getDate() + 6);
 
-  const startDate = firstDay.toISOString().split('T')[0];
-  const endDate = lastDay.toISOString().split('T')[0];
+  const startDate = formatDateLocal(firstDay);
+  const endDate = formatDateLocal(lastDay);
 
   return useTimeEntries({
     userId,
@@ -121,8 +126,8 @@ export function useMonthTimeEntries(userId?: number) {
   // Calculate last day of month
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const startDate = firstDay.toISOString().split('T')[0];
-  const endDate = lastDay.toISOString().split('T')[0];
+  const startDate = formatDateLocal(firstDay);
+  const endDate = formatDateLocal(lastDay);
 
   return useTimeEntries({
     userId,

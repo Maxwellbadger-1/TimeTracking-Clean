@@ -60,9 +60,11 @@ export function EmployeeDashboard() {
       const url = URL.createObjectURL(dataBlob);
 
       // Download file
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const link = document.createElement('a');
       link.href = url;
-      link.download = `daten-export-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `daten-export-${today}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

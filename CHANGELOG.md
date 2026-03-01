@@ -43,6 +43,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+### ✅ Fixed (2026-03-01)
+
+#### Timezone-Safe Date Formatting Across Frontend
+**Issue:** `toISOString().split('T')[0]` caused UTC timezone conversion bugs
+- "Today" entries not showing correctly (UTC shift)
+- Calendar queries loading wrong date ranges
+- Export filenames showing wrong dates
+- Overtime calculations referencing wrong dates
+
+**Root Cause:** `Date.toISOString()` converts to UTC, which causes date shifts:
+```typescript
+// Example: User in CET (UTC+1) at 2026-03-01 00:30
+const date = new Date(); // 2026-03-01 00:30 CET
+date.toISOString().split('T')[0] // "2026-02-28" ❌ (UTC conversion!)
+```
+
+**Fix Applied:** Replaced ALL occurrences with timezone-safe local formatting:
+```typescript
+// New helper function (used in 6 files):
+function formatDateLocal(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+```
+
+**Files Changed:**
+- `desktop/src/components/corrections/OvertimeCorrectionModal.tsx` - getTodayLocal() helper
+- `desktop/src/components/dashboard/EmployeeDashboard.tsx` - Export filename
+- `desktop/src/components/worktime/DailyOvertimeDetails.tsx` - "Heute" badge
+- `desktop/src/hooks/useTimeEntries.ts` - formatDateLocal() for all queries
+- `desktop/src/hooks/useWorkTimeAccounts.ts` - toDate calculation
+- `desktop/src/pages/CalendarPage.tsx` - Calendar date range queries
+
+**Benefits:**
+- ✅ "Heute" entries now show correctly (no UTC shift)
+- ✅ Calendar loads correct date ranges
+- ✅ Export filenames use correct local date
+- ✅ Overtime transactions query correct date ranges
+- ✅ Consistent behavior across all timezones
+
+**Related:** This completes the timezone bug fixes started in Phase 1 (server-side) - now frontend is also timezone-safe!
+
+**Commit:** [pending]
+
+---
+
 ### ✅ Fixed (2026-02-24)
 
 #### Remove Duplicate Work Schedule Display from Settings

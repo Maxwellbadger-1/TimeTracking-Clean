@@ -8,6 +8,12 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useCreateOvertimeCorrection } from '../../hooks/useOvertimeCorrections';
 import { AlertCircle } from 'lucide-react';
 
+// Helper: Format Date to YYYY-MM-DD (timezone-safe, no UTC conversion!)
+function getTodayLocal(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 interface OvertimeCorrectionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,7 +31,7 @@ export function OvertimeCorrectionModal({
 
   // Form state
   const [hours, setHours] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getTodayLocal());
   const [reason, setReason] = useState('');
   const [correctionType, setCorrectionType] = useState<'system_error' | 'absence_credit' | 'migration' | 'manual'>('manual');
 
@@ -98,7 +104,7 @@ export function OvertimeCorrectionModal({
 
       // Reset form and close
       setHours('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getTodayLocal());
       setReason('');
       setCorrectionType('manual');
       onClose();
@@ -111,7 +117,7 @@ export function OvertimeCorrectionModal({
   const handleClose = () => {
     // Reset form
     setHours('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getTodayLocal());
     setReason('');
     setCorrectionType('manual');
 

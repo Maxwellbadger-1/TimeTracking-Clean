@@ -151,7 +151,8 @@ export function DailyOvertimeDetails({ userId, month }: DailyOvertimeDetailsProp
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {dailyWithBalance.map((entry: any) => {
               const isWeekend = getDayOfWeek(entry.date) === 'Sa' || getDayOfWeek(entry.date) === 'So';
-              const today = new Date().toISOString().split('T')[0];
+              const now = new Date();
+              const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
               const isToday = entry.date === today;
 
               return (

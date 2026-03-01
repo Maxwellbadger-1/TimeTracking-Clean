@@ -42,13 +42,18 @@ export function CalendarPage() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
+    // Helper: Format Date to YYYY-MM-DD (timezone-safe, no UTC conversion!)
+    const formatDateLocal = (date: Date): string => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
     if (viewMode === 'month' || viewMode === 'week') {
       // Month/Week view: Load current month ± 1 month (3 months buffer)
       const start = new Date(year, month - 1, 1); // Previous month
       const end = new Date(year, month + 2, 0); // Next month (last day)
       return {
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0],
+        startDate: formatDateLocal(start),
+        endDate: formatDateLocal(end),
       };
     } else {
       // Year/Team view: Load full year
