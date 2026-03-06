@@ -81,7 +81,7 @@ export function UserManagementPage() {
         u =>
           u.firstName.toLowerCase().includes(query) ||
           u.lastName.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query) ||
+          (u.email?.toLowerCase() ?? '').includes(query) ||
           u.username.toLowerCase().includes(query)
       );
     }

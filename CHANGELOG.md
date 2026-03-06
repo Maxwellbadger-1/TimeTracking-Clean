@@ -11,6 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.1] - 2026-03-06
+
+### 🐛 Fixed
+
+#### White Screen Bug beim Suchen in Mitarbeiter-Tab
+**Issue:** Tippen im Suchfeld des Mitarbeiter-Tabs führte zu White Screen (App Crash)
+
+**Root Cause:**
+- Filter-Logik in `UserManagementPage.tsx:84` versuchte `.toLowerCase()` auf `null` `email` Field auszuführen
+- Keine Null-Checks für optionales `email` Feld
+- TypeError: `null is not an object (evaluating 'u.email.toLowerCase')`
+
+**Fix:**
+```typescript
+// Vorher (❌ Crash):
+u.email.toLowerCase().includes(query) ||
+
+// Nachher (✅ Safe):
+(u.email?.toLowerCase() ?? '').includes(query) ||
+```
+
+**File Changed:**
+- `desktop/src/pages/UserManagementPage.tsx` - Optional chaining & nullish coalescing für email search filter
+
+**Benefits:**
+- ✅ Suche funktioniert auch für User ohne Email
+- ✅ Kein App Crash mehr beim Tippen
+- ✅ TypeScript Strict Mode konform
+
+**Location:** desktop/src/pages/UserManagementPage.tsx:84
+
+---
+
 ## [1.7.0] - 2026-03-01
 
 ### 🚀 Added (2026-02-14)
