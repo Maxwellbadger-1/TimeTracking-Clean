@@ -630,10 +630,10 @@ export async function getOvertimeSummary(userId: number, year: number): Promise<
     .prepare(
       `SELECT month, targetHours, actualHours, overtime
        FROM overtime_balance
-       WHERE userId = ? AND month LIKE ? AND month >= strftime('%Y-%m', ?)
+       WHERE userId = ? AND month LIKE ? AND month >= strftime('%Y-%m', ?) AND month <= ?
        ORDER BY month DESC`
     )
-    .all(userId, `${year}-%`, hireDate) as MonthlyOvertime[];
+    .all(userId, `${year}-%`, hireDate, endMonth) as MonthlyOvertime[];
 
   // Ensure all numbers are properly typed (SQLite sometimes returns strings)
   const monthly = monthlyRaw.map(m => ({
