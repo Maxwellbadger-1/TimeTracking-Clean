@@ -19,7 +19,8 @@
     "test:desktop": "npm run test --workspace=desktop",
     "test:server": "npm run test --workspace=server",
     "test:run": "npm run test:run --workspaces",
-    "test:coverage": "npm run test:coverage --workspaces"
+    "test:coverage": "npm run test:coverage --workspaces",
+    "sync-dev-db": "bash ./scripts/sync-dev-db.sh"
   },
   "devDependencies": {
     "prettier": "^3.1.1"

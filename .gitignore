@@ -26,6 +26,7 @@ target/
 # Specific database files to ignore
 server/database.db                      # Production database (Oracle Cloud)
 server/database.backup.db              # Production backup
+server/*.db.backup.*                   # Timestamped backups from sync-dev-db.sh
 server/database/development.db         # Development database (local copy)
 server/database/development.backup.*.db # Development backups with timestamps
 
