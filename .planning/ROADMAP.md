@@ -17,7 +17,7 @@ Production DB at `/home/ubuntu/database-shared.db` is live and must never be mod
 ## Phases
 
 - [x] **Phase 1: Server DB Consolidation** - Create `/home/ubuntu/databases/` and copy production DB there (completed 2026-04-02)
-- [ ] **Phase 2: Symlink + PM2 Ecosystem** - Wire Blue Server to centralized DB via symlink and ecosystem file
+- [x] **Phase 2: Symlink + PM2 Ecosystem** - Wire Blue Server to centralized DB via symlink and ecosystem file (completed 2026-04-02)
 - [ ] **Phase 3: Local Dev Sync Script** - Windows-compatible script to pull production DB for local development
 - [ ] **Phase 4: Deploy Workflow + Documentation** - Harden CI/CD, fix Green Server PORT issue, update all docs
 
@@ -164,7 +164,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Server DB Consolidation | 5/5 | Complete   | 2026-04-02 |
-| 2. Symlink + PM2 Ecosystem | 0/5 | Not started | - |
+| 2. Symlink + PM2 Ecosystem | 5/5 | Complete   | 2026-04-02 |
 | 3. Local Dev Sync Script | 0/4 | Not started | - |
 | 4. Deploy Workflow + Documentation | 0/4 | Not started | - |
 
@@ -178,8 +178,8 @@ Plans 3 and 4 can run in parallel (independent doc files).
 |-------------|-------|--------|
 | Zentralisiertes DB-Verzeichnis `/home/ubuntu/databases/` | Phase 1 | Complete (01-01) |
 | Production DB als Master: `production.db` (COPY, nie Move!) | Phase 1 | In Progress (01-03 copy + 01-04 backup) |
-| Blue Server zeigt via Symlink auf zentrales production.db | Phase 2 | Pending |
-| PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV | Phase 2 | Pending |
+| Blue Server zeigt via Symlink auf zentrales production.db | Phase 2 | Complete (02) |
+| PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV | Phase 2 | Complete (02) |
 | `npm run sync-dev-db` Script (Windows-kompatibel) | Phase 3 | Pending |
 | Lokale Dev DB heißt `server/database.db` (konfigurierbar) | Phase 3 | Pending |
 | `deploy-server.yml` prüft DB-Pfad nach Deployment | Phase 4 | Pending |
