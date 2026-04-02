@@ -1,0 +1,29 @@
+TIMESTAMP: Thu Apr  2 12:12:10 UTC 2026
+PID: 2450340
+--- lsof output ---
+node\x20/ 2450340 ubuntu  mem-r     REG                8,1    32768   258204 /home/ubuntu/database-shared.db-shm
+node\x20/ 2450340 ubuntu   19ur     REG                8,1   831488   258167 /home/ubuntu/database-shared.db
+node\x20/ 2450340 ubuntu   20u      REG                8,1  1153632   258093 /home/ubuntu/database-shared.db-wal
+node\x20/ 2450340 ubuntu   21ur     REG                8,1    32768   258204 /home/ubuntu/database-shared.db-shm
+--- all .db files ---
+-rw-r--r-- 1 ubuntu ubuntu 812K Apr  2 11:29 /home/ubuntu/database-shared.db
+-rw-r--r-- 1 ubuntu ubuntu 492K Feb 12 01:00 /home/ubuntu/database-staging.db
+-rw-r--r-- 1 ubuntu ubuntu 4.0K Nov  2 14:37 /home/ubuntu/database_OLD_BACKUP_20251109.db
+-rw-r--r-- 1 ubuntu ubuntu 544K Feb 24 20:23 /home/ubuntu/TimeTracking-Clean/server/database.BEFORE_PASSWORD_RESET.20260224_202325.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 06:13 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_061319.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 06:22 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_062228.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 20:04 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_200450.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 20:07 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_200751.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 20:26 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_202601.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 20:50 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_205041.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb  9 21:03 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260209_210323.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb 10 08:15 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260210_081539.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb 10 08:37 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260210_083755.db
+-rw-r--r-- 1 ubuntu ubuntu 460K Feb 10 11:32 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260210_113227.db
+-rw-r--r-- 1 ubuntu ubuntu 492K Feb 11 12:46 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260211_124612.db
+-rw-r--r-- 1 ubuntu ubuntu 544K Feb 24 20:13 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260224_201307.db
+-rw-r--r-- 1 ubuntu ubuntu 548K Feb 24 21:00 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260224_210040.db
+-rw-r--r-- 1 ubuntu ubuntu 548K Feb 24 21:22 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260224_212214.db
+-rw-r--r-- 1 ubuntu ubuntu 812K Apr  2 11:25 /home/ubuntu/TimeTracking-Clean/server/database.backup.20260402_112500.db
+lrwxrwxrwx 1 ubuntu ubuntu   31 Feb  9 19:33 /home/ubuntu/TimeTracking-Clean/server/database.db -> /home/ubuntu/database-shared.db
+LIVE_DB_PATH: /home/ubuntu/database-shared.db
