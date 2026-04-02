@@ -5,16 +5,22 @@
  * DATABASE_PATH is set explicitly so the server never falls back to path resolution.
  *
  * Usage (on server):
- *   pm2 start /home/ubuntu/TimeTracking-Clean/ecosystem.production.js
+ *   pm2 start /home/ubuntu/TimeTracking-Clean/ecosystem.production.config.js
  *   pm2 save
+ *
+ * Note: SESSION_SECRET and ALLOWED_ORIGINS must be set in environment before running,
+ * or passed via --env when starting. They are NOT committed to this file.
  *
  * Rollback:
  *   pm2 stop timetracking-server && pm2 delete timetracking-server
  *   cd /home/ubuntu/TimeTracking-Clean/server
- *   rm database.db && cp database.db.backup.TIMESTAMP database.db
+ *   rm database.db && cp database.db.backup.20260402_125311 database.db
+ *   SESSION_SECRET=$(grep '^SESSION_SECRET=' server/.env | cut -d= -f2)
+ *   ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
  *   TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET \
  *     ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
- *     pm2 start dist/server.js --name timetracking-server --cwd /home/ubuntu/TimeTracking-Clean/server --time
+ *     pm2 start dist/server.js --name timetracking-server \
+ *     --cwd /home/ubuntu/TimeTracking-Clean/server --time --update-env
  *   pm2 save
  */
 
@@ -30,10 +36,9 @@ module.exports = {
         PORT: 3000,
         TZ: 'Europe/Berlin',
         DATABASE_PATH: '/home/ubuntu/databases/production.db',
-        // SESSION_SECRET and ALLOWED_ORIGINS are read from the server's .env file
-        // at startup. Set them here only if .env is not available.
-        // SESSION_SECRET: '',  // DO NOT commit — load from .env or set manually
-        // ALLOWED_ORIGINS: 'tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420',
+        // SESSION_SECRET and ALLOWED_ORIGINS are passed via shell environment
+        // when starting: SESSION_SECRET=... pm2 start ecosystem.production.config.js
+        // They are injected via --update-env and persist in PM2 dump.
       },
 
       instances: 1,
