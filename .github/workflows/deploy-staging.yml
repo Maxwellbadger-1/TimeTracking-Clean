@@ -1,3 +1,15 @@
+# ============================================================
+# STAGING / GREEN SERVER — ON-DEMAND ONLY
+# ============================================================
+# This workflow deploys to the Green Server (port 3001).
+# It is NOT part of the standard 2-Tier development flow.
+#
+# Trigger: Manual only (workflow_dispatch) or staging branch push.
+# The staging branch is not maintained in the 2-Tier workflow.
+#
+# Standard flow: npm run sync-dev-db -> develop on main -> git push main
+# See: scripts/sync-dev-db.sh for local DB setup
+# ============================================================
 name: 'Deploy to Staging (Green Server)'
 
 # Deploy only when server code changes and tests pass
@@ -139,7 +151,9 @@ jobs:
             # Set ALLOWED_ORIGINS for CORS
             export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
 
-            TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+            # PORT must be passed as prefix — PM2 does NOT load .env files
+            # (see ENV.md Green Server Critical Notes for full explanation)
+            TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS PORT=3001 \
               pm2 start dist/server.js \
               --name timetracking-staging \
               --cwd /home/ubuntu/TimeTracking-Green/server \
