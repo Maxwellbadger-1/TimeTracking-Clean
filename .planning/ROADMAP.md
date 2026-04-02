@@ -34,7 +34,7 @@ Production DB at `/home/ubuntu/database-shared.db` is live and must never be mod
 **Depends on:** Nothing — zero changes to the running system in this phase.
 
 **Plans:**
-2/5 plans executed
+4/5 plans executed
 2. **Identify live DB via lsof** — SSH to server, get Blue Server PID, run `lsof -p $PID | grep .db` to confirm the actual path in use (may be `database-shared.db` or `database-production.db`)
 3. **Copy (not move) production DB to centralized location** — `cp <live-db> /home/ubuntu/databases/production.db` with `chmod 600`
 4. **Create timestamped backup** — `cp <live-db> /home/ubuntu/databases/backups/production.YYYYMMDD_HHMMSS.db`
@@ -55,8 +55,8 @@ Plans 3 and 4 can run in parallel (two independent copies from the same source).
 Plans:
 - [x] 01-01-PLAN.md — Create /home/ubuntu/databases/ directory structure via SSH
 - [x] 01-02-PLAN.md — Identify live DB path via lsof, save to lsof-output.txt
-- [ ] 01-03-PLAN.md — Copy live DB to /home/ubuntu/databases/production.db (chmod 600)
-- [ ] 01-04-PLAN.md — Create timestamped backup in /home/ubuntu/databases/backups/
+- [x] 01-03-PLAN.md — Copy live DB to /home/ubuntu/databases/production.db (chmod 600)
+- [x] 01-04-PLAN.md — Create timestamped backup in /home/ubuntu/databases/backups/
 - [ ] 01-05-PLAN.md — PRAGMA integrity_check verification + human sign-off
 
 ---
@@ -164,7 +164,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Server DB Consolidation | 2/5 | In Progress|  |
+| 1. Server DB Consolidation | 4/5 | In Progress|  |
 | 2. Symlink + PM2 Ecosystem | 0/5 | Not started | - |
 | 3. Local Dev Sync Script | 0/4 | Not started | - |
 | 4. Deploy Workflow + Documentation | 0/4 | Not started | - |
