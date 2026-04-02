@@ -1,15 +1,18 @@
 # Environment Variables - Complete Guide
 
-**3-Tier Environment Configuration System for TimeTracking**
+**2-Tier Environment Configuration System for TimeTracking**
 
-**Updated:** 2026-02-11 - Shell Variable Override Fix + Workflow Clarification
+**Updated:** 2026-04-02 - Updated to 2-Tier Architecture (DB consolidation complete)
 
-## 🎯 3-Tier Environment Overview
+## 🎯 2-Tier Environment Overview
 
 ```
-Development (Local)  →  Staging (Green:3001)  →  Production (Blue:3000)
-  development.db          staging.db (prod copy)    production.db
-  Small dataset           Real production data       Live customer data
+Development (Local)  →  Production (Blue:3000)
+  server/database.db      /home/ubuntu/databases/production.db
+  Synced via scp           Live customer data
+
+Local DB setup: npm run sync-dev-db (pulls production DB via SCP)
+Green Server (port 3001) is available on-demand but not part of the standard flow.
 ```
 
 ## 📂 File Structure (Updated 2026-02-10)
@@ -82,44 +85,59 @@ cp .env.staging .env && npm run dev
 
 **See also:** `.claude/commands/dev.md`, `.claude/commands/green.md`, `.claude/commands/sync-green.md`
 
-### 2. Server Development
+### 2. Local DB Setup (Standard)
+
+```bash
+# Pull production DB for local development (Windows Git Bash compatible)
+npm run sync-dev-db
+
+# What it does:
+# 1. Backs up existing server/database.db (timestamped)
+# 2. SCPs production.db from /home/ubuntu/databases/production.db
+# 3. Runs PRAGMA integrity_check
+# 4. Prints user count and latest time entry date
+```
+
+### 3. Server Development
 
 ```bash
 # Local development server
 cd server
 npm run dev                      # Uses .env.development automatically
-# Runs on localhost:3000 with development.db
+# Runs on localhost:3000 with server/database.db
 ```
 
-### 3. Production Server Setup (Oracle Cloud)
+### 4. Production Server Setup (Oracle Cloud)
 
 **Production (Blue Server - Port 3000):**
 ```bash
 ssh ubuntu@129.159.8.19
 cd /home/ubuntu/TimeTracking-Clean/server
 
-# Environment managed by PM2:
+# Environment managed by PM2 ecosystem file:
 NODE_ENV=production
 PORT=3000
 TZ=Europe/Berlin
-DATABASE_PATH=/home/ubuntu/database-production.db
+DATABASE_PATH=/home/ubuntu/databases/production.db
 SESSION_SECRET=<secure-random>
 ```
 
-**Staging (Green Server - Port 3001):**
+**Staging (Green Server - Port 3001, ON-DEMAND ONLY):**
 ```bash
 ssh ubuntu@129.159.8.19
-cd /home/ubuntu/TimeTracking-Staging/server
+cd /home/ubuntu/TimeTracking-Green/server
 
 # Environment managed by PM2 (CRITICAL: Set as PREFIX, not via .env!)
 NODE_ENV=staging
 PORT=3001
 TZ=Europe/Berlin
-DATABASE_PATH=/home/ubuntu/database-staging.db  # REQUIRED! See troubleshooting below
+DATABASE_PATH=/home/ubuntu/databases/production.db  # Green uses COPY of production data, synced via /sync-green
 SESSION_SECRET=<secure-random>
 ```
 
 **⚠️ Green Server Critical Notes:**
+
+> **UPDATE (2026-04-02):** The PORT=3001 fix has been applied in deploy-staging.yml. PORT is now passed as a shell prefix to pm2 start. Green Server is available on-demand but is NOT part of the standard 2-Tier development flow.
 
 1. **DATABASE_PATH is REQUIRED:**
    - Code does NOT auto-load .env files (no `import 'dotenv/config'`)
@@ -282,7 +300,7 @@ SSH_USER=ubuntu
 SSH_PORT=22
 SSH_KEY_PATH=.ssh/oracle_server.key
 
-PROD_DB_PATH=/home/ubuntu/TimeTracking-Clean/server/database.db
+PROD_DB_PATH=/home/ubuntu/databases/production.db
 PROD_SERVER_PATH=/home/ubuntu/TimeTracking-Clean/server
 PM2_SERVICE_NAME=timetracking-server
 PROD_API_URL=http://129.159.8.19:3000

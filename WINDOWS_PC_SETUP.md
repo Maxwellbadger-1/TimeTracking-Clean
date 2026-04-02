@@ -88,7 +88,20 @@ cd ..
 
 **Dauer:** ~3-4 Minuten
 
-### 3. .env Dateien erstellen
+### 3. Datenbank Setup
+
+```bash
+# Production DB fuer lokale Entwicklung herunterladen
+npm run sync-dev-db
+
+# Voraussetzung: SSH-Zugang zum Oracle Server (.ssh/oracle_server.key)
+# Script: scripts/sync-dev-db.sh
+# Ergebnis: server/database.db wird mit aktueller Production DB ersetzt
+```
+
+**Hinweis:** Fuer reinen Windows-Neustart ohne Production-Zugang: Server erstellt automatisch eine leere `server/database.db` beim ersten Start. Die Production DB ist nur noetig wenn du mit echten Daten entwickeln moechtest.
+
+### 4. .env Dateien erstellen
 
 **3.1 Server .env (server/.env.development):**
 
@@ -102,7 +115,7 @@ NODE_ENV=development
 PORT=3000
 TZ=Europe/Berlin
 SESSION_SECRET=dev-secret-local-only-not-for-production
-DATABASE_PATH=./database/development.db
+DATABASE_PATH=./database.db
 ```
 
 **3.2 Desktop .env (desktop/.env.development):**
@@ -151,7 +164,7 @@ SSH_HOST=129.159.8.19
 SSH_USER=ubuntu
 SSH_PORT=22
 SSH_KEY_PATH=.ssh/oracle_server.key
-PROD_DB_PATH=/home/ubuntu/TimeTracking-Clean/server/database.db
+PROD_DB_PATH=/home/ubuntu/databases/production.db
 PROD_SERVER_PATH=/home/ubuntu/TimeTracking-Clean/server
 PM2_SERVICE_NAME=timetracking-server
 PROD_API_URL=http://129.159.8.19:3000
