@@ -233,7 +233,9 @@ curl http://localhost:3000/api/reports/overtime/user/X?year=YYYY&month=MM
 
 ## 🗄️ Database Rules
 
-1. **One Database:** Nur `server/database.db` (NIEMALS weitere DBs!)
+1. **One Database:** Production at `/home/ubuntu/databases/production.db`, locally `server/database.db` (symlinked on server to production.db)
+   - `DATABASE_PATH=/home/ubuntu/databases/production.db` (server PM2 config)
+   - Local: `DATABASE_PATH=./database.db` (server/.env.development)
 2. **WAL Mode:** `db.pragma('journal_mode = WAL')` für Multi-User
 3. **Prepared Statements:** SQL Injection Schutz (PFLICHT!)
 4. **Soft Delete:** `UPDATE ... SET deletedAt = NOW()` statt `DELETE`
@@ -334,15 +336,16 @@ curl -s http://129.159.8.19:3000/api/health | jq
 1. Read: PROJECT_SPEC.md (Requirements für Feature)
 2. Read: ARCHITECTURE.md (Tech Patterns, ADRs)
 3. Plan erstellen → User Review
-4. Implementieren & Lokal testen (localhost:3000 + development.db)
-5. Push zu staging branch → Auto-Deploy Green Server
-6. Testen auf Green Server (/green command) mit echten Production-Daten
-7. Wenn OK: Push zu main branch → Auto-Deploy Blue Server
+4. Implementieren & Lokal testen (localhost:3000 + server/database.db)
+5. Push zu main branch → Auto-Deploy Blue Server (Production)
+6. Verify: curl http://129.159.8.19:3000/api/health
+7. Optional: Use Green Server (/green) for isolated testing before main push
 8. Update: PROJECT_STATUS.md (Sprint Items completed)
 ```
 
-**Wichtig:** IMMER 3-Tier Workflow nutzen (Development → Staging → Production)!
-Siehe "Production Deployment (3-Tier Workflow)" für Details.
+**Standard Flow:** Development (local) -> git push main -> Auto-Deploy Blue Server
+**Optional:** Use staging branch + Green Server for isolated testing (on-demand only)
+Siehe "Production Deployment (2-Tier Workflow)" für Details.
 
 ## Bug Fix
 
@@ -478,36 +481,36 @@ rm -rf desktop/src-tauri/target node_modules desktop/node_modules server/node_mo
 
 **Details:** shortcuts.md → "Git Workflow & Speicherplatz-Management"
 
-## Production Deployment (3-Tier Workflow)
+## Production Deployment (2-Tier Workflow)
 
-**Code-Flow:** Local → `staging` branch → Green Server:3001 → `/promote-to-prod` → `main` branch → Blue Server:3000
-**Daten-Flow:** Blue Server (Prod) → `/sync-green` → Green Server (COPY only, nie andersrum!)
+**Code-Flow:** Local -> `main` branch -> Blue Server:3000 (auto-deploy via deploy-server.yml)
+**Data-Flow:** Production DB -> `npm run sync-dev-db` -> Local `server/database.db`
 
 ### Deployment Steps
 
 ```bash
 # 1. Development (Local)
-git checkout staging
-git add . && git commit -m "feat: New feature"
-git push origin staging  # Auto-Deploy → Green Server:3001
+npm run sync-dev-db              # Pull fresh production DB
+npm run dev                      # Develop & test locally
 
-# 2. Staging (Green Server)
-/green  # Desktop App switch
-# → Test Feature (Happy Path + Edge Cases)
-# → Optional: /sync-green (Production Daten für Tests)
+# 2. Deploy to Production
+git add . && git commit -m "feat: ..."
+git push origin main             # Auto-Deploy -> Blue Server:3000
 
-# 3. Production (Blue Server)
-/promote-to-prod  # Merge staging → main → Auto-Deploy:3000
-# → Verify: curl http://129.159.8.19:3000/api/health
+# 3. Verify
+curl -s http://129.159.8.19:3000/api/health
+# GitHub Actions also runs DB path verification automatically
 
 # 4. EMERGENCY Rollback
-/rollback-prod  # Git revert + Auto-Deploy
+/rollback-prod                   # Git revert + Auto-Deploy
 ```
 
 **Best Practices:**
-- ✅ NIEMALS direkt auf `main` → Immer über `staging`!
-- ✅ Database Migrations backward-compatible!
-- ✅ Nach Deployment CHANGELOG.md updaten!
+- Standard flow: develop on main, push to deploy
+- Green Server (/green, /sync-green) available for isolated testing but NOT required
+- /promote-to-prod and /rollback-prod commands still work as emergency tools
+- Database migrations must be backward-compatible
+- After deployment: check CHANGELOG.md
 
 **Details:** `.claude/commands/promote-to-prod.md`, `.claude/commands/rollback-prod.md`
 
@@ -560,7 +563,7 @@ git push origin staging  # Auto-Deploy → Green Server:3001
 
 ## Workflow
 - ❌ Direkt coden ohne Plan → IMMER Plan-First!
-- ❌ Auf `main` branch arbeiten → Feature-Branch nutzen
+- ❌ Direkt auf Production server arbeiten → Immer lokal entwickeln und via git push deployen
 - ❌ Mergen ohne Testing → Tests & Manual Check
 
 ## Security
