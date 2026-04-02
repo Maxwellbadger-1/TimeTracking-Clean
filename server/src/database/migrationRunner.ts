@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import logger from '../utils/logger.js';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -148,7 +148,7 @@ async function loadMigrations(): Promise<Migration[]> {
 
   for (const file of files) {
     const migrationPath = path.join(migrationsDir, file);
-    const migration = await import(migrationPath);
+    const migration = await import(pathToFileURL(migrationPath).href);
 
     if (!migration.default || typeof migration.default.up !== 'function') {
       logger.warn(`⚠️  Invalid migration file: ${file} (missing default export with up function)`);

@@ -83,9 +83,17 @@ export function initializeDatabase(db: Database.Database): void {
     // Column already exists - ignore error
   }
 
-  // Note: The position column migration has been moved to SQL migration file:
-  // database/migrations/20260208_add_position_column.sql
-  // This will be handled by the migration system on deployment
+  // Migration: Add position column if it doesn't exist (job title/position field)
+  // Note: A SQL file also exists at database/migrations/20260208_add_position_column.sql
+  // but the TypeScript migration runner does not load .sql files, so we apply it here.
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN position TEXT;
+    `);
+    logger.info('✅ Added position column to users table');
+  } catch (error) {
+    // Column already exists - ignore error
+  }
 
   // Migration: Make email column nullable (email is optional)
   // SQLite doesn't support ALTER COLUMN, so we need to recreate the table

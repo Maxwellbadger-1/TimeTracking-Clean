@@ -104,7 +104,7 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
         endTime,
         breakMinutes: parseInt(breakMinutes) || 0,
         location,
-        description: description.trim() || undefined,
+        notes: description.trim() || undefined,
       });
 
       // Reset form and close
@@ -215,7 +215,7 @@ export function TimeEntryForm({ isOpen, onClose }: TimeEntryFormProps) {
 
         {/* Description */}
         <Textarea
-          label="Beschreibung"
+          label="Notiz"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}

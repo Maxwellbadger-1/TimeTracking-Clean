@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.2] - 2026-04-02
+
+### 🐛 Fixed
+
+#### Notiz-Feld beim Anlegen einer Zeiterfassung wurde nicht gespeichert
+**Issue:** Das Feld "Beschreibung" im Dialog "Zeit erfassen" wurde nicht in der Datenbank gespeichert und erschien nicht im Listing unter "Notiz".
+
+**Root Cause:**
+- `TimeEntryForm.tsx` sendete das Feld als `description` an die API
+- Der Server-Endpoint erwartet jedoch `notes` (konsistent mit DB-Schema und Bearbeiten-Dialog)
+- Der Wert wurde vom Server ignoriert und nie gespeichert
+
+**Fix:**
+- API-Feldname von `description` auf `notes` korrigiert
+- Label von "Beschreibung" auf "Notiz" vereinheitlicht (konsistent mit Bearbeiten-Dialog und Listing-Spalte)
+
+---
+
 ## [1.7.1] - 2026-03-06
 
 ### 🐛 Fixed
