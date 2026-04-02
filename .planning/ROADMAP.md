@@ -19,7 +19,7 @@ Production DB at `/home/ubuntu/database-shared.db` is live and must never be mod
 - [x] **Phase 1: Server DB Consolidation** - Create `/home/ubuntu/databases/` and copy production DB there (completed 2026-04-02)
 - [x] **Phase 2: Symlink + PM2 Ecosystem** - Wire Blue Server to centralized DB via symlink and ecosystem file (completed 2026-04-02)
 - [x] **Phase 3: Local Dev Sync Script** - Windows-compatible script to pull production DB for local development (completed 2026-04-02)
-- [ ] **Phase 4: Deploy Workflow + Documentation** - Harden CI/CD, fix Green Server PORT issue, update all docs
+- [x] **Phase 4: Deploy Workflow + Documentation** - Harden CI/CD, fix Green Server PORT issue, update all docs (completed 2026-04-02)
 
 ---
 
@@ -144,7 +144,7 @@ Plans:
 **Depends on:** Phase 2 (ecosystem file exists), Phase 3 (sync script exists)
 
 **Plans:**
-2/3 plans executed
+3/3 plans complete
 2. **Fix `deploy-staging.yml`** — document the PORT env issue (PM2 ignores `.env`; fix is to pass `PORT=3001` via the ecosystem/inline env), mark Green as on-demand with a comment block at the top of the file
 3. **Update `ENV.md` and `WINDOWS_PC_SETUP.md`** — replace all references to old DB paths with the new 2-Tier structure; document `npm run sync-dev-db` as the standard local DB setup step
 4. **Update `.claude/CLAUDE.md`** — replace the 3-Tier "Production Deployment" workflow section with the 2-Tier flow (`npm run sync-dev-db` → develop → `git push main`); update DB Rules section to reflect single production DB path
@@ -164,7 +164,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 Plans:
 - [x] 04-01-PLAN.md — Add post-deploy DB path verification step to deploy-server.yml
 - [x] 04-02-PLAN.md — Add on-demand comment block and fix PORT in deploy-staging.yml
-- [ ] 04-03-PLAN.md — Update ENV.md, WINDOWS_PC_SETUP.md, and CLAUDE.md with 2-Tier architecture
+- [x] 04-03-PLAN.md — Update ENV.md, WINDOWS_PC_SETUP.md, and CLAUDE.md with 2-Tier architecture
 
 ---
 
@@ -175,7 +175,7 @@ Plans:
 | 1. Server DB Consolidation | 5/5 | Complete   | 2026-04-02 |
 | 2. Symlink + PM2 Ecosystem | 5/5 | Complete   | 2026-04-02 |
 | 3. Local Dev Sync Script | 2/2 | Complete | 2026-04-02 |
-| 4. Deploy Workflow + Documentation | 2/3 | In Progress|  |
+| 4. Deploy Workflow + Documentation | 3/3 | Complete   | 2026-04-02 |
 
 ---
 

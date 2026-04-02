@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 04
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-02T15:49:37.790Z"
+stopped_at: Completed 04-03-PLAN.md — Phase 4 complete
+last_updated: "2026-04-02T15:54:50.840Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 - **Initialized:** 2026-04-02
 - **Next action:** Begin Phase 04 — Deploy Workflow + Documentation
 - **Last completed:** Phase 03 Plan 02 — all tasks complete, human verified (2026-04-02)
-- **Stopped at:** Completed 04-02-PLAN.md
+- **Stopped at:** Completed 04-03-PLAN.md — Phase 4 complete
 
 ## Phase Progress
 
@@ -61,3 +61,5 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 - [Phase 04-deploy-workflow-documentation]: 04-02: PORT=3001 added to pm2 start shell prefix in deploy-staging.yml — PM2 does not load .env, .env creation block preserved as documentation/fallback
 - [Phase 04-deploy-workflow-documentation]: 04-01: Separate appleboy/ssh-action step for DB verification (not appended to deploy script) — distinct step identity in Actions logs; uses pm2 pid + lsof with .db$ anchor; reuses existing SSH secrets
 - [Phase 04-deploy-workflow-documentation]: 04-02: On-demand comment block added to deploy-staging.yml documenting Green Server is not part of 2-Tier standard flow
+- [Phase 04-deploy-workflow-documentation]: 04-03: CLAUDE.md Verbote updated - 'Auf main branch' rule replaced with 'Direkt auf Production server' rule since main IS the deploy branch in 2-Tier flow
+- [Phase 04-deploy-workflow-documentation]: 04-03: All three docs updated to 2-Tier architecture - ENV.md, WINDOWS_PC_SETUP.md, CLAUDE.md now consistently reference /home/ubuntu/databases/production.db and npm run sync-dev-db
