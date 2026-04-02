@@ -163,6 +163,31 @@ jobs:
               exit 1
             fi
 
+      - name: Verify DB path post-deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "Verifying DB path..."
+            PM2_PID=$(pm2 pid timetracking-server)
+            if [ -z "$PM2_PID" ] || [ "$PM2_PID" = "0" ]; then
+              echo "ERROR: PM2 process 'timetracking-server' not found or not running"
+              exit 1
+            fi
+            echo "PM2 PID: $PM2_PID"
+            DB_PATH=$(lsof -p "$PM2_PID" | grep '\.db$' | awk '{print $NF}' | head -1)
+            EXPECTED="/home/ubuntu/databases/production.db"
+            if [ "$DB_PATH" = "$EXPECTED" ]; then
+              echo "DB verification PASSED: $DB_PATH"
+            else
+              echo "DB verification FAILED: expected $EXPECTED, got: $DB_PATH"
+              exit 1
+            fi
+
       - name: Notify on success
         if: success()
         run: |
