@@ -34,7 +34,6 @@ Production DB at `/home/ubuntu/database-shared.db` is live and must never be mod
 **Depends on:** Nothing — zero changes to the running system in this phase.
 
 **Plans:**
-4/5 plans executed
 2. **Identify live DB via lsof** — SSH to server, get Blue Server PID, run `lsof -p $PID | grep .db` to confirm the actual path in use (may be `database-shared.db` or `database-production.db`)
 3. **Copy (not move) production DB to centralized location** — `cp <live-db> /home/ubuntu/databases/production.db` with `chmod 600`
 4. **Create timestamped backup** — `cp <live-db> /home/ubuntu/databases/backups/production.YYYYMMDD_HHMMSS.db`
@@ -178,7 +177,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | Zentralisiertes DB-Verzeichnis `/home/ubuntu/databases/` | Phase 1 | Complete (01-01) |
-| Production DB als Master: `production.db` (COPY, nie Move!) | Phase 1 | Pending |
+| Production DB als Master: `production.db` (COPY, nie Move!) | Phase 1 | In Progress (01-03 copy + 01-04 backup) |
 | Blue Server zeigt via Symlink auf zentrales production.db | Phase 2 | Pending |
 | PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV | Phase 2 | Pending |
 | `npm run sync-dev-db` Script (Windows-kompatibel) | Phase 3 | Pending |
