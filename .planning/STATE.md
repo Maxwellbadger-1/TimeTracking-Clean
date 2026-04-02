@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 03
-stopped_at: "Completed 03-01 (sync-dev-db.sh) — npm run sync-dev-db wired, .gitignore updated"
-last_updated: "2026-04-02T15:55:00Z"
+stopped_at: "03-02 Task 3 checkpoint — awaiting human verify of sync workflow"
+last_updated: "2026-04-02T13:46:00Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 - **Phase:** 03 of 4 (local-dev-sync-script)
 - **Milestone:** 1 — 2-Tier DB Architecture
 - **Initialized:** 2026-04-02
-- **Next action:** Execute Phase 3 Plan 02 (03-02)
-- **Last completed:** Phase 03 Plan 01 — scripts/sync-dev-db.sh created, npm run sync-dev-db wired (2026-04-02)
-- **Stopped at:** Completed 03-01 (sync-dev-db.sh) — npm run sync-dev-db wired, .gitignore updated
+- **Next action:** Resume 03-02 Task 3 after human verification ("approved" or issue description)
+- **Last completed:** Phase 03 Plan 02 Tasks 1+2 — sync-prod.sh deprecated, sync script ran end-to-end (2026-04-02)
+- **Stopped at:** 03-02 Task 3 checkpoint — awaiting human verify of sync workflow
 
 ## Phase Progress
 
@@ -55,3 +55,5 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 - [Phase 03-local-dev-sync-script]: 03-01: Script uses BASH_SOURCE[0] for project root resolution — works from any cwd including npm run
 - [Phase 03-local-dev-sync-script]: 03-01: PROD_DB_PATH set to /home/ubuntu/databases/production.db (Phase 2 canonical path)
 - [Phase 03-local-dev-sync-script]: 03-01: Backup naming convention server/database.db.backup.YYYYMMDD_HHMMSS covered by new .gitignore pattern server/*.db.backup.*
+- [Phase 03-local-dev-sync-script]: 03-02: cygpath -m (not -w) required for Node.js require() paths in Git Bash — -w backslashes break JS string escaping
+- [Phase 03-local-dev-sync-script]: 03-02: npm workspaces hoists better-sqlite3 to root node_modules (not server/node_modules) — check both in pre-flight
