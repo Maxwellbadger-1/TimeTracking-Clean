@@ -74,3 +74,17 @@ ssh-key-*
 # Backups (NEVER commit production data!)
 backups/
 *.backup.db
+
+# ============================================
+# GSD (Get Shit Done) Framework
+# ============================================
+# These are user-specific GSD installation files
+# Project-specific GSD commands in .claude/commands/ are kept
+.claude/get-shit-done/
+.claude/gsd-file-manifest.json
+.claude/agents/
+.claude/hooks/
+.claude/commands/gsd/
+.claude/package.json
+.claude/package-lock.json
+.claude/node_modules/

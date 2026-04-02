@@ -33,22 +33,22 @@ jobs:
             echo "🚀 Starting deployment..."
 
             # Check if repository exists, if not clone it
-            if [ ! -d "/home/ubuntu/TimeTracking-Staging" ]; then
+            if [ ! -d "/home/ubuntu/TimeTracking-Green" ]; then
               echo "📥 Repository not found. Cloning..."
               cd /home/ubuntu
-              git clone https://github.com/Maxwellbadger-1/TimeTracking-Staging.git
+              git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git TimeTracking-Green
             fi
 
-            cd /home/ubuntu/TimeTracking-Staging
+            cd /home/ubuntu/TimeTracking-Green
 
             # Backup current database (safety!)
             echo "💾 Creating database backup..."
             cp server/database.db server/database.backup.$(date +%Y%m%d_%H%M%S).db || true
 
-            # Pull latest code
-            echo "📥 Pulling latest code from GitHub..."
-            git fetch origin main
-            git reset --hard origin/main
+            # Pull latest code from staging branch
+            echo "📥 Pulling latest code from GitHub (staging branch)..."
+            git fetch origin staging
+            git reset --hard origin/staging
 
             # Clean up old files
             echo "🧹 Cleaning up old files..."
@@ -103,7 +103,7 @@ jobs:
 
             # Setup automatic daily cron job (runs at 3 AM every day)
             echo "⏰ Setting up automatic daily overtime recalculation..."
-            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Staging/server && NODE_ENV=staging npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Green/server && NODE_ENV=staging npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
             mkdir -p /home/ubuntu/logs
             (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
               echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
@@ -142,7 +142,7 @@ jobs:
             TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
               pm2 start dist/server.js \
               --name timetracking-staging \
-              --cwd /home/ubuntu/TimeTracking-Staging/server \
+              --cwd /home/ubuntu/TimeTracking-Green/server \
               --time \
               --update-env
             pm2 save
@@ -151,9 +151,9 @@ jobs:
             echo "⏳ Waiting for server to start..."
             sleep 5
 
-            # Health check
+            # Health check on PORT 3001 (staging)
             echo "🏥 Running health check..."
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health)
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Deployment successful! Server is healthy"
               pm2 status
@@ -167,7 +167,7 @@ jobs:
         if: success()
         run: |
           echo "✅ Deployment to Oracle Cloud successful!"
-          echo "🌐 Server URL: http://129.159.8.19:3000"
+          echo "🌐 Server URL: http://129.159.8.19:3001"
           echo "📊 Check status: ssh ubuntu@129.159.8.19 'pm2 status'"
 
       - name: Notify on failure
