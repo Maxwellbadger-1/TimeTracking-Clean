@@ -96,7 +96,7 @@ pm2 save
 ```
 Then verify: `curl -s http://129.159.8.19:3000/api/health`
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 **UI hint**: no
 
@@ -159,7 +159,12 @@ Plans 3 and 4 can run in parallel (independent doc files).
 
 **Rollback:** Doc and workflow changes are git-reversible. The `deploy-server.yml` change only adds a verification step — if it causes a false failure, the step can be temporarily disabled or the condition tightened.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Add post-deploy DB path verification step to deploy-server.yml
+- [ ] 04-02-PLAN.md — Add on-demand comment block and fix PORT in deploy-staging.yml
+- [ ] 04-03-PLAN.md — Update ENV.md, WINDOWS_PC_SETUP.md, and CLAUDE.md with 2-Tier architecture
 
 ---
 
@@ -170,7 +175,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 | 1. Server DB Consolidation | 5/5 | Complete   | 2026-04-02 |
 | 2. Symlink + PM2 Ecosystem | 5/5 | Complete   | 2026-04-02 |
 | 3. Local Dev Sync Script | 2/2 | Complete | 2026-04-02 |
-| 4. Deploy Workflow + Documentation | 0/4 | Not started | - |
+| 4. Deploy Workflow + Documentation | 0/3 | In Progress | - |
 
 ---
 
@@ -203,4 +208,4 @@ Plans 3 and 4 can run in parallel (independent doc files).
 
 ---
 
-*Last updated: 2026-04-02 (03-02 complete: sync verified end-to-end on Windows, sync-prod.sh deprecated — Phase 3 done)*
+*Last updated: 2026-04-02 (Phase 4 planned: 3 plans in 1 wave, all autonomous)*
