@@ -18,7 +18,7 @@ interface CreateTimeEntryData {
   endTime: string;
   breakMinutes?: number;
   location: 'office' | 'homeoffice' | 'field';
-  description?: string;
+  notes?: string;
 }
 
 interface UpdateTimeEntryData {
@@ -170,7 +170,7 @@ export function useCreateTimeEntry() {
           activity: null,
           project: null,
           location: newEntry.location,
-          notes: newEntry.description || null,
+          notes: newEntry.notes || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           deletedAt: null,
