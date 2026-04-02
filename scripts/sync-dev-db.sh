@@ -73,6 +73,17 @@ else
     exit 1
 fi
 
+# On Windows Git Bash, Node.js require() needs drive-letter paths with forward slashes.
+# cygpath -m converts /c/... -> C:/... (mixed mode, safe in JS strings).
+# On Linux/macOS where cygpath is absent, use the path as-is.
+if command -v cygpath > /dev/null 2>&1; then
+    BSQ3_PATH_NODE="$(cygpath -m "$BSQ3_PATH")"
+    LOCAL_DB_NODE="$(cygpath -m "$LOCAL_DB")"
+else
+    BSQ3_PATH_NODE="$BSQ3_PATH"
+    LOCAL_DB_NODE="$LOCAL_DB"
+fi
+
 # Test SSH connectivity
 if ! ssh -i "$SSH_KEY" -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$PROD_HOST" "echo ok" > /dev/null 2>&1; then
     echo -e "${RED}ERROR: Cannot connect to production server.${NC}"
@@ -109,10 +120,17 @@ echo ""
 # ─── [4/6] Integrity check via node + better-sqlite3 ─────────────────────────
 echo -e "${YELLOW}[4/6] Verifying database integrity...${NC}"
 
+# Convert TEMP_DB path for Node.js on Windows (cygpath -m: drive letter + forward slashes)
+if command -v cygpath > /dev/null 2>&1; then
+    TEMP_DB_NODE="$(cygpath -m "$TEMP_DB")"
+else
+    TEMP_DB_NODE="$TEMP_DB"
+fi
+
 INTEGRITY=$(node -e "
   try {
-    const D = require('$BSQ3_PATH');
-    const db = new D('$TEMP_DB', { readonly: true });
+    const D = require('$BSQ3_PATH_NODE');
+    const db = new D('$TEMP_DB_NODE', { readonly: true });
     const r = db.pragma('integrity_check');
     db.close();
     process.stdout.write(r[0].integrity_check);
@@ -143,8 +161,8 @@ echo ""
 echo -e "${YELLOW}[6/6] Summary...${NC}"
 
 node -e "
-  const D = require('$BSQ3_PATH');
-  const db = new D('$LOCAL_DB', { readonly: true });
+  const D = require('$BSQ3_PATH_NODE');
+  const db = new D('$LOCAL_DB_NODE', { readonly: true });
   const u = db.prepare('SELECT COUNT(*) as cnt FROM users WHERE deletedAt IS NULL').get();
   const e = db.prepare('SELECT MAX(date) as d FROM time_entries').get();
   db.close();
