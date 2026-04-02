@@ -18,17 +18,18 @@ Ein `git push main` deployt in unter 10 Minuten — ohne manuelle Eingriffe, ohn
 - ✓ PM2 managed Node.js Server mit `timetracking-server` — existing
 - ✓ SQLite WAL Mode für Multi-User-Betrieb — existing
 - ✓ Green Server (Staging) auf Port 3001 — existing (broken, on-demand only)
+- ✓ Zentralisiertes DB-Verzeichnis `/home/ubuntu/databases/` auf dem Server — Validated in Phase 1
+- ✓ Production DB als Master: `/home/ubuntu/databases/production.db` (COPY, nie Move!) — Validated in Phase 1
+- ✓ Blue Server zeigt via Symlink auf zentrales production.db — Validated in Phase 1
+- ✓ PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV — Validated in Phase 1
+- ✓ `npm run sync-dev-db` Script — zieht Schema+Daten von Prod lokal (Windows-kompatibel) — Validated in Phase 3
+- ✓ Lokale Dev DB heißt `server/database.db` (konfigurierbar über DATABASE_PATH) — Validated in Phase 1
+- ✓ `deploy-server.yml` prüft DB-Pfad nach Deployment — Validated in Phase 4
+- ✓ Green Server on-demand: startet/stoppt manuell für kritische Änderungen — Validated in Phase 2
 
 ### Active
 
-- [ ] Zentralisiertes DB-Verzeichnis `/home/ubuntu/databases/` auf dem Server
-- [ ] Production DB als Master: `/home/ubuntu/databases/production.db` (COPY, nie Move!)
-- [ ] Blue Server zeigt via Symlink auf zentrales production.db
-- [ ] PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV
-- [ ] `npm run sync-dev-db` Script — zieht Schema+Daten von Prod lokal (Windows-kompatibel)
-- [ ] Lokale Dev DB heißt `server/database.db` (konfigurierbar über DATABASE_PATH)
-- [ ] `deploy-server.yml` prüft DB-Pfad nach Deployment
-- [ ] Green Server on-demand: startet/stoppt manuell für kritische Änderungen
+_(alle requirements wurden in Phasen 1-4 validiert)_
 
 ### Out of Scope
 
@@ -65,11 +66,11 @@ Production DB (`/home/ubuntu/database-shared.db` oder aktueller Pfad) darf NICHT
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 2-Tier statt 3-Tier | Green Server war der Hauptverursacher der 2h-Debugging-Sessions | — Pending |
-| Green Server bleibt optional (nicht abschalten) | Emergency-Fallback für riskante DB-Migrationen | — Pending |
-| Symlink statt DATABASE_PATH-Änderung als primäre Lösung | Symlinks funktionieren transparent für Node.js ohne Config-Änderungen | — Pending |
+| 2-Tier statt 3-Tier | Green Server war der Hauptverursacher der 2h-Debugging-Sessions | ✓ Validated in Phase 1-4 |
+| Green Server bleibt optional (nicht abschalten) | Emergency-Fallback für riskante DB-Migrationen | ✓ Validated in Phase 2 |
+| Symlink statt DATABASE_PATH-Änderung als primäre Lösung | Symlinks funktionieren transparent für Node.js ohne Config-Änderungen | ✓ Validated in Phase 1 |
 | Copy, never Move | Production DB muss jederzeit rollback-fähig bleiben | ✓ Festgelegt |
-| `server/database.db` als lokaler Dev-Name | Konsistent mit bestehender .gitignore-Konfiguration | — Pending |
+| `server/database.db` als lokaler Dev-Name | Konsistent mit bestehender .gitignore-Konfiguration | ✓ Validated in Phase 3 |
 
 ## Evolution
 
@@ -82,4 +83,4 @@ Dieses Dokument entwickelt sich bei Phase-Übergängen und Milestone-Abschlüsse
 4. Entscheidungen zu loggen? → Key Decisions
 
 ---
-*Last updated: 2026-04-02 after initialization*
+*Last updated: 2026-04-02 — Phase 4 complete (all 4 phases complete, v1.0 milestone delivered)*
