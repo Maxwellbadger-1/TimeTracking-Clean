@@ -127,7 +127,11 @@ Plans 2 and 3 can run in parallel (package.json edit and .gitignore edit are ind
 
 **Rollback:** Script only writes to `server/database.db` locally — no server changes. If something goes wrong, the timestamped backup created in step 2 of the script can be restored manually.
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create sync-dev-db.sh script, add npm script, update .gitignore
+- [ ] 03-02-PLAN.md — Run end-to-end test on Windows Git Bash, deprecate old sync-prod.sh, human verify
 
 ---
 
@@ -165,7 +169,7 @@ Plans 3 and 4 can run in parallel (independent doc files).
 |-------|----------------|--------|-----------|
 | 1. Server DB Consolidation | 5/5 | Complete   | 2026-04-02 |
 | 2. Symlink + PM2 Ecosystem | 5/5 | Complete   | 2026-04-02 |
-| 3. Local Dev Sync Script | 0/4 | Not started | - |
+| 3. Local Dev Sync Script | 0/2 | Planned | - |
 | 4. Deploy Workflow + Documentation | 0/4 | Not started | - |
 
 ---
@@ -180,8 +184,8 @@ Plans 3 and 4 can run in parallel (independent doc files).
 | Production DB als Master: `production.db` (COPY, nie Move!) | Phase 1 | In Progress (01-03 copy + 01-04 backup) |
 | Blue Server zeigt via Symlink auf zentrales production.db | Phase 2 | Complete (02) |
 | PM2 Ecosystem File mit explizitem `DATABASE_PATH` ENV | Phase 2 | Complete (02) |
-| `npm run sync-dev-db` Script (Windows-kompatibel) | Phase 3 | Pending |
-| Lokale Dev DB heißt `server/database.db` (konfigurierbar) | Phase 3 | Pending |
+| `npm run sync-dev-db` Script (Windows-kompatibel) | Phase 3 | Planned (03-01) |
+| Lokale Dev DB heißt `server/database.db` (konfigurierbar) | Phase 3 | Planned (03-01) |
 | `deploy-server.yml` prüft DB-Pfad nach Deployment | Phase 4 | Pending |
 | Green Server on-demand: startet/stoppt manuell | Phase 4 | Pending |
 
