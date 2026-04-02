@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-stopped_at: Completed Phase 2 (Symlink + PM2 Ecosystem) — Blue Server running with production.db
-last_updated: "2026-04-02T12:59:27.180Z"
+status: Executing Phase 03
+stopped_at: "Completed 03-01 (sync-dev-db.sh) — npm run sync-dev-db wired, .gitignore updated"
+last_updated: "2026-04-02T15:55:00Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -23,12 +23,12 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 
 ## Current Status
 
-- **Phase:** 02 of 4 (symlink pm2 ecosystem)
+- **Phase:** 03 of 4 (local-dev-sync-script)
 - **Milestone:** 1 — 2-Tier DB Architecture
 - **Initialized:** 2026-04-02
-- **Next action:** Execute Phase 3 (Local Dev Sync Script)
-- **Last completed:** Phase 02 — Blue Server now uses /home/ubuntu/databases/production.db via ecosystem.production.config.js (2026-04-02)
-- **Stopped at:** Completed Phase 2 (Symlink + PM2 Ecosystem) — Blue Server running with production.db
+- **Next action:** Execute Phase 3 Plan 02 (03-02)
+- **Last completed:** Phase 03 Plan 01 — scripts/sync-dev-db.sh created, npm run sync-dev-db wired (2026-04-02)
+- **Stopped at:** Completed 03-01 (sync-dev-db.sh) — npm run sync-dev-db wired, .gitignore updated
 
 ## Phase Progress
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 |-------|------|--------|
 | 1 | Server DB Consolidation | Complete (5/5 plans) |
 | 2 | Symlink + PM2 Ecosystem | Complete (2026-04-02) |
-| 3 | Local Dev Sync Script | Not started |
+| 3 | Local Dev Sync Script | In Progress (1/2 plans done) |
 | 4 | Deploy Workflow + Documentation | Not started |
 
 ## Decisions
@@ -51,3 +51,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 - [Phase 02-symlink-pm2-ecosystem]: SESSION_SECRET not embedded in ecosystem file — loaded from server/.env via shell environment + --update-env at PM2 restart
 - [Phase 02-symlink-pm2-ecosystem]: Old symlink backup: server/database.db.backup.20260402_125311 (points to /home/ubuntu/database-shared.db)
 - [Phase 02-symlink-pm2-ecosystem]: All SC-1 through SC-4 confirmed PASS. Blue Server running on /home/ubuntu/databases/production.db. Phase 2 complete.
+- [Phase 03-local-dev-sync-script]: 03-01: Use node -e + better-sqlite3 (explicit require path) for SQLite integrity checks — sqlite3 CLI absent in Git Bash on Windows
+- [Phase 03-local-dev-sync-script]: 03-01: Script uses BASH_SOURCE[0] for project root resolution — works from any cwd including npm run
+- [Phase 03-local-dev-sync-script]: 03-01: PROD_DB_PATH set to /home/ubuntu/databases/production.db (Phase 2 canonical path)
+- [Phase 03-local-dev-sync-script]: 03-01: Backup naming convention server/database.db.backup.YYYYMMDD_HHMMSS covered by new .gitignore pattern server/*.db.backup.*
