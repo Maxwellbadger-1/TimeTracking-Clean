@@ -62,9 +62,14 @@ fi
 chmod 600 "$SSH_KEY" 2>/dev/null || true
 
 # Check better-sqlite3 is installed (required for integrity check + summary)
-if [ ! -d "$PROJECT_ROOT/server/node_modules/better-sqlite3" ]; then
+# npm workspaces hoists modules to root node_modules; check both locations
+if [ -d "$PROJECT_ROOT/server/node_modules/better-sqlite3" ]; then
+    BSQ3_PATH="$PROJECT_ROOT/server/node_modules/better-sqlite3"
+elif [ -d "$PROJECT_ROOT/node_modules/better-sqlite3" ]; then
+    BSQ3_PATH="$PROJECT_ROOT/node_modules/better-sqlite3"
+else
     echo -e "${RED}ERROR: better-sqlite3 not found.${NC}"
-    echo -e "${RED}       Run: cd server && npm install${NC}"
+    echo -e "${RED}       Run: npm install (from project root)${NC}"
     exit 1
 fi
 
@@ -106,7 +111,7 @@ echo -e "${YELLOW}[4/6] Verifying database integrity...${NC}"
 
 INTEGRITY=$(node -e "
   try {
-    const D = require('$PROJECT_ROOT/server/node_modules/better-sqlite3');
+    const D = require('$BSQ3_PATH');
     const db = new D('$TEMP_DB', { readonly: true });
     const r = db.pragma('integrity_check');
     db.close();
@@ -138,7 +143,7 @@ echo ""
 echo -e "${YELLOW}[6/6] Summary...${NC}"
 
 node -e "
-  const D = require('$PROJECT_ROOT/server/node_modules/better-sqlite3');
+  const D = require('$BSQ3_PATH');
   const db = new D('$LOCAL_DB', { readonly: true });
   const u = db.prepare('SELECT COUNT(*) as cnt FROM users WHERE deletedAt IS NULL').get();
   const e = db.prepare('SELECT MAX(date) as d FROM time_entries').get();

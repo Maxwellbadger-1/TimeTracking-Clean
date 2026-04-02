@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# ============================================
+# DEPRECATED — 2026-04-02
+# This script targets the old 3-Tier DB path:
+#   /home/ubuntu/TimeTracking-Clean/server/database.db
+# Use instead: npm run sync-dev-db
+#   (scripts/sync-dev-db.sh — targets 2-Tier path)
+# ============================================
+
 # Sync Production Database to Development
 #
 # PURPOSE:
