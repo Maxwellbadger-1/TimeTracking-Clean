@@ -407,10 +407,15 @@ export function getOvertimeBalance(userId: number): number {
   // FIXED: Sum overtime from overtime_balance (NOT transactions!)
   // overtime_balance contains cumulative overtime correctly calculated by updateMonthlyOvertime()
   // This ensures consistency with "Monatliche Entwicklung" display
+  //
+  // IMPORTANT: Filter month <= current month to exclude future months.
+  // Future months may have negative balances (e.g. approved future vacation already
+  // recorded in overtime_balance) which must NOT count against current balance.
   const result = db.prepare(`
     SELECT COALESCE(SUM(actualHours - targetHours), 0) as balance
     FROM overtime_balance
     WHERE userId = ?
+      AND month <= strftime('%Y-%m', 'now')
   `).get(userId) as { balance: number };
 
   return Math.round(result.balance * 100) / 100; // Round to 2 decimals
