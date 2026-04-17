@@ -36,11 +36,16 @@ if [ ! -z "$VITE_API_URL" ]; then
 fi
 
 # ═══════════════════════════════════════
-# 🛑 STEP 2: Free Port 3000
+# 🛑 STEP 2: Free Port 3000 (Windows-kompatibel)
 # ═══════════════════════════════════════
 echo ""
 echo "🛑 Freeing port 3000..."
-lsof -ti:3000 | xargs kill -9 2>/dev/null && echo "✅ Port 3000 freed" || echo "ℹ️  Port 3000 was already free"
+PID_ON_3000=$(netstat -ano 2>/dev/null | grep ":3000 " | grep "LISTENING" | awk '{print $5}' | head -1)
+if [ ! -z "$PID_ON_3000" ]; then
+  taskkill //F //PID $PID_ON_3000 2>/dev/null && echo "✅ Port 3000 freed (PID $PID_ON_3000)" || echo "ℹ️  Port 3000 already free"
+else
+  echo "ℹ️  Port 3000 was already free"
+fi
 
 # ═══════════════════════════════════════
 # 🚀 STEP 3: Start Development Server
@@ -87,7 +92,7 @@ cd desktop
 cat > .env.development << 'EOF'
 # Development Environment Configuration
 # Desktop App connects to LOCAL server (localhost:3000)
-# Uses development.db (small test dataset)
+# Uses database/development.db (production data copy)
 
 VITE_API_URL=http://localhost:3000/api
 VITE_PORT=1420
@@ -103,23 +108,17 @@ cp .env.development .env
 echo "✅ Copied .env.development → .env"
 
 # ═══════════════════════════════════════
-# 🛑 STEP 7: Kill Vite Server
+# 🎨 STEP 7: Start Desktop App (Tauri)
 # ═══════════════════════════════════════
 echo ""
-echo "🛑 Stopping old Vite server..."
-pkill -f "vite" && echo "✅ Vite server stopped" || echo "ℹ️  No Vite server was running"
-
-# ═══════════════════════════════════════
-# 🎨 STEP 8: Start Desktop App
-# ═══════════════════════════════════════
-echo ""
-echo "🎨 Starting Desktop App (localhost:1420)..."
-npm run dev &
+echo "🎨 Starting Tauri Desktop App..."
+npm run tauri:dev &
 DESKTOP_PID=$!
-echo "✅ Desktop App started (PID: $DESKTOP_PID)"
+echo "✅ Tauri Desktop App starting (PID: $DESKTOP_PID)"
+echo "   (Erster Build kann 5-10 Min dauern)"
 
 # ═══════════════════════════════════════
-# 📋 STEP 9: Display Status
+# 📋 STEP 8: Display Status
 # ═══════════════════════════════════════
 echo ""
 echo "══════════════════════════════════════════"
@@ -128,25 +127,15 @@ echo "════════════════════════�
 echo ""
 echo "🖥️  Server:       http://localhost:3000"
 echo "    Health:      http://localhost:3000/api/health"
-echo "    Database:    development.db"
+echo "    Database:    database/development.db"
 echo "    PID:         $SERVER_PID"
 echo ""
-echo "🎨 Desktop App:  http://localhost:1420"
+echo "🎨 Desktop App:  Tauri window (öffnet sich automatisch)"
 echo "    Connected:   localhost:3000/api"
 echo "    PID:         $DESKTOP_PID"
 echo ""
-echo "📋 Next steps:"
-echo "1. Open Browser: http://localhost:1420"
-echo "2. Login with test user"
-echo "3. Check Console (F12) for connection logs"
-echo ""
-echo "🔍 Verify connection in Browser Console:"
-echo "   Look for: 🔍 Fetch wird gehen zu: http://localhost:3000/api"
-echo ""
 echo "🛑 To stop all:"
-echo "   kill $SERVER_PID $DESKTOP_PID"
-echo "   # or"
-echo "   lsof -ti:3000,1420 | xargs kill -9"
+echo "   taskkill //F //IM node.exe"
 echo ""
 ```
 

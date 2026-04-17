@@ -17,7 +17,7 @@
 #   - cd server && npm install (better-sqlite3 must be installed)
 #
 # NOTE: After sync, start the server with the default DATABASE_PATH
-#   (server/.env sets DATABASE_PATH=./database.db by default)
+#   (server/.env sets DATABASE_PATH=./database/development.db by default)
 
 set -e
 
@@ -36,7 +36,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SSH_KEY="$PROJECT_ROOT/.ssh/oracle_server.key"
 PROD_HOST="ubuntu@129.159.8.19"
 PROD_DB_PATH="/home/ubuntu/databases/production.db"
-LOCAL_DB="$PROJECT_ROOT/server/database.db"
+LOCAL_DB="$PROJECT_ROOT/server/database/development.db"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TEMP_DB="/tmp/prod_sync_${TIMESTAMP}.db"
 
@@ -177,6 +177,6 @@ echo -e "  Local DB:  $LOCAL_DB"
 echo -e "  Backup:    ${BACKUP:-N/A}"
 echo ""
 echo -e "${YELLOW}NOTE: To use this DB with npm run dev:server${NC}"
-echo -e "${YELLOW}      Ensure server/.env contains: DATABASE_PATH=./database.db${NC}"
+echo -e "${YELLOW}      Ensure server/.env contains: DATABASE_PATH=./database/development.db${NC}"
 echo -e "${YELLOW}      (This is the default — no change needed unless overridden)${NC}"
 echo ""
