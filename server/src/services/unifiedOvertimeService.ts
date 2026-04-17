@@ -92,41 +92,37 @@ export class UnifiedOvertimeService {
   /**
    * Calculate overtime for a single day
    *
-   * CORE FORMULA (IMMUTABLE):
+   * CORE FORMULA:
    * Overtime = Actual Hours - Target Hours
    *
    * Where:
-   * - Target Hours = getDailyTargetHours(user, date) // Respects workSchedule, holidays
-   * - Actual Hours = Worked + Absence Credits + Corrections - Unpaid Reduction
+   * - Target Hours = getDailyTargetHours(user, date), reduced to 0 for unpaid leave
+   * - Actual Hours = Worked + Absence Credits + Corrections
+   *
+   * UNPAID LEAVE (CLAUDE.md): "Reduziert Soll-Stunden, keine Gutschrift"
+   * → targetHours = 0, actualHours = 0, overtime = 0
    *
    * @param userId - User ID
    * @param date - Date in YYYY-MM-DD format
    * @returns Daily overtime result
    */
   calculateDailyOvertime(userId: number, date: string): DailyOvertimeResult {
-    // Get user data
     const user = this.getUser(userId);
     if (!user) {
       throw new Error(`User ${userId} not found`);
     }
 
-    // Calculate target hours (respects workSchedule, holidays, weekends)
-    const targetHours = getDailyTargetHours(user, date);
+    const rawTargetHours = getDailyTargetHours(user, date);
 
-    // Get worked hours for this date
+    // Unbezahlter Urlaub: Soll auf 0 reduzieren, keine Ist-Gutschrift
+    const unpaidReduction = this.getUnpaidReduction(userId, date, rawTargetHours);
+    const targetHours = unpaidReduction > 0 ? 0 : rawTargetHours;
+
     const worked = this.getWorkedHours(userId, date);
-
-    // Get absence credits (vacation, sick, overtime_comp, special)
-    const absenceCredit = this.getAbsenceCredit(userId, date, targetHours);
-
-    // Get manual corrections
+    const absenceCredit = this.getAbsenceCredit(userId, date, rawTargetHours);
     const corrections = this.getCorrections(userId, date);
 
-    // Get unpaid leave reduction
-    const unpaidReduction = this.getUnpaidReduction(userId, date, targetHours);
-
-    // CORE FORMULA
-    const actualHours = worked + absenceCredit + corrections - unpaidReduction;
+    const actualHours = worked + absenceCredit + corrections;
     const overtime = actualHours - targetHours;
 
     return {

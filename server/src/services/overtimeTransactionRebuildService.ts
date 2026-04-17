@@ -267,7 +267,13 @@ function collectDailyCalculations(
  * 1. earned: (0 - targetHours) = negative hours (Soll/Ist difference)
  * 2. credit: +targetHours (absence credit, except unpaid)
  *
- * Result: Net effect = 0 for paid absences, -targetHours for unpaid
+ * Result: Net effect = 0 for ALL absence types.
+ * Paid (vacation/sick/etc): earned(-targetHours) + credit(+targetHours) = 0
+ * Unpaid: earned(-targetHours) + unpaid_deduction(+targetHours) = 0
+ *
+ * NOTE: The net-0 transaction effect is correct for the running balance.
+ * The difference for unpaid vs paid is captured in updateOvertimeBalanceForMonth:
+ * unpaid days reduce targetHours in the monthly aggregation (Soll-Stunden Reduktion).
  */
 function handleAbsenceDay(
   userId: number,
@@ -314,7 +320,9 @@ function handleAbsenceDay(
     transactionsCreated++;
     currentBalance += creditHours;
   } else {
-    // Unpaid: Create adjustment transaction for transparency
+    // Unpaid: Create neutralizing transaction for audit trail transparency.
+    // Net effect on running balance = 0 (earned + deduction = 0).
+    // The actual overtime impact (Soll-Reduktion) is handled in updateOvertimeBalanceForMonth.
     insertTransactionWithBalance(
       userId,
       day.date,
@@ -334,19 +342,26 @@ function handleAbsenceDay(
 }
 
 /**
- * Calculate running balance after absence day
+ * Calculate running balance after absence day.
+ *
+ * Both paid and unpaid absences produce net = 0 change in the running balance.
+ * Paid: earned(-targetHours) + credit(+targetHours) = 0
+ * Unpaid: earned(-targetHours) + unpaid_deduction(+targetHours) = 0
+ *
+ * The difference for unpaid is captured in updateOvertimeBalanceForMonth
+ * which excludes unpaid days from the targetHours sum (Soll-Reduktion).
  */
 function calculateRunningBalanceAfterAbsence(
   currentBalance: number,
   targetHours: number,
   absenceType: string
 ): number {
-  // earned: -targetHours
-  // credit: +targetHours (if not unpaid)
-  // Result: 0 change for paid absences, -targetHours for unpaid
-
+  // Both paid and unpaid: net change = 0
+  // (earned = -targetHours, credit/deduction = +targetHours)
   const earnedChange = -targetHours;
-  const creditChange = (absenceType === 'unpaid') ? targetHours : targetHours; // unpaid adjustment neutralizes
+  const creditChange = targetHours; // Always +targetHours (neutralizes earned for all types)
+
+  void absenceType; // absenceType distinction handled in updateOvertimeBalanceForMonth
 
   return currentBalance + earnedChange + creditChange;
 }
@@ -411,6 +426,10 @@ function insertTransactionWithBalance(
 /**
  * Update overtime_balance table (monthly aggregation)
  * This is derived from transactions, not source of truth!
+ *
+ * UNPAID LEAVE RULE (CLAUDE.md): "Reduziert Soll-Stunden, keine Gutschrift"
+ * For unpaid days: targetHours contribution = 0 (Soll reduced), actualHours = 0 (no credit)
+ * Net overtime impact = 0 - 0 = 0 per unpaid day.
  */
 function updateOvertimeBalanceForMonth(
   userId: number,
@@ -419,7 +438,15 @@ function updateOvertimeBalanceForMonth(
   _finalBalance: number
 ): void {
   // Calculate monthly totals
-  const targetHours = dailyCalculations.reduce((sum, day) => sum + day.targetHours, 0);
+  // FIX (Bug #3): Unpaid days reduce Soll to 0 — exclude their targetHours from the sum.
+  const targetHours = dailyCalculations.reduce((sum, day) => {
+    // Unpaid leave reduces Soll-Stunden to 0 for those days (CLAUDE.md rule)
+    if (day.absence.type === 'unpaid') {
+      return sum; // Add 0 for unpaid days
+    }
+    return sum + day.targetHours;
+  }, 0);
+
   const actualHours = dailyCalculations.reduce((sum, day) => {
     // Actual = time entries + absence credits (all except unpaid)
     let dayActual = day.timeEntriesHours;

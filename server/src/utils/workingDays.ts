@@ -30,8 +30,13 @@ const DAY_NAMES: Record<number, DayName> = {
  * @returns Day name (monday, tuesday, ...)
  */
 export function getDayName(date: Date | string): DayName {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return DAY_NAMES[d.getDay()];
+  // FIX (Bug #4): Use getUTCDay() for string inputs (YYYY-MM-DD parsed as UTC midnight).
+  // This prevents DST boundary shifts from returning the wrong weekday.
+  if (typeof date === 'string') {
+    const d = new Date(date);
+    return DAY_NAMES[d.getUTCDay()];
+  }
+  return DAY_NAMES[date.getDay()];
 }
 
 /**

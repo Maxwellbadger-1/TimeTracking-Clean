@@ -463,8 +463,10 @@ export function createAbsenceRequest(
       logger.info({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (with holiday exclusion)');
     } else {
       logger.info('📊 Calculating SICK/UNPAID days (WorkSchedule-aware, excludes 0h days + weekends, INCLUDES holidays)...');
-      // Sick & Unpaid: Include holidays (user can be sick on holidays)
-      // BUT still respect individual work schedule!
+      // Sick & Unpaid: Include holidays (user can be sick/absent on holidays) — holidays are NOT excluded.
+      // The 'undefined' db parameter means countWorkingDaysForUser will NOT query the holidays table,
+      // so holidays count as working days for sick/unpaid (consistent with HR practice: you can be sick on a holiday).
+      // Note: 0h-workSchedule days (e.g. Wed=0h) are still excluded because countWorkingDaysForUser respects workSchedule.
       days = countWorkingDaysForUser(data.startDate, data.endDate, workSchedule, user.weeklyHours, undefined); // undefined = no holiday exclusion
       logger.info({ workSchedule, weeklyHours: user.weeklyHours, days, type: data.type }, '📊 WorkSchedule-aware days (without holiday exclusion)');
     }
@@ -679,11 +681,18 @@ export function updateAbsenceRequest(
       throw new Error(validation.error);
     }
 
-    // Recalculate days
+    // FIX (Bug #1): Use workSchedule-aware calculation (same as createAbsenceRequest)
+    // Load user to get workSchedule for consistent day counting across create/update
+    const user = getUserById(existing.userId);
+    const workSchedule = user?.workSchedule ?? null;
+    const weeklyHours = user?.weeklyHours ?? 40;
+
     if (existing.type === 'vacation' || existing.type === 'overtime_comp') {
-      days = calculateVacationDays(startDate, endDate);
+      // Vacation & Overtime: Exclude holidays, respect workSchedule
+      days = countWorkingDaysForUser(startDate, endDate, workSchedule, weeklyHours, db);
     } else {
-      days = calculateBusinessDays(startDate, endDate);
+      // Sick & Unpaid: Include holidays, respect workSchedule
+      days = countWorkingDaysForUser(startDate, endDate, workSchedule, weeklyHours, undefined);
     }
   }
 
