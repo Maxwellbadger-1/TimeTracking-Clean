@@ -349,14 +349,25 @@ async function recalculateOvertimeForUser(userId: number): Promise<void> {
 function updateVacationEntitlementForUser(userId: number, newEntitlement: number): void {
   logger.debug({ userId, newEntitlement }, '🔄 Updating vacation entitlement for user');
 
-  // Get all existing vacation_balance entries
+  // FIX (2026-08-18): Only touch the current and future years.
+  //
+  // This used to rewrite the entitlement of EVERY year on file, including closed ones.
+  // Raising an employee's annual allowance in 2026 retroactively changed their 2025
+  // entitlement — the historical record no longer matched what they were actually
+  // granted back then (observed: Christine Glas, 2025 silently moved from 12 to 13).
+  //
+  // Past years are a closed record and must stay as booked.
+  // See .planning/debug/urlaubstage-bei-ablehnung-verloren.md
+  const currentYear = new Date().getFullYear();
+
+  // Get vacation_balance entries for the current and future years only
   const entries = db.prepare(`
     SELECT year, entitlement, carryover, taken
     FROM vacation_balance
-    WHERE userId = ?
-  `).all(userId) as Array<{ year: number; entitlement: number; carryover: number; taken: number }>;
+    WHERE userId = ? AND year >= ?
+  `).all(userId, currentYear) as Array<{ year: number; entitlement: number; carryover: number; taken: number }>;
 
-  logger.debug({ count: entries.length }, `📊 Found vacation_balance entries to update`);
+  logger.debug({ count: entries.length, fromYear: currentYear }, `📊 Found vacation_balance entries to update (current + future years only)`);
 
   // Update entitlement for each year
   for (const entry of entries) {
