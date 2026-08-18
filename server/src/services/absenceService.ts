@@ -964,20 +964,52 @@ export async function rejectAbsenceRequest(
     WHERE id = ?
   `;
 
-  console.log('💾 Executing DB UPDATE...');
-  const updateResult = db.prepare(query).run(approvedBy, adminNote || null, id);
-  console.log('✅ DB UPDATE result:', { changes: updateResult.changes });
+  // ATOMICITY (2026-08-18): The status change and the balance counter-booking must
+  // succeed or fail together. Previously the UPDATE was committed on its own, so a
+  // failure in the booking left the request rejected while the days stayed deducted —
+  // exactly the inconsistency this function is meant to avoid.
+  //
+  // better-sqlite3 transactions are synchronous, so only synchronous work belongs here.
+  // The overtime recalculation below uses `await import()` and stays outside on purpose:
+  // it is a derived value that can be safely recomputed, unlike the balance itself.
+  console.log('💾 Executing DB UPDATE (transactional)...');
+  const applyRejection = db.transaction(() => {
+    const updateResult = db.prepare(query).run(approvedBy, adminNote || null, id);
+    console.log('✅ DB UPDATE result:', { changes: updateResult.changes });
+
+    // Decrement pending balance for vacation requests
+    if (request.type === 'vacation' && !wasApproved) {
+      console.log('📉 Decrementing vacation pending balance...');
+      const year = parseInt(request.startDate.substring(0, 4));
+      decrementVacationPending(request.userId, year, request.days);
+    }
+
+    // CRITICAL FIX (2026-08-18): Rejecting an ALREADY APPROVED absence must revert the
+    // balance booking that approval made. Without this the vacation days stay deducted
+    // forever — there is no later code path that heals it, not even deleting the request.
+    //
+    // deleteAbsenceRequest() has always done this correctly (see its 'approved' branch);
+    // rejection was the one path that booked without a counter-booking.
+    //
+    // This also fixes double-booking on re-approval: approving a rejected request calls
+    // updateBalancesAfterApproval() again, which previously added days a second time
+    // because the rejection never gave them back.
+    //
+    // Root cause analysis: .planning/debug/urlaubstage-bei-ablehnung-verloren.md
+    if (wasApproved) {
+      console.log('♻️  Reverting balances (was approved → rejected)...');
+      revertBalancesAfterDeletion(id);
+      logger.info(
+        { requestId: id, userId: request.userId, type: request.type, days: request.days },
+        '✅ Balances reverted after rejecting a previously approved absence'
+      );
+    }
+  });
+  applyRejection();
 
   // Verify status changed
   const verifyRequest = getAbsenceRequestById(id);
   console.log('🔍 Verify status after update:', verifyRequest?.status);
-
-  // Decrement pending balance for vacation requests
-  if (request.type === 'vacation' && !wasApproved) {
-    console.log('📉 Decrementing vacation pending balance...');
-    const year = parseInt(request.startDate.substring(0, 4));
-    decrementVacationPending(request.userId, year, request.days);
-  }
 
   // CRITICAL: If rejecting an approved absence (e.g., cancelling vacation),
   // we need to recalculate overtime to remove the credit transactions
