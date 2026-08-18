@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.7.3] - 2026-08-18
+
 ### 🐛 Fixed
 
 #### Urlaubstage gingen beim Ablehnen eines bereits genehmigten Antrags verloren
@@ -70,6 +74,39 @@ verschwanden dauerhaft. In Produktion: 0 `compensation`-Buchungen bei 3 genehmig
 Defekt des Dual Calculation Systems und in diesem Durchgang **nicht** behoben.
 
 **Analyse:** `.planning/debug/urlaubstage-bei-ablehnung-verloren.md`
+
+### 🔧 Datenkorrektur Produktion
+
+Die durch die obigen Fehler entstandenen Falschbestände wurden korrigiert (Backup vorher,
+Sollwerte unabhängig nachgerechnet, in einer DB-Transaktion):
+
+| Mitarbeiter | Änderung | Resturlaub |
+|---|---|---|
+| Carmen Rothemund | `taken` 21 → 15 | −1 → **5** |
+| Benedikt Jochem | `taken` 23 → 13 | 5 → **15** |
+| 6 Mitarbeiter mit 0 Urlaubstagen laut Stammdaten | `entitlement` 2026+2027 → 0 | **0** |
+
+Gesamt verbleibender Urlaub 2026: 257,5 → **98 Tage**. Anspruch stimmt jetzt bei allen 16
+aktiven Mitarbeitern mit den Stammdaten überein, der Abgleich der genommenen Tage gegen die
+genehmigten Anträge ergibt keine Abweichung mehr.
+
+### 🛠️ Infrastruktur
+
+#### Produktionsdatenbank war nicht mehr neustartfähig
+Zwei verwaiste WAL-Dateien (vom 09.02. und 06.05.) führten dazu, dass jeder **neue**
+Verbindungsaufbau zur Produktionsdatenbank mit `SQLITE_CORRUPT` scheiterte. Der laufende
+Server funktionierte nur weiter, weil sein Prozess seit April gelöschte Dateihandles offen
+hielt — ein Neustart, Reboot oder Deployment hätte das System lahmgelegt.
+
+**Ursache:** Der nächtliche Cronjob `fix-overtime.ts` öffnete dieselbe Datenbank über den
+Symlink `server/database.db` ohne gesetztes `DATABASE_PATH`. SQLite legt die WAL-Datei neben
+dem geöffneten Pfad an — zwei Prozesse arbeiteten damit mit getrennten WAL/SHM-Dateien auf
+einer Datenbank.
+
+**Behoben:** Verwaiste WAL/SHM in Quarantäne, `REINDEX` gegen zwei defekte Indizes
+(`integrity_check: ok`), Cronjob deaktiviert. Kein Datensatz verloren.
+
+**Details:** `.planning/debug/db-stabilisierung-20260818.md`
 
 ---
 
