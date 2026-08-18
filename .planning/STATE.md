@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
-status: Milestone started — roadmap ready, no phase planned yet
-stopped_at: Roadmap für Milestone 2 erstellt (Phasen 5-8)
+status: Phase 5 geplant — bereit zur Ausführung
+stopped_at: Phase 5 geplant (05-01 Migration, 05-02 Service)
 last_updated: "2026-08-18T20:50:00.000Z"
 progress:
   total_phases: 4
@@ -23,10 +23,10 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 05 of 8 (noch nicht geplant)
+- **Phase:** 05 of 8 — Journal-Fundament (geplant, 2 Pläne)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:plan-phase 5` — Journal-Fundament
+- **Next action:** `/gsd:execute-phase 5` — Journal-Fundament ausführen
 - **Last completed:** Quick-Task `urlaubskonto-korrektheit` (5 Bugfixes deployed, Produktionsdaten korrigiert)
 - **Stopped at:** Roadmap für Milestone 2 erstellt
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 5 | Journal-Fundament | Not started |
+| 5 | Journal-Fundament | Geplant (0/2 Plans) |
 | 6 | Buchungen bei jedem Vorgang | Not started |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
