@@ -1,14 +1,35 @@
-# DB Setup Refactoring — 2-Tier Architecture
+# TimeTracking System — Zeiterfassung für die Stiftung
 
 ## What This Is
 
+Zeiterfassungssystem für die Stiftung: Node.js-Server auf Oracle Cloud, Tauri-Desktop-App für
+die Mitarbeiter. Erfasst Arbeitszeiten, berechnet Überstunden nach deutschem Arbeitsrecht und
+verwaltet Abwesenheiten (Urlaub, Krankheit, unbezahlt, Überstundenausgleich).
+
+## Aktueller Milestone: 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
+
+**Core Value:** Kein Urlaubstag verschwindet mehr unbemerkt. Jede Bewegung wird als Buchung
+festgehalten, der Saldo ist ihre Summe — Abweichungen können strukturell nicht mehr entstehen,
+und wenn doch etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
+
+**Auslöser:** Am 18.08.2026 fiel auf, dass sechs stornierte Urlaubstage nicht zurückgebucht
+worden waren. Die Untersuchung fand zehn Befunde — 16 verlorene Urlaubstage bei zwei
+Mitarbeitern, 175,5 falsch ausgewiesene Tage bei sechs weiteren. Die Einzelfehler sind behoben;
+dieser Milestone beseitigt die strukturelle Ursache: `vacation_balance.taken` ist ein
+handgepflegter Zähler ohne Historie.
+
+Details: `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`,
+`.planning/debug/urlaubstage-bei-ablehnung-verloren.md`
+
+---
+
+## Milestone 1 (abgeschlossen 2026-04-02): DB Setup Refactoring — 2-Tier Architecture
+
 Umbau der chaotischen 3-Tier DB-Struktur (Dev→Green→Blue) zu einer sauberen 2-Tier-Architektur (Dev→Blue Production). Der Fokus liegt auf verlässlichen, schnellen Deployments ohne manuelle SSH-Debugging-Sessions. Die Production DB läuft bereits live auf Oracle Cloud und darf zu keinem Zeitpunkt verändert oder gelöscht werden.
 
-## Core Value
+**Core Value (erreicht):** Ein `git push main` deployt in unter 10 Minuten — ohne manuelle Eingriffe, ohne Überraschungen.
 
-Ein `git push main` deployt in unter 10 Minuten — ohne manuelle Eingriffe, ohne Überraschungen.
-
-## Requirements
+### Requirements Milestone 1
 
 ### Validated
 
@@ -83,4 +104,4 @@ Dieses Dokument entwickelt sich bei Phase-Übergängen und Milestone-Abschlüsse
 4. Entscheidungen zu loggen? → Key Decisions
 
 ---
-*Last updated: 2026-04-02 — Phase 4 complete (all 4 phases complete, v1.0 milestone delivered)*
+*Last updated: 2026-08-18 — Milestone 2 gestartet (Urlaubskonto: Korrektheit & Nachvollziehbarkeit)*

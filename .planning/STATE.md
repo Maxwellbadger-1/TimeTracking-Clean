@@ -1,43 +1,54 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Milestone complete
-stopped_at: Completed 04-03-PLAN.md — Phase 4 complete
-last_updated: "2026-04-02T15:58:53.910Z"
+milestone: v2.0
+milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
+status: Milestone started — roadmap ready, no phase planned yet
+stopped_at: Roadmap für Milestone 2 erstellt (Phasen 5-8)
+last_updated: "2026-08-18T20:50:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 11
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-02)
+See: .planning/PROJECT.md (updated 2026-08-18)
 
-**Core value:** `git push main` deployt in unter 10 Minuten — ohne manuelle Eingriffe, ohne Überraschungen.
-**Current focus:** Phase 04 — deploy-workflow-documentation
+**Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
+**Current focus:** Phase 05 — Journal-Fundament (noch nicht geplant)
 
 ## Current Status
 
-- **Phase:** 04 of 4 (deploy workflow + documentation)
-- **Milestone:** 1 — 2-Tier DB Architecture
-- **Initialized:** 2026-04-02
-- **Next action:** Begin Phase 04 — Deploy Workflow + Documentation
-- **Last completed:** Phase 03 Plan 02 — all tasks complete, human verified (2026-04-02)
-- **Stopped at:** Completed 04-03-PLAN.md — Phase 4 complete
+- **Phase:** 05 of 8 (noch nicht geplant)
+- **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
+- **Initialized:** 2026-08-18
+- **Next action:** `/gsd:plan-phase 5` — Journal-Fundament
+- **Last completed:** Quick-Task `urlaubskonto-korrektheit` (5 Bugfixes deployed, Produktionsdaten korrigiert)
+- **Stopped at:** Roadmap für Milestone 2 erstellt
 
 ## Phase Progress
+
+### Milestone 2 (aktuell)
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 5 | Journal-Fundament | Not started |
+| 6 | Buchungen bei jedem Vorgang | Not started |
+| 7 | Saldo aus Buchungen + Backfill | Not started |
+| 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
+
+### Milestone 1 (abgeschlossen 2026-04-02)
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | Server DB Consolidation | Complete (5/5 plans) |
 | 2 | Symlink + PM2 Ecosystem | Complete (2026-04-02) |
 | 3 | Local Dev Sync Script | Complete (2/2 plans) |
-| 4 | Deploy Workflow + Documentation | Not started |
+| 4 | Deploy Workflow + Documentation | Complete (3/3 plans) |
 
 ## Decisions
 
