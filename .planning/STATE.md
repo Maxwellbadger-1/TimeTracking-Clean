@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 05 — Journal-Fundament (noch nicht geplant)
+**Current focus:** Phase 05 — Journal-Fundament (geplant, bereit zur Ausführung)
 
 ## Current Status
 
