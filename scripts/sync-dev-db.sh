@@ -36,12 +36,14 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SSH_KEY="$PROJECT_ROOT/.ssh/oracle_server.key"
 PROD_HOST="ubuntu@129.159.8.19"
 PROD_DB_PATH="/home/ubuntu/databases/production.db"
+PROD_BSQ3_PATH="/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3"
 LOCAL_DB="$PROJECT_ROOT/server/database/development.db"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TEMP_DB="/tmp/prod_sync_${TIMESTAMP}.db"
+REMOTE_VACUUM_DB="/tmp/prod_vacuum_${TIMESTAMP}.db"
 
-# Cleanup temp file on exit (success or failure)
-trap 'rm -f "$TEMP_DB"' EXIT
+# Cleanup temp files on exit (success or failure)
+trap 'rm -f "$TEMP_DB"; ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$PROD_HOST" "rm -f $REMOTE_VACUUM_DB" 2>/dev/null || true' EXIT
 
 echo -e "${BLUE}================================${NC}"
 echo -e "${BLUE}  Sync Production DB to Local${NC}"
@@ -107,18 +109,33 @@ else
 fi
 echo ""
 
-# ─── [3/6] Download production database ──────────────────────────────────────
-echo -e "${YELLOW}[3/6] Downloading production database...${NC}"
+# ─── [3/6] Create clean snapshot on server via VACUUM INTO ───────────────────
+# Why VACUUM INTO instead of raw scp:
+# Raw scp of a WAL-mode SQLite file can produce a corrupt copy locally because
+# the server's WAL state is not transferred. VACUUM INTO creates a clean,
+# self-contained snapshot that is safe to copy across machines.
+echo -e "${YELLOW}[3/6] Creating clean snapshot on server (VACUUM INTO)...${NC}"
 echo -e "   Source: ${PROD_HOST}:${PROD_DB_PATH}"
-echo -e "   Temp:   ${TEMP_DB}"
+echo -e "   Remote temp: ${REMOTE_VACUUM_DB}"
 
-scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$PROD_HOST:$PROD_DB_PATH" "$TEMP_DB"
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$PROD_HOST" "node << 'EOF'
+const D = require('$PROD_BSQ3_PATH');
+const db = new D('$PROD_DB_PATH');
+db.exec(\"VACUUM INTO '$REMOTE_VACUUM_DB'\");
+db.close();
+EOF"
 
-echo -e "${GREEN}Download complete${NC}"
+echo -e "${GREEN}Snapshot created on server${NC}"
 echo ""
 
-# ─── [4/6] Integrity check via node + better-sqlite3 ─────────────────────────
-echo -e "${YELLOW}[4/6] Verifying database integrity...${NC}"
+# ─── [4/6] Download snapshot + integrity check ───────────────────────────────
+echo -e "${YELLOW}[4/6] Downloading snapshot...${NC}"
+echo -e "   Remote: ${PROD_HOST}:${REMOTE_VACUUM_DB}"
+echo -e "   Local temp: ${TEMP_DB}"
+
+scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$PROD_HOST:$REMOTE_VACUUM_DB" "$TEMP_DB"
+
+echo -e "${GREEN}Download complete${NC}"
 
 # Convert TEMP_DB path for Node.js on Windows (cygpath -m: drive letter + forward slashes)
 if command -v cygpath > /dev/null 2>&1; then
@@ -142,7 +159,7 @@ INTEGRITY=$(node -e "
 
 if [[ "$INTEGRITY" != "ok" ]]; then
     echo -e "${RED}ERROR: integrity_check returned: $INTEGRITY${NC}"
-    echo -e "${RED}       The downloaded file may be corrupt. Aborting.${NC}"
+    echo -e "${RED}       The downloaded snapshot may be corrupt. Aborting.${NC}"
     exit 1
 fi
 
