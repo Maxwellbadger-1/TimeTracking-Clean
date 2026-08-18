@@ -306,9 +306,15 @@ router.post(
         const hireDate = data.hireDate || formatDate(getCurrentDate(), 'yyyy-MM-dd');
 
         // Calculate pro-rata entitlement for current year based on hire date
+        //
+        // CRITICAL: Use `??`, NOT `||`. In JavaScript `0 || 30` evaluates to 30, so an
+        // employee deliberately created with 0 vacation days silently received a balance
+        // of 30 (or its pro-rata share). This is how six production accounts ended up
+        // with 175.5 days that were never granted — while users.vacationDaysPerYear
+        // correctly stored 0. See .planning/debug/urlaubstage-bei-ablehnung-verloren.md
         const currentYearEntitlement = calculateProRataVacationDays(
           hireDate,
-          data.vacationDaysPerYear || 30,
+          data.vacationDaysPerYear ?? 30,
           currentYear
         );
 
@@ -324,13 +330,13 @@ router.post(
         upsertVacationBalance({
           userId: user.id,
           year: currentYear + 1,
-          entitlement: data.vacationDaysPerYear || 30,
+          entitlement: data.vacationDaysPerYear ?? 30, // `??` not `||` — 0 is a valid value
           carryover: 0,
         });
 
         console.log(`✅ Initialized vacation balances for user ${user.id}:`);
         console.log(`   ${currentYear}: ${currentYearEntitlement} days (pro-rata)`);
-        console.log(`   ${currentYear + 1}: ${data.vacationDaysPerYear || 30} days (full year)`);
+        console.log(`   ${currentYear + 1}: ${data.vacationDaysPerYear ?? 30} days (full year)`);
       } catch (error) {
         console.error('⚠️ Failed to initialize vacation balances:', error);
         // Don't fail user creation if vacation balance initialization fails

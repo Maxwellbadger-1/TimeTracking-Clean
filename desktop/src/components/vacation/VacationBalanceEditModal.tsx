@@ -23,8 +23,23 @@ export function VacationBalanceEditModal({
 }: VacationBalanceEditModalProps) {
   const upsert = useUpsertVacationBalance();
 
+  /**
+   * Pre-fill value for the entitlement field.
+   *
+   * Was `balance.entitlement || 30`, which had two defects:
+   *  1. `0 || 30` is 30 in JavaScript — opening an account that legitimately has 0 days
+   *     and saving it silently wrote 30 back.
+   *  2. When no balance existed yet, it proposed a hardcoded 30 rather than the value
+   *     actually configured for that employee.
+   *
+   * Now: an existing balance keeps its value (0 included); a new one is seeded from the
+   * employee's own annual entitlement. See .planning/debug/urlaubstage-bei-ablehnung-verloren.md
+   */
+  const initialEntitlement = () =>
+    String(balance.hasBalance ? balance.entitlement : (balance.defaultEntitlement ?? 30));
+
   // Form state
-  const [entitlement, setEntitlement] = useState(String(balance.entitlement || 30));
+  const [entitlement, setEntitlement] = useState(initialEntitlement);
   const [carryover, setCarryover] = useState(String(balance.carryover || 0));
 
   // Error state
@@ -33,8 +48,9 @@ export function VacationBalanceEditModal({
 
   // Update form when balance changes
   useEffect(() => {
-    setEntitlement(String(balance.entitlement || 30));
+    setEntitlement(initialEntitlement());
     setCarryover(String(balance.carryover || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [balance]);
 
   const validateForm = (): boolean => {
@@ -84,7 +100,7 @@ export function VacationBalanceEditModal({
 
   const handleClose = () => {
     // Reset form
-    setEntitlement(String(balance.entitlement || 30));
+    setEntitlement(initialEntitlement());
     setCarryover(String(balance.carryover || 0));
     setEntitlementError('');
     setCarryoverError('');

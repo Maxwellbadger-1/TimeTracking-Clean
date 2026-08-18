@@ -19,6 +19,9 @@ export interface VacationBalanceSummary {
   taken: number;
   remaining: number;
   hasBalance: boolean;
+  /** users.vacationDaysPerYear — the employee's configured annual entitlement.
+   *  Used to pre-fill the dialog when no balance exists yet, instead of a hardcoded 30. */
+  defaultEntitlement: number;
 }
 
 export interface VacationBalanceCreateInput {

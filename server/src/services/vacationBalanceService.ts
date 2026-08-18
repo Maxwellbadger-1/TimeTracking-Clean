@@ -419,6 +419,8 @@ export function getVacationBalanceSummary(year?: number): Array<{
   firstName: string;
   lastName: string;
   email: string;
+  /** users.vacationDaysPerYear — used by the admin UI to pre-fill new balances */
+  defaultEntitlement: number;
   entitlement: number;
   carryover: number;
   taken: number;
@@ -450,6 +452,7 @@ export function getVacationBalanceSummary(year?: number): Array<{
     firstName: string;
     lastName: string;
     email: string;
+    defaultEntitlement: number;
     entitlement: number;
     carryover: number;
     taken: number;
