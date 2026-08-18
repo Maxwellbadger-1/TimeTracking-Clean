@@ -91,17 +91,49 @@ export function rebuildOvertimeTransactionsForMonth(
       endDate: formatDate(endDate, 'yyyy-MM-dd')
     }, 'Calculation period determined');
 
-    // STEP 3: Delete ALL existing transactions for this month
+    // STEP 3: Delete the DERIVED transactions for this month, then rebuild them.
     const monthFirstDay = formatDate(monthStart, 'yyyy-MM-dd');
     const monthLastDay = formatDate(monthEnd, 'yyyy-MM-dd');
+
+    // FIX (2026-08-18): This used to delete EVERY transaction in the month with no type
+    // filter. Rebuild only regenerates derived rows (time_entry + absence credits), so
+    // book-once records were wiped and never came back.
+    //
+    // Affected types that are written exactly once and cannot be recomputed:
+    //   'compensation'     — debit when a time-off-in-lieu day is approved
+    //   'correction'       — manual admin adjustment
+    //   'carry_over', 'payout', 'initial_balance', 'year_end_balance'
+    //
+    // Production had 0 'compensation' rows against 3 approved overtime_comp requests —
+    // every one of them had been silently deleted by a later rebuild.
+    //
+    // SCOPE: This restores the audit trail. It does NOT by itself change any balance,
+    // because getOvertimeBalance() sums the monthly overtime_balance aggregate rather
+    // than these transactions. That the overtime_comp debit never reaches the balance at
+    // all is a separate defect in the dual calculation system — tracked, not fixed here.
+    // See .planning/debug/urlaubstage-bei-ablehnung-verloren.md (Bug 9/10)
+    const REBUILDABLE_TYPES = [
+      'worked',
+      'time_entry',
+      'earned',
+      'vacation_credit',
+      'sick_credit',
+      'overtime_comp_credit',
+      'special_credit',
+      'unpaid_deduction',
+      'unpaid_adjustment',
+      'holiday_credit',
+      'weekend_credit',
+    ];
 
     const deleteResult = db.prepare(`
       DELETE FROM overtime_transactions
       WHERE userId = ?
         AND date BETWEEN ? AND ?
-    `).run(userId, monthFirstDay, monthLastDay);
+        AND type IN (${REBUILDABLE_TYPES.map(() => '?').join(', ')})
+    `).run(userId, monthFirstDay, monthLastDay, ...REBUILDABLE_TYPES);
 
-    logger.debug({ deletedCount: deleteResult.changes }, '🗑️  Deleted existing transactions');
+    logger.debug({ deletedCount: deleteResult.changes }, '🗑️  Deleted rebuildable transactions (book-once types preserved)');
 
     // STEP 4: Get previous month balance (for cumulative tracking)
     let runningBalance = getPreviousMonthBalance(userId, month);
