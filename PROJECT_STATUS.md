@@ -1,8 +1,8 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-03-01
-**Version:** v1.7.0 (deployed)
-**Status:** 🟢 Healthy - 3-Tier Workflow Fully Operational
+**Last Updated:** 2026-08-18
+**Version:** v1.7.3 (deployed)
+**Status:** 🟢 Healthy - 2-Tier Workflow Operational
 
 ---
 
@@ -408,6 +408,9 @@ Shell environment variables OVERRIDE all .env files!
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-08-18 | v1.7.3 | PATCH | Urlaubskonto-Fixes (Gegenbuchung bei Storno, `0 \|\| 30`, rückwirkendes entitlement, Transaktionsklammer) + Datenkorrektur Produktion + DB-Stabilisierung | ✅ Deployed |
+| 2026-04-02 | v1.7.2 | PATCH | Notiz-Feld beim Anlegen einer Zeiterfassung | ✅ Deployed |
+| 2026-03-06 | v1.7.1 | PATCH | Bugfix Release | ✅ Deployed |
 | 2026-03-01 | v1.7.0 | MINOR | Timezone-safe date formatting + Backup download | ✅ Deployed |
 | 2026-02-24 | v1.6.8 | PATCH | Remove duplicate work schedule display | ✅ Deployed |
 | 2026-02-14 | v1.6.7 | PATCH | Backup download + workSchedule fix | ✅ Deployed |
