@@ -9,6 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed
+
+#### Urlaubstage gingen beim Ablehnen eines bereits genehmigten Antrags verloren
+**Issue:** Wurde ein genehmigter Urlaubsantrag nachträglich abgelehnt (Stornierung), blieben die
+Tage vom Urlaubskonto abgezogen. Betroffen in Produktion: Carmen Rothemund (6 Tage, Resturlaub
+stand auf −1), Benedikt Jochem (10 Tage aus zwei Anträgen).
+
+**Root Cause:**
+- `rejectAbsenceRequest()` berechnete im Zweig `wasApproved` nur die Überstunden neu
+- Die Gegenbuchung auf `vacation_balance.taken` fehlte vollständig
+- `deleteAbsenceRequest()` machte es korrekt — nur der Ablehnungspfad buchte ohne Gegenbuchung
+- Kein späterer Code-Pfad heilte den Zustand, auch das Löschen des Antrags nicht
+
+**Fix:**
+- `revertBalancesAfterDeletion()` wird beim Ablehnen genehmigter Anträge aufgerufen
+- Behebt zugleich eine Doppelbuchung: `pending → approved → rejected → approved` ergab bisher
+  `taken = 2 × Tage`
+
+#### Mitarbeiter mit 0 Urlaubstagen erhielten ein Konto über 30 Tage
+**Issue:** Wurde ein Mitarbeiter bewusst mit 0 Urlaubstagen angelegt, speicherte das System den
+Stammsatz korrekt mit 0, legte aber ein Urlaubskonto über 30 Tage an. Betroffen: 6 Konten mit
+zusammen 175,5 nie gewährten Tagen.
+
+**Root Cause:**
+- `routes/users.ts` nutzte `data.vacationDaysPerYear || 30` — in JavaScript ergibt `0 || 30` den
+  Wert 30, die eingegebene Null wurde verschluckt
+- Bei unterjährigem Eintritt floss die 30 zusätzlich in die Pro-rata-Berechnung
+  (Beispiel: Eintritt 27.02. → `308/365 × 30` = 25,5 statt 0)
+- `VacationBalanceEditModal.tsx` hatte denselben Fehler: Ein Konto mit 0 Tagen öffnen und
+  speichern schrieb 30 zurück
+
+**Fix:**
+- `??` statt `||` an allen betroffenen Stellen — 0 ist ein gültiger Wert
+- Der Konto-Dialog schlägt bei neuen Konten den Jahresanspruch des Mitarbeiters vor statt einer
+  festen 30 (`defaultEntitlement`)
+
+#### Urlaubsanspruch wurde rückwirkend für abgeschlossene Jahre überschrieben
+**Issue:** Änderte ein Admin den Jahresurlaub, wurde der Anspruch **aller** Jahre überschrieben —
+auch abgeschlossener. Beispiel: Eine Anhebung von 12 auf 13 Tage im Februar 2026 änderte
+nachträglich auch den Anspruch für 2025.
+
+**Fix:** `updateVacationEntitlementForUser()` passt nur noch das laufende und künftige Jahre an.
+
+#### Genehmigen/Ablehnen ohne Transaktionsklammer
+**Issue:** Statuswechsel und Kontobuchung liefen ohne gemeinsame DB-Transaktion. Schlug ein
+späterer Schritt fehl, war der Status bereits festgeschrieben.
+
+**Fix:** Statuswechsel und Gegenbuchung laufen in einer `db.transaction()`.
+
+#### Einmalige Überstundenbuchungen wurden beim Monats-Rebuild gelöscht
+**Issue:** `rebuildTransactionsForMonth()` löschte **alle** Transaktionen des Monats ohne
+Typfilter, erzeugte aber nur die abgeleiteten neu. Einmalig gebuchte Sätze — `compensation`
+(Überstunden-Ausgleich), `correction` (manuelle Admin-Korrekturen), `carry_over`, `payout` —
+verschwanden dauerhaft. In Produktion: 0 `compensation`-Buchungen bei 3 genehmigten Anträgen.
+
+**Fix:** Nur noch rekonstruierbare Typen werden gelöscht; einmalige Buchungen bleiben erhalten.
+
+**Hinweis:** Dass der Überstunden-Ausgleich den Saldo gar nicht erst erreicht, ist ein separater
+Defekt des Dual Calculation Systems und in diesem Durchgang **nicht** behoben.
+
+**Analyse:** `.planning/debug/urlaubstage-bei-ablehnung-verloren.md`
+
 ---
 
 ## [1.7.2] - 2026-04-02
