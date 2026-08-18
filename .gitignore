@@ -18,17 +18,23 @@ target/
 .env.development.local
 
 # Database
-# Ignore all database files (production and development)
+# WICHTIG: gitignore erkennt Kommentare NUR am Zeilenanfang, niemals inline.
+# Ein Pattern mit "# ..." dahinter wird Teil des Patterns und matcht auf nichts.
+
+# Alle Datenbank-Dateien (Production und Development)
+# deckt ab: server/database.db, server/database.backup.db,
+#           server/database/development.db, server/database/development.backup.*.db
 *.db
 *.db-shm
 *.db-wal
 
-# Specific database files to ignore
-server/database.db                      # Production database (Oracle Cloud)
-server/database.backup.db              # Production backup
-server/*.db.backup.*                   # Timestamped backups from sync-dev-db.sh
-server/database/development.db         # Development database (local copy)
-server/database/development.backup.*.db # Development backups with timestamps
+# Timestamped Backups von sync-dev-db.sh
+# z.B. server/database.db.backup.20260417_143724
+*.db.backup.*
+
+# Beiseitegelegte korrupte DB-Snapshots
+# z.B. server/database/development.db.corrupted_backup
+*.db.corrupted_backup
 
 # Keep migration and seed SQL files (these should be versioned)
 !server/database/migrations/*.sql
@@ -89,3 +95,6 @@ backups/
 .claude/package.json
 .claude/package-lock.json
 .claude/node_modules/
+
+# Temporaere git-Worktrees aus Agent-Laeufen
+.claude/worktrees/
