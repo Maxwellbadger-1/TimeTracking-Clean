@@ -55,11 +55,50 @@ describe('absenceService — Urlaubsbuchungen bei jedem Vorgang', () => {
     db.prepare('DELETE FROM users WHERE id IN (?, ?)').run(userId, adminId);
   });
 
-  /** taken (vacation_balance) und journal (Summe der Buchungen) — müssen übereinstimmen. */
+  /**
+   * `taken` aus vacation_balance und der verbrauchte Anteil laut Journal.
+   *
+   * ANGEPASST IN PHASE 7. Ursprünglich verglich dieser Helfer `taken` direkt mit der
+   * Journal-Summe und erwartete `journal === -taken`. Diese Annahme galt nur, solange das
+   * Journal ausschließlich Verbrauchsbuchungen enthielt.
+   *
+   * Seit das Journal auch Anspruch und Übertrag führt (06-02, und in Phase 7 garantiert für
+   * jedes Konto), ist die Journal-Summe der **verfügbare Rest**, nicht der Verbrauch:
+   *
+   *     journalSaldo = entitlement + carryover − taken
+   *
+   * `consumed` rechnet das auf den Verbrauch zurück, damit die Aussagen der Tests
+   * unverändert lesbar bleiben. Zusätzlich prüft jeder Aufruf die Invariante selbst —
+   * damit testet dieser Helfer genau das, was Phase 7 garantieren soll.
+   */
   function balances(): { taken: number; journal: number } {
-    const taken = getVacationBalance(userId, YEAR)?.taken ?? 0;
-    const journal = getVacationBalanceFromTransactions(userId, YEAR);
-    return { taken, journal };
+    const balance = getVacationBalance(userId, YEAR);
+    const taken = balance?.taken ?? 0;
+    const journalSaldo = getVacationBalanceFromTransactions(userId, YEAR);
+    const entitlement = balance?.entitlement ?? 0;
+    const carryover = balance?.carryover ?? 0;
+
+    // Invariante: Journal-Saldo und Konto müssen sich entsprechen — aber nur, wenn
+    // überhaupt gebucht wurde. Ein Konto ohne jede Buchung ist der legitime Zustand vor
+    // dem ersten Vorgang (und vor dem Backfill); der Konsistenzprüfer behandelt ihn
+    // ebenfalls gesondert als `no_journal` statt als Fehler.
+    const hasJournal = db.prepare(
+      'SELECT COUNT(*) AS cnt FROM vacation_transactions WHERE userId = ? AND year = ?'
+    ).get(userId, YEAR) as { cnt: number };
+
+    if (hasJournal.cnt > 0) {
+      expect(Math.abs(journalSaldo - (entitlement + carryover - taken))).toBeLessThan(0.011);
+    }
+
+    // Ohne Journal gibt es keinen gebuchten Verbrauch — dann ist der Zählerstand die
+    // einzige Aussage. Die Rückrechnung würde hier den ungebuchten Anspruch als
+    // vermeintlichen Verbrauch ausweisen (−30 statt 0).
+    const consumed = hasJournal.cnt > 0
+      ? Math.round((journalSaldo - entitlement - carryover) * 100) / 100
+      : -taken;
+
+    // `-0` normalisieren: toBe() nutzt Object.is, und Object.is(-0, 0) ist false.
+    return { taken, journal: consumed === 0 ? 0 : consumed };
   }
 
   it('1. Genehmigung: taken steigt um die Tage, eine vacation_taken-Buchung mit negativen Tagen', async () => {

@@ -1218,9 +1218,13 @@ function updateBalancesAfterApproval(requestId: number, actorId: number | null):
   const year = parseInt(request.startDate.substring(0, 4));
 
   if (request.type === 'vacation') {
-    // Deduct from vacation balance — erst der Zähler, dann die Buchung. Buchen ist damit
-    // die Historie *des tatsächlich erfolgten* Vorgangs, nicht eines geplanten.
-    updateVacationTaken(request.userId, year, request.days);
+    // Nur noch buchen — `taken` zieht automatisch nach (Phase 7).
+    //
+    // Bis Phase 6 stand hier zusätzlich `updateVacationTaken(userId, year, +days)`, das den
+    // Zähler inkrementell fortschrieb. Genau diese Fortschreibung war die Fehlerquelle:
+    // Fehlt ein einziger Gegenaufruf, driftet der Wert dauerhaft und unbemerkt.
+    // `recordVacationTransaction()` synchronisiert `taken` jetzt absolut aus dem Journal.
+    ensureVacationBalanceExists(request.userId, year);
 
     recordVacationTransaction({
       userId: request.userId,
@@ -1270,8 +1274,9 @@ function revertBalancesAfterDeletion(
   const year = parseInt(request.startDate.substring(0, 4));
 
   if (request.type === 'vacation') {
-    // Add back to vacation balance — erst der Zähler, dann die Gegenbuchung.
-    updateVacationTaken(request.userId, year, -request.days);
+    // Nur noch gegenbuchen — `taken` zieht automatisch nach (Phase 7, siehe
+    // updateBalancesAfterApproval).
+    ensureVacationBalanceExists(request.userId, year);
 
     const reasonLabel = reason === 'rejected' ? 'Ablehnung' : 'Löschung';
     recordVacationTransaction({
@@ -1425,20 +1430,66 @@ export function initializeVacationBalance(
 /**
  * Update vacation taken days
  */
-function updateVacationTaken(userId: number, year: number, days: number): void {
-  // Ensure balance exists
+/**
+ * Stellt sicher, dass ein Urlaubskonto für das Nutzerjahr existiert.
+ *
+ * ERSETZT `updateVacationTaken()` (bis Phase 6). Jene Funktion schrieb `taken`
+ * inkrementell fort (`SET taken = taken + ?`) — und genau darin lag die Fehlerklasse,
+ * die diesen Milestone ausgelöst hat: Fehlt ein einziger Gegenaufruf, driftet der Wert
+ * dauerhaft, ohne dass es irgendwo auffällt. Im Mai 2026 blieb das drei Monate unbemerkt
+ * und kostete 16 Urlaubstage.
+ *
+ * `taken` wird seit Phase 7 von `recordVacationTransaction()` absolut aus dem Journal
+ * berechnet. Hier bleibt nur noch, das Konto anzulegen, falls es noch nicht existiert —
+ * sonst hätte die Synchronisierung nichts zu aktualisieren.
+ */
+function ensureVacationBalanceExists(userId: number, year: number): void {
   let balance = getVacationBalance(userId, year);
   if (!balance) {
     balance = initializeVacationBalance(userId, year);
   }
 
-  const query = `
-    UPDATE vacation_balance
-    SET taken = taken + ?
-    WHERE userId = ? AND year = ?
-  `;
+  // Der Anspruch MUSS im Journal stehen, sonst stimmt die abgeleitete Rechnung nicht.
+  //
+  // `syncTakenFromJournal()` berechnet `taken = entitlement + carryover − Journal-Saldo`.
+  // Fehlt die Anspruchsbuchung, fällt der Journal-Saldo um genau diesen Betrag zu niedrig
+  // aus und `taken` entsprechend zu hoch — ein Konto mit 30 Tagen Anspruch und 2 Tagen
+  // Urlaub käme auf taken = 32 statt 2.
+  //
+  // Konten entstehen an mehreren Stellen, nicht alle buchen (initializeVacationBalance
+  // legt nur die Zeile an). Diese Prüfung trägt fehlende Grundbuchungen nach und macht
+  // die Ableitung damit unabhängig davon, auf welchem Weg ein Konto entstanden ist.
+  const grundbuchungen = db.prepare(`
+    SELECT COUNT(*) AS cnt FROM vacation_transactions
+    WHERE userId = ? AND year = ? AND type IN ('entitlement', 'carryover')
+  `).get(userId, year) as { cnt: number };
 
-  db.prepare(query).run(days, userId, year);
+  if (grundbuchungen.cnt === 0) {
+    if (balance.entitlement !== 0) {
+      recordVacationTransaction({
+        userId,
+        year,
+        date: `${year}-01-01`,
+        type: 'entitlement',
+        days: balance.entitlement,
+        description: `Jahresanspruch ${year}`,
+        referenceType: 'system',
+        createdBy: null,
+      });
+    }
+    if (balance.carryover !== 0) {
+      recordVacationTransaction({
+        userId,
+        year,
+        date: `${year}-01-01`,
+        type: 'carryover',
+        days: balance.carryover,
+        description: `Übertrag aus ${year - 1}`,
+        referenceType: 'system',
+        createdBy: null,
+      });
+    }
+  }
 }
 
 /**

@@ -578,6 +578,36 @@ export function updateVacationBalance(
         });
       }
     );
+
+    // SELBSTABGLEICH (Phase 7): `recordVacationTransaction()` hat `taken` bereits aus dem
+    // Journal neu berechnet. Setzt ein Admin `taken` direkt, muss der berechnete Wert dem
+    // eingegebenen entsprechen — denn die Differenz wurde ja gebucht.
+    //
+    // Weichen sie ab, ist die Buchung nicht zum eingegebenen Wert passend entstanden. Dann
+    // wird abgebrochen statt stillschweigend weiterzumachen: Genau ein solcher stiller
+    // Auseinanderlauf von Wert und Historie war der ursprüngliche Fehler.
+    //
+    // Nur sinnvoll, wenn das Konto ein vollständiges Journal hat: Fehlen die Grundbuchungen
+    // (Anspruch, Übertrag), ist die abgeleitete Rechnung nicht aussagekräftig. Das betrifft
+    // Konten, die vor dem Backfill entstanden sind — dort bleibt der eingegebene Wert
+    // stehen, und der Konsistenzprüfer meldet den Zustand als `no_journal`.
+    const hasBaseBookings = db.prepare(`
+      SELECT COUNT(*) AS cnt FROM vacation_transactions
+      WHERE userId = ? AND year = ? AND type IN ('entitlement', 'carryover')
+    `).get(existing.userId, existing.year) as { cnt: number };
+
+    if (data.taken !== undefined && hasBaseBookings.cnt > 0) {
+      const after = db
+        .prepare('SELECT taken FROM vacation_balance WHERE id = ?')
+        .get(id) as { taken: number } | undefined;
+
+      if (after && Math.abs(after.taken - data.taken) > 0.011) {
+        throw new Error(
+          `Korrektur inkonsistent: "Genommen" wurde auf ${data.taken} gesetzt, aus dem ` +
+          `Journal ergibt sich aber ${after.taken}. Die Änderung wurde zurückgenommen.`
+        );
+      }
+    }
   });
 
   applyUpdate();

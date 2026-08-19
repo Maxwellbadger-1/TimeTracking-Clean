@@ -107,6 +107,64 @@ export function getVacationBalanceFromTransactions(userId: number, year: number)
 }
 
 /**
+ * Setzt `vacation_balance.taken` auf den Wert, der sich aus dem Journal ergibt.
+ *
+ * KERN DES MILESTONES: `taken` wird nicht mehr fortgeschrieben (`taken = taken ± x`),
+ * sondern nach jeder Buchung **absolut neu berechnet**. Ein inkrementeller Zähler driftet,
+ * sobald ein einziger Aufruf fehlt — genau das passierte im Mai 2026 und blieb drei Monate
+ * unbemerkt. Ein absolut berechneter Wert kann das nicht.
+ *
+ * HERLEITUNG: Der Journal-Saldo ist definitionsgemäß der verfügbare Rest:
+ *
+ *     journalSaldo = entitlement + carryover − taken
+ *   ⟹ taken        = entitlement + carryover − journalSaldo
+ *
+ * Diese Umformung ist der Grund, warum hier **nicht** nach Buchungstypen gefiltert wird.
+ * Eine naheliegende Variante wäre, nur `vacation_taken` und `vacation_reverted` zu summieren
+ * — dann müsste man aber `correction`-Buchungen danach unterscheiden, ob sie auf `taken`
+ * oder auf `entitlement` zielen. Beide tragen denselben Typ; die Unterscheidung ginge nur
+ * über die Beschreibung und wäre damit fragil.
+ *
+ * Über die Invariante fällt das Problem weg: Eine Korrektur an `entitlement` verändert die
+ * Spalte **und** den Journal-Saldo um denselben Betrag, `taken` bleibt korrekt unverändert.
+ * Eine Korrektur an `taken` verändert nur den Saldo — und genau das ist gewollt.
+ *
+ * `entitlement` und `carryover` bleiben Stammdaten des Kontos und werden nicht abgeleitet.
+ *
+ * SYNCHRON — in `db.transaction()` einsetzbar.
+ *
+ * @returns der neu gesetzte Wert von `taken`
+ */
+export function syncTakenFromJournal(userId: number, year: number): number {
+  const balance = db.prepare(`
+    SELECT entitlement, carryover FROM vacation_balance WHERE userId = ? AND year = ?
+  `).get(userId, year) as { entitlement: number; carryover: number } | undefined;
+
+  // Kein Konto vorhanden → nichts zu synchronisieren. Hier bewusst keines anlegen:
+  // Konten entstehen bei der Nutzeranlage oder durch einen Admin, nicht als Nebenwirkung
+  // einer Buchung.
+  if (!balance) {
+    logger.debug({ userId, year }, 'syncTakenFromJournal: kein Konto vorhanden, übersprungen');
+    return 0;
+  }
+
+  const journal = db.prepare(`
+    SELECT COALESCE(SUM(days), 0) AS balance
+    FROM vacation_transactions WHERE userId = ? AND year = ?
+  `).get(userId, year) as { balance: number };
+
+  const taken = round2(balance.entitlement + balance.carryover - journal.balance);
+
+  db.prepare(`UPDATE vacation_balance SET taken = ? WHERE userId = ? AND year = ?`)
+    .run(taken, userId, year);
+
+  logger.debug({ userId, year, journalBalance: round2(journal.balance), taken },
+    'taken aus Journal synchronisiert');
+
+  return taken;
+}
+
+/**
  * Journal eines Nutzers — chronologisch.
  *
  * Sortierung `date ASC, id ASC`: Mehrere Buchungen können dasselbe Datum tragen
@@ -221,6 +279,14 @@ export function recordVacationTransaction(input: RecordVacationTransactionInput)
     { userId, year, type, days, balanceBefore, balanceAfter, referenceType, referenceId },
     `✅ Urlaubsbuchung: ${type} ${days > 0 ? '+' : ''}${days} Tage`
   );
+
+  // Der Cache zieht sofort nach. Damit ist es unmöglich, dass eine Buchung existiert,
+  // ohne dass sich `taken` entsprechend ändert — die Fehlerklasse, die diesen Milestone
+  // ausgelöst hat, kann per Konstruktion nicht mehr auftreten.
+  //
+  // Beides ist synchron und läuft damit in derselben Transaktion wie der auslösende
+  // Vorgang: Entweder wird gebucht UND synchronisiert, oder keines von beidem.
+  syncTakenFromJournal(userId, year);
 
   return result.lastInsertRowid as number;
 }
