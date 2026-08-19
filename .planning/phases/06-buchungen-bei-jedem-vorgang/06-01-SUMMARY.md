@@ -163,3 +163,13 @@ None - keine externe Konfiguration erforderlich.
 ---
 *Phase: 06-buchungen-bei-jedem-vorgang*
 *Completed: 2026-08-19*
+
+## Self-Check: PASSED
+
+- FOUND: server/src/services/absenceVacationBooking.test.ts
+- FOUND: .planning/phases/06-buchungen-bei-jedem-vorgang/06-01-SUMMARY.md
+- FOUND: b772d44 (Task 1)
+- FOUND: 20dcf4f (Task 2)
+- FOUND: f79010f (Task 3)
+- FOUND: 4f4e238 (Task 4)
+- FOUND: 7174691 (SUMMARY.md commit)
