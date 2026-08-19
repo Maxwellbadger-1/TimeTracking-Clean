@@ -92,6 +92,16 @@ interface VacationBalanceCreateInput {
   year: number;
   entitlement: number;
   carryover: number;
+  /** Begründung bei Korrektur eines bestehenden Kontos. Leere Zeichenkette wird abgewiesen;
+   *  fehlt das Feld ganz, entsteht ein gekennzeichneter Ersatztext. Ohne Wirkung, wenn das
+   *  Konto neu angelegt wird (keine Korrektur, siehe unten). */
+  reason?: string;
+  /** Auslösender Admin. null nur für System-Automatismen. */
+  actorId?: number | null;
+  /** Interne Aufrufer (initializeVacationAccountsForNewUser) buchen Anspruch/Übertrag bei
+   *  Neuanlage bereits selbst mit eigener, pro-rata-bewusster Beschreibung — true unterdrückt
+   *  die generische Buchung dieser Funktion und verhindert dadurch eine Doppelbuchung. */
+  skipCreationBooking?: boolean;
 }
 
 interface VacationBalanceUpdateInput {
@@ -224,6 +234,15 @@ export function upsertVacationBalance(
     }
   }
 
+  // Eine leere Zeichenkette ist keine Begründung — nur ein fehlendes Feld darf den
+  // Ersatztext auslösen (Übergangsregel, siehe REQ-06).
+  if (data.reason !== undefined && data.reason.trim() === '') {
+    throw new Error(
+      'Eine Begründung darf nicht als leere Zeichenkette gesendet werden — Feld weglassen, ' +
+      'wenn keine Begründung angegeben werden soll.'
+    );
+  }
+
   // Check if user exists
   const user = db
     .prepare('SELECT id FROM users WHERE id = ?')
@@ -232,6 +251,10 @@ export function upsertVacationBalance(
   if (!user) {
     throw new Error('User not found');
   }
+
+  // Lage VOR dem Upsert festhalten — entscheidet, ob Anspruch/Übertrag (Neuanlage) oder
+  // eine Korrektur-Differenz (bestehendes Konto) zu buchen ist.
+  const existingBalance = getVacationBalance(data.userId, data.year);
 
   // Upsert balance
   const query = `
@@ -243,12 +266,73 @@ export function upsertVacationBalance(
       carryover = excluded.carryover
   `;
 
-  db.prepare(query).run(
-    data.userId,
-    data.year,
-    data.entitlement,
-    data.carryover
-  );
+  const reason = data.reason?.trim();
+  const correctionDate = getTodayString();
+
+  // Kontoanlage/-änderung und Buchung laufen atomar in einer gemeinsamen db.transaction().
+  const applyUpsert = db.transaction(() => {
+    db.prepare(query).run(
+      data.userId,
+      data.year,
+      data.entitlement,
+      data.carryover
+    );
+
+    if (!existingBalance) {
+      // Neuanlage — Anspruch/Übertrag buchen wie bei den Entstehungswegen aus 06-02,
+      // keine Korrektur. Sofern der Aufrufer nicht selbst schon bucht (z. B. die
+      // Nutzeranlage mit pro-rata-bewusster Beschreibung).
+      if (!data.skipCreationBooking) {
+        if (data.entitlement !== 0) {
+          recordVacationTransaction({
+            userId: data.userId,
+            year: data.year,
+            date: `${data.year}-01-01`,
+            type: 'entitlement',
+            days: data.entitlement,
+            description: `Jahresanspruch ${data.year}`,
+            referenceType: 'manual',
+            createdBy: data.actorId ?? null,
+          });
+        }
+
+        if (data.carryover !== 0) {
+          recordVacationTransaction({
+            userId: data.userId,
+            year: data.year,
+            date: `${data.year}-01-01`,
+            type: 'carryover',
+            days: data.carryover,
+            description: `Übertrag aus ${data.year - 1}`,
+            referenceType: 'manual',
+            createdBy: data.actorId ?? null,
+          });
+        }
+      }
+    } else {
+      // Bestehendes Konto — gebucht wird die Differenz je Feld, nicht der neue Wert.
+      (['entitlement', 'carryover'] as const).forEach((field) => {
+        const oldValue = existingBalance[field];
+        const newValue = data[field];
+        const diff = newValue - oldValue;
+
+        if (Math.abs(diff) < 1e-9) return; // unverändert — keine Buchung
+
+        recordVacationTransaction({
+          userId: data.userId,
+          year: data.year,
+          date: correctionDate,
+          type: 'correction',
+          days: diff,
+          description: buildCorrectionDescription(field, oldValue, newValue, reason),
+          referenceType: 'manual',
+          createdBy: data.actorId ?? null,
+        });
+      });
+    }
+  });
+
+  applyUpsert();
 
   const balance = getVacationBalance(data.userId, data.year);
   if (!balance) {
@@ -299,11 +383,14 @@ export function initializeVacationAccountsForNewUser(params: {
 
   const initialize = db.transaction(() => {
     // Current year (pro-rata for mid-year hires)
+    // skipCreationBooking: true — diese Funktion bucht Anspruch/Übertrag unten selbst mit
+    // pro-rata-bewusster Beschreibung; sonst würde upsertVacationBalance doppelt buchen.
     upsertVacationBalance({
       userId,
       year: currentYear,
       entitlement: currentYearEntitlement,
       carryover: 0,
+      skipCreationBooking: true,
     });
 
     if (currentYearEntitlement === 0) {
@@ -330,11 +417,13 @@ export function initializeVacationAccountsForNewUser(params: {
     }
 
     // Next year (full entitlement for planning)
+    // skipCreationBooking: true — siehe Begründung oben.
     upsertVacationBalance({
       userId,
       year: nextYear,
       entitlement: nextYearEntitlement,
       carryover: 0,
+      skipCreationBooking: true,
     });
 
     if (nextYearEntitlement === 0) {
