@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
 status: Phase 5 abgeschlossen — bereit für Phase 6
-stopped_at: Phase 5 komplett (05-01 + 05-02), noch nicht deployed
-last_updated: "2026-08-18T20:50:00.000Z"
+stopped_at: Phase 5 komplett und deployed (Migration 007 live)
+last_updated: "2026-08-19T19:46:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (noch nicht geplant)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** Phase 5 deployen, dann `/gsd:plan-phase 6`
+- **Next action:** `/gsd:plan-phase 6` — Buchungen bei jedem Vorgang
 - **Last completed:** Phase 5 — Journal-Fundament (Migration 007 + vacationTransactionService, 16 Tests grün)
-- **Stopped at:** Phase 5 komplett, Migration noch nicht auf Produktion ausgerollt
+- **Stopped at:** Phase 5 deployed — Migration 007 am 19.08.2026 19:45 in Produktion angewendet, Journal leer, Salden unverändert (98 Tage)
 
 ## Phase Progress
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 5 | Journal-Fundament | Complete (2/2 Plans) — 2026-08-19 |
+| 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
 | 6 | Buchungen bei jedem Vorgang | Not started |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
