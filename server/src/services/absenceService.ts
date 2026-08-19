@@ -1101,12 +1101,31 @@ export function deleteAbsenceRequest(id: number, deletedBy: number | null): void
     throw new Error('Absence request not found');
   }
 
-  // If approved, need to revert balance changes
-  if (request.status === 'approved') {
-    revertBalancesAfterDeletion(id, deletedBy, 'deleted');
+  // If pending vacation, decrement pending balance — unabhängig von der Lösch-Transaktion,
+  // betrifft nur die Anzeige des noch offenen Antrags.
+  if (request.status === 'pending' && request.type === 'vacation') {
+    const year = parseInt(request.startDate.substring(0, 4));
+    decrementVacationPending(request.userId, year, request.days);
+  }
 
-    // CRITICAL: Recalculate overtime after deleting approved absence
-    // This removes the transactions and updates overtime_balance
+  // ATOMICITY: Gegenbuchung und Löschung des Antrags müssen gemeinsam gelingen oder gemeinsam
+  // scheitern — analog zur Klammer in rejectAbsenceRequest() (applyRejection).
+  //
+  // Die Journalbuchung überlebt das Löschen des Antrags bewusst: referenceId zeigt danach
+  // ins Leere, das ist gewollt — der Kontoauszug muss weiterhin erklären, warum sich der
+  // Saldo geändert hat (siehe Phase 8 zum Verlinken).
+  const applyDeletion = db.transaction(() => {
+    if (request.status === 'approved') {
+      revertBalancesAfterDeletion(id, deletedBy, 'deleted');
+    }
+    db.prepare('DELETE FROM absence_requests WHERE id = ?').run(id);
+  });
+  applyDeletion();
+
+  // CRITICAL: Recalculate overtime after deleting approved absence
+  // This removes the transactions and updates overtime_balance.
+  // Bleibt außerhalb der Transaktion — abgeleiteter Wert, nutzt require() (CJS-Interop).
+  if (request.status === 'approved') {
     try {
       const { updateMonthlyOvertime } = require('./overtimeService.js');
 
@@ -1127,14 +1146,6 @@ export function deleteAbsenceRequest(id: number, deletedBy: number | null): void
       logger.error({ err: error, requestId: id }, '❌ Failed to import overtimeService for recalculation');
     }
   }
-  // If pending vacation, decrement pending balance
-  else if (request.status === 'pending' && request.type === 'vacation') {
-    const year = parseInt(request.startDate.substring(0, 4));
-    decrementVacationPending(request.userId, year, request.days);
-  }
-
-  const query = 'DELETE FROM absence_requests WHERE id = ?';
-  db.prepare(query).run(id);
 }
 
 /**
