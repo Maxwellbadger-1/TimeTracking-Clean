@@ -130,8 +130,8 @@ describe('vacationBalanceService — Korrekturbuchungen bei Admin-Änderungen', 
     const txs = getVacationTransactions(userId, { year: YEAR });
     expect(txs).toHaveLength(2);
 
-    const entitlementTx = txs.find((t) => t.description.includes('Anspruch'));
-    const takenTx = txs.find((t) => t.description.includes('Genommen'));
+    const entitlementTx = txs.find((t) => t.description?.includes('Anspruch'));
+    const takenTx = txs.find((t) => t.description?.includes('Genommen'));
     expect(entitlementTx?.days).toBe(-5); // 30 → 25
     expect(takenTx?.days).toBe(2); // 10 → 8, weniger verbraucht = mehr verfügbar
   });
