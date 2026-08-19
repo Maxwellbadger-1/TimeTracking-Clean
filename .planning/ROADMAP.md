@@ -32,13 +32,16 @@ strukturelle Ursache nicht.
 sich am Verhalten des Systems etwas ändert.
 
 **Umfang**
+
 - Tabelle `vacation_transactions` nach dem Vorbild von `overtime_transactions`
 - Migration über den bestehenden `migrationRunner` — idempotent, ohne Ausfallzeit
 - Service-Schicht `vacationTransactionService.ts`: Buchung schreiben, Journal lesen,
   Saldo aus Buchungen berechnen
+
 - Buchungstypen als `CHECK`-Constraint, damit unbekannte Typen gar nicht erst entstehen
 
 **Erfolgskriterien**
+
 - Migration läuft auf einer Kopie der Produktions-DB fehlerfrei durch, `integrity_check: ok`
 - Eine Buchung lässt sich schreiben und wieder auslesen, `balanceBefore`/`balanceAfter` stimmen
 - Bestehendes Verhalten unverändert — noch schreibt kein Vorgang ins Journal
@@ -53,13 +56,16 @@ Migration isoliert verifizierbar ist.
 **Ziel:** Jede Bewegung auf dem Urlaubskonto erzeugt ab jetzt eine Buchungszeile.
 
 **Umfang**
+
 - `approveAbsenceRequest`, `rejectAbsenceRequest`, `deleteAbsenceRequest` buchen — in derselben
   DB-Transaktion wie der Statuswechsel
+
 - Anspruch und Übertrag bei Nutzeranlage und Jahreswechsel werden gebucht
 - Admin-Änderungen am Konto erzeugen `correction` mit Pflichtbegründung
 - Regressionstests für genau die Fälle, die diesen Milestone ausgelöst haben
 
 **Erfolgskriterien**
+
 - `pending → approved → rejected` erzeugt zwei Buchungen, Saldo unverändert
 - `pending → approved → rejected → approved` erzeugt drei Buchungen, `taken` = Tage (nicht 2×)
 - Nutzeranlage mit 0 Urlaubstagen bucht 0, nicht 30
@@ -75,16 +81,21 @@ Migration isoliert verifizierbar ist.
 **Ziel:** Der Saldo *ist* die Summe der Buchungen. Die Historie wird rückwirkend erzeugt.
 
 **Umfang**
+
 - Backfill-Skript: Historie aus `absence_requests` und `audit_log` rekonstruieren;
   nicht rekonstruierbare Anteile als gekennzeichnete Anfangsbuchung
+
 - `taken` wird zur abgeleiteten Größe
 - Konsistenzprüfer: Journal ↔ `vacation_balance` ↔ genehmigte Anträge; als Skript und
   Admin-Endpunkt
+
 - Prüfer läuft in CI gegen eine Testdatenbank
 
 **Erfolgskriterien**
+
 - Nach dem Backfill ergeben sich **exakt** die heutigen Salden — Gesamt-Rest 2026 = 98 Tage,
   Carmen 5, Benedikt 15, die sechs Konten 0
+
 - Der Prüfer meldet null Abweichungen
 - Ein künstlich eingebauter Fehler wird vom Prüfer erkannt
 - Backup vor dem Backfill, Rückweg dokumentiert und erprobt
@@ -101,6 +112,7 @@ der Produktionsdatenbank.
 **Ziel:** Was gebucht wurde, ist auch sichtbar — für beide Rollen.
 
 **Umfang**
+
 - API-Endpunkte für das Journal, mit serverseitiger Rollenprüfung
 - Mitarbeiter: Auszug des eigenen Kontos mit Datum, Vorgang, Tagen, laufendem Saldo
 - Admin: Auszug jedes Mitarbeiters, nach Jahr filterbar, mit Korrekturbuchung
@@ -108,6 +120,7 @@ der Produktionsdatenbank.
 - Desktop-Release, damit die Änderungen die Anwender erreichen
 
 **Erfolgskriterien**
+
 - Ein Mitarbeiter kann das Journal eines anderen weder sehen noch über die API abrufen
 - Carmens Auszug zeigt die Storno-Geschichte nachvollziehbar: genehmigt −6, storniert +6
 - Der angezeigte Saldo stimmt mit der Urlaubsliste überein

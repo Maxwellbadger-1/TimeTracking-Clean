@@ -1,15 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
-status: Phase 6 geplant — bereit zur Ausführung
-stopped_at: Phase 6 geplant (3 Pläne)
-last_updated: "2026-08-19T19:46:00.000Z"
+milestone_name: milestone
+status: Executing Phase 06
+stopped_at: Plan 06-01 abgeschlossen — Buchungen bei Genehmigung, Ablehnung, Löschung; 10 Regressionstests grün, 118/120 Gesamtsuite (2 vorbestehend rot, unverändert)
+last_updated: "2026-08-19T20:15:13.285Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
+  percent: 25
 ---
 
 # Project State
@@ -19,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 06 — Buchungen bei jedem Vorgang
+**Current focus:** Phase 06 — buchungen-bei-jedem-vorgang
 
 ## Current Status
 
-- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (geplant, 3 Pläne)
+- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (1/3 Pläne, in Bearbeitung)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 6`
 - **Last completed:** Phase 5 — Journal-Fundament (Migration 007 + vacationTransactionService, 16 Tests grün)
-- **Stopped at:** Phase 5 deployed — Migration 007 am 19.08.2026 19:45 in Produktion angewendet, Journal leer, Salden unverändert (98 Tage)
+- **Stopped at:** Plan 06-01 abgeschlossen — Buchungen bei Genehmigung, Ablehnung, Löschung; 10 Regressionstests grün, 118/120 Gesamtsuite (2 vorbestehend rot, unverändert)
 
 ## Phase Progress
 
@@ -37,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase | Name | Status |
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
-| 6 | Buchungen bei jedem Vorgang | Geplant (0/3 Plans) |
+| 6 | Buchungen bei jedem Vorgang | In Progress (1/3 Plans) |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
 
@@ -74,6 +75,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - [Phase 04-deploy-workflow-documentation]: 04-02: On-demand comment block added to deploy-staging.yml documenting Green Server is not part of 2-Tier standard flow
 - [Phase 04-deploy-workflow-documentation]: 04-03: CLAUDE.md Verbote updated - 'Auf main branch' rule replaced with 'Direkt auf Production server' rule since main IS the deploy branch in 2-Tier flow
 - [Phase 04-deploy-workflow-documentation]: 04-03: All three docs updated to 2-Tier architecture - ENV.md, WINDOWS_PC_SETUP.md, CLAUDE.md now consistently reference /home/ubuntu/databases/production.db and npm run sync-dev-db
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: db.transaction()-Klammer für approveAbsenceRequest ergänzt (Rule 2) — Statuswechsel und Buchung müssen laut must_have atomar sein
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: revertBalancesAfterDeletion bekam reason-Parameter (rejected/deleted) für anlassgerechte Journal-Beschreibung
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: Buchung nur type='vacation' — sick/unpaid/overtime_comp berühren das Urlaubskonto nicht
 
 ## Quick Tasks Completed
 
@@ -89,5 +93,12 @@ See: .planning/PROJECT.md (updated 2026-08-18)
   über den Symlink `server/database.db` ohne gesetztes `DATABASE_PATH` — zwei Prozesse mit
   getrennten WAL/SHM auf einer Datei. Behoben: WAL/SHM in Quarantäne, `REINDEX`
   (`integrity_check: ok`), Cron deaktiviert. Details: `.planning/debug/db-stabilisierung-20260818.md`
+
 - **Offen daraus:** Staging-Sync (`Permission denied`), Cron-Reaktivierung mit `DATABASE_PATH`,
   Symlink `server/database.db` auflösen, Quarantäne nach Bewährungszeit löschen.
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Notes |
+|-------|------|----------|-------|
+| Phase 06-buchungen-bei-jedem-vorgang P01 | 30min | 4 tasks | 3 files |
