@@ -2,7 +2,9 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validateUserCreate, validateUserUpdate } from '../middleware/validation.js';
-import { formatDate, getCurrentDate } from '../utils/timezone.js';
+import { formatDate, getCurrentDate, parseDate } from '../utils/timezone.js';
+import { db } from '../database/connection.js';
+import logger from '../utils/logger.js';
 import {
   getAllUsers,
   getUserById,
@@ -19,6 +21,7 @@ import {
   resetUserPassword,
 } from '../services/userService.js';
 import { upsertVacationBalance, calculateProRataVacationDays } from '../services/vacationBalanceService.js';
+import { recordVacationTransaction } from '../services/vacationTransactionService.js';
 import { logAudit } from '../services/auditService.js';
 import {
   notifyVacationDaysAdjusted,
@@ -318,25 +321,78 @@ router.post(
           currentYear
         );
 
-        // Current year (pro-rata for mid-year hires)
-        upsertVacationBalance({
-          userId: user.id,
-          year: currentYear,
-          entitlement: currentYearEntitlement,
-          carryover: 0,
+        const nextYearEntitlement = data.vacationDaysPerYear ?? 30; // `??` not `||` — 0 is a valid value
+        const hireYear = new Date(hireDate).getFullYear();
+        const bookedBy = req.session.user!.id;
+
+        // Kontoanlage und Anspruchsbuchung laufen atomar — ein Konto ohne die zugehörige
+        // Journalbuchung (oder umgekehrt) darf nicht entstehen.
+        const initializeVacationAccounts = db.transaction(() => {
+          // Current year (pro-rata for mid-year hires)
+          upsertVacationBalance({
+            userId: user.id,
+            year: currentYear,
+            entitlement: currentYearEntitlement,
+            carryover: 0,
+          });
+
+          // 0 Urlaubstage ist ein gültiger Wert, aber keine gültige Buchung —
+          // recordVacationTransaction weist days=0 ab. Bewusst überspringen, kein Fehler.
+          if (currentYearEntitlement === 0) {
+            logger.info(
+              { userId: user.id, year: currentYear },
+              'ℹ️ 0 Urlaubstage bei Anlage — keine Anspruchsbuchung für das laufende Jahr (bewusst übersprungen)'
+            );
+          } else {
+            const bookingDate = hireYear === currentYear ? hireDate : `${currentYear}-01-01`;
+            const description = hireYear === currentYear
+              ? `Jahresanspruch ${currentYear} (anteilig ab ${formatDate(parseDate(hireDate), 'dd.MM.')})`
+              : `Jahresanspruch ${currentYear}`;
+
+            recordVacationTransaction({
+              userId: user.id,
+              year: currentYear,
+              date: bookingDate,
+              type: 'entitlement',
+              days: currentYearEntitlement,
+              description,
+              referenceType: 'system',
+              createdBy: bookedBy,
+            });
+          }
+
+          // Next year (full entitlement for planning)
+          upsertVacationBalance({
+            userId: user.id,
+            year: currentYear + 1,
+            entitlement: nextYearEntitlement,
+            carryover: 0,
+          });
+
+          if (nextYearEntitlement === 0) {
+            logger.info(
+              { userId: user.id, year: currentYear + 1 },
+              'ℹ️ 0 Urlaubstage bei Anlage — keine Anspruchsbuchung für das Folgejahr (bewusst übersprungen)'
+            );
+          } else {
+            recordVacationTransaction({
+              userId: user.id,
+              year: currentYear + 1,
+              date: `${currentYear + 1}-01-01`,
+              type: 'entitlement',
+              days: nextYearEntitlement,
+              description: `Jahresanspruch ${currentYear + 1}`,
+              referenceType: 'system',
+              createdBy: bookedBy,
+            });
+          }
         });
 
-        // Next year (full entitlement for planning)
-        upsertVacationBalance({
-          userId: user.id,
-          year: currentYear + 1,
-          entitlement: data.vacationDaysPerYear ?? 30, // `??` not `||` — 0 is a valid value
-          carryover: 0,
-        });
+        initializeVacationAccounts();
 
         console.log(`✅ Initialized vacation balances for user ${user.id}:`);
         console.log(`   ${currentYear}: ${currentYearEntitlement} days (pro-rata)`);
-        console.log(`   ${currentYear + 1}: ${data.vacationDaysPerYear ?? 30} days (full year)`);
+        console.log(`   ${currentYear + 1}: ${nextYearEntitlement} days (full year)`);
       } catch (error) {
         console.error('⚠️ Failed to initialize vacation balances:', error);
         // Don't fail user creation if vacation balance initialization fails
