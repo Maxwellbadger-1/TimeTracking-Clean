@@ -226,6 +226,109 @@ export function upsertVacationBalance(
   return balance;
 }
 
+export interface InitializeNewUserVacationAccountsResult {
+  currentYear: number;
+  currentYearEntitlement: number;
+  nextYear: number;
+  nextYearEntitlement: number;
+}
+
+/**
+ * Legt für einen neu angelegten Mitarbeiter die Urlaubskonten des laufenden und des
+ * Folgejahres an und bucht den jeweiligen Jahresanspruch ins Journal — pro-rata für das
+ * laufende Jahr bei unterjährigem Eintritt, voller Jahreswert für das Folgejahr.
+ *
+ * WICHTIG — 0 ist ein gültiger Wert, aber keine gültige Buchung: `recordVacationTransaction`
+ * weist `days = 0` ab. Ein Mitarbeiter mit 0 Urlaubstagen bekommt daher **keine**
+ * Anspruchsbuchung — bewusst übersprungen statt geworfen, siehe `logger.info`.
+ *
+ * Kontoanlage und Buchung laufen atomar in einer gemeinsamen `db.transaction()`.
+ *
+ * Extrahiert aus der POST-/api/users-Route, damit die Buchungslogik unabhängig vom
+ * HTTP-Layer getestet werden kann (siehe vacationEntitlementBooking.test.ts).
+ */
+export function initializeVacationAccountsForNewUser(params: {
+  userId: number;
+  hireDate: string;
+  vacationDaysPerYear: number;
+  createdBy: number | null;
+}): InitializeNewUserVacationAccountsResult {
+  const { userId, hireDate, vacationDaysPerYear, createdBy } = params;
+  const currentYear = new Date().getFullYear();
+  const nextYear = currentYear + 1;
+
+  const currentYearEntitlement = calculateProRataVacationDays(
+    hireDate,
+    vacationDaysPerYear,
+    currentYear
+  );
+  const nextYearEntitlement = vacationDaysPerYear;
+  const hireYear = new Date(hireDate).getFullYear();
+
+  const initialize = db.transaction(() => {
+    // Current year (pro-rata for mid-year hires)
+    upsertVacationBalance({
+      userId,
+      year: currentYear,
+      entitlement: currentYearEntitlement,
+      carryover: 0,
+    });
+
+    if (currentYearEntitlement === 0) {
+      logger.info(
+        { userId, year: currentYear },
+        'ℹ️ 0 Urlaubstage bei Anlage — keine Anspruchsbuchung für das laufende Jahr (bewusst übersprungen)'
+      );
+    } else {
+      const bookingDate = hireYear === currentYear ? hireDate : `${currentYear}-01-01`;
+      const description = hireYear === currentYear
+        ? `Jahresanspruch ${currentYear} (anteilig ab ${formatDate(parseDate(hireDate), 'dd.MM.')})`
+        : `Jahresanspruch ${currentYear}`;
+
+      recordVacationTransaction({
+        userId,
+        year: currentYear,
+        date: bookingDate,
+        type: 'entitlement',
+        days: currentYearEntitlement,
+        description,
+        referenceType: 'system',
+        createdBy,
+      });
+    }
+
+    // Next year (full entitlement for planning)
+    upsertVacationBalance({
+      userId,
+      year: nextYear,
+      entitlement: nextYearEntitlement,
+      carryover: 0,
+    });
+
+    if (nextYearEntitlement === 0) {
+      logger.info(
+        { userId, year: nextYear },
+        'ℹ️ 0 Urlaubstage bei Anlage — keine Anspruchsbuchung für das Folgejahr (bewusst übersprungen)'
+      );
+    } else {
+      recordVacationTransaction({
+        userId,
+        year: nextYear,
+        date: `${nextYear}-01-01`,
+        type: 'entitlement',
+        days: nextYearEntitlement,
+        description: `Jahresanspruch ${nextYear}`,
+        referenceType: 'system',
+        createdBy,
+      });
+    }
+  });
+
+  initialize();
+
+  return { currentYear, currentYearEntitlement, nextYear, nextYearEntitlement };
+}
+
 /**
  * Update vacation balance
  * ADMIN ONLY - Partial updates
