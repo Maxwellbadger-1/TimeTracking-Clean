@@ -1,7 +1,34 @@
 import { db } from '../database/connection.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
-import { formatDate, parseDate } from '../utils/timezone.js';
+import { formatDate, parseDate, getTodayString } from '../utils/timezone.js';
 import logger from '../utils/logger.js';
+
+/**
+ * Deutsche Feldbezeichnungen für Korrekturbuchungen — konsistent mit den Labels in der
+ * Admin-Oberfläche (VacationBalanceEditModal.tsx, VacationBalanceManagementPage.tsx).
+ */
+const CORRECTION_FIELD_LABELS = {
+  entitlement: 'Anspruch',
+  carryover: 'Übertrag',
+  taken: 'Genommen',
+} as const;
+
+/**
+ * Baut die Beschreibung einer Korrekturbuchung. Mit Begründung wird sie genannt; fehlt sie,
+ * entsteht ein als solcher erkennbarer Ersatztext (Übergangsregel, bis Phase 8 ein
+ * Eingabefeld für die Begründung in der Oberfläche ergänzt).
+ */
+function buildCorrectionDescription(
+  field: keyof typeof CORRECTION_FIELD_LABELS,
+  oldValue: number,
+  newValue: number,
+  reason: string | undefined
+): string {
+  const label = CORRECTION_FIELD_LABELS[field];
+  return reason
+    ? `Korrektur ${label} ${oldValue} → ${newValue} (Grund: ${reason})`
+    : `Korrektur durch Admin: ${label} ${oldValue} → ${newValue}`;
+}
 
 /**
  * Vacation Balance Service
@@ -71,6 +98,11 @@ interface VacationBalanceUpdateInput {
   entitlement?: number;
   carryover?: number;
   taken?: number;
+  /** Begründung der Änderung. Leere Zeichenkette wird abgewiesen; fehlt das Feld ganz,
+   *  entsteht ein gekennzeichneter Ersatztext (siehe buildCorrectionDescription). */
+  reason?: string;
+  /** Auslösender Admin. null nur für System-Automatismen. */
+  actorId?: number | null;
 }
 
 /**
@@ -385,6 +417,15 @@ export function updateVacationBalance(
     }
   }
 
+  // Eine leere Zeichenkette ist keine Begründung — nur ein fehlendes Feld darf den
+  // Ersatztext auslösen (Übergangsregel, siehe REQ-06).
+  if (data.reason !== undefined && data.reason.trim() === '') {
+    throw new Error(
+      'Eine Begründung darf nicht als leere Zeichenkette gesendet werden — Feld weglassen, ' +
+      'wenn keine Begründung angegeben werden soll.'
+    );
+  }
+
   // Build update query
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -416,7 +457,41 @@ export function updateVacationBalance(
     WHERE id = ?
   `;
 
-  db.prepare(query).run(...params);
+  const reason = data.reason?.trim();
+  const correctionDate = getTodayString();
+
+  // UPDATE und Korrekturbuchungen laufen atomar — ein Statuswechsel ohne die zugehörige
+  // Buchung (oder umgekehrt) darf nicht entstehen.
+  const applyUpdate = db.transaction(() => {
+    db.prepare(query).run(...params);
+
+    (Object.keys(CORRECTION_FIELD_LABELS) as Array<keyof typeof CORRECTION_FIELD_LABELS>).forEach(
+      (field) => {
+        const newValue = data[field];
+        if (newValue === undefined) return;
+
+        const oldValue = existing[field];
+        // Gebucht wird die Differenz, nicht der neue Wert. Bei `taken` bedeutet ein
+        // sinkender Wert weniger Verbrauch = mehr verfügbar (Vorzeichen gedreht).
+        const diff = field === 'taken' ? oldValue - newValue : newValue - oldValue;
+
+        if (Math.abs(diff) < 1e-9) return; // unverändert — keine Buchung
+
+        recordVacationTransaction({
+          userId: existing.userId,
+          year: existing.year,
+          date: correctionDate,
+          type: 'correction',
+          days: diff,
+          description: buildCorrectionDescription(field, oldValue, newValue, reason),
+          referenceType: 'manual',
+          createdBy: data.actorId ?? null,
+        });
+      }
+    );
+  });
+
+  applyUpdate();
 
   const updated = getVacationBalanceById(id);
   if (!updated) {
