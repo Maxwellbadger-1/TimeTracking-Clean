@@ -267,7 +267,7 @@ router.post('/bulk-initialize', requireAuth, requireAdmin, (req: Request, res: R
       });
     }
 
-    const count = bulkInitializeVacationBalances(Number(year));
+    const count = bulkInitializeVacationBalances(Number(year), req.session.user!.id);
 
     res.json({
       success: true,

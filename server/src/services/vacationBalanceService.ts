@@ -1,4 +1,7 @@
 import { db } from '../database/connection.js';
+import { recordVacationTransaction } from './vacationTransactionService.js';
+import { formatDate, parseDate } from '../utils/timezone.js';
+import logger from '../utils/logger.js';
 
 /**
  * Vacation Balance Service
@@ -345,8 +348,24 @@ export function deleteVacationBalance(id: number): void {
 /**
  * Bulk initialize vacation balances for all users for a given year
  * ADMIN ONLY - Useful for year-end rollover
+ *
+ * Bucht pro angelegtem Konto den Jahresanspruch (`entitlement`) und, falls aus dem
+ * Vorjahr ein Rest übertragen wird, zusätzlich den Übertrag (`carryover`) ins Journal.
+ * Diese Funktion ist der einzige Ort, an dem `vacation_balance`-Zeilen per Massenanlage
+ * entstehen — sowohl über die Admin-Route als auch über `performYearEndRollover()`,
+ * das sie für den Jahreswechsel aufruft. Beide Pfade profitieren dadurch automatisch
+ * von derselben Buchungslogik.
+ *
+ * Idempotent: Ein zweiter Lauf überspringt bereits existierende Konten (`if (existing)
+ * continue`) — dadurch entstehen auch keine doppelten Buchungen.
+ *
+ * @param createdBy Wer die Massenanlage ausgelöst hat (Admin-User-ID). `null` für
+ *   System-Automatismen (z. B. Cron-Jahreswechsel ohne menschlichen Auslöser).
  */
-export function bulkInitializeVacationBalances(year: number): number {
+export function bulkInitializeVacationBalances(
+  year: number,
+  createdBy: number | null = null
+): number {
   if (year < 2000 || year > 2100) {
     throw new Error('Valid year is required (2000-2100)');
   }
@@ -397,13 +416,57 @@ export function bulkInitializeVacationBalances(year: number): number {
         ? previousBalance.remaining // Transfer ALL days
         : 0;
 
-    // Create balance
-    const query = `
-      INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
-      VALUES (?, ?, ?, ?, 0)
-    `;
+    // Konto und Buchungen laufen atomar — eine Kontoanlage ohne die zugehörige
+    // Anspruchs-/Übertragsbuchung (oder umgekehrt) darf nicht entstehen.
+    const createBalanceAndBook = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+        VALUES (?, ?, ?, ?, 0)
+      `).run(user.id, year, entitlement, carryover);
 
-    db.prepare(query).run(user.id, year, entitlement, carryover);
+      // 0 ist ein gültiger Wert, aber keine gültige Buchung — recordVacationTransaction
+      // weist days=0 ab. Bewusst überspringen statt zu werfen.
+      if (entitlement === 0) {
+        logger.info(
+          { userId: user.id, year },
+          'ℹ️ 0 Urlaubstage — keine Anspruchsbuchung bei Massenanlage/Jahreswechsel (bewusst übersprungen)'
+        );
+      } else {
+        const hireYear = new Date(userDetails.hireDate).getFullYear();
+        const bookingDate = hireYear === year ? userDetails.hireDate : `${year}-01-01`;
+        const description = hireYear === year
+          ? `Jahresanspruch ${year} (anteilig ab ${formatDate(parseDate(userDetails.hireDate), 'dd.MM.')})`
+          : `Jahresanspruch ${year}`;
+
+        recordVacationTransaction({
+          userId: user.id,
+          year,
+          date: bookingDate,
+          type: 'entitlement',
+          days: entitlement,
+          description,
+          referenceType: 'system',
+          createdBy,
+        });
+      }
+
+      // Übertrag ist die Bewegung, die am ehesten hinterfragt wird — Herkunftsjahr
+      // gehört in die Beschreibung, damit der Kontoauszug sie erklärt.
+      if (carryover > 0) {
+        recordVacationTransaction({
+          userId: user.id,
+          year,
+          date: `${year}-01-01`,
+          type: 'carryover',
+          days: carryover,
+          description: `Übertrag aus ${previousYear}`,
+          referenceType: 'system',
+          createdBy,
+        });
+      }
+    });
+
+    createBalanceAndBook();
     count++;
   }
 

@@ -73,7 +73,9 @@ export function performYearEndRollover(
     // Step 1: Transfer vacation days
     logger.info({ year }, '📋 STEP 1: Transferring vacation days...');
     try {
-      result.vacationUsersProcessed = bulkInitializeVacationBalances(year);
+      // executedBy fehlt beim automatischen Cron-Jahreswechsel — dann ist der Auslöser
+      // bewusst null (System-Automatismus), keine Admin-Buchung.
+      result.vacationUsersProcessed = bulkInitializeVacationBalances(year, executedBy ?? null);
       logger.info(
         { count: result.vacationUsersProcessed },
         `✅ Vacation days transferred for ${result.vacationUsersProcessed} users`
