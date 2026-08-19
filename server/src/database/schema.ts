@@ -216,6 +216,45 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // 4b. vacation_transactions table (Urlaubs-Journal)
+  //
+  // Jede Bewegung auf dem Urlaubskonto wird als eigene Buchungszeile festgehalten; der
+  // Saldo ist deren Summe. Vorbild ist overtime_transactions. Grund: vacation_balance.taken
+  // ist ein handgepflegter Zähler — eine vergessene Gegenbuchung erzeugt dort eine stille
+  // Differenz, die niemand sehen kann (2026-08: 16 verlorene Urlaubstage, drei Monate
+  // unentdeckt). Siehe .planning/debug/urlaubstage-bei-ablehnung-verloren.md
+  //
+  // Vorzeichen: positiv = Gutschrift auf den verfügbaren Urlaub, negativ = Verbrauch.
+  //
+  // MUSS identisch bleiben mit migrations/007_create_vacation_transactions.ts —
+  // Abweichungen zwischen schema.ts und Migration sind eine bekannte Fehlerquelle.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS vacation_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN (
+        'entitlement',
+        'carryover',
+        'vacation_taken',
+        'vacation_reverted',
+        'correction',
+        'expiry'
+      )),
+      days REAL NOT NULL,
+      description TEXT,
+      referenceType TEXT CHECK(referenceType IN ('absence', 'manual', 'system', NULL)),
+      referenceId INTEGER,
+      balanceBefore REAL,
+      balanceAfter REAL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      createdBy INTEGER,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (createdBy) REFERENCES users(id)
+    );
+  `);
+
   // 5. overtime_balance table (MONTHLY overtime)
   db.exec(`
     CREATE TABLE IF NOT EXISTS overtime_balance (
@@ -419,6 +458,8 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
     CREATE INDEX IF NOT EXISTS idx_audit_log_userId ON audit_log(userId);
     CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity, entityId);
+    CREATE INDEX IF NOT EXISTS idx_vacation_tx_user_year ON vacation_transactions(userId, year);
+    CREATE INDEX IF NOT EXISTS idx_vacation_tx_reference ON vacation_transactions(referenceType, referenceId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
     CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
