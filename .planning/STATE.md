@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: milestone
-status: Phase 06 abgeschlossen
-stopped_at: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne).
+milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
+status: Phase 06 ausgeführt (3/3 Pläne) — Verifikation: 3 Lücken offen
+stopped_at: Phase 06 ausgeführt (3/3 Pläne, 135/137 Tests grün), aber Verifikation meldet gaps_found — 11/14 must_haves erfüllt.
 last_updated: "2026-08-19T20:52:04.848Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 1
   total_plans: 5
   completed_plans: 5
   percent: 50
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (3/3 Pläne, abgeschlossen)
+- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (3/3 Pläne ausgeführt, Verifikation: 3 Lücken)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:plan-phase 7` (Saldo aus Buchungen + Backfill)
-- **Last completed:** Plan 06-03 — Korrekturbuchungen bei Admin-Änderungen (REQ-06)
-- **Stopped at:** Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne).
+- **Next action:** `/gsd:plan-phase 6 --gaps` (Lückenschluss vor Phase 7)
+- **Last completed:** Plan 06-03 — Korrekturbuchungen bei Admin-Änderungen (REQ-06); danach Code-Review (7 Critical / 20 Warning) und Verifikation (gaps_found)
+- **Stopped at:** Phase 06 ausgeführt, Verifikation meldet gaps_found (11/14 must_haves). Siehe `06-VERIFICATION.md` und `06-REVIEW.md`. Frühere Notiz: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne).
 
 ## Phase Progress
 
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase | Name | Status |
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
-| 6 | Buchungen bei jedem Vorgang | Complete (3/3 Plans) — 2026-08-19 |
+| 6 | Buchungen bei jedem Vorgang | Ausgeführt (3/3 Plans), Verifikation: Gaps Found — 2026-08-19 |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
 

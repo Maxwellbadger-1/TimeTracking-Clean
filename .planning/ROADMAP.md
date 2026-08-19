@@ -135,7 +135,7 @@ der Produktionsdatenbank.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
-| 6. Buchungen bei jedem Vorgang | 2/3 | In Progress | — |
+| 6. Buchungen bei jedem Vorgang | 3/3 | Gaps Found | — |
 | 7. Saldo aus Buchungen + Backfill | 0/? | Not started | — |
 | 8. Kontoauszug | 0/? | Not started | — |
 
