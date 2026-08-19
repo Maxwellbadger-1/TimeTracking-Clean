@@ -1090,8 +1090,12 @@ export async function rejectAbsenceRequest(
 
 /**
  * Delete absence request
+ *
+ * `deletedBy` — wer die Löschung ausgelöst hat, landet als `createdBy` in der
+ * Gegenbuchung. Ohne diesen Parameter stünde im Kontoauszug bei jeder Löschung
+ * „unbekannt" — genau die Lücke, die die Ursachensuche am 18.08. erschwert hat.
  */
-export function deleteAbsenceRequest(id: number): void {
+export function deleteAbsenceRequest(id: number, deletedBy: number | null): void {
   const request = getAbsenceRequestById(id);
   if (!request) {
     throw new Error('Absence request not found');
@@ -1099,8 +1103,7 @@ export function deleteAbsenceRequest(id: number): void {
 
   // If approved, need to revert balance changes
   if (request.status === 'approved') {
-    // TODO(Task 2): actorId wird in Task 2 auf den auslösenden Nutzer umgestellt.
-    revertBalancesAfterDeletion(id, null, 'deleted');
+    revertBalancesAfterDeletion(id, deletedBy, 'deleted');
 
     // CRITICAL: Recalculate overtime after deleting approved absence
     // This removes the transactions and updates overtime_balance

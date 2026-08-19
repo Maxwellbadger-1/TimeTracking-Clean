@@ -679,7 +679,7 @@ router.delete(
       }
 
       // Delete request
-      deleteAbsenceRequest(id);
+      deleteAbsenceRequest(id, req.session.user!.id);
 
       // Enhanced audit log for admin deletions
       logAudit(req.session.user!.id, 'delete', 'absence_request', id, {
