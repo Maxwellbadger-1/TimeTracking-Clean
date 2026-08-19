@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: Executing Phase 06
-stopped_at: Plan 06-01 abgeschlossen — Buchungen bei Genehmigung, Ablehnung, Löschung; 10 Regressionstests grün, 118/120 Gesamtsuite (2 vorbestehend rot, unverändert)
-last_updated: "2026-08-19T20:15:13.285Z"
+stopped_at: Plan 06-02 abgeschlossen — Anspruch und Übertrag bei Nutzeranlage, Massenanlage und Jahreswechsel; 6 Regressionstests grün, 124/126 Gesamtsuite (2 vorbestehend rot, unverändert)
+last_updated: "2026-08-19T20:37:02.933Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 25
 ---
 
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (1/3 Pläne, in Bearbeitung)
+- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (2/3 Pläne, in Bearbeitung)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:execute-phase 6`
-- **Last completed:** Phase 5 — Journal-Fundament (Migration 007 + vacationTransactionService, 16 Tests grün)
-- **Stopped at:** Plan 06-01 abgeschlossen — Buchungen bei Genehmigung, Ablehnung, Löschung; 10 Regressionstests grün, 118/120 Gesamtsuite (2 vorbestehend rot, unverändert)
+- **Next action:** `/gsd:execute-phase 6` (Plan 06-03)
+- **Last completed:** Plan 06-02 — Anspruch und Übertrag bei Nutzeranlage, Massenanlage und Jahreswechsel
+- **Stopped at:** Plan 06-02 abgeschlossen — Anspruch und Übertrag bei Nutzeranlage, Massenanlage und Jahreswechsel; 6 Regressionstests grün, 124/126 Gesamtsuite (2 vorbestehend rot, unverändert)
 
 ## Phase Progress
 
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase | Name | Status |
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
-| 6 | Buchungen bei jedem Vorgang | In Progress (1/3 Plans) |
+| 6 | Buchungen bei jedem Vorgang | In Progress (2/3 Plans) |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
 
@@ -78,6 +78,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: db.transaction()-Klammer für approveAbsenceRequest ergänzt (Rule 2) — Statuswechsel und Buchung müssen laut must_have atomar sein
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: revertBalancesAfterDeletion bekam reason-Parameter (rejected/deleted) für anlassgerechte Journal-Beschreibung
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-01: Buchung nur type='vacation' — sick/unpaid/overtime_comp berühren das Urlaubskonto nicht
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-02: Buchungslogik der Nutzeranlage aus routes/users.ts nach vacationBalanceService.initializeVacationAccountsForNewUser() extrahiert - direkt testbar, keine Verhaltensaenderung
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-02: bulkInitializeVacationBalances bucht entitlement UND carryover in einer Funktion - performYearEndRollover erbt beide Buchungen automatisch beim Aufruf
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-02: createdBy bei Massenanlage/Jahreswechsel: Admin-ID bei manuellem Aufruf, null beim automatischen Cron-Lauf
 
 ## Quick Tasks Completed
 
@@ -102,3 +105,4 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 06-buchungen-bei-jedem-vorgang P01 | 30min | 4 tasks | 3 files |
+| Phase 06-buchungen-bei-jedem-vorgang P02 | 35min | 3 tasks | 5 files |
