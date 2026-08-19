@@ -146,7 +146,7 @@ router.get('/:userId', requireAuth, (req: Request, res: Response) => {
  */
 router.post('/', requireAuth, requireAdmin, (req: Request, res: Response) => {
   try {
-    const { userId, year, entitlement, carryover } = req.body;
+    const { userId, year, entitlement, carryover, reason } = req.body;
 
     // Validation
     if (!userId || !year) {
@@ -163,11 +163,22 @@ router.post('/', requireAuth, requireAdmin, (req: Request, res: Response) => {
       });
     }
 
+    // Leere Begründung wird abgewiesen — nur ein fehlendes Feld löst den Ersatztext aus
+    // (Übergangsregel, siehe REQ-06). Fehlendes Feld wird unverändert durchgereicht.
+    if (typeof reason === 'string' && reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Eine Begründung ist erforderlich, wenn das Feld reason gesendet wird — leere Zeichenkette ist nicht erlaubt.',
+      });
+    }
+
     const balance = upsertVacationBalance({
       userId: Number(userId),
       year: Number(year),
       entitlement: Number(entitlement),
       carryover: Number(carryover) || 0,
+      reason: typeof reason === 'string' ? reason : undefined,
+      actorId: req.session.user!.id,
     });
 
     res.status(201).json({
@@ -199,12 +210,23 @@ router.put('/:id', requireAuth, requireAdmin, (req: Request, res: Response) => {
       });
     }
 
-    const { entitlement, carryover, taken } = req.body;
+    const { entitlement, carryover, taken, reason } = req.body;
+
+    // Leere Begründung wird abgewiesen — nur ein fehlendes Feld löst den Ersatztext aus
+    // (Übergangsregel, siehe REQ-06). Fehlendes Feld wird unverändert durchgereicht.
+    if (typeof reason === 'string' && reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Eine Begründung ist erforderlich, wenn das Feld reason gesendet wird — leere Zeichenkette ist nicht erlaubt.',
+      });
+    }
 
     const balance = updateVacationBalance(id, {
       entitlement: entitlement !== undefined ? Number(entitlement) : undefined,
       carryover: carryover !== undefined ? Number(carryover) : undefined,
       taken: taken !== undefined ? Number(taken) : undefined,
+      reason: typeof reason === 'string' ? reason : undefined,
+      actorId: req.session.user!.id,
     });
 
     res.json({
