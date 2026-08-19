@@ -8,6 +8,7 @@ import {
   bulkInitializeVacationBalances,
   getVacationBalanceSummary,
 } from '../services/vacationBalanceService.js';
+import { checkVacationConsistency } from '../services/vacationConsistencyService.js';
 
 const router = Router();
 
@@ -29,6 +30,39 @@ router.get('/', requireAuth, requireAdmin, (req: Request, res: Response) => {
     });
   } catch (error: unknown) {
     console.error('❌ Error fetching vacation balances:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+    });
+  }
+});
+
+/**
+ * GET /api/vacation-balances/consistency
+ * Konsistenzprüfung: Journal ↔ vacation_balance ↔ genehmigte Anträge
+ * Admin only
+ *
+ * WICHTIG: Diese Route muss VOR `/:userId` stehen — sonst fängt der Parameter-Handler
+ * den Pfad ab und interpretiert "consistency" als userId.
+ *
+ * Optional: ?userId= und ?year= grenzen die Prüfung ein.
+ */
+router.get('/consistency', requireAuth, requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.query.userId ? Number(req.query.userId) : undefined;
+    const year = req.query.year ? Number(req.query.year) : undefined;
+
+    if (userId !== undefined && isNaN(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid userId' });
+    }
+    if (year !== undefined && isNaN(year)) {
+      return res.status(400).json({ success: false, error: 'Invalid year' });
+    }
+
+    const report = checkVacationConsistency({ userId, year });
+    res.json({ success: true, data: report });
+  } catch (error: unknown) {
+    console.error('❌ Error checking vacation consistency:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error',
