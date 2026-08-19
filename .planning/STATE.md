@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
-status: Phase 5 geplant — bereit zur Ausführung
-stopped_at: Phase 5 geplant (05-01 Migration, 05-02 Service)
+status: Phase 5 abgeschlossen — bereit für Phase 6
+stopped_at: Phase 5 komplett (05-01 + 05-02), noch nicht deployed
 last_updated: "2026-08-18T20:50:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
 ---
 
 # Project State
@@ -19,16 +19,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 05 — Journal-Fundament (geplant, bereit zur Ausführung)
+**Current focus:** Phase 06 — Buchungen bei jedem Vorgang
 
 ## Current Status
 
-- **Phase:** 05 of 8 — Journal-Fundament (geplant, 2 Pläne)
+- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (noch nicht geplant)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:execute-phase 5` — Journal-Fundament ausführen
-- **Last completed:** Quick-Task `urlaubskonto-korrektheit` (5 Bugfixes deployed, Produktionsdaten korrigiert)
-- **Stopped at:** Roadmap für Milestone 2 erstellt
+- **Next action:** Phase 5 deployen, dann `/gsd:plan-phase 6`
+- **Last completed:** Phase 5 — Journal-Fundament (Migration 007 + vacationTransactionService, 16 Tests grün)
+- **Stopped at:** Phase 5 komplett, Migration noch nicht auf Produktion ausgerollt
 
 ## Phase Progress
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 5 | Journal-Fundament | Geplant (0/2 Plans) |
+| 5 | Journal-Fundament | Complete (2/2 Plans) — 2026-08-19 |
 | 6 | Buchungen bei jedem Vorgang | Not started |
 | 7 | Saldo aus Buchungen + Backfill | Not started |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Not started |

@@ -121,7 +121,7 @@ der Produktionsdatenbank.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Journal-Fundament | 0/? | Not started | — |
+| 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
 | 6. Buchungen bei jedem Vorgang | 0/? | Not started | — |
 | 7. Saldo aus Buchungen + Backfill | 0/? | Not started | — |
 | 8. Kontoauszug | 0/? | Not started | — |
@@ -132,10 +132,10 @@ der Produktionsdatenbank.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-01 Tabelle `vacation_transactions` | 5 | Pending |
-| REQ-02 Buchungstypen | 5 | Pending |
-| REQ-03 Migration idempotent | 5 | Pending |
-| REQ-04 Auslöser + Begründung | 5 | Pending |
+| REQ-01 Tabelle `vacation_transactions` | 5 | Complete |
+| REQ-02 Buchungstypen | 5 | Complete |
+| REQ-03 Migration idempotent | 5 | Complete |
+| REQ-04 Auslöser + Begründung | 5 | Complete |
 | REQ-05 Buchung bei Antragsvorgängen | 6 | Pending |
 | REQ-06 Admin-Korrektur mit Pflichtbegründung | 6 | Pending |
 | REQ-07 Anspruch/Übertrag buchen | 6 | Pending |
