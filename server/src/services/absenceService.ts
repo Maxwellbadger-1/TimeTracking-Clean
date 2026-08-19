@@ -7,6 +7,7 @@ import { getUserById } from './userService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
+import { recordVacationTransaction } from './vacationTransactionService.js';
 
 /**
  * Absence Service
@@ -590,7 +591,10 @@ export function createAbsenceRequest(
     // If auto-approved (sick), update balances immediately
     if (status === 'approved') {
       logger.info({ requestId: result.lastInsertRowid }, '⚙️ Updating balances after auto-approval (sick leave)...');
-      updateBalancesAfterApproval(result.lastInsertRowid as number);
+      // actorId = null: System-Automatismus (Auto-Genehmigung bei Krankmeldung). Betrifft
+      // ohnehin nur type='sick', das Urlaubskonto wird hier nie gebucht (siehe
+      // updateBalancesAfterApproval: nur type='vacation' erzeugt eine Journalbuchung).
+      updateBalancesAfterApproval(result.lastInsertRowid as number, null);
       logger.info('✅ Balances updated');
     }
 
@@ -811,16 +815,22 @@ export async function approveAbsenceRequest(
     WHERE id = ?
   `;
 
-  db.prepare(query).run(approvedBy, adminNote || null, id);
+  // ATOMICITY: Statuswechsel und Journalbuchung müssen gemeinsam gelingen oder gemeinsam
+  // scheitern — analog zur Klammer in rejectAbsenceRequest() (applyRejection). Ohne diese
+  // Klammer könnte der Antrag als genehmigt stehen bleiben, während die Buchung fehlt.
+  const applyApproval = db.transaction(() => {
+    db.prepare(query).run(approvedBy, adminNote || null, id);
 
-  // Decrement pending balance for vacation requests (before updating taken)
-  if (request.type === 'vacation') {
-    const year = parseInt(request.startDate.substring(0, 4));
-    decrementVacationPending(request.userId, year, request.days);
-  }
+    // Decrement pending balance for vacation requests (before updating taken)
+    if (request.type === 'vacation') {
+      const year = parseInt(request.startDate.substring(0, 4));
+      decrementVacationPending(request.userId, year, request.days);
+    }
 
-  // Update balances
-  updateBalancesAfterApproval(id);
+    // Update balances
+    updateBalancesAfterApproval(id, approvedBy);
+  });
+  applyApproval();
 
   // CRITICAL: Update overtime calculations for all affected months
   // This creates transactions (vacation_credit, sick_credit, etc.) and updates overtime_balance
@@ -998,7 +1008,7 @@ export async function rejectAbsenceRequest(
     // Root cause analysis: .planning/debug/urlaubstage-bei-ablehnung-verloren.md
     if (wasApproved) {
       console.log('♻️  Reverting balances (was approved → rejected)...');
-      revertBalancesAfterDeletion(id);
+      revertBalancesAfterDeletion(id, approvedBy, 'rejected');
       logger.info(
         { requestId: id, userId: request.userId, type: request.type, days: request.days },
         '✅ Balances reverted after rejecting a previously approved absence'
@@ -1089,7 +1099,8 @@ export function deleteAbsenceRequest(id: number): void {
 
   // If approved, need to revert balance changes
   if (request.status === 'approved') {
-    revertBalancesAfterDeletion(id);
+    // TODO(Task 2): actorId wird in Task 2 auf den auslösenden Nutzer umgestellt.
+    revertBalancesAfterDeletion(id, null, 'deleted');
 
     // CRITICAL: Recalculate overtime after deleting approved absence
     // This removes the transactions and updates overtime_balance
@@ -1179,8 +1190,12 @@ function calculateAbsenceCredits(userId: number, startDate: string, endDate: str
 
 /**
  * Update balances after approval (vacation balance, overtime, sick leave time entries)
+ *
+ * `actorId` — wer die Genehmigung ausgelöst hat. Wird bei `type === 'vacation'` in die
+ * Journalbuchung geschrieben (`createdBy`). `null` nur bei System-Automatismen (z. B.
+ * Auto-Genehmigung von Krankmeldungen), die das Urlaubskonto ohnehin nicht berühren.
  */
-function updateBalancesAfterApproval(requestId: number): void {
+function updateBalancesAfterApproval(requestId: number, actorId: number | null): void {
   const request = getAbsenceRequestById(requestId);
   if (!request) {
     throw new Error('Absence request not found');
@@ -1189,8 +1204,21 @@ function updateBalancesAfterApproval(requestId: number): void {
   const year = parseInt(request.startDate.substring(0, 4));
 
   if (request.type === 'vacation') {
-    // Deduct from vacation balance
+    // Deduct from vacation balance — erst der Zähler, dann die Buchung. Buchen ist damit
+    // die Historie *des tatsächlich erfolgten* Vorgangs, nicht eines geplanten.
     updateVacationTaken(request.userId, year, request.days);
+
+    recordVacationTransaction({
+      userId: request.userId,
+      year,
+      date: request.startDate,
+      type: 'vacation_taken',
+      days: -request.days, // negativ: Verbrauch
+      description: `Urlaub ${request.startDate} bis ${request.endDate} genehmigt`,
+      referenceType: 'absence',
+      referenceId: request.id,
+      createdBy: actorId,
+    });
   } else if (request.type === 'overtime_comp') {
     // Deduct from overtime balance
     // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
@@ -1209,17 +1237,40 @@ function updateBalancesAfterApproval(requestId: number): void {
 // Overtime calculation now handles absence credits directly in ReportsPage.tsx
 
 /**
- * Revert balance changes after deletion
+ * Revert balance changes after deletion (or after rejecting a previously approved request).
+ *
+ * `actorId` — wer den Storno ausgelöst hat (Ablehnender bzw. Löschender), landet als
+ * `createdBy` in der Journalbuchung.
+ * `reason` — Anlass des Storno, damit die Beschreibung im Kontoauszug den Vorgang benennt.
+ * Diese Funktion wird aus zwei Kontexten aufgerufen: Ablehnung eines genehmigten Antrags
+ * (`rejectAbsenceRequest`) und Löschung eines genehmigten Antrags (`deleteAbsenceRequest`).
  */
-function revertBalancesAfterDeletion(requestId: number): void {
+function revertBalancesAfterDeletion(
+  requestId: number,
+  actorId: number | null,
+  reason: 'rejected' | 'deleted'
+): void {
   const request = getAbsenceRequestById(requestId);
   if (!request) return;
 
   const year = parseInt(request.startDate.substring(0, 4));
 
   if (request.type === 'vacation') {
-    // Add back to vacation balance
+    // Add back to vacation balance — erst der Zähler, dann die Gegenbuchung.
     updateVacationTaken(request.userId, year, -request.days);
+
+    const reasonLabel = reason === 'rejected' ? 'Ablehnung' : 'Löschung';
+    recordVacationTransaction({
+      userId: request.userId,
+      year,
+      date: request.startDate,
+      type: 'vacation_reverted',
+      days: request.days, // positiv: Gutschrift
+      description: `Urlaub ${request.startDate} bis ${request.endDate} storniert (${reasonLabel})`,
+      referenceType: 'absence',
+      referenceId: request.id,
+      createdBy: actorId,
+    });
   } else if (request.type === 'overtime_comp') {
     // Add back to overtime balance
     // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
