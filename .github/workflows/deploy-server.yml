@@ -41,6 +41,14 @@ jobs:
 
             cd /home/ubuntu/TimeTracking-Clean
 
+            # Explicit DATABASE_PATH for every step that touches the production DB.
+            #
+            # Der Symlink server/database.db -> production.db wurde am 20.08.2026 entfernt
+            # (siehe .planning/debug/db-stabilisierung-20260818.md). Ohne dieses Symlink
+            # fiele jedes Skript ohne gesetztes DATABASE_PATH auf server/database.db im
+            # frischen Checkout zurueck - eine neue, leere Datenbank statt der Produktion.
+            export DATABASE_PATH=/home/ubuntu/databases/production.db
+
             # Backup current database (safety!)
             #
             # Zielt direkt auf die Produktionsdatenbank statt auf den früheren Symlink
@@ -93,7 +101,7 @@ jobs:
 
             # Run database migrations
             echo "🗄️  Running database migrations..."
-            NODE_ENV=production npm run migrate:prod || {
+            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run migrate:prod || {
               echo "❌ Migration failed! Deployment aborted."
               echo "💡 Database backup available: server/database.backup.*.db"
               exit 1
@@ -102,19 +110,19 @@ jobs:
 
             # Validate database schema (non-blocking)
             echo "🔍 Validating database schema..."
-            NODE_ENV=production npm run validate:schema || true
+            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run validate:schema || true
             echo "✅ Schema validation completed"
 
             # Fix overtime calculations (ensure all months exist)
             echo "📊 Fixing overtime calculations..."
-            NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
+            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
               echo "⚠️  Overtime fix had issues, but continuing deployment..."
             }
             echo "✅ Overtime calculations updated"
 
             # Setup automatic daily cron job (runs at 3 AM every day)
             echo "⏰ Setting up automatic daily overtime recalculation..."
-            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
             mkdir -p /home/ubuntu/logs
             (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
               echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
@@ -150,7 +158,7 @@ jobs:
             # Set ALLOWED_ORIGINS for CORS
             export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
 
-            TZ=Europe/Berlin NODE_ENV=production SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+            TZ=Europe/Berlin NODE_ENV=production DATABASE_PATH=$DATABASE_PATH SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
               pm2 start dist/server.js \
               --name timetracking-server \
               --cwd /home/ubuntu/TimeTracking-Clean/server \
