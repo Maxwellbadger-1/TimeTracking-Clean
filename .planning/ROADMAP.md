@@ -129,10 +129,21 @@ der Produktionsdatenbank.
 **Pläne:** 5 Pläne in 4 Wellen
 
 Plans:
+**Wave 1**
+
 - [ ] 08-01-PLAN.md — Server: Journal-Endpunkt mit serverseitiger Rollenprüfung (REQ-11/12/13/14)
-- [ ] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
 - [ ] 08-03-PLAN.md — Desktop: Pflichtbegründung für Admin-Korrekturbuchungen (REQ-12)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-04-PLAN.md — Qualitätstor, Server-Deployment und Abnahme
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 08-05-PLAN.md — Desktop-Release v1.8.0 mit vollständiger `latest.json`
 
 **Abhängigkeit:** Phase 7

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
-status: Phase 7 abgeschlossen und deployed — Backfill auf Produktion ausgefuehrt
-stopped_at: Phase 7 komplett (07-01..07-03), Backfill live, 52 Buchungen, 98 Tage unveraendert
-last_updated: "2026-08-19T20:52:04.848Z"
+milestone_name: milestone
+status: Ready to execute
+stopped_at: "Phase 06 ausgeführt, Verifikation meldet gaps_found (11/14 must_haves). Siehe `06-VERIFICATION.md` und `06-REVIEW.md`. Frühere Notiz: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne)."
+last_updated: "2026-08-20T18:40:48.442Z"
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 50
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 6
+  percent: 46
 ---
 
 # Project State
