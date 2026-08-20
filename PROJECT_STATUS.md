@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-08-18
-**Version:** v1.7.3 (deployed)
+**Last Updated:** 2026-08-20
+**Version:** v1.8.0 (deployed)
 **Status:** 🟢 Healthy - 2-Tier Workflow Operational
 
 ---
@@ -408,6 +408,7 @@ Shell environment variables OVERRIDE all .env files!
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-08-20 | v1.8.0 | MINOR | Urlaubs-Kontoauszug für Mitarbeiter und Admin (Journal-Endpunkt mit Rollenprüfung, Jahreswahl, Antragsverlinkung, Pflichtbegründung bei Admin-Korrekturen); Serveränderungen bereits am 20.08. über `deploy-server.yml` in Produktion | ✅ Deployed |
 | 2026-08-18 | v1.7.3 | PATCH | Urlaubskonto-Fixes (Gegenbuchung bei Storno, `0 \|\| 30`, rückwirkendes entitlement, Transaktionsklammer) + Datenkorrektur Produktion + DB-Stabilisierung | ✅ Deployed |
 | 2026-04-02 | v1.7.2 | PATCH | Notiz-Feld beim Anlegen einer Zeiterfassung | ✅ Deployed |
 | 2026-03-06 | v1.7.1 | PATCH | Bugfix Release | ✅ Deployed |

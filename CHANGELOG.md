@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.8.0] - 2026-08-20
+
 ### ✨ Added
 
 #### Urlaubs-Kontoauszug für Mitarbeiter und Admin
@@ -29,6 +33,13 @@ erscheint.
 anderen Mitarbeiters abrufen (IDOR).
 **Fix:** Eigentümerprüfung ergänzt — Nicht-Admins erhalten für fremde `userId` jetzt `403` statt
 der Kontodaten.
+
+#### Saldo-Kette im Kontoauszug riss bei rückdatierten Buchungen
+**Issue:** Der Auszug sortierte nach fachlichem Datum, zeigte aber den in Erzeugungsreihenfolge
+fortgeschriebenen Saldo — bei rückdatierten (rückwirkend erzeugten) Buchungen widersprach die
+Saldo-Spalte der Kopfzeile.
+**Fix:** Anzeige-Sortierung auf `createdAt DESC` umgestellt; die fachliche Chronologie des
+Konsistenzprüfers (`date ASC`) bleibt unverändert.
 
 ---
 

@@ -43,3 +43,15 @@ Produktionsdaten in die lokale Datenbank geholt hat:
   „REGRESSION: User hired on 1st of month…") erwarten `targetHours = 10` und nehmen fest an,
   heute sei der 06.02.2026 — der Tag, an dem sie geschrieben wurden. Seit Februar liefern sie
   40 (voller Monat). Zeitabhängige Tests ohne fixierte Uhr; unabhängig von Phase 8.
+
+---
+
+Gefunden während Plan 08-05 (Task 1, vor dem Versionssprung):
+
+- **Zwei untracked Debris-Dateien im Arbeitsverzeichnis, unabhängig von Phase 8, entfernt:**
+  `.claude/CLAUDETESTOUT.md` (veraltete Kopie von CLAUDE.md mit 3-Tier-Workflow-Inhalt, nie
+  getrackt) sowie `server/database/development.db-shm.stale_20260820_214843` und
+  `...db-wal.stale_20260820_214843` (bereits als „stale" markierte Quarantäne-Dateien aus einer
+  vorangegangenen lokalen Session). Keines der drei war je unter Versionskontrolle; das Löschen
+  hat keine Git-Historie berührt. Entfernt, weil die Release-Checkliste in `.claude/CLAUDE.md`
+  einen sauberen `git status` vor dem Tag verbindlich vorschreibt.
