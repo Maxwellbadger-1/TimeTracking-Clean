@@ -144,7 +144,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 08-05-PLAN.md — Desktop-Release v1.8.0 mit vollständiger `latest.json`
+- [x] 08-05-PLAN.md — Desktop-Release v1.8.0 mit vollständiger `latest.json`
 
 **Abhängigkeit:** Phase 7
 
@@ -157,7 +157,7 @@ Plans:
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
 | 6. Buchungen bei jedem Vorgang | 3/3 | Gaps Found | — |
 | 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
-| 8. Kontoauszug | 4/5 | In Progress | — |
+| 8. Kontoauszug | 5/5 | Complete | 2026-08-20 |
 
 ---
 

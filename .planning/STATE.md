@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: Executing Phase 08
-stopped_at: "Plan 08-04 abgeschlossen (Qualitätstor, Deployment, Abnahme). Anwender hat den Kontoauszug gegen echte Produktionsdaten freigegeben; während der Abnahme gefundener Saldo-Kettenbruch bei rückdatierten Buchungen behoben (8af5e3f), Lesbarkeits-Verbesserungen (3f6ac5f) und phasenfremder Notification-Fix (7b75765) mit ausgeliefert. Alle Fixes deployed, alle vier Produktionsprüfungen bestanden (Health ok, /api/vacation-transactions und /api/vacation-balances/1 je 401). Nächster Schritt: Plan 08-05 (Desktop-Release v1.8.0)."
-last_updated: "2026-08-20T20:56:22.000Z"
+status: Phase 08 abgeschlossen
+stopped_at: "Plan 08-05 abgeschlossen (Desktop-Release v1.8.0). Version in allen drei Versionsdateien auf 1.8.0, Tag v1.8.0 gesetzt und gepusht, Release-Workflow für alle vier Plattformen erfolgreich (Run 32417477805). Release v1.8.0 verifiziert: kein Entwurf, 16 Assets (dmg/exe/msi/AppImage/deb/rpm), latest.json enthält alle vier Auto-Update-Plattformschlüssel mit gesetzter Signatur. Phase 8 damit vollständig (5/5 Pläne), Milestone 2 inhaltlich abgeschlossen. Offener Restpunkt unabhängig davon: Phase 6 mit gaps_found."
+last_updated: "2026-08-20T21:17:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 12
-  percent: 92
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 08 — kontoauszug-f-r-mitarbeiter-und-admin
+**Current focus:** Phase 08 abgeschlossen — Milestone 2 inhaltlich fertig, Restpunkt Phase 6 (`gaps_found`) unabhängig offen
 
 ## Current Status
 
-- **Phase:** 08 of 8 — Kontoauszug für Mitarbeiter und Admin (4/5 Pläne abgeschlossen)
+- **Phase:** 08 of 8 — Kontoauszug für Mitarbeiter und Admin (5/5 Pläne abgeschlossen)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 08-05 — Desktop-Release v1.8.0 mit vollständiger `latest.json`
-- **Last completed:** Plan 08-04 — Qualitätstor, Server-Deployment und Abnahme; Anwender hat den Kontoauszug gegen echte Produktionsdaten freigegeben
-- **Stopped at:** Plan 08-04 abgeschlossen. Server deployed, Endpunkt live und mit 401 abgesichert, Abnahme erteilt. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen und blockiert Phase 8 nicht.
+- **Next action:** Keine offene Phase-8-Arbeit mehr. Optional: Lückenschluss Phase 6 (`gaps_found`, 11/14 must_haves) unabhängig angehen.
+- **Last completed:** Plan 08-05 — Desktop-Release v1.8.0, `latest.json` mit allen vier Plattformen verifiziert
+- **Stopped at:** Plan 08-05 abgeschlossen. Release v1.8.0 veröffentlicht (kein Entwurf), Tag gesetzt und gepusht, alle vier Matrix-Jobs erfolgreich, `latest.json` vollständig. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen.
 
 ## Phase Progress
 
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
 | 6 | Buchungen bei jedem Vorgang | Ausgeführt (3/3 Plans), Verifikation: Gaps Found — 2026-08-19 |
 | 7 | Saldo aus Buchungen + Backfill | Complete (3/3 Plans), deployed — 2026-08-19 |
-| 8 | Kontoauszug für Mitarbeiter und Admin | 4/5 Pläne abgeschlossen — Abnahme freigegeben, deployed 2026-08-20 |
+| 8 | Kontoauszug für Mitarbeiter und Admin | Complete (5/5 Pläne) — Release v1.8.0 veröffentlicht 2026-08-20 |
 
 ### Milestone 1 (abgeschlossen 2026-04-02)
 
@@ -89,6 +89,8 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: Erwartungswert „Gesamt Verbleibend 2026 = 98 Tage" aus Phase 7 ist überholt — aktuell 112 Tage (Testnutzer „Test Urlaub", id 30, entstand nach dem Backfill-Wert)
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: Kontoauszug als Tab in AbsencesPage statt eigener Sidebar-Eintrag — bewusste Anwender-Entscheidung während der Abnahme
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: DATABASE_PATH muss in jedem produktionsdatenbank-berührenden Skript/Workflow-Schritt explizit gesetzt werden — Symlink server/database.db existiert auf dem Server seit 20.08.2026 nicht mehr; deploy-server.yml, migrate.ts und validateSchema.ts hatten das noch nicht nachgezogen
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-05: Release v1.8.0 veröffentlicht — alle drei Versionsdateien synchron, Tag gesetzt, alle vier Matrix-Jobs (macOS arm64/x64, Windows, Linux) erfolgreich, latest.json enthält alle vier Auto-Update-Plattformschlüssel mit Signatur. Phase 8 damit vollständig (5/5 Pläne)
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-05: Zwei untracked Debris-Dateien (.claude/CLAUDETESTOUT.md, zwei stale WAL/SHM-Quarantänedateien) vor dem Versionssprung entfernt, um den von der Release-Checkliste geforderten sauberen git status zu erreichen — keine der Dateien war je getrackt
 
 ## Quick Tasks Completed
 
@@ -116,12 +118,16 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase 06-buchungen-bei-jedem-vorgang P02 | 35min | 3 tasks | 5 files |
 | Phase 06-buchungen-bei-jedem-vorgang P03 | 25min | 4 tasks | 3 files |
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P04 | 1h 41min | 3 tasks | 10 files |
+| Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P05 | ~20min | 3 tasks | 6 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
-- **Phase 8 releasefähig.** Server deployed, Journal-Endpunkt live und mit 401 abgesichert,
-  Anwender-Abnahme gegen echte Produktionsdaten erteilt. Offen: Plan 08-05 (Desktop-Release
-  v1.8.0). Details: `.planning/phases/08-kontoauszug-f-r-mitarbeiter-und-admin/08-04-SUMMARY.md`.
+- **Phase 8 abgeschlossen, Release v1.8.0 veröffentlicht.** Server bereits seit Plan 08-04 in
+  Produktion, Desktop-Release v1.8.0 seit Plan 08-05 verfügbar (kein Entwurf, alle vier
+  Plattformen, `latest.json` vollständig). Anwender erhalten den Kontoauszug über die
+  Auto-Update-Funktion. Details: `.planning/phases/08-kontoauszug-f-r-mitarbeiter-und-admin/08-05-SUMMARY.md`.
+  Ein Teil des Releases (Notification-Guard) wurde nur im Browser-Dev-Modus getestet, nicht in
+  der gebauten Tauri-App — siehe Risiken-Abschnitt in der 08-05-SUMMARY.md.
 
 - **Symlink `server/database.db` auf dem Server entfernt.** Skripte gegen Produktion MÜSSEN
   `DATABASE_PATH=/home/ubuntu/databases/production.db` explizit setzen. Ohne die Variable
