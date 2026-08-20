@@ -126,6 +126,15 @@ der Produktionsdatenbank.
 - Der angezeigte Saldo stimmt mit der Urlaubsliste überein
 - Release veröffentlicht, `latest.json` enthält alle Plattformen
 
+**Pläne:** 5 Pläne in 4 Wellen
+
+Plans:
+- [ ] 08-01-PLAN.md — Server: Journal-Endpunkt mit serverseitiger Rollenprüfung (REQ-11/12/13/14)
+- [ ] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
+- [ ] 08-03-PLAN.md — Desktop: Pflichtbegründung für Admin-Korrekturbuchungen (REQ-12)
+- [ ] 08-04-PLAN.md — Qualitätstor, Server-Deployment und Abnahme
+- [ ] 08-05-PLAN.md — Desktop-Release v1.8.0 mit vollständiger `latest.json`
+
 **Abhängigkeit:** Phase 7
 
 ---
@@ -136,8 +145,8 @@ der Produktionsdatenbank.
 |-------|----------------|--------|-----------|
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
 | 6. Buchungen bei jedem Vorgang | 3/3 | Gaps Found | — |
-| 7. Saldo aus Buchungen + Backfill | 0/? | Not started | — |
-| 8. Kontoauszug | 0/? | Not started | — |
+| 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
+| 8. Kontoauszug | 0/5 | Planned | — |
 
 ---
 
