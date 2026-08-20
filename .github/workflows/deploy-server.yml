@@ -42,8 +42,19 @@ jobs:
             cd /home/ubuntu/TimeTracking-Clean
 
             # Backup current database (safety!)
+            #
+            # Zielt direkt auf die Produktionsdatenbank statt auf den früheren Symlink
+            # server/database.db. Der Symlink wurde am 20.08.2026 entfernt: Er verleitete
+            # Skripte dazu, dieselbe Datenbank über einen zweiten Pfad zu öffnen — SQLite
+            # legt die WAL-Datei neben dem geöffneten Pfad an, wodurch zwei Prozesse mit
+            # getrennten WAL/SHM auf eine Datei zugriffen. Ergebnis war eine nicht mehr
+            # neustartfähige Produktionsdatenbank (siehe .planning/debug/db-stabilisierung-20260818.md).
+            #
+            # Backups liegen jetzt einheitlich unter ~/databases/backups/.
             echo "💾 Creating database backup..."
-            cp server/database.db server/database.backup.$(date +%Y%m%d_%H%M%S).db || true
+            mkdir -p /home/ubuntu/databases/backups
+            cp /home/ubuntu/databases/production.db \
+               /home/ubuntu/databases/backups/production.predeploy_$(date +%Y%m%d_%H%M%S).db || true
 
             # Pull latest code
             echo "📥 Pulling latest code from GitHub..."
