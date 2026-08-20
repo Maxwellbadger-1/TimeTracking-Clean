@@ -36,9 +36,11 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 - **REQ-01** — Tabelle `vacation_transactions` speichert jede Bewegung einzeln: `userId`,
   `year`, `date`, `type`, `days`, `description`, `referenceType`, `referenceId`,
   `balanceBefore`, `balanceAfter`, `createdAt`, `createdBy`
+
 - **REQ-02** — Buchungstypen decken alle Bewegungen ab: `entitlement` (Jahresanspruch),
   `carryover` (Übertrag), `vacation_taken` (Genehmigung), `vacation_reverted` (Storno),
   `correction` (Admin-Korrektur), `expiry` (Verfall)
+
 - **REQ-03** — Migration ist idempotent, rückwärtskompatibel und läuft ohne Ausfallzeit
 - **REQ-04** — Jede Buchung trägt den Auslöser (`createdBy`) und eine lesbare Begründung
 
@@ -46,8 +48,10 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 
 - **REQ-05** — Genehmigung, Ablehnung und Löschung eines Antrags erzeugen je eine Buchung,
   innerhalb derselben DB-Transaktion wie der Statuswechsel
+
 - **REQ-06** — Admin-Änderungen am Urlaubskonto erzeugen eine `correction`-Buchung mit
   **Pflichtbegründung** statt eines stillen Überschreibens
+
 - **REQ-07** — Anspruch und Übertrag bei Nutzeranlage und Jahreswechsel werden gebucht
 
 ### Saldo aus Buchungen
@@ -55,6 +59,7 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 - **REQ-08** — `taken` wird zur abgeleiteten Summe der Buchungen statt eines gepflegten Zählers
 - **REQ-09** — Ein Konsistenzprüfer vergleicht Journal, `vacation_balance` und genehmigte
   Anträge und meldet Abweichungen — aufrufbar als Skript und über einen Admin-Endpunkt
+
 - **REQ-10** — Backfill erzeugt die Historie rückwirkend aus `absence_requests` und `audit_log`;
   nicht rekonstruierbare Anteile werden als klar gekennzeichnete Anfangsbuchung eingestellt
 
@@ -62,6 +67,7 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 
 - **REQ-11** — Mitarbeiter sehen den Auszug ihres eigenen Urlaubskontos mit Datum, Vorgang,
   Tagen und laufendem Saldo
+
 - **REQ-12** — Admins sehen den Auszug jedes Mitarbeiters, gefiltert nach Jahr
 - **REQ-13** — Der Auszug verlinkt auf den auslösenden Abwesenheitsantrag
 - **REQ-14** — Ein Mitarbeiter sieht ausschließlich sein eigenes Konto (Rollenprüfung
@@ -72,6 +78,7 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 - **REQ-15** — Tests decken die Fehler ab, die diesen Milestone ausgelöst haben:
   Storno eines genehmigten Antrags, Wieder-Genehmigung, Anlage mit 0 Urlaubstagen,
   jahresübergreifender Antrag
+
 - **REQ-16** — Der Konsistenzprüfer läuft in CI gegen eine Testdatenbank
 
 ---
@@ -80,11 +87,14 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 
 - **Überstunden-Ausgleich erreicht den Saldo nicht** — separater Defekt des Dual Calculation
   Systems, eigener Milestone
+
 - **`pending`-Spalte / Migration 003** — die Migration gilt als angewendet, die Spalte fehlt;
   betrifft nur die Anzeige „X beantragt"
+
 - **Wiederherstellung gelöschter Zeiteinträge** beim Ablehnen einer Abwesenheit
 - **Jahresübergreifende Anträge** — der Fehler ist bekannt, aktuell 0 Fälle; wird über REQ-15
   nur getestet, nicht behoben
+
 - **Umstellung des Überstundensystems** auf dieselbe Journal-Logik
 - Infrastruktur-Restpunkte aus der DB-Stabilisierung (Staging-Sync, Cron, Symlink) —
   siehe `.planning/debug/db-stabilisierung-20260818.md`
@@ -95,9 +105,12 @@ etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
 
 - **Produktionsdatenbank ist live** — Migration und Backfill dürfen keinen Datenverlust
   verursachen; Backup vorher ist Pflicht, Rückweg muss existieren
+
 - **Salden dürfen sich durch die Umstellung nicht ändern** — nach dem Backfill müssen exakt
   dieselben Werte herauskommen wie heute (98 Tage Gesamt-Rest 2026)
+
 - **Kein Deployment ohne grünen `tsc --noEmit`** für Server und Desktop
 - **Desktop-Änderungen erreichen Anwender nur über ein Release** — `deploy-server.yml`
   deployt ausschließlich `server/**`
+
 - Bestehende Muster nutzen: `overtime_transactions`, `migrationRunner`, `OvertimeTransactions.tsx`

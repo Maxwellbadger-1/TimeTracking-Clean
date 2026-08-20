@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: Phase 08 abgeschlossen
-stopped_at: "Plan 08-05 abgeschlossen (Desktop-Release v1.8.0). Version in allen drei Versionsdateien auf 1.8.0, Tag v1.8.0 gesetzt und gepusht, Release-Workflow für alle vier Plattformen erfolgreich (Run 32417477805). Release v1.8.0 verifiziert: kein Entwurf, 16 Assets (dmg/exe/msi/AppImage/deb/rpm), latest.json enthält alle vier Auto-Update-Plattformschlüssel mit gesetzter Signatur. Phase 8 damit vollständig (5/5 Pläne), Milestone 2 inhaltlich abgeschlossen. Offener Restpunkt unabhängig davon: Phase 6 mit gaps_found."
-last_updated: "2026-08-20T21:17:00.000Z"
+status: Milestone complete
+stopped_at: Plan 08-05 abgeschlossen. Release v1.8.0 veröffentlicht (kein Entwurf), Tag gesetzt und gepusht, alle vier Matrix-Jobs erfolgreich, `latest.json` vollständig. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen.
+last_updated: "2026-08-20T21:32:05.468Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 13
-  completed_plans: 13
-  percent: 100
+  completed_plans: 11
+  percent: 75
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 08 of 8 — Kontoauszug für Mitarbeiter und Admin (5/5 Pläne abgeschlossen)
+- **Phase:** 08 of 8 (5/5 Pläne abgeschlossen)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
 - **Next action:** Keine offene Phase-8-Arbeit mehr. Optional: Lückenschluss Phase 6 (`gaps_found`, 11/14 must_haves) unabhängig angehen.
