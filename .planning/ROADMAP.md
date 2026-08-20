@@ -140,7 +140,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 08-04-PLAN.md — Qualitätstor, Server-Deployment und Abnahme
+- [x] 08-04-PLAN.md — Qualitätstor, Server-Deployment und Abnahme
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -157,7 +157,7 @@ Plans:
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
 | 6. Buchungen bei jedem Vorgang | 3/3 | Gaps Found | — |
 | 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
-| 8. Kontoauszug | 0/5 | Planned | — |
+| 8. Kontoauszug | 4/5 | In Progress | — |
 
 ---
 
@@ -175,10 +175,10 @@ Plans:
 | REQ-08 `taken` abgeleitet | 7 | Pending |
 | REQ-09 Konsistenzprüfer | 7 | Pending |
 | REQ-10 Backfill | 7 | Pending |
-| REQ-11 Auszug Mitarbeiter | 8 | Pending |
-| REQ-12 Auszug Admin | 8 | Pending |
-| REQ-13 Verlinkung Antrag | 8 | Pending |
-| REQ-14 Rollenprüfung serverseitig | 8 | Pending |
+| REQ-11 Auszug Mitarbeiter | 8 | Complete |
+| REQ-12 Auszug Admin | 8 | Complete |
+| REQ-13 Verlinkung Antrag | 8 | Complete |
+| REQ-14 Rollenprüfung serverseitig | 8 | Complete |
 | REQ-15 Regressionstests | 6 | Pending |
 | REQ-16 Prüfer in CI | 7 | Pending |
 

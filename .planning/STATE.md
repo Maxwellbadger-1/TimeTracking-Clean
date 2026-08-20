@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: Executing Phase 08
-stopped_at: "Phase 06 ausgeführt, Verifikation meldet gaps_found (11/14 must_haves). Siehe `06-VERIFICATION.md` und `06-REVIEW.md`. Frühere Notiz: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne)."
-last_updated: "2026-08-20T18:45:01.387Z"
+stopped_at: "Plan 08-04 abgeschlossen (Qualitätstor, Deployment, Abnahme). Anwender hat den Kontoauszug gegen echte Produktionsdaten freigegeben; während der Abnahme gefundener Saldo-Kettenbruch bei rückdatierten Buchungen behoben (8af5e3f), Lesbarkeits-Verbesserungen (3f6ac5f) und phasenfremder Notification-Fix (7b75765) mit ausgeliefert. Alle Fixes deployed, alle vier Produktionsprüfungen bestanden (Health ok, /api/vacation-transactions und /api/vacation-balances/1 je 401). Nächster Schritt: Plan 08-05 (Desktop-Release v1.8.0)."
+last_updated: "2026-08-20T20:56:22.000Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 13
-  completed_plans: 6
-  percent: 46
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 06 of 8 — Buchungen bei jedem Vorgang (3/3 Pläne ausgeführt, Verifikation: 3 Lücken)
+- **Phase:** 08 of 8 — Kontoauszug für Mitarbeiter und Admin (4/5 Pläne abgeschlossen)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:plan-phase 6 --gaps` (Lückenschluss vor Phase 7)
-- **Last completed:** Plan 06-03 — Korrekturbuchungen bei Admin-Änderungen (REQ-06); danach Code-Review (7 Critical / 20 Warning) und Verifikation (gaps_found)
-- **Stopped at:** Phase 06 ausgeführt, Verifikation meldet gaps_found (11/14 must_haves). Siehe `06-VERIFICATION.md` und `06-REVIEW.md`. Frühere Notiz: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne).
+- **Next action:** Plan 08-05 — Desktop-Release v1.8.0 mit vollständiger `latest.json`
+- **Last completed:** Plan 08-04 — Qualitätstor, Server-Deployment und Abnahme; Anwender hat den Kontoauszug gegen echte Produktionsdaten freigegeben
+- **Stopped at:** Plan 08-04 abgeschlossen. Server deployed, Endpunkt live und mit 401 abgesichert, Abnahme erteilt. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen und blockiert Phase 8 nicht.
 
 ## Phase Progress
 
@@ -39,8 +39,8 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
 | 6 | Buchungen bei jedem Vorgang | Ausgeführt (3/3 Plans), Verifikation: Gaps Found — 2026-08-19 |
-| 7 | Saldo aus Buchungen + Backfill | Not started |
-| 8 | Kontoauszug für Mitarbeiter und Admin | Not started |
+| 7 | Saldo aus Buchungen + Backfill | Complete (3/3 Plans), deployed — 2026-08-19 |
+| 8 | Kontoauszug für Mitarbeiter und Admin | 4/5 Pläne abgeschlossen — Abnahme freigegeben, deployed 2026-08-20 |
 
 ### Milestone 1 (abgeschlossen 2026-04-02)
 
@@ -84,6 +84,11 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: Leere-Begründung-Validierung liegt im Service (updateVacationBalance/upsertVacationBalance), nicht nur in der Route — beide Schreibpfade teilen dieselbe Prüfung
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: upsertVacationBalance bucht jetzt auch bei Neuanlage Anspruch/Übertrag — das ist der reale Admin-Editier-Pfad, VacationBalanceEditModal.tsx ruft für Neuanlage UND Bearbeitung immer POST auf, PUT/updateVacationBalance wird vom Frontend nicht verwendet
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: skipCreationBooking-Flag auf upsertVacationBalance verhindert Doppelbuchung bei initializeVacationAccountsForNewUser (Rule 1)
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: getVacationJournalEntries sortiert jetzt createdAt DESC, id DESC (Anzeige); getVacationTransactions bleibt bei date ASC, weil der Konsistenzprüfer aus Phase 7 die fachliche Chronologie braucht — Saldo-Kette riss sonst bei rückdatierten Buchungen (Bug, gefunden während der Abnahme)
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: `/promote-to-prod` ist NICHT der Weg, um die Desktop-App gegen Produktion zu richten — es merged staging→main und deployt, schaltet aber keine App-URL um. Abnahme läuft über `npm run sync-dev-db` + lokaler Dev-Server
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: Erwartungswert „Gesamt Verbleibend 2026 = 98 Tage" aus Phase 7 ist überholt — aktuell 112 Tage (Testnutzer „Test Urlaub", id 30, entstand nach dem Backfill-Wert)
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: Kontoauszug als Tab in AbsencesPage statt eigener Sidebar-Eintrag — bewusste Anwender-Entscheidung während der Abnahme
+- [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: DATABASE_PATH muss in jedem produktionsdatenbank-berührenden Skript/Workflow-Schritt explizit gesetzt werden — Symlink server/database.db existiert auf dem Server seit 20.08.2026 nicht mehr; deploy-server.yml, migrate.ts und validateSchema.ts hatten das noch nicht nachgezogen
 
 ## Quick Tasks Completed
 
@@ -110,17 +115,26 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase 06-buchungen-bei-jedem-vorgang P01 | 30min | 4 tasks | 3 files |
 | Phase 06-buchungen-bei-jedem-vorgang P02 | 35min | 3 tasks | 5 files |
 | Phase 06-buchungen-bei-jedem-vorgang P03 | 25min | 4 tasks | 3 files |
+| Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P04 | 1h 41min | 3 tasks | 10 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
+
+- **Phase 8 releasefähig.** Server deployed, Journal-Endpunkt live und mit 401 abgesichert,
+  Anwender-Abnahme gegen echte Produktionsdaten erteilt. Offen: Plan 08-05 (Desktop-Release
+  v1.8.0). Details: `.planning/phases/08-kontoauszug-f-r-mitarbeiter-und-admin/08-04-SUMMARY.md`.
 
 - **Symlink `server/database.db` auf dem Server entfernt.** Skripte gegen Produktion MÜSSEN
   `DATABASE_PATH=/home/ubuntu/databases/production.db` explizit setzen. Ohne die Variable
   entsteht eine leere Datenbank (fällt sofort auf) — vorher wäre still die Produktion
   gefährdet worden. Details in `.claude/CLAUDE.md` → Database Rules.
+
 - **Deploy-Workflow angepasst:** Pre-Deploy-Backup zielt direkt auf `production.db`, Ablage
   unter `~/databases/backups/`. Commit `5f4519e` liegt lokal und geht beim nächsten Push mit.
+
 - **Frische Daten sind per direktem Lesezugriff auf die Datenbankdatei nicht sichtbar**
   (SQLite WAL-Modus). Verifikation über `pm2 logs timetracking-server` oder die API.
+
 - **UAT der Phasen 6+7 abgeschlossen**, 7/7 bestanden — siehe
   `.planning/phases/07-saldo-aus-buchungen-backfill/07-UAT.md`.
+
 - **Testdaten in Produktion:** User 30 „Test Urlaub", User 31 „UAT", Antrag 73 (storniert).
