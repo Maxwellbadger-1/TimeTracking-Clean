@@ -5,6 +5,8 @@ import {
   getVacationBalanceFromTransactions,
   getVacationTransactions,
   getVacationTransactionsForAbsence,
+  getVacationJournalEntries,
+  getVacationAccountStatement,
 } from './vacationTransactionService.js';
 
 /**
@@ -17,6 +19,7 @@ import {
 describe('vacationTransactionService', () => {
   let userId: number;
   let adminId: number;
+  let absenceId: number;
 
   beforeEach(() => {
     const user = db.prepare(`
@@ -30,10 +33,25 @@ describe('vacationTransactionService', () => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run('testadmin_vacation_tx', 'vacadmin@test.local', 'Test', 'Admin', 'hash', 'admin', 40, '2026-01-01');
     adminId = admin.lastInsertRowid as number;
+
+    // Für die Kontoauszug-Tests: eine vacation_balance-Zeile 2026 und ein Antrag,
+    // auf den eine Journalzeile mit referenceType='absence' verweisen kann.
+    db.prepare(`
+      INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, 2026, 20, 0, 0);
+
+    const absence = db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, days, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, 'vacation', '2026-08-24', '2026-08-29', 4, 'approved');
+    absenceId = absence.lastInsertRowid as number;
   });
 
   afterEach(() => {
     db.prepare('DELETE FROM vacation_transactions WHERE userId IN (?, ?)').run(userId, adminId);
+    db.prepare('DELETE FROM vacation_balance WHERE userId IN (?, ?)').run(userId, adminId);
+    db.prepare('DELETE FROM absence_requests WHERE userId IN (?, ?)').run(userId, adminId);
     db.prepare('DELETE FROM users WHERE id IN (?, ?)').run(userId, adminId);
   });
 
@@ -193,6 +211,116 @@ describe('vacationTransactionService', () => {
 
       expect(getVacationBalanceFromTransactions(userId, 2026)).toBe(25);
       expect(getVacationTransactions(userId, { year: 2026 })).toHaveLength(2);
+    });
+  });
+
+  describe('Kontoauszug', () => {
+    it('liefert absence === null für eine Buchung ohne referenceType absence', () => {
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20,
+        description: 'Jahresanspruch', referenceType: 'system',
+      });
+
+      const entries = getVacationJournalEntries(userId, { year: 2026 });
+      expect(entries).toHaveLength(1);
+      expect(entries[0].absence).toBeNull();
+    });
+
+    it('liefert die Antragsdaten für eine Buchung mit referenceType absence und existierendem Antrag', () => {
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -4,
+        description: 'Urlaub genehmigt', referenceType: 'absence', referenceId: absenceId,
+      });
+
+      const entries = getVacationJournalEntries(userId, { year: 2026 });
+      expect(entries).toHaveLength(1);
+      expect(entries[0].absence).toEqual({
+        id: absenceId,
+        type: 'vacation',
+        startDate: '2026-08-24',
+        endDate: '2026-08-29',
+        status: 'approved',
+        days: 4,
+      });
+    });
+
+    it('liefert absence === null, wenn der verknüpfte Antrag gelöscht wurde (kein Absturz)', () => {
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -4,
+        description: 'Urlaub zu gelöschtem Antrag', referenceType: 'absence', referenceId: 999999,
+      });
+
+      const entries = getVacationJournalEntries(userId, { year: 2026 });
+      expect(entries).toHaveLength(1);
+      expect(entries[0].absence).toBeNull();
+    });
+
+    it('sortiert date ASC, id ASC — ein Storno steht nach der Genehmigung, die er aufhebt', () => {
+      const approved = recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -4,
+        description: 'genehmigt', referenceType: 'absence', referenceId: absenceId,
+      });
+      const reverted = recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-25', type: 'vacation_reverted', days: 4,
+        description: 'storniert', referenceType: 'absence', referenceId: absenceId,
+      });
+
+      const entries = getVacationJournalEntries(userId, { year: 2026 });
+      expect(entries.map(e => e.id)).toEqual([approved, reverted]);
+    });
+
+    it('grenzt year auf ein Jahr ein und limit begrenzt die Zeilenzahl', () => {
+      recordVacationTransaction({ userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20, description: 'Anspruch 2026' });
+      recordVacationTransaction({ userId, year: 2026, date: '2026-02-01', type: 'correction', days: 1, description: 'Korrektur' });
+      recordVacationTransaction({ userId, year: 2027, date: '2027-01-01', type: 'entitlement', days: 25, description: 'Anspruch 2027' });
+
+      const entries2026 = getVacationJournalEntries(userId, { year: 2026 });
+      expect(entries2026).toHaveLength(2);
+      expect(entries2026.every(e => e.year === 2026)).toBe(true);
+
+      const limited = getVacationJournalEntries(userId, { year: 2026, limit: 1 });
+      expect(limited).toHaveLength(1);
+    });
+
+    it('liest entitlement, carryover, taken aus vacation_balance; available = entitlement + carryover - taken', () => {
+      db.prepare(`UPDATE vacation_balance SET entitlement = ?, carryover = ?, taken = ? WHERE userId = ? AND year = ?`)
+        .run(20, 3, 5, userId, 2026);
+
+      const statement = getVacationAccountStatement(userId, 2026);
+      expect(statement.entitlement).toBe(20);
+      expect(statement.carryover).toBe(3);
+      expect(statement.taken).toBe(5);
+      expect(statement.available).toBe(18);
+    });
+
+    it('journalBalance ist die Summe aller days des Jahres', () => {
+      recordVacationTransaction({ userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20, description: 'Anspruch' });
+      recordVacationTransaction({ userId, year: 2026, date: '2026-03-01', type: 'vacation_taken', days: -6, description: 'Urlaub' });
+
+      const statement = getVacationAccountStatement(userId, 2026);
+      expect(statement.journalBalance).toBe(14);
+    });
+
+    it('nach Anspruchs- und Urlaubsbuchung gilt available === journalBalance (Phase-7-Invariante)', () => {
+      recordVacationTransaction({ userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20, description: 'Anspruch' });
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -6,
+        description: 'Urlaub genehmigt', referenceType: 'absence', referenceId: absenceId,
+      });
+
+      const statement = getVacationAccountStatement(userId, 2026);
+      expect(statement.available).toBe(statement.journalBalance);
+    });
+
+    it('ohne vacation_balance-Zeile sind entitlement, carryover, taken, available je 0 — transactions bleibt gefüllt', () => {
+      recordVacationTransaction({ userId, year: 2025, date: '2025-01-01', type: 'entitlement', days: 15, description: 'Anspruch 2025' });
+
+      const statement = getVacationAccountStatement(userId, 2025);
+      expect(statement.entitlement).toBe(0);
+      expect(statement.carryover).toBe(0);
+      expect(statement.taken).toBe(0);
+      expect(statement.available).toBe(0);
+      expect(statement.transactions).toHaveLength(1);
     });
   });
 });

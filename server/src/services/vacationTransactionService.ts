@@ -207,6 +207,139 @@ export function getVacationTransactionsForAbsence(absenceId: number): VacationTr
   `).all(absenceId) as VacationTransaction[];
 }
 
+/** Antragsdaten, die eine Journalzeile mit `referenceType = 'absence'` begleiten. */
+export interface VacationJournalAbsence {
+  id: number;
+  type: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  days: number;
+}
+
+/** Journalzeile inklusive verknüpftem Abwesenheitsantrag (falls vorhanden). */
+export interface VacationJournalEntry extends VacationTransaction {
+  absence: VacationJournalAbsence | null;
+}
+
+/** Rohzeile der Journal-Abfrage vor der Zuordnung zu `VacationJournalEntry`. */
+interface VacationJournalRow extends VacationTransaction {
+  absenceId: number | null;
+  absenceType: string | null;
+  absenceStartDate: string | null;
+  absenceEndDate: string | null;
+  absenceStatus: string | null;
+  absenceDays: number | null;
+}
+
+/**
+ * Journal eines Nutzers inklusive des Abwesenheitsantrags, der eine Buchung ausgelöst hat.
+ *
+ * `LEFT JOIN`, nicht `JOIN`: Eine Buchung mit `referenceType = 'absence'`, deren Antrag
+ * zwischenzeitlich gelöscht wurde, bleibt sichtbar — nur `absence` wird dann `null` statt
+ * den Kontoauszug abzubrechen.
+ */
+export function getVacationJournalEntries(
+  userId: number,
+  options?: { year?: number; limit?: number }
+): VacationJournalEntry[] {
+  let query = `
+    SELECT
+      vt.*,
+      ar.id AS absenceId,
+      ar.type AS absenceType,
+      ar.startDate AS absenceStartDate,
+      ar.endDate AS absenceEndDate,
+      ar.status AS absenceStatus,
+      ar.days AS absenceDays
+    FROM vacation_transactions vt
+    LEFT JOIN absence_requests ar
+      ON vt.referenceType = 'absence' AND vt.referenceId = ar.id
+    WHERE vt.userId = ?
+  `;
+  const params: unknown[] = [userId];
+
+  if (options?.year !== undefined) {
+    query += ` AND vt.year = ?`;
+    params.push(options.year);
+  }
+
+  query += ` ORDER BY vt.date ASC, vt.id ASC`;
+
+  if (options?.limit !== undefined) {
+    query += ` LIMIT ?`;
+    params.push(options.limit);
+  }
+
+  const rows = db.prepare(query).all(...params) as VacationJournalRow[];
+
+  return rows.map((row) => {
+    const {
+      absenceId, absenceType, absenceStartDate, absenceEndDate, absenceStatus, absenceDays,
+      ...transaction
+    } = row;
+
+    return {
+      ...transaction,
+      absence: absenceId === null ? null : {
+        id: absenceId,
+        type: absenceType as string,
+        startDate: absenceStartDate as string,
+        endDate: absenceEndDate as string,
+        status: absenceStatus as string,
+        days: absenceDays as number,
+      },
+    };
+  });
+}
+
+/** Kontoauszug eines Nutzerjahres: Stammdaten aus `vacation_balance` plus Journalzeilen. */
+export interface VacationAccountStatement {
+  userId: number;
+  year: number;
+  entitlement: number;
+  carryover: number;
+  taken: number;
+  available: number;
+  journalBalance: number;
+  transactions: VacationJournalEntry[];
+}
+
+/**
+ * Kontoauszug: Stammdaten + laufender Saldo + Journal.
+ *
+ * `available` wird bewusst aus `vacation_balance` (entitlement + carryover − taken)
+ * berechnet, nicht aus dem Journal — beide sind per Invariante identisch
+ * (`syncTakenFromJournal`), `available` ist damit per Konstruktion der Wert, den auch die
+ * Urlaubsliste zeigt. `journalBalance` wird zusätzlich ausgewiesen, damit ein Abweichen
+ * dieser Invariante im Auszug selbst sichtbar würde.
+ */
+export function getVacationAccountStatement(
+  userId: number,
+  year: number,
+  options?: { limit?: number }
+): VacationAccountStatement {
+  const balance = db.prepare(`
+    SELECT entitlement, carryover, taken FROM vacation_balance WHERE userId = ? AND year = ?
+  `).get(userId, year) as { entitlement: number; carryover: number; taken: number } | undefined;
+
+  const entitlement = balance?.entitlement ?? 0;
+  const carryover = balance?.carryover ?? 0;
+  const taken = balance?.taken ?? 0;
+  const available = round2(entitlement + carryover - taken);
+
+  return {
+    userId,
+    year,
+    entitlement,
+    carryover,
+    taken,
+    available,
+    journalBalance: getVacationBalanceFromTransactions(userId, year),
+    transactions: getVacationJournalEntries(userId, { year, limit: options?.limit }),
+  };
+}
+
 /**
  * Eine Buchung schreiben. SYNCHRON — in `db.transaction()` verwendbar.
  *
