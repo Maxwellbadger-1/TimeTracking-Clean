@@ -238,6 +238,18 @@ interface VacationJournalRow extends VacationTransaction {
  * `LEFT JOIN`, nicht `JOIN`: Eine Buchung mit `referenceType = 'absence'`, deren Antrag
  * zwischenzeitlich gelöscht wurde, bleibt sichtbar — nur `absence` wird dann `null` statt
  * den Kontoauszug abzubrechen.
+ *
+ * Sortierung `createdAt DESC, id DESC` — neueste Buchung oben, und zwar nach dem
+ * **Buchungs**zeitpunkt, nicht nach dem fachlichen Datum. Das ist keine Geschmacksfrage:
+ * `balanceAfter` wird beim Schreiben in Erzeugungsreihenfolge fortgeschrieben. Sortiert man
+ * die Anzeige nach `date`, zerreißt die Saldo-Kette, sobald eine Buchung mit früherem
+ * fachlichem Datum später erfasst wird (rückdatierte Korrektur nach einem künftigen Urlaub)
+ * — die Spalte springt dann zurück und die letzte Zeile widerspricht dem Kontostand.
+ * Mit `createdAt` stimmt der gespeicherte Saldo zeilenweise und die oberste Zeile trägt
+ * den aktuellen Stand. `id` als Sekundärschlüssel hält Buchungen derselben Sekunde stabil.
+ *
+ * `getVacationTransactions` sortiert weiterhin aufsteigend nach `date` — dort hängt der
+ * Konsistenzprüfer aus Phase 7 dran, der die fachliche Chronologie braucht.
  */
 export function getVacationJournalEntries(
   userId: number,
@@ -264,7 +276,7 @@ export function getVacationJournalEntries(
     params.push(options.year);
   }
 
-  query += ` ORDER BY vt.date ASC, vt.id ASC`;
+  query += ` ORDER BY vt.createdAt DESC, vt.id DESC`;
 
   if (options?.limit !== undefined) {
     query += ` LIMIT ?`;

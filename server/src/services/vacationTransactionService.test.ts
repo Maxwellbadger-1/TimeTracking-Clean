@@ -108,13 +108,13 @@ describe('vacationTransactionService', () => {
       recordVacationTransaction({ userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20, description: 'Jahresanspruch 2026' });
       recordVacationTransaction({
         userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -6,
-        description: 'Urlaub 24.08.–03.09. genehmigt', referenceType: 'absence', referenceId: 61, createdBy: adminId,
+        description: 'Urlaub 24.08.–03.09. genehmigt', referenceType: 'absence', referenceId: absenceId, createdBy: adminId,
       });
       expect(getVacationBalanceFromTransactions(userId, 2026)).toBe(14);
 
       recordVacationTransaction({
         userId, year: 2026, date: '2026-08-18', type: 'vacation_reverted', days: 6,
-        description: 'Storno: Änderung', referenceType: 'absence', referenceId: 61, createdBy: adminId,
+        description: 'Storno: Änderung', referenceType: 'absence', referenceId: absenceId, createdBy: adminId,
       });
 
       expect(getVacationBalanceFromTransactions(userId, 2026)).toBe(20);
@@ -125,14 +125,14 @@ describe('vacationTransactionService', () => {
       // Antrag müssen sich zu 0 aufheben. Tun sie das nicht, fehlt die Gegenbuchung.
       recordVacationTransaction({
         userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -6,
-        description: 'Urlaub genehmigt', referenceType: 'absence', referenceId: 61,
+        description: 'Urlaub genehmigt', referenceType: 'absence', referenceId: absenceId,
       });
       recordVacationTransaction({
         userId, year: 2026, date: '2026-08-18', type: 'vacation_reverted', days: 6,
-        description: 'Storno', referenceType: 'absence', referenceId: 61,
+        description: 'Storno', referenceType: 'absence', referenceId: absenceId,
       });
 
-      const forAbsence = getVacationTransactionsForAbsence(61);
+      const forAbsence = getVacationTransactionsForAbsence(absenceId);
       expect(forAbsence).toHaveLength(2);
       expect(forAbsence.reduce((s, t) => s + t.days, 0)).toBe(0);
     });
@@ -140,9 +140,9 @@ describe('vacationTransactionService', () => {
     it('bucht bei Wieder-Genehmigung nicht doppelt', () => {
       // pending -> approved -> rejected -> approved ergab früher taken = 2 x Tage.
       recordVacationTransaction({ userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20, description: 'Anspruch' });
-      recordVacationTransaction({ userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -6, description: 'genehmigt', referenceType: 'absence', referenceId: 61 });
-      recordVacationTransaction({ userId, year: 2026, date: '2026-08-25', type: 'vacation_reverted', days: 6, description: 'storniert', referenceType: 'absence', referenceId: 61 });
-      recordVacationTransaction({ userId, year: 2026, date: '2026-08-26', type: 'vacation_taken', days: -6, description: 'erneut genehmigt', referenceType: 'absence', referenceId: 61 });
+      recordVacationTransaction({ userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -6, description: 'genehmigt', referenceType: 'absence', referenceId: absenceId });
+      recordVacationTransaction({ userId, year: 2026, date: '2026-08-25', type: 'vacation_reverted', days: 6, description: 'storniert', referenceType: 'absence', referenceId: absenceId });
+      recordVacationTransaction({ userId, year: 2026, date: '2026-08-26', type: 'vacation_taken', days: -6, description: 'erneut genehmigt', referenceType: 'absence', referenceId: absenceId });
 
       expect(getVacationBalanceFromTransactions(userId, 2026)).toBe(14);
     });
@@ -255,7 +255,7 @@ describe('vacationTransactionService', () => {
       expect(entries[0].absence).toBeNull();
     });
 
-    it('sortiert date ASC, id ASC — ein Storno steht nach der Genehmigung, die er aufhebt', () => {
+    it('sortiert createdAt DESC, id DESC — der Storno steht über der Genehmigung, die er aufhebt', () => {
       const approved = recordVacationTransaction({
         userId, year: 2026, date: '2026-08-24', type: 'vacation_taken', days: -4,
         description: 'genehmigt', referenceType: 'absence', referenceId: absenceId,
@@ -266,7 +266,38 @@ describe('vacationTransactionService', () => {
       });
 
       const entries = getVacationJournalEntries(userId, { year: 2026 });
-      expect(entries.map(e => e.id)).toEqual([approved, reverted]);
+      expect(entries.map(e => e.id)).toEqual([reverted, approved]);
+    });
+
+    it('hält die Saldo-Kette, wenn eine rückdatierte Buchung nach einer künftigen erfasst wird', () => {
+      // Reihenfolge der Erfassung ist bewusst gegenläufig zum fachlichen Datum:
+      // erst der Urlaub im Oktober, danach die Korrektur von heute. Sortiert man nach
+      // `date`, stünde die Korrektur zwischen Anspruch und Urlaub — und `balanceAfter`
+      // spränge zurück, weil der Wert in Erfassungsreihenfolge fortgeschrieben wurde.
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-01-01', type: 'entitlement', days: 20,
+        description: 'Jahresanspruch', referenceType: 'system',
+      });
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-10-05', type: 'vacation_taken', days: -5,
+        description: 'Urlaub Oktober', referenceType: 'absence', referenceId: absenceId,
+      });
+      recordVacationTransaction({
+        userId, year: 2026, date: '2026-08-20', type: 'correction', days: -1,
+        description: 'rückdatierte Korrektur', referenceType: 'system',
+      });
+
+      const entries = getVacationJournalEntries(userId, { year: 2026 });
+
+      // Neueste oben: Die erste Zeile trägt den aktuellen Kontostand.
+      expect(entries[0].description).toBe('rückdatierte Korrektur');
+      expect(entries[0].balanceAfter).toBe(getVacationBalanceFromTransactions(userId, 2026));
+
+      // Von oben nach unten gelesen ist die Kette lückenlos: balanceAfter der Zeile
+      // darunter ist balanceBefore der Zeile darüber.
+      for (let i = 0; i < entries.length - 1; i++) {
+        expect(entries[i].balanceBefore).toBe(entries[i + 1].balanceAfter);
+      }
     });
 
     it('grenzt year auf ein Jahr ein und limit begrenzt die Zeilenzahl', () => {

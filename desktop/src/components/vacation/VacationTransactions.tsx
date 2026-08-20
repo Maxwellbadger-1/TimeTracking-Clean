@@ -66,6 +66,28 @@ function formatDateDe(dateStr: string): string {
 }
 
 /**
+ * Buchungszeitpunkt als `TT.MM.JJJJ, HH:MM` — oder `null`, wenn er auf denselben Tag fällt
+ * wie das fachliche Datum.
+ *
+ * Die Liste ist nach Buchungszeitpunkt sortiert, nicht nach dem fachlichen Datum. Solange
+ * beide auf denselben Tag fallen, ist das unsichtbar und die Zusatzangabe wäre nur Lärm.
+ * Weichen sie ab — rückdatierte Korrektur, im Voraus genehmigter Urlaub —, erklärt erst der
+ * Buchungszeitpunkt, warum eine Zeile dort steht, wo sie steht.
+ */
+function formatBookedAt(createdAt: string | null, businessDate: string): string | null {
+  if (!createdAt) return null;
+  // SQLite liefert `YYYY-MM-DD HH:MM:SS` in lokaler Serverzeit — ohne Zonen-Suffix, damit
+  // nicht als UTC interpretieren (sonst verschiebt sich die Uhrzeit).
+  const parsed = new Date(createdAt.replace(' ', 'T'));
+  if (Number.isNaN(parsed.getTime())) return null;
+  if (createdAt.slice(0, 10) === businessDate) return null;
+  return parsed.toLocaleString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/**
  * Urlaubs-Kontoauszug — Journal + laufender Saldo, nach dem Vorbild von
  * `OvertimeTransactions.tsx`. Der Server (Plan 08-01) entscheidet, welches Konto sichtbar
  * ist; diese Komponente stellt die Zugriffsregel nicht her, sie zeigt nur, was freigegeben ist.
@@ -200,7 +222,12 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
                 className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
               >
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  {formatDateDe(entry.date)}
+                  <div>{formatDateDe(entry.date)}</div>
+                  {formatBookedAt(entry.createdAt, entry.date) && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      gebucht {formatBookedAt(entry.createdAt, entry.date)}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <span
@@ -255,7 +282,7 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {data.transactions.length} {data.transactions.length === 1 ? 'Buchung' : 'Buchungen'} —
-          der Saldo entspricht dem Stand nach der jeweiligen Buchung.
+          neueste zuerst; der Saldo entspricht dem Stand nach der jeweiligen Buchung.
         </p>
       </div>
 
