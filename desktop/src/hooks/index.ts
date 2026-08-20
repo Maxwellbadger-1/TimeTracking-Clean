@@ -46,6 +46,10 @@ export {
 } from './useVacationBalanceAdmin';
 export type { VacationBalanceSummary, VacationBalanceCreateInput, VacationBalanceUpdateInput } from './useVacationBalanceAdmin';
 
+// Vacation Transactions (Kontoauszug)
+export { useVacationTransactions } from './useVacationTransactions';
+export type { VacationJournalEntry, VacationAccountStatement, VacationJournalAbsence, VacationTransactionType } from './useVacationTransactions';
+
 // Overtime Admin
 export {
   useAllUsersOvertime,

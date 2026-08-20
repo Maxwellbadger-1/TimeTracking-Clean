@@ -28,6 +28,7 @@ import { formatDateDE } from '../utils';
 import { CancelAbsenceModal } from '../components/absences/CancelAbsenceModal';
 import { DeleteConfirmModal } from '../components/absences/DeleteConfirmModal';
 import { AbsenceRequestForm } from '../components/absences/AbsenceRequestForm';
+import { VacationTransactions } from '../components/vacation/VacationTransactions';
 
 export function AbsencesPage() {
   const { user: currentUser } = useAuthStore();
@@ -340,6 +341,11 @@ export function AbsencesPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Urlaubs-Kontoauszug (eigenes Konto) */}
+        <div className="mb-8">
+          <VacationTransactions showYearSelector />
         </div>
 
         {/* Filters */}
