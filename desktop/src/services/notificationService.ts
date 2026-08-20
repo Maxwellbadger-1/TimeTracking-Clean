@@ -20,6 +20,20 @@ export type NotificationType =
   | 'rest_period_warning'
   | 'working_hours_warning';
 
+/**
+ * Läuft die App in der Tauri-Hülle?
+ *
+ * Beim Entwickeln im Browser (`npm run dev`, localhost:1420) gibt es die Tauri-Bridge nicht.
+ * Jeder Aufruf des Notification-Plugins scheitert dort an `invoke`, und weil `send()` bei
+ * nicht erteiltem Recht jedes Mal erneut `checkPermission()` aufruft, passiert das einmal
+ * pro Benachrichtigung und Render — die Konsole läuft mit identischen Stacktraces voll,
+ * ohne dass etwas kaputt wäre. Native Desktop-Benachrichtigungen kann der Browser ohnehin
+ * nicht anzeigen, also ist stilles Nichtstun das richtige Verhalten.
+ */
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 class NotificationService {
   private permissionGranted: boolean = false;
   private enabled: boolean = true;
@@ -32,6 +46,11 @@ class NotificationService {
    * Check and request notification permission
    */
   async checkPermission(): Promise<boolean> {
+    if (!isTauriRuntime()) {
+      this.permissionGranted = false;
+      return false;
+    }
+
     try {
       let permission = await isPermissionGranted();
 
@@ -71,6 +90,12 @@ class NotificationService {
    * Send a native desktop notification
    */
   async send(options: NotificationOptions): Promise<void> {
+    // Ohne Tauri-Hülle gibt es nichts anzuzeigen — kommentarlos aussteigen, sonst warnt
+    // jede einzelne Benachrichtigung in die Browser-Konsole (siehe isTauriRuntime).
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     if (!this.isEnabled()) {
       console.log('Notifications disabled by user');
       return;
