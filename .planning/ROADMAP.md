@@ -131,8 +131,8 @@ der Produktionsdatenbank.
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Server: Journal-Endpunkt mit serverseitiger Rollenprüfung (REQ-11/12/13/14)
-- [ ] 08-03-PLAN.md — Desktop: Pflichtbegründung für Admin-Korrekturbuchungen (REQ-12)
+- [x] 08-01-PLAN.md — Server: Journal-Endpunkt mit serverseitiger Rollenprüfung (REQ-11/12/13/14)
+- [x] 08-03-PLAN.md — Desktop: Pflichtbegründung für Admin-Korrekturbuchungen (REQ-12)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: Ready to execute
+status: Executing Phase 08
 stopped_at: "Phase 06 ausgeführt, Verifikation meldet gaps_found (11/14 must_haves). Siehe `06-VERIFICATION.md` und `06-REVIEW.md`. Frühere Notiz: Plan 06-03 abgeschlossen — Korrekturbuchungen bei Admin-Änderungen (REQ-06); 11 Regressionstests grün, 135/137 Gesamtsuite (2 vorbestehend rot, unverändert). Phase 06 vollständig (3/3 Pläne)."
-last_updated: "2026-08-20T18:40:48.442Z"
+last_updated: "2026-08-20T18:45:01.387Z"
 progress:
   total_phases: 4
   completed_phases: 2
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 06 — buchungen-bei-jedem-vorgang
+**Current focus:** Phase 08 — kontoauszug-f-r-mitarbeiter-und-admin
 
 ## Current Status
 
