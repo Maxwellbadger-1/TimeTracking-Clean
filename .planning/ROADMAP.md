@@ -136,7 +136,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
+- [x] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
