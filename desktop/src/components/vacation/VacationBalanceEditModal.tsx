@@ -41,15 +41,19 @@ export function VacationBalanceEditModal({
   // Form state
   const [entitlement, setEntitlement] = useState(initialEntitlement);
   const [carryover, setCarryover] = useState(String(balance.carryover || 0));
+  const [reason, setReason] = useState('');
 
   // Error state
   const [entitlementError, setEntitlementError] = useState('');
   const [carryoverError, setCarryoverError] = useState('');
+  const [reasonError, setReasonError] = useState('');
 
   // Update form when balance changes
   useEffect(() => {
     setEntitlement(initialEntitlement());
     setCarryover(String(balance.carryover || 0));
+    setReason('');
+    setReasonError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [balance]);
 
@@ -59,6 +63,7 @@ export function VacationBalanceEditModal({
     // Reset errors
     setEntitlementError('');
     setCarryoverError('');
+    setReasonError('');
 
     // Validate entitlement
     const entitlementNum = parseInt(entitlement);
@@ -71,6 +76,12 @@ export function VacationBalanceEditModal({
     const carryoverNum = parseInt(carryover);
     if (isNaN(carryoverNum) || carryoverNum < 0 || carryoverNum > 10) {
       setCarryoverError('Übertrag muss zwischen 0 und 10 Tagen liegen');
+      isValid = false;
+    }
+
+    // Validate reason
+    if (reason.trim().length < 5) {
+      setReasonError('Bitte begründen Sie die Änderung (mindestens 5 Zeichen)');
       isValid = false;
     }
 
@@ -90,6 +101,7 @@ export function VacationBalanceEditModal({
         year,
         entitlement: parseInt(entitlement),
         carryover: parseInt(carryover),
+        reason: reason.trim(),
       });
 
       handleClose();
@@ -102,8 +114,10 @@ export function VacationBalanceEditModal({
     // Reset form
     setEntitlement(initialEntitlement());
     setCarryover(String(balance.carryover || 0));
+    setReason('');
     setEntitlementError('');
     setCarryoverError('');
+    setReasonError('');
     onClose();
   };
 
@@ -157,6 +171,46 @@ export function VacationBalanceEditModal({
           helperText="Übertrag aus Vorjahr (max. 5 Tage automatisch)"
         />
 
+        {/* Reason */}
+        <div className="w-full">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Begründung *
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            required
+            className={`
+              block w-full px-4 py-2.5 rounded-lg
+              bg-white dark:bg-gray-800
+              text-gray-900 dark:text-gray-100
+              text-sm font-medium
+              placeholder-gray-400 dark:placeholder-gray-500
+              border-2
+              shadow-sm
+              focus:outline-none focus:ring-2 focus:ring-offset-0
+              disabled:opacity-50 disabled:cursor-not-allowed
+              transition-all duration-200
+              hover:border-gray-400 dark:hover:border-gray-500
+              hover:shadow-md
+              ${reasonError
+                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600'}
+            `}
+          />
+          {reasonError && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+              {reasonError}
+            </p>
+          )}
+          {!reasonError && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Wird als Buchungstext im Kontoauszug des Mitarbeiters angezeigt.
+            </p>
+          )}
+        </div>
+
         {/* Preview */}
         <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -197,6 +251,12 @@ export function VacationBalanceEditModal({
             </div>
           </div>
         </div>
+
+        {/* Hint: correction booking */}
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Diese Änderung erscheint als Korrekturbuchung im Kontoauszug des Mitarbeiters
+          und bleibt dort mit der eingegebenen Begründung nachvollziehbar.
+        </p>
 
         {/* Warning if taken > total */}
         {remaining < 0 && (
