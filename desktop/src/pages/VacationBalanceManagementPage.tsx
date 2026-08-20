@@ -8,12 +8,15 @@ import {
 } from '../hooks';
 import { VacationBalanceEditModal } from '../components/vacation/VacationBalanceEditModal';
 import { BulkInitializeModal } from '../components/vacation/BulkInitializeModal';
+import { VacationTransactions } from '../components/vacation/VacationTransactions';
+import { Modal } from '../components/ui/Modal';
 
 export default function VacationBalanceManagementPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [editingBalance, setEditingBalance] = useState<VacationBalanceSummary | null>(null);
   const [showBulkInitModal, setShowBulkInitModal] = useState(false);
+  const [statementUser, setStatementUser] = useState<VacationBalanceSummary | null>(null);
 
   // Fetch vacation balance summary
   const { data: summary, isLoading, error } = useVacationBalanceSummary(selectedYear);
@@ -202,7 +205,14 @@ export default function VacationBalanceManagementPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStatementUser(balance)}
+                      >
+                        Auszug
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -236,6 +246,18 @@ export default function VacationBalanceManagementPage() {
         onConfirm={handleBulkInitialize}
         currentYear={currentYear}
       />
+
+      {/* Kontoauszug-Modal (Admin-Ansicht je Mitarbeiter) */}
+      {statementUser && (
+        <Modal
+          isOpen={!!statementUser}
+          onClose={() => setStatementUser(null)}
+          title={`Kontoauszug — ${statementUser.firstName} ${statementUser.lastName} (${selectedYear})`}
+          size="xl"
+        >
+          <VacationTransactions userId={statementUser.userId} year={selectedYear} />
+        </Modal>
+      )}
     </div>
   );
 }
