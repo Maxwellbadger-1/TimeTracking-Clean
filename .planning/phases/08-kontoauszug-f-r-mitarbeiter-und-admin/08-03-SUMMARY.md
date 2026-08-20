@@ -99,3 +99,7 @@ None - no external service configuration required.
 ---
 *Phase: 08-kontoauszug-f-r-mitarbeiter-und-admin*
 *Completed: 2026-08-20*
+
+## Self-Check: PASSED
+
+All modified files verified present (`useVacationBalanceAdmin.ts`, `invalidationHelpers.ts`, `VacationBalanceEditModal.tsx`). All commits verified in `git log` (`1635c70`, `de42725`, `0432da7`).
