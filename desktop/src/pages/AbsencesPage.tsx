@@ -45,6 +45,9 @@ export function AbsencesPage() {
   const rejectRequest = useRejectAbsenceRequest();
   const deleteRequest = useDeleteAbsenceRequest();
 
+  /** „Anträge" ist die Aufgabe, „Kontoauszug" das Nachschlagewerk — deshalb der Standard. */
+  const [activeTab, setActiveTab] = useState<'requests' | 'statement'>('requests');
+
   // Filter States
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'vacation' | 'sick' | 'overtime_comp' | 'unpaid'>('all');
@@ -343,11 +346,41 @@ export function AbsencesPage() {
           </Card>
         </div>
 
-        {/* Urlaubs-Kontoauszug (eigenes Konto) */}
-        <div className="mb-8">
-          <VacationTransactions showYearSelector />
+        {/*
+          Zwei Aufgaben, ein Thema: Anträge stellen und verwalten (das, weswegen man diese
+          Seite aufruft) gegenüber der Historie des Urlaubskontos (Nachlesen, warum der
+          Saldo so aussieht). Vorher stand der Kontoauszug über dem Filter und schob die
+          Antragsliste nach unten — die Seite öffnete mit der Vergangenheit statt mit der
+          Aufgabe. Als Tabs bleibt beides unter „Abwesenheiten", die Sidebar wächst nicht
+          um einen achten Eintrag, und der Auszug bekommt die volle Höhe.
+        */}
+        <div className="mb-8 border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex gap-6" aria-label="Bereiche">
+            {([
+              ['requests', `Anträge (${filteredRequests.length})`],
+              ['statement', 'Kontoauszug'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
+                aria-current={activeTab === key ? 'page' : undefined}
+                className={`border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+                  activeTab === key
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
         </div>
 
+        {activeTab === 'statement' && <VacationTransactions showYearSelector />}
+
+        {activeTab === 'requests' && (
+          <>
         {/* Filters */}
         <Card className="mb-8">
           <CardHeader>
@@ -571,6 +604,8 @@ export function AbsencesPage() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
       </main>
 
       {/* Cancel Absence Modal (Admin) */}

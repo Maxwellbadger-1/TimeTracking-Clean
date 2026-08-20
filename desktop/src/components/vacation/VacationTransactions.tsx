@@ -66,25 +66,51 @@ function formatDateDe(dateStr: string): string {
 }
 
 /**
- * Buchungszeitpunkt als `TT.MM.JJJJ, HH:MM` — oder `null`, wenn er auf denselben Tag fällt
- * wie das fachliche Datum.
+ * Buchungszeitpunkt als `TT.MM.JJJJ, HH:MM` — oder `null`, wenn er nichts erklärt.
  *
- * Die Liste ist nach Buchungszeitpunkt sortiert, nicht nach dem fachlichen Datum. Solange
- * beide auf denselben Tag fallen, ist das unsichtbar und die Zusatzangabe wäre nur Lärm.
- * Weichen sie ab — rückdatierte Korrektur, im Voraus genehmigter Urlaub —, erklärt erst der
- * Buchungszeitpunkt, warum eine Zeile dort steht, wo sie steht.
+ * Die Liste ist nach Buchungszeitpunkt sortiert, nicht nach dem fachlichen Datum. Zwei
+ * Fälle machen die Angabe überflüssig, und in beiden wäre sie nur Lärm:
+ *
+ * 1. Buchungstag == fachliches Datum — dann ist die Reihenfolge ohnehin einleuchtend.
+ * 2. Gleicher Zeitstempel wie die Zeile darüber. Der Phase-7-Backfill hat Carmens elf
+ *    Buchungen in derselben Sekunde geschrieben; elfmal „gebucht 19.08.2026, 21:41"
+ *    untereinander sagt nichts. Einmal am Kopf der Gruppe genügt.
  */
-function formatBookedAt(createdAt: string | null, businessDate: string): string | null {
+function formatBookedAt(
+  createdAt: string | null,
+  businessDate: string,
+  previousCreatedAt?: string | null,
+): string | null {
   if (!createdAt) return null;
+  if (createdAt.slice(0, 10) === businessDate) return null;
+  if (previousCreatedAt === createdAt) return null;
   // SQLite liefert `YYYY-MM-DD HH:MM:SS` in lokaler Serverzeit — ohne Zonen-Suffix, damit
   // nicht als UTC interpretieren (sonst verschiebt sich die Uhrzeit).
   const parsed = new Date(createdAt.replace(' ', 'T'));
   if (Number.isNaN(parsed.getTime())) return null;
-  if (createdAt.slice(0, 10) === businessDate) return null;
   return parsed.toLocaleString('de-DE', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+/**
+ * Räumt die vom Server erzeugte Beschreibung für die Anzeige auf.
+ *
+ * Die Texte entstehen beim Buchen und stehen so in der Datenbank — sie werden hier nur
+ * anders dargestellt, nicht geändert. Zwei Dinge stören den Anwender:
+ *
+ * - `(rückwirkend erzeugt)` ist ein Vermerk des Phase-7-Backfills. Für Carmen ist es
+ *   bedeutungslos und steht in jeder ihrer Zeilen.
+ * - ISO-Daten wie `2026-08-27` in einer sonst deutschen Oberfläche, direkt neben der
+ *   Datumsspalte, die dasselbe Datum bereits als `27.8.2026` zeigt.
+ */
+function formatDescription(description: string | null): string {
+  if (!description) return '—';
+  return description
+    .replace(/\s*\(rückwirkend erzeugt\)/g, '')
+    .replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3.$2.$1')
+    .trim();
 }
 
 /**
@@ -96,6 +122,8 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(year ?? currentYear);
   const [selectedAbsence, setSelectedAbsence] = useState<VacationJournalAbsence | null>(null);
+  /** Antrag, dessen Zeilen gerade zusammen hervorgehoben werden (Genehmigung + Storno). */
+  const [hoveredAbsenceId, setHoveredAbsenceId] = useState<number | null>(null);
 
   const effectiveYear = showYearSelector ? selectedYear : year;
   const { data, isLoading, error } = useVacationTransactions(userId, effectiveYear, limit);
@@ -216,16 +244,32 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {data.transactions.map((entry) => (
+            {data.transactions.map((entry, index) => {
+              const bookedAt = formatBookedAt(
+                entry.createdAt,
+                entry.date,
+                data.transactions[index - 1]?.createdAt,
+              );
+              // Genehmigung und Storno desselben Antrags können weit auseinanderliegen —
+              // bei Carmen acht Zeilen. Das Paar ist aber genau der Vorgang, den dieser
+              // Auszug erklären soll, also beide Zeilen zusammen hervorheben.
+              const isPaired =
+                hoveredAbsenceId !== null && entry.absence?.id === hoveredAbsenceId;
+
+              return (
               <tr
                 key={entry.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                className={`transition-colors ${
+                  isPaired
+                    ? 'bg-blue-50 dark:bg-blue-900/20'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                }`}
               >
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                   <div>{formatDateDe(entry.date)}</div>
-                  {formatBookedAt(entry.createdAt, entry.date) && (
+                  {bookedAt && (
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      gebucht {formatBookedAt(entry.createdAt, entry.date)}
+                      gebucht {bookedAt}
                     </div>
                   )}
                 </td>
@@ -238,11 +282,15 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span>{entry.description ?? '—'}</span>
+                    <span>{formatDescription(entry.description)}</span>
                     {entry.absence && (
                       <button
                         type="button"
                         onClick={() => setSelectedAbsence(entry.absence)}
+                        onMouseEnter={() => setHoveredAbsenceId(entry.absence?.id ?? null)}
+                        onMouseLeave={() => setHoveredAbsenceId(null)}
+                        onFocus={() => setHoveredAbsenceId(entry.absence?.id ?? null)}
+                        onBlur={() => setHoveredAbsenceId(null)}
                         className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         <FileText className="w-3.5 h-3.5" />
@@ -274,7 +322,8 @@ export function VacationTransactions({ userId, year, limit, showYearSelector }: 
                   {entry.balanceAfter === null ? '—' : entry.balanceAfter}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
