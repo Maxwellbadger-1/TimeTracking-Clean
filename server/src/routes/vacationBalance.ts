@@ -110,6 +110,16 @@ router.get('/:userId', requireAuth, (req: Request, res: Response) => {
       });
     }
 
+    // Eigentümerprüfung (REQ-14): Ein Mitarbeiter darf ausschließlich sein eigenes
+    // Urlaubskonto abrufen. Admins sind von dieser Prüfung ausgenommen.
+    const isAdmin = req.session.user!.role === 'admin';
+    if (!isAdmin && userId !== req.session.user!.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sie dürfen ausschließlich Ihr eigenes Urlaubskonto einsehen',
+      });
+    }
+
     // Get balance for this user and year
     const balances = getAllVacationBalances({ userId, year });
 
@@ -146,19 +156,6 @@ router.get('/:userId', requireAuth, (req: Request, res: Response) => {
       taken,
       available,
     };
-
-    // DEBUG: Log types being sent
-    console.log('🔍 SERVER sending vacation balance types:', {
-      entitlement: typeof responseData.entitlement,
-      carryover: typeof responseData.carryover,
-      taken: typeof responseData.taken,
-      available: typeof responseData.available,
-      rawValues: {
-        entitlement: responseData.entitlement,
-        carryover: responseData.carryover,
-        taken: responseData.taken,
-      }
-    });
 
     res.json({
       success: true,
