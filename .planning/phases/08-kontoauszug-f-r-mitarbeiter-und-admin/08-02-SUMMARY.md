@@ -117,3 +117,8 @@ None - no external service configuration required.
 ---
 *Phase: 08-kontoauszug-f-r-mitarbeiter-und-admin*
 *Completed: 2026-08-20*
+
+## Self-Check: PASSED
+
+- Alle 5 Code-Dateien plus SUMMARY.md auf der Festplatte gefunden
+- Alle 4 Commits (`8e08ebf`, `ff660ce`, `616321e`, `a6a1207`) in `git log --oneline` gefunden
