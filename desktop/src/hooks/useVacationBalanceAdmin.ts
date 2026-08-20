@@ -29,12 +29,14 @@ export interface VacationBalanceCreateInput {
   year: number;
   entitlement: number;
   carryover: number;
+  reason: string;
 }
 
 export interface VacationBalanceUpdateInput {
   entitlement?: number;
   carryover?: number;
   taken?: number;
+  reason?: string;
 }
 
 /**

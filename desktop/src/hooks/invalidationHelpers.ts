@@ -44,6 +44,7 @@ export const QUERY_GROUPS = {
   vacation: [
     'vacationBalance',
     'vacation-balances',
+    'vacation-transactions', // Kontoauszug (Phase 8)
   ],
 
   // Absence-related queries
