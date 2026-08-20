@@ -96,9 +96,18 @@ function applyMigration(db: Database.Database, filename: string): void {
  * Run all pending migrations
  */
 function runMigrations(isProduction: boolean = false): void {
-  const dbPath = isProduction
-    ? databaseConfig.productionPath
-    : databaseConfig.developmentPath;
+  // DATABASE_PATH hat Vorrang, genau wie in getDatabasePath() - databaseConfig.productionPath
+  // und .developmentPath zeigen fest auf server/database.db bzw.
+  // server/database/development.db und setzten bisher den Symlink server/database.db ->
+  // production.db voraus (entfernt am 20.08.2026, siehe
+  // .planning/debug/db-stabilisierung-20260818.md). Ohne diese Aenderung oeffnete
+  // migrate:prod auf dem Deploy-Server eine frische, leere server/database.db statt der
+  // Produktionsdatenbank.
+  const dbPath = process.env.DATABASE_PATH
+    ? process.env.DATABASE_PATH
+    : isProduction
+      ? databaseConfig.productionPath
+      : databaseConfig.developmentPath;
 
   const env = isProduction ? 'PRODUCTION' : 'DEVELOPMENT';
 

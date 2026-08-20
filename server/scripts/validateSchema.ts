@@ -11,16 +11,14 @@
  */
 
 import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { databaseConfig } from '../src/config/database.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Database path (production or development)
-const dbPath = process.env.NODE_ENV === 'production'
-  ? path.join(__dirname, '../database.db')
-  : path.join(__dirname, '../database.db');
+// Database path: respektiert DATABASE_PATH (hoechste Prioritaet), sonst NODE_ENV-basierter
+// Fallback - siehe getDatabasePath() in src/config/database.ts. Beide Zweige zeigten hier
+// zuvor hart auf server/database.db, unabhaengig von NODE_ENV; das setzte den Symlink
+// server/database.db -> production.db voraus (entfernt am 20.08.2026, siehe
+// .planning/debug/db-stabilisierung-20260818.md).
+const dbPath = databaseConfig.path;
 
 console.log('🔍 Database Schema Validation');
 console.log('📁 Database:', dbPath);
