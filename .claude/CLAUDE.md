@@ -233,7 +233,22 @@ curl http://localhost:3000/api/reports/overtime/user/X?year=YYYY&month=MM
 
 ## 🗄️ Database Rules
 
-1. **One Database:** Production at `/home/ubuntu/databases/production.db`, locally `server/database.db` (symlinked on server to production.db)
+1. **One Database:** Production at `/home/ubuntu/databases/production.db`, locally `server/database.db`
+
+   ⚠️ **KEIN Symlink mehr auf dem Server** (entfernt 20.08.2026). `server/database.db` existiert
+   dort nicht — jedes Skript MUSS `DATABASE_PATH` explizit setzen:
+   ```bash
+   DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx <skript>
+   ```
+   **Warum:** SQLite legt die WAL-Datei neben dem *geöffneten* Pfad an, nicht neben dem
+   Symlink-Ziel. Ein Skript ohne `DATABASE_PATH` öffnete die Produktionsdatenbank über den
+   Symlink und erzeugte eine zweite WAL/SHM auf dieselbe Datei — zwei Prozesse mit getrennten
+   Sperrbereichen. Ergebnis: Die Datenbank war nicht mehr neustartfähig (`SQLITE_CORRUPT` bei
+   jedem neuen Verbindungsaufbau), der nächste Reboot hätte das System lahmgelegt.
+   Vorfall: `.planning/debug/db-stabilisierung-20260818.md`
+
+   Ohne `DATABASE_PATH` legt ein Skript jetzt eine leere Datenbank an und fällt sofort mit
+   0 Datensätzen auf — statt still die Produktion zu gefährden.
    - `DATABASE_PATH=/home/ubuntu/databases/production.db` (server PM2 config)
    - Local: `DATABASE_PATH=./database.db` (server/.env.development)
 2. **WAL Mode:** `db.pragma('journal_mode = WAL')` für Multi-User

@@ -110,3 +110,17 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase 06-buchungen-bei-jedem-vorgang P01 | 30min | 4 tasks | 3 files |
 | Phase 06-buchungen-bei-jedem-vorgang P02 | 35min | 3 tasks | 5 files |
 | Phase 06-buchungen-bei-jedem-vorgang P03 | 25min | 4 tasks | 3 files |
+
+## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
+
+- **Symlink `server/database.db` auf dem Server entfernt.** Skripte gegen Produktion MÜSSEN
+  `DATABASE_PATH=/home/ubuntu/databases/production.db` explizit setzen. Ohne die Variable
+  entsteht eine leere Datenbank (fällt sofort auf) — vorher wäre still die Produktion
+  gefährdet worden. Details in `.claude/CLAUDE.md` → Database Rules.
+- **Deploy-Workflow angepasst:** Pre-Deploy-Backup zielt direkt auf `production.db`, Ablage
+  unter `~/databases/backups/`. Commit `5f4519e` liegt lokal und geht beim nächsten Push mit.
+- **Frische Daten sind per direktem Lesezugriff auf die Datenbankdatei nicht sichtbar**
+  (SQLite WAL-Modus). Verifikation über `pm2 logs timetracking-server` oder die API.
+- **UAT der Phasen 6+7 abgeschlossen**, 7/7 bestanden — siehe
+  `.planning/phases/07-saldo-aus-buchungen-backfill/07-UAT.md`.
+- **Testdaten in Produktion:** User 30 „Test Urlaub", User 31 „UAT", Antrag 73 (storniert).
