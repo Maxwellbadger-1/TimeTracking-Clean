@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added
+
+#### Urlaubs-Kontoauszug für Mitarbeiter und Admin
+**Was:** Neuer Endpunkt `GET /api/vacation-transactions` liefert das Urlaubs-Journal (jede
+Buchung: Anspruch, Übertrag, Antrag, Storno, Korrektur, Verfall) inklusive laufendem Saldo — mit
+serverseitiger Rollenprüfung: Mitarbeiter sehen ausschließlich ihr eigenes Konto, Admins jedes
+Konto nach Jahr gefiltert. Auf der Abwesenheiten-Seite zeigt ein neuer Kontoauszug das eigene
+Konto mit Jahreswahl; in der Urlaubskonto-Verwaltung öffnet ein Button „Auszug" je
+Mitarbeiterzeile denselben Auszug für das dort gewählte Jahr. Jede Antragsbuchung verlinkt auf
+den auslösenden Abwesenheitsantrag (Zeitraum, Typ, Status, Tage). Admin-Korrekturbuchungen
+verlangen jetzt eine Pflichtbegründung (min. 5 Zeichen), die im Auszug als Beschreibung
+erscheint.
+
+### 🐛 Fixed
+
+#### `GET /api/vacation-balances/:userId` gab fremde Urlaubskonten heraus
+**Issue:** Jeder angemeldete Nutzer konnte über diesen Endpunkt das Urlaubskonto eines beliebigen
+anderen Mitarbeiters abrufen (IDOR).
+**Fix:** Eigentümerprüfung ergänzt — Nicht-Admins erhalten für fremde `userId` jetzt `403` statt
+der Kontodaten.
+
 ---
 
 ## [1.7.3] - 2026-08-18
