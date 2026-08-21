@@ -6,11 +6,15 @@ import {
   rejectAbsenceRequest,
   deleteAbsenceRequest,
   getVacationBalance,
+  hasEnoughVacationDays,
+  initializeVacationBalance,
 } from './absenceService.js';
 import {
   getVacationBalanceFromTransactions,
   getVacationTransactionsForAbsence,
+  getVacationTransactions,
 } from './vacationTransactionService.js';
+import { calculateProRataVacationDays } from './vacationBalanceService.js';
 
 /**
  * Regressionstests für REQ-05 / REQ-15 — die Fehler, die diesen Milestone ausgelöst haben.
@@ -266,5 +270,122 @@ describe('absenceService — Urlaubsbuchungen bei jedem Vorgang', () => {
     expect(txs[0].createdBy).toBe(adminId);
     expect(txs[0].referenceId).toBe(request.id);
     expect(txs[0].referenceType).toBe('absence');
+  });
+
+  it('10. Gap 1 (CR-02): hasEnoughVacationDays löst Auto-Init aus, die sofort ins Journal bucht', () => {
+    // Bewusst OHNE approve/reject davor: eine Genehmigung würde ensureVacationBalanceExists()
+    // auslösen und die Buchungslücke aus Gap 1 retroaktiv kaschieren, siehe 06-VERIFICATION.md.
+    // Der in beforeEach angelegte Testnutzer hat hireDate '2020-01-01' — lange vor YEAR (2026) —
+    // wodurch calculateProRataVacationDays() den vollen Jahreswert liefert. Dieser Test
+    // exerziert damit NICHT den Pro-rata-Zweig (das leisten Test 12/13), sondern ausschließlich
+    // die Buchungs-Delegation über upsertVacationBalance() selbst.
+    const hasEnough = hasEnoughVacationDays(userId, YEAR, 5);
+    expect(hasEnough).toBe(true);
+
+    const balance = getVacationBalance(userId, YEAR);
+    expect(balance).not.toBeNull();
+    expect(balance?.entitlement).toBe(30);
+
+    const txs = getVacationTransactions(userId, { year: YEAR });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].type).toBe('entitlement');
+    expect(txs[0].days).toBe(30);
+
+    expect(getVacationBalanceFromTransactions(userId, YEAR)).toBe(30);
+  });
+
+  it('11. Gap 3 (REQ-15): jahresübergreifender Antrag bucht vollständig ins Startjahr (bekannt, laut ROADMAP.md bewusst nicht behoben)', async () => {
+    // 2090er-Datumsbereich: `holidays` enthält laut Verifikation (2026-08-21, `SELECT MAX(date)
+    // FROM holidays` = 2029-12-26) keine Einträge nach 2029 — dieser Test bleibt damit robust
+    // gegen künftige Änderungen/Ergänzungen der Feiertagsdaten für 2026/2027.
+    // Dieser Test dokumentiert das bekannte Verhalten, ohne es zu verändern: kein Task in
+    // diesem Plan ändert updateBalancesAfterApproval()s Jahresermittlung
+    // (parseInt(request.startDate.substring(0, 4))).
+    const request = createAbsenceRequest({
+      userId, type: 'vacation', startDate: '2090-12-27', endDate: '2091-01-02',
+    });
+
+    await approveAbsenceRequest(request.id, adminId);
+
+    // Für dieses (frische, weil 2090 zuvor unbenutzte) Jahr bucht die Genehmigung zusätzlich
+    // zur eigentlichen vacation_taken-Buchung auch den Auto-Init-Anspruch (Gap 1, Test 10) —
+    // deshalb wird hier gezielt nach dem Verbrauchs-Buchungstyp gefiltert statt die
+    // Jahressumme zu bilden.
+    const startYearTxs = getVacationTransactions(userId, { year: 2090 });
+    const takenTxs = startYearTxs.filter((tx) => tx.type === 'vacation_taken');
+    expect(takenTxs).toHaveLength(1);
+    expect(takenTxs[0].days).toBe(-request.days);
+
+    // Die Buchung fällt vollständig ins Startjahr — keine anteilige Gegenbuchung im Folgejahr.
+    const endYearTxs = getVacationTransactions(userId, { year: 2091 });
+    const endYearTakenTxs = endYearTxs.filter((tx) => tx.type === 'vacation_taken');
+    expect(endYearTakenTxs).toHaveLength(0);
+  });
+
+  it('12. Zusatzbefund: unterjähriger Eintritt bucht den Pro-rata-Wert, nicht den vollen Jahresanspruch', () => {
+    // Vor diesem Fix hätte initializeVacationBalance() hier entitlement === 24 (voller
+    // Jahreswert) gebucht statt des anteiligen Werts — dieser Test ist ein Regressionswächter
+    // spezifisch für den Koordinator-Zusatzbefund aus 06-VERIFICATION.md, unabhängig von der
+    // Buchungs-Delegation aus Task 1.
+    const hireDate = `${YEAR}-07-01`; // Eintritt mitten im Jahr
+    const vacationDaysPerYear = 24; // bewusst von Test 10s Wert (30) verschieden
+
+    const newUser = db.prepare(`
+      INSERT INTO users (username, email, firstName, lastName, password, role, weeklyHours, vacationDaysPerYear, hireDate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_proRata_midyear', 'proRata-midyear@test.local', 'Test', 'User', 'hash',
+      'employee', 40, vacationDaysPerYear, hireDate
+    );
+    const newUserId = newUser.lastInsertRowid as number;
+
+    try {
+      const expectedProRata = calculateProRataVacationDays(hireDate, vacationDaysPerYear, YEAR);
+      expect(expectedProRata).toBeLessThan(vacationDaysPerYear); // Sanity: tatsächlich anteilig
+
+      const result = initializeVacationBalance(newUserId, YEAR);
+      expect(result.entitlement).toBe(expectedProRata);
+
+      const txs = getVacationTransactions(newUserId, { year: YEAR });
+      expect(txs).toHaveLength(1);
+      expect(txs[0].type).toBe('entitlement');
+      expect(txs[0].days).toBe(expectedProRata);
+    } finally {
+      db.prepare('DELETE FROM vacation_transactions WHERE userId = ?').run(newUserId);
+      db.prepare('DELETE FROM vacation_balance WHERE userId = ?').run(newUserId);
+      db.prepare('DELETE FROM users WHERE id = ?').run(newUserId);
+    }
+  });
+
+  it('13. Zusatzbefund: Eintritt nach dem angefragten Jahr bucht entitlement=0, keine Buchung (reproduziert den realen Produktionsfehler)', () => {
+    // Reproduziert exakt das Muster, das die realen 2025er-Artefakte (Karin Jochem 7 Tage,
+    // Christine Glas 13 Tage) erzeugt hat: initializeVacationBalance() für ein Jahr VOR dem
+    // Eintrittsjahr anfragen. Vor diesem Fix hätte die Funktion hier fälschlich
+    // entitlement === 20 gebucht, obwohl der Nutzer erst im Folgejahr eintritt.
+    const hireDate = `${YEAR}-01-01`; // Eintritt IN YEAR
+    const vacationDaysPerYear = 20;
+
+    const newUser = db.prepare(`
+      INSERT INTO users (username, email, firstName, lastName, password, role, weeklyHours, vacationDaysPerYear, hireDate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_proRata_notyet', 'proRata-notyet@test.local', 'Test', 'User', 'hash',
+      'employee', 40, vacationDaysPerYear, hireDate
+    );
+    const newUserId = newUser.lastInsertRowid as number;
+
+    try {
+      expect(() => {
+        const result = initializeVacationBalance(newUserId, YEAR - 1);
+        expect(result.entitlement).toBe(0);
+      }).not.toThrow();
+
+      const txs = getVacationTransactions(newUserId, { year: YEAR - 1 });
+      expect(txs).toHaveLength(0);
+    } finally {
+      db.prepare('DELETE FROM vacation_transactions WHERE userId = ?').run(newUserId);
+      db.prepare('DELETE FROM vacation_balance WHERE userId = ?').run(newUserId);
+      db.prepare('DELETE FROM users WHERE id = ?').run(newUserId);
+    }
   });
 });

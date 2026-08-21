@@ -8,7 +8,7 @@ import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
-import { calculateCarryover } from './vacationBalanceService.js';
+import { calculateCarryover, calculateProRataVacationDays, upsertVacationBalance } from './vacationBalanceService.js';
 
 /**
  * Absence Service
@@ -1386,36 +1386,27 @@ export function initializeVacationBalance(
   userId: number,
   year: number
 ): VacationBalance {
-  // Get user's vacation entitlement
+  // Get user's vacation entitlement and hire date (for pro-rata calculation)
   const user = db
-    .prepare('SELECT vacationDaysPerYear FROM users WHERE id = ?')
-    .get(userId) as { vacationDaysPerYear: number } | undefined;
+    .prepare('SELECT vacationDaysPerYear, hireDate FROM users WHERE id = ?')
+    .get(userId) as { vacationDaysPerYear: number; hireDate: string } | undefined;
 
   if (!user) {
     throw new Error('User not found');
   }
+
+  const entitlement = calculateProRataVacationDays(user.hireDate, user.vacationDaysPerYear, year);
 
   // Check if previous year balance exists for carryover
   const previousYear = year - 1;
   const previousBalance = getVacationBalance(userId, previousYear);
   const carryover = calculateCarryover(previousBalance);
 
-  // Insert or update balance
-  const query = `
-    INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
-    VALUES (?, ?, ?, ?, 0)
-    ON CONFLICT(userId, year)
-    DO UPDATE SET entitlement = ?, carryover = ?
-  `;
-
-  db.prepare(query).run(
-    userId,
-    year,
-    user.vacationDaysPerYear,
-    carryover,
-    user.vacationDaysPerYear,
-    carryover
-  );
+  // Delegate to the booking path — books entitlement/carryover atomically in the same
+  // db.transaction() that creates/updates the row (CR-02 / Gap 1 + Zusatzbefund, 06-04).
+  // actorId: null — this path is exclusively triggered automatically (auto-init on vacation
+  // request, viewing the balance), never by an admin action.
+  upsertVacationBalance({ userId, year, entitlement, carryover, actorId: null });
 
   const balance = getVacationBalance(userId, year);
   if (!balance) {
