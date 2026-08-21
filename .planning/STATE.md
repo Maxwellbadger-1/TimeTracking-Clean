@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-08-21T20:47:41.141Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-08-21T21:27:49.435Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 09-02-PLAN.md
+- **Stopped at:** Completed 09-03-PLAN.md
 
 ## Phase Progress
 
@@ -112,6 +112,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 09-ein-ma-stab-ein-weg]: [09-02] Karin Jochem (userId 2) statt Carmen Rothemund als Pruefnutzer A gewaehlt - Carmen ist bereits Nutzer C (overtime_comp-Reproduktionsfall fuer Plan 09-04), alle drei Pruefnutzer muessen verschiedene userId sein
 - [Phase 09-ein-ma-stab-ein-weg]: [09-02] npm run sync-dev-db nicht ausgefuehrt (laufender Dev-Server haelt DB offen, mv waere fehlgeschlagen) - Aktualitaet stattdessen direkt geprueft (18 aktive Nutzer, letzter time_entries.date 2026-08-20), als Abweichung dokumentiert
 - [Phase 09-ein-ma-stab-ein-weg]: [09-02] Erstbefund zeigt 0 Abweichungen zwischen den fuenf Ueberstunden-Wegen bei allen drei Pruefnutzern, aber einen separaten Transaktions-Mismatch (overtime_transactions unvollstaendig) - deckt sich mit dem REQ-19-Kernbefund aus 09-01, kein neuer REQ-17/18-Fund
+- [Phase 09-ein-ma-stab-ein-weg]: [09-03] userForCalc (bereits als UserPublic gebaut) statt der rohen DB-Zeile an getAllWorkingDaysBetween() übergeben - haelt die Signatur konsistent mit getDailyTargetHours()
+- [Phase 09-ein-ma-stab-ein-weg]: [09-03] a1-vorher.db nicht fuer die Nachher-Messung wiederverwendet - sie enthaelt bereits kanonisch ueberschriebene Zeilen aus dem Task-3-Werkzeuglauf; frische Kopie a1-nachher.db gezogen
+- [Phase 09-ein-ma-stab-ein-weg]: [09-03] Zeilenzitate aus dem Plan-Interfaces-Abschnitt, die durch Task 2s Zeilenentfernung um 15 Zeilen verschoben wurden, in den Nachweisdokumenten mit beiden Staenden zitiert
 
 ## Quick Tasks Completed
 
@@ -143,6 +146,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 06-buchungen-bei-jedem-vorgang P07 | ~40min | 3 tasks | 3 files |
 | Phase 09-ein-ma-stab-ein-weg P01 | 55min | 3 tasks | 3 files |
 | Phase 09-ein-ma-stab-ein-weg P02 | 35min | 3 tasks | 8 files |
+| Phase 09 P03 | 90min | 5 tasks | 11 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -179,7 +183,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 09 (Ein Maßstab, ein Weg) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-08-21
 
