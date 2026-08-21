@@ -255,6 +255,98 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // 4c. user_work_periods table (Arbeitszeit-Perioden)
+  //
+  // Historisiert weeklyHours/workSchedule statt sie flach in users zu halten (D2, REQ-20).
+  // Halboffenes Intervall [validFrom, validTo) — validFrom inklusiv, validTo exklusiv,
+  // laufende Periode validTo = NULL (D1). Die drei Trigger direkt darunter sind die
+  // Datenbankseite von REQ-22/D3 (Überlappungs-/Lückenschutz); der partielle UNIQUE-Index
+  // idx_user_work_periods_one_open erzwingt höchstens eine offene Periode je Nutzer.
+  //
+  // users.weeklyHours und users.workSchedule bleiben unangetastet (D4, REQ-21) — diese
+  // Tabelle läuft nur daneben her, sie ersetzt nichts.
+  //
+  // MUSS identisch bleiben mit migrations/008_create_user_work_periods.ts —
+  // Abweichungen zwischen schema.ts und Migration sind eine bekannte Fehlerquelle.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_work_periods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      validFrom TEXT NOT NULL,
+      validTo TEXT,
+      weeklyHours REAL NOT NULL,
+      workSchedule TEXT,
+      note TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      createdBy INTEGER,
+      UNIQUE(userId, validFrom),
+      CHECK (validFrom GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      CHECK (validTo IS NULL OR validTo GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      CHECK (validTo IS NULL OR validTo > validFrom),
+      CHECK (weeklyHours >= 0 AND weeklyHours <= 168),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (createdBy) REFERENCES users(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_insert_guard
+    BEFORE INSERT ON user_work_periods
+    BEGIN
+      SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
+      WHERE EXISTS (
+        SELECT 1 FROM user_work_periods p
+        WHERE p.userId = NEW.userId
+          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+      );
+      SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
+      WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId)
+        AND NOT EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = NEW.userId
+            AND (p.validTo = NEW.validFrom
+                 OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
+        );
+    END;
+  `);
+
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_update_guard
+    BEFORE UPDATE ON user_work_periods
+    BEGIN
+      SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
+      WHERE EXISTS (
+        SELECT 1 FROM user_work_periods p
+        WHERE p.userId = NEW.userId AND p.id <> NEW.id
+          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+      );
+      SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
+      WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.id <> NEW.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = NEW.userId AND p.id <> NEW.id
+            AND (p.validTo = NEW.validFrom
+                 OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
+        );
+    END;
+  `);
+
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_delete_guard
+    BEFORE DELETE ON user_work_periods
+    BEGIN
+      SELECT RAISE(ABORT, 'user_work_periods: Löschen würde eine Lücke in der Periodenkette hinterlassen')
+      WHERE OLD.validTo IS NOT NULL
+        AND EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
+        AND EXISTS (SELECT 1 FROM user_work_periods p
+                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validTo = OLD.validFrom)
+        AND EXISTS (SELECT 1 FROM user_work_periods p
+                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validFrom = OLD.validTo);
+    END;
+  `);
+
   // 5. overtime_balance table (MONTHLY overtime)
   db.exec(`
     CREATE TABLE IF NOT EXISTS overtime_balance (
@@ -460,6 +552,8 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity, entityId);
     CREATE INDEX IF NOT EXISTS idx_vacation_tx_user_year ON vacation_transactions(userId, year);
     CREATE INDEX IF NOT EXISTS idx_vacation_tx_reference ON vacation_transactions(referenceType, referenceId);
+    CREATE INDEX IF NOT EXISTS idx_user_work_periods_user_from ON user_work_periods(userId, validFrom);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_work_periods_one_open ON user_work_periods(userId) WHERE validTo IS NULL;
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
     CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
@@ -473,6 +567,6 @@ export function initializeDatabase(db: Database.Database): void {
   logger.info('✅ Database schema initialized successfully');
   logger.info('✅ WAL mode enabled for multi-user support');
   logger.info('✅ Foreign keys enabled');
-  logger.info('✅ All 14 tables created');
+  logger.info('✅ All 19 tables created');
   logger.info('✅ Indexes created for performance');
 }

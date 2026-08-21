@@ -243,3 +243,38 @@ export interface WorkTimeAccountUpdateInput {
   maxPlusHours?: number;
   maxMinusHours?: number;
 }
+
+// Arbeitszeit-Perioden (user_work_periods) — Milestone v3.0, Phase 10 (REQ-20/22)
+//
+// Historisiert weeklyHours/workSchedule statt sie flach in users zu halten. Eine
+// Umstellung verschiebt keine Vergangenheit: was bis zum Stichtag gerechnet wurde,
+// bleibt stehen, ab dem Stichtag gilt das neue Modell.
+export interface UserWorkPeriod {
+  id: number;
+  userId: number;
+  /** Inklusiv: Erster Geltungstag dieser Periode (YYYY-MM-DD, D1). */
+  validFrom: string;
+  /** Exklusiv: Erster Tag, an dem diese Periode NICHT mehr gilt. NULL = laufende Periode (D1). */
+  validTo: string | null;
+  /** Gemeinsam mit workSchedule versioniert — eine Kombination aus altem weeklyHours und
+   *  neuem workSchedule darf nicht entstehen (D2). */
+  weeklyHours: number;
+  workSchedule: WorkSchedule | null;
+  note: string | null;
+  createdAt: string;
+  createdBy: number | null;
+}
+
+/** Rohe Datenbankzeile — workSchedule kommt als JSON-TEXT aus SQLite. Die Umwandlung nach
+ *  WorkSchedule | null passiert im Service (Plan 10-04), nicht hier mit `any`. */
+export interface UserWorkPeriodRow {
+  id: number;
+  userId: number;
+  validFrom: string;
+  validTo: string | null;
+  weeklyHours: number;
+  workSchedule: string | null;
+  note: string | null;
+  createdAt: string;
+  createdBy: number | null;
+}
