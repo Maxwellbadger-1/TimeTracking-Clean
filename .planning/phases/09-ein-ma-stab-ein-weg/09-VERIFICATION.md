@@ -1,188 +1,214 @@
 ---
 phase: 09-ein-ma-stab-ein-weg
-verified: 2026-08-21T21:57:22Z
-status: gaps_found
-score: 8/9 must-haves verified
+verified: 2026-08-21T23:17:18Z
+status: passed
+score: 11/11 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "`npm run validate:overtime:detailed` läuft für die drei Prüfnutzer ohne Abweichungsmeldung (ROADMAP-Erfolgskriterium 3)"
-    status: failed
-    reason: >
-      Live gegen server/database/development.db ausgeführt (21.08.2026, Commit 0caf530) für alle drei
-      Prüfnutzer aus 09-PRUEFNUTZER.csv. Alle drei melden eine Abweichung:
-      userId 2 (Karin Jochem, 2026-07): TRANSACTION MISMATCH -5.00h.
-      userId 16 (Benedikt Jochem, 2026-07): TRANSACTION MISMATCH -1.25h.
-      userId 17 (Carmen Rothemund, 2026-04): DATABASE MISMATCH +4.00h UND TRANSACTION MISMATCH +0.59h.
-      Zwei getrennte Ursachen: (a) validateOvertimeDetailed.ts:492 führt eine eigene, von Plan 09-04
-      nicht mit-korrigierte SQL-Abfrage `type IN ('vacation', 'sick', 'overtime_comp')` — dieselbe
-      H1-Fehlklassifikation, die in unifiedOvertimeService.ts und overtimeTransactionRebuildService.ts
-      behoben wurde, lebt in diesem Diagnosewerkzeug unverändert weiter und verursacht bei Nutzer 17
-      die DATABASE MISMATCH. (b) Bei allen drei Nutzern — auch den beiden ohne jeden overtime_comp-Bezug
-      — fehlen in overtime_transactions die "Earned"-Buchungen für geleistete Arbeitsstunden
-      vollständig (0 txs trotz realer Arbeitszeit), was die TRANSACTION MISMATCH erzeugt. Dieser
-      Befund war bereits in 09-VERGLEICH-BEFUND.md (Plan 09-02, vor jeder Codeänderung) dokumentiert,
-      wurde aber von keinem der Pläne 09-03/09-04 behoben, obwohl das Erfolgskriterium der ROADMAP
-      genau dieses Werkzeug als Abnahmekriterium benennt. D2 verlangt bei einem in Phase 9 nicht
-      behebbaren Defekt eine Verankerung als Phase 9.1 in der ROADMAP — das ist nicht geschehen; die
-      SUMMARY von Plan 09-04 erklärt REQ-19 stattdessen uneingeschränkt für "abgeschlossen (behoben)".
-    artifacts:
-      - path: "server/src/scripts/validateOvertimeDetailed.ts"
-        issue: "Zeile 492: eigene SQL-Abfrage klassifiziert overtime_comp weiterhin als Saldo-Gutschrift — identische Fehlklassifikation wie die in Plan 09-04 behobene H1-Ursache, hier nicht mitgezogen."
-      - path: "server/src/services/overtimeTransactionService.ts"
-        issue: "overtime_transactions erhält für reguläre Zeiteinträge keine 'earned'-Buchungen — die Transaktions-Validierung des Werkzeugs kann dadurch für keinen der drei Prüfnutzer bestehen, unabhängig von overtime_comp."
-    missing:
-      - "validateOvertimeDetailed.ts:492 auf denselben Maßstab ziehen wie unifiedOvertimeService.ts (overtime_comp aus der Credit-Liste entfernen) — oder begründen, warum das Werkzeug bewusst eine andere Fachlogik prüft."
-      - "Entscheidung nach D2 für den 'Earned-Transactions-fehlen'-Befund: entweder in Phase 9 beheben oder als Phase 9.1 in ROADMAP.md (Phasenübersicht-Tabelle UND Abdeckungstabelle) verankern, wie es das eigene Entscheidungsschema von Plan 09-04 für unbehobene Fälle vorschreibt."
-      - "Erfolgskriterium 3 der ROADMAP entweder durch einen tatsächlich abweichungsfreien Lauf belegen, oder ausdrücklich als bewusst offen dokumentieren (analog zur Behandlung von REQ-19 in D2)."
-human_verification: []
+re_verification:
+  previous_status: gaps_found
+  previous_score: 8/9
+  gaps_closed:
+    - "`npm run validate:overtime:detailed` läuft für die drei Prüfnutzer ohne Abweichungsmeldung (ROADMAP-Erfolgskriterium 3) — Monatsend-Off-by-one in `overtimeTransactionRebuildService.ts` und `overtimeService.ts` behoben, mit Vorher/Nachher-Beleg gegen eine Wegwerfkopie (`09-ABSCHLUSS-NACHWEIS.md`)"
+    - "CR-01 (Code-Review-Blocker): `overtimeLiveCalculationService.ts` kreditierte `overtime_comp` auf dem aktiven Lesepfad `GET /transactions/live` weiterhin wie `vacation`/`sick` — jetzt behoben, mit vier neuen Tests abgesichert"
+    - "Bei der Planung neu gefundener aktiver Schreibpfad `overtimeService.ts:1331` (`ensureAbsenceTransactions()`, hinter `GET /transactions/monthly-summary`) schrieb bei einem Lesezugriff eine positive `overtime_comp_credit`-Zeile — jetzt behoben"
+    - "D2 korrekt angewendet: Phase 9.1 in ROADMAP.md (Phasenübersicht-Tabelle + eigener Abschnitt) und REQUIREMENTS.md (Abdeckungstabelle, `9 → 9.1`) verankert — kein dritter Ausgang mehr offen"
+  gaps_remaining: []
+  regressions: []
 ---
 
-# Phase 9: Ein Maßstab, ein Weg — Verifikationsbericht
+# Phase 9: Ein Maßstab, ein Weg — Re-Verifikationsbericht (nach Lückenschluss 09-05)
 
 **Phase-Ziel:** Vor dem ersten Umbau steht fest, dass alle Überstundenzahlen aus derselben Quelle
 kommen. Kein Fundament mit Riss.
-**Verifiziert:** 2026-08-21T21:57:22Z
-**Status:** gaps_found
-**Re-Verifikation:** Nein — Erstverifikation
+**Verifiziert:** 2026-08-21T23:17:18Z
+**Status:** passed
+**Re-Verifikation:** Ja — nach Lückenschluss Plan 09-05 (Reaktion auf `gaps_found` aus dem ersten
+Durchgang)
 
 ## Zusammenfassung
 
-Phase 9 hat echte, gut belegte Arbeit geleistet: Ein vollständiges Fundstellen-Inventar (23
-Zeilen), ein neues, technisch abgesichertes Vergleichswerkzeug (`validate:overtime:paths`) mit
-funktionierendem Produktions-Guard, die Beseitigung eines realen Produktionsfehlers
-(`fix-overtime.ts`, Abweichung A-1, live gegen eine reale Nutzerin mit `workSchedule`
-nachgewiesen), die Entfernung von fünf Wochenend-Vorfiltern im Legacy-Pfad, und die Behebung des
-REQ-19-Kernbefunds (`overtime_comp` neutralisierte bisher den Ausgleichstag statt den Saldo zu
-senken) — alles mit Vorher/Nachher-Zahlen statt Behauptungen, alles bei eigener Nachprüfung im
-Code bestätigt.
+Der erste Durchgang hatte einen offenen dritten Ausgang gefunden: Erfolgskriterium 3 der ROADMAP
+(`npm run validate:overtime:detailed` läuft für die drei Prüfnutzer ohne Abweichungsmeldung)
+schlug bei allen drei Prüfnutzern fehl, und dieser Fund war weder behoben noch nach D2 als
+eigene Phase verankert. Plan 09-05 hat daraufhin die Kreditierungsregel vollständig gezählt
+(zwölf statt der ursprünglich vermuteten vier Fundstellen), die beiden verbleibenden aktiven
+Kopien geschlossen (Live-Lesepfad `overtimeLiveCalculationService.ts`, Schreibpfad
+`overtimeService.ts:ensureAbsenceTransactions()`), die eigentliche Ursache des
+Kriterium-3-Fehlschlags gefunden (ein Zeitzonen-Off-by-one, der den letzten Kalendertag jedes
+Monats aus dem Transaktionsjournal ausschloss — nicht die zuvor vermuteten „fehlenden
+Earned-Buchungen"), diesen Fehler im Code behoben und D2 korrekt angewendet: Der Codefix ist
+abgeschlossen und belegt, der notwendige Backfill der bereits gespeicherten Produktionsdaten ist
+als Phase 9.1 in ROADMAP.md und REQUIREMENTS.md verankert (kein dritter Ausgang mehr offen).
 
-Das dritte ROADMAP-Erfolgskriterium — `npm run validate:overtime:detailed` läuft für die drei
-Prüfnutzer ohne Abweichungsmeldung — ist jedoch bei einem eigenständigen Lauf gegen den aktuellen
-Codestand für **alle drei** Prüfnutzer fehlgeschlagen. Das war der explizit zu prüfende Punkt
-dieses Auftrags, und der Befund bestätigt sich: Der Mismatch, den Plan 09-02 bereits vor jeder
-Codeänderung gemeldet hatte, besteht nach Abschluss aller vier Pläne unverändert fort.
+Bei eigenständiger Prüfung (Quellcode gelesen, `npx tsc --noEmit` erneut ausgeführt, `npx vitest
+run` erneut ausgeführt, D5-Kanarientest erneut ausgeführt) sind alle Behauptungen aus der
+09-05-SUMMARY bestätigt. Die einzige verbleibende Einschränkung — die im Folgenden ausführlich
+begründet ist — betrifft die Lesart von Erfolgskriterium 3 gegenüber den bereits in einer
+Datenbank gespeicherten (nicht neu aufgebauten) Journalzeilen.
 
 ## Goal Achievement
 
-### Observable Truths
+### Observable Truths — ROADMAP-Erfolgskriterien
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | Dashboard und Berichte zeigen für denselben Nutzer/Monat denselben Überstundenwert — an ≥3 realen Nutzern geprüft | ✓ VERIFIED | Eigener Lauf `cd server && npm run validate:overtime:paths -- --from=../.planning/phases/09-ein-ma-stab-ein-weg/09-PRUEFNUTZER.csv` (21.08.2026, Commit 0caf530): Exit 0, alle fünf Wege (`unified`, `dashboard`, `report_summary`, `report_daily`, `balance_row`) stimmen für Karin Jochem (2), Benedikt Jochem (16), Carmen Rothemund (17) exakt überein. Zusätzlich dokumentiert in `09-VERGLEICH-BEFUND.md` und `09-ANGLEICHUNG-NACHWEIS.md` mit Vorher/Nachher-Werten. |
-| 2 | Ein genehmigter `overtime_comp`-Antrag reduziert den Überstundensaldo, oder die Abweichung ist mit Grund dokumentiert | ✓ VERIFIED | Code gelesen: `unifiedOvertimeService.ts:335-353` (`getAbsenceCredit`) — `overtime_comp` explizit aus der Credit-Liste entfernt, mit Verweis auf REQ-19/09-REQ19-BEFUND.md im Kommentar. Eigener Lauf bestätigt: Carmen Rothemund (17), Monat 2026-04 — Überstundensaldo `-3.83h` (vorher, saldoneutral) → `-7.83h` (jetzt), exakt die 4h Sollstunden des Ausgleichstags. `09-REQ19-BEFUND.md` (276 Zeilen) belegt Reproduktion, drei geprüfte Hypothesen (H1 bestätigt als Ursache, H2/H3 bestätigt als Nebeneffekt) und den Fix in zwei Services mit Begründung, warum beide nötig waren. |
-| 3 | `npm run validate:overtime:detailed` läuft für diese Nutzer ohne Abweichungsmeldung | ✗ FAILED | Eigener Lauf für alle drei Prüfnutzer (21.08.2026, Commit 0caf530): userId 2 → `❌ TRANSACTION MISMATCH: -5.00h`; userId 16 → `❌ TRANSACTION MISMATCH: -1.25h`; userId 17 → `❌ DATABASE MISMATCH: +4.00h` UND `❌ TRANSACTION MISMATCH: +0.59h`. Siehe Gap-Eintrag unten für Ursachenanalyse. |
+| 1 | Dashboard und Berichte zeigen für denselben Nutzer/Monat denselben Überstundenwert — an ≥3 realen Nutzern geprüft | ✓ VERIFIED (unverändert seit Durchgang 1) | Durch Plan 09-05 nicht berührt. `09-ABSCHLUSS-NACHWEIS.md`, Abschnitt „NO REGRESSION" bestätigt erneut alle fünf Wege für alle drei Prüfnutzer nach dem Rebuild identisch (`-6,50h` / `-29,75h` / `-7,83h`). |
+| 2 | Ein genehmigter `overtime_comp`-Antrag reduziert den Überstundensaldo, oder die Abweichung ist mit Grund dokumentiert | ✓ VERIFIED (Kernmechanismus, jetzt auf allen zwölf Fundstellen konsistent) | Eigene Quellcode-Prüfung: `unifiedOvertimeService.ts:336-357` (kanonisch, unverändert), `overtimeTransactionRebuildService.ts` (behoben in 09-04), `overtimeLiveCalculationService.ts:154-183,247-351` (CR-01, jetzt: `overtimeCompDates`-Menge, negative `earned`-Buchung statt Gutschrift, `hours = (type==='unpaid'\|\|type==='overtime_comp') ? 0 : targetHours`), `overtimeService.ts` (`ensureAbsenceTransactions()` und `ensureAbsenceTransactionsForMonth()`: `type IN ('vacation','sick','special','unpaid')` — `overtime_comp` aus der WHERE-Klausel entfernt, kein `case 'overtime_comp'` mehr im switch). Alle vier Fundstellen selbst gelesen und bestätigt. |
+| 3 | `npm run validate:overtime:detailed` läuft für diese Nutzer ohne Abweichungsmeldung | ✓ VERIFIED — **bedingt: nach einem Rebuild des Transaktionsjournals** | Siehe ausführliche Begründung unten. Eigenständig nachvollzogen: Ursache war ein Zeitzonen-Off-by-one (`new Date(month + '-01')` parst als UTC statt lokal), nicht „fehlende Earned-Buchungen" (Fehldeutung im ersten Durchgang). Fix in `overtimeTransactionRebuildService.ts:66-67` und `overtimeService.ts` gelesen und bestätigt (lokale Datumszerlegung, exakt nach Vorbild `unifiedOvertimeService.ts:156-157`). D5-Kanarientest eigenständig wiederholt (`DATABASE_PATH=/home/ubuntu/databases/production.db npx tsx src/scripts/validateOvertimeDetailed.ts --userId=2 --month=2026-07` → Exit 2, kein Dateizugriff). |
 
-**Score:** 2/3 ROADMAP-Erfolgskriterien direkt verifiziert; 6 weitere abgeleitete Must-Haves (unten) verifiziert.
+**Score:** 2/3 unbedingt verifiziert, 1/3 mit dokumentierter Bedingung verifiziert — 3/3
+Erfolgskriterien insgesamt erfüllt.
 
-### Weitere Must-Haves (REQ-17/18/19, D1–D5, Phasenumfang)
+#### Begründung zu Truth 3 — die gewählte Lesart und warum
+
+Der Befund selbst ist eindeutig und wurde vom Orchestrator bereits eigenständig gemessen: Auf den
+**vorhandenen** Journalzeilen einer Kopie von `development.db` meldet das Werkzeug für userId 2
+weiterhin `TRANSACTION MISMATCH -5.00h`; **nach** `npm run fill:transactions` (das transitiv
+`ensureDailyOvertimeTransactions()` — die in Task 2 korrigierte Funktion — durchläuft) meldet es
+für alle drei Prüfnutzer `✅ Database validation: PASSED` und `✅ Transaction validation: PASSED`.
+Beide Aussagen sind wahr; die Frage ist, welche für den Abschluss der Phase zählt.
+
+**Gewählte Lesart: erfüllt, mit Rebuild als dokumentierter Voraussetzung.** Begründung:
+
+1. Die Rechenlogik ist nachweislich korrekt — nicht nur behauptet. Der Fehler war ein
+   Zeitzonen-Off-by-one in der Journal-**Erzeugung**, keine falsche Kreditierungsregel. Nach
+   jedem Neuaufbau (Rebuild) stimmt das Journal für alle drei Prüfnutzer exakt mit der
+   berechneten Überstundensumme überein (`09-ABSCHLUSS-NACHWEIS.md`, Vorher/Nachher-Belege,
+   eigenständig nachvollzogen).
+2. Ein Nachtrag der bereits gespeicherten, veralteten Journalzeilen in der echten
+   Produktionsdatenbank ist ein Schreibzugriff auf Bestandsdaten — genau der Produktionszugriff,
+   den D5 in `09-CONTEXT.md` für Phase 9 ausdrücklich verbietet. Die Phase kann diesen Backfill
+   nicht durchführen, ohne ihre eigene Leitplanke zu brechen.
+3. D2 sieht für genau diesen Fall — ein Befund, der über eine reine Codeänderung hinausgeht —
+   die Verankerung als eigene Phase vor, „kein dritter Ausgang". Plan 09-05 hat das getan: Phase
+   9.1 steht in `.planning/ROADMAP.md` an der Phasenübersicht-Tabelle (`:26`) **und** als eigener
+   Abschnitt (`:84-152`, eigenständig gelesen und bestätigt) sowie in `.planning/REQUIREMENTS.md`
+   in der Abdeckungstabelle (`REQ-19 … 9 → 9.1`, `:166`) mit erklärendem Absatz (`:184-189`,
+   ebenfalls gelesen). Dieser Absatz benennt den Rebuild-Vorbehalt wörtlich: „Offen bleibt
+   ausschließlich der Backfill der bereits gespeicherten, unvollständigen
+   `overtime_transactions`-Journalzeilen in der Produktionsdatenbank — der Codefix repariert nur
+   künftige Rebuilds, nicht Bestandsdaten."
+4. Dies unterscheidet sich fundamental vom Befund des ersten Durchgangs: Dort hatte Plan 09-04
+   REQ-19 uneingeschränkt für „abgeschlossen" erklärt, ohne den fortbestehenden Mismatch zu
+   erwähnen oder D2 anzuwenden — das war der eigentliche Blocker. Plan 09-05 wendet D2 jetzt
+   korrekt an und verschweigt den Vorbehalt nicht, sondern dokumentiert ihn an drei Stellen
+   (ROADMAP, REQUIREMENTS, `09-ABSCHLUSS-NACHWEIS.md`) wörtlich und unübersehbar.
+
+**Was das für einen Anwender bedeutet, der das Werkzeug morgen startet:** Ein Lauf von
+`npm run validate:overtime:detailed` gegen die **unveränderte** Produktionsdatenbank (oder eine
+unveränderte Kopie von `development.db`) zeigt für die drei Prüfnutzer weiterhin eine
+Transaktions-Abweichung, bis für den jeweiligen Nutzer/Monat ein Rebuild (`fill:transactions`
+oder `rebuildOvertimeTransactionsForMonth()`) gelaufen ist. Das ist kein verstecktes Detail — es
+ist der explizite Auftrag von Phase 9.1 („Journal-Backfill und Betriebs-Härtung",
+`.planning/ROADMAP.md:84`), deren erstes Erfolgskriterium genau das verlangt: „Nach dem Backfill
+zeigt `npm run validate:overtime:detailed` für eine Stichprobe realer Nutzer/Monate … keine
+Transaktions-Abweichung mehr — **gegen die echte Produktionsdatenbank**." Phase 9 hat also nicht
+weniger geliefert, als sie nach D2/D5 liefern durfte; der Rest ist bewusst, sauber und an der
+richtigen Stelle verschoben, nicht verschwiegen.
+
+### Weitere Must-Haves (aus `09-05-PLAN.md` must_haves, Lückenschluss-spezifisch)
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 4 | REQ-17: Kein Produktivpfad berechnet Soll-Arbeitszeit mehr an `getDailyTargetHours()` vorbei | ✓ VERIFIED | `09-INVENTAR-SOLLSTUNDEN.md` (334 Zeilen, 23 klassifizierte Fundstellen). Ursprünglich 1 Abweichung (A-1, `fix-overtime.ts`) plus 1 funktional gleicher Fund in `overtimeLiveCalculationService.ts` — beide in Plan 09-03 behoben. Eigene Prüfung: `grep -n "isWeekend" server/src/services/overtimeService.ts` → leer; `grep "weeklyHours / 5" server/scripts/fix-overtime.ts` → nur im Kommentar (historische Erklärung); `export function getAllWorkingDaysBetween` ruft `getDailyTargetHours(user` auf. Einschränkung: `validateOvertimeDetailed.ts` wurde im Inventar bewusst als "kein Produktivpfad" ausgeschlossen (nicht über Route/Cron erreichbar) — dieselbe Datei ist aber das in Erfolgskriterium 3 namentlich genannte Abnahmewerkzeug und enthält nachweislich noch eine abweichende Logik (siehe Gap). |
-| 5 | REQ-18: Legacy-Pfad `overtimeService.ts` angeglichen, nicht stillgelegt (D1) | ✓ VERIFIED | `grep -c "^export" server/src/services/overtimeService.ts` unverändert bei 16 Exporten (Plan-Vorgabe). `updateMonthlyOvertime` delegiert weiter an `unifiedOvertimeService.calculateMonthlyOvertime`. Fünf Wochenend-/Feiertags-Vorfilter entfernt, `getDailyTargetHours()` bleibt einzige Instanz. `09-ANGLEICHUNG-NACHWEIS.md` (156 Zeilen) mit Belegkette und Exit-Codes. |
-| 6 | REQ-19: Bekannter Defekt behoben oder bewusst dokumentiert offen — kein dritter Ausgang (D2) | ✓ VERIFIED (Kernbefund) — siehe jedoch Gap zu Kriterium 3 | Zweig A gewählt und umgesetzt: `unifiedOvertimeService.ts` + `overtimeTransactionRebuildService.ts` geändert, TDD-Test in `unifiedOvertimeService.test.ts`, Reproduktionsskript zeigt Exit 1→0. `deferred-items.md` (52 Zeilen) dokumentiert einen pre-existierenden, unabhängigen Nebenbefund (targetHours-Diskrepanz in `overtimeTransactionRebuildService.ts`, per Gegenprobe als nicht selbst verursacht verifiziert). Der in dieser Verifikation neu bestätigte Fortbestand der `validate:overtime:detailed`-Mismatches wurde NICHT als Phase 9.1 verankert, obwohl D2 dafür "kein dritter Ausgang" vorschreibt. |
-| 7 | Vier offene Debug-Sessions gesichtet und zugeordnet | ✓ VERIFIED | `09-DEBUG-SICHTUNG.md` (237 Zeilen). Alle vier Sessions (`carmen-rothemund-overtime-analysis`, `overtime-compensation-workschedule-bug`, `overtime-validation-backend-mismatch`, `OVERTIME-FIX-PLAN`) mit Status, Zeilenbeleg und Nachfolgeplan. Zwei zurückgestellte Sessions (`unpaid-leave-logic-issues`, `notifications-position-column-missing`) korrekt als außerhalb des Milestones vermerkt. |
-| 8 | D5 — kein Produktionsschreibzugriff, technisch erzwungen | ✓ VERIFIED | Eigener Kanarientest wiederholt: `DATABASE_PATH="$PWD/.tmp-guardcheck2/production.db" npx tsx src/scripts/compareOvertimePaths.ts --userId=1 --month=2026-01` → Exit 2, kein Verzeichnis angelegt (`test -e .tmp-guardcheck2` negativ). Guard sitzt nachweislich vor jedem Import eines schreibenden Service-Moduls. |
-| 9 | Inventar als dauerhaftes, wiederverwendbares Artefakt für Phase 11/14 | ✓ VERIFIED | `09-INVENTAR-SOLLSTUNDEN.md` existiert eigenständig im Phasenverzeichnis, nicht nur im SUMMARY. `09-VERGLEICH-BASELINE.json` und `09-ANGLEICHUNG-BASELINE.json` liegen als JSON-Grundlinien vor, mit `--json=<pfad>` reproduzierbar. |
+| 4 | Die Anzahl der Stellen, die `overtime_comp` wie `vacation`/`sick` kreditieren, ist gezählt und einzeln klassifiziert — nicht angenommen | ✓ VERIFIED | `09-INVENTAR-KREDITIERUNG.md` (218 Zeilen), vier dokumentierte Suchläufe mit Rohtrefferzahl, zwölf Fundstellen einzeln klassifiziert (1 kanonisch, 4 behoben 09-04, 5 in diesem Plan korrigiert, 2 bewusst unverändert mit Begründung). Eigenständig gelesen, Begründungen für die zwei unveränderten Stellen (`verifyTestData.ts:121`, toter Code `_calculateAbsenceCreditsForMonth`) nachvollziehbar und belegt (`grep`-Befehle im Dokument selbst nachvollzogen). |
+| 5 | `GET /api/overtime/transactions/live` zeigt keine positive Gutschrift mehr für einen Ausgleichstag; Summe widerspricht `currentBalance` nicht | ✓ VERIFIED | Quellcode gelesen: `overtimeLiveCalculationService.ts:154-183` (neue `overtimeCompDates`-Menge), `:247-256` (Schritt 4, Ausnahme für `overtime_comp`), `:325-351` (Schritt 5, `hours = 0` für `overtime_comp`/`unpaid`). Vier neue Tests in `overtimeLiveCalculationService.test.ts:139-240` (`describe('… REQ-19/CR-01 overtime_comp')`) gelesen und bestätigt, dass sie den Fall tatsächlich prüfen (keine -4h `time_entry`-Buchung, keine `overtime_comp_credit`-Buchung ≠ 0). |
+| 6 | `GET /api/overtime/transactions/monthly-summary` schreibt keine positive `overtime_comp_credit`-Buchung mehr | ✓ VERIFIED | `overtimeService.ts`, `ensureAbsenceTransactions()` (ab `:1257`) und `ensureAbsenceTransactionsForMonth()` (ab `:224`): beide WHERE-Klauseln `type IN ('vacation','sick','special','unpaid')`, kein `case 'overtime_comp'` mehr, `recordOvertimeCompCredit` bewusst nicht mehr importiert (Kommentarbeleg `:14-20`). Beide Fundstellen vollständig gelesen. |
+| 7 | `validate:overtime:detailed` und `validate:overtime` klassifizieren `overtime_comp` genauso wie `unifiedOvertimeService.getAbsenceCredit()` | ✓ VERIFIED | `validateOvertimeDetailed.ts:544-556`: `type IN ('vacation','sick','special')`, `overtime_comp` entfernt, `special` ergänzt. `time_entry`→`earned`-Mapping (`:828`) korrigiert die im ersten Durchgang fehlgedeutete „0 Earned-Buchungen"-Anzeige. |
+| 8 | `validate:overtime:detailed` liest `DATABASE_PATH` statt fest verdrahtetem Pfad, verweigert Produktionspfad | ✓ VERIFIED | Eigener Kanarientest wiederholt: `DATABASE_PATH=/home/ubuntu/databases/production.db npx tsx src/scripts/validateOvertimeDetailed.ts --userId=2 --month=2026-07` → Exit 2, Meldung „Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md)". Guard (`assertNotProduction()`) sitzt vor jedem `await import(...)`, kombinierter Vergleich (Pfadgleichheit + `NODE_ENV` + Substring-Fallback), Begründung für den Substring-Fallback im Kommentar (`getProductionDatabasePath()` löst strukturell nicht den realen Produktionspfad auf). Alle vier Werkzeuge (`validateOvertimeDetailed.ts`, `validateOvertimeCalculation.ts`, `compareOvertimePaths.ts`, `reproduceOvertimeCompDefect.ts`) tragen denselben Guard — per `grep` bestätigt. |
+| 9 | `rebuildOvertimeTransactionsForMonth()` erfasst den letzten Kalendertag des Monats | ✓ VERIFIED | `overtimeTransactionRebuildService.ts:66-77`: lokale Zerlegung `split('-').map(Number)` → `new Date(jahr, monat, tag)` statt `new Date(month + '-01')`. Ausführlicher Kommentar erklärt die UTC/lokal-Diskrepanz korrekt. Vier neue Tests in `overtimeTransactionRebuildService.test.ts` (Sommer-/Wintermonat, `targetHours`-Konsistenz, Regression). |
+| 10 | Für userId 2/16/17 ist mit Ausgabe belegt, ob `validate:overtime:detailed` abweichungsfrei läuft — und wenn nicht, Rest als Phase 9.1 in der ROADMAP | ✓ VERIFIED | `09-ABSCHLUSS-NACHWEIS.md` enthält für alle drei Nutzer wörtliche Vorher/Nachher-Ausgabe inkl. „VALIDATION STATUS". Phase 9.1 an allen drei vorgeschriebenen Stellen verankert (siehe Truth 3). |
+| 11 | Für Nutzer ohne `workSchedule` und ohne `overtime_comp`-Antrag ändert sich keine Zahl | ✓ VERIFIED | `npx vitest run` eigenständig wiederholt: 218/221 bestanden, exakt dieselben drei vorbestehenden Fehlschläge (`unifiedOvertimeService.test.ts` ×2, `vacationBackfillService.test.ts` ×1) wie vor Plan 09-05 — keine Regression. `grep -n "isWeekend" overtimeService.ts overtimeLiveCalculationService.ts` liefert keinen Treffer (kein wiedereingeführter Vorfilter). |
 
-### Required Artifacts
+**Score:** 8/8 Lückenschluss-Must-Haves verifiziert.
+
+### Vorher offene Punkte aus dem Code-Review (`09-REVIEW.md`) — Status nach Lückenschluss
+
+| Befund | Status | Beleg |
+|---|---|---|
+| CR-01 (Blocker): `overtimeLiveCalculationService.ts` kreditiert `overtime_comp` auf aktivem Lesepfad | ✓ Geschlossen | Siehe Truth 5 oben — Quellcode gelesen, vier Tests bestehen. |
+| Neu bei der Planung von 09-05 gefunden: Schreibpfad `overtimeService.ts:1331` (`ensureAbsenceTransactions()`) | ✓ Geschlossen | Siehe Truth 6 oben. |
+| WR-01: `toISOString()`-Zeitzonenfehler in `reproduceOvertimeCompDefect.ts` | ✓ Geschlossen | `grep -n "toISOString" src/scripts/reproduceOvertimeCompDefect.ts` — kein Treffer mehr; `formatDate(new Date(yy, mm, 0), 'yyyy-MM-dd')` an der Stelle (`:193`) bestätigt. |
+| WR-02: Fehlende Tests für `overtimeService.ts`/`overtimeTransactionRebuildService.ts` | ⚠ Teilweise geschlossen, Rest dokumentiert offen | Beide Dateien haben jetzt Testdateien (4 Tests je Datei, eigenständig gezählt und gelesen). „WR-02 Restumfang" (weitere Servicefunktionen ohne Tests) explizit in ROADMAP Phase 9.1 verankert — kein stiller Rest. |
+| WR-03: `fix-overtime.ts` löst Schema-Init gegen Produktion aus; kein `busy_timeout` | ✓ Abschließend bewertet, Restpunkt verankert | `09-ABSCHLUSS-NACHWEIS.md`: gemessen (`PRAGMA table_info(users)`, `notnull=0` → Migrationszweig inert), Wechsel auf geteilte Verbindung als Nettoverbesserung bewertet. `busy_timeout`-Lücke (`grep -rn "busy_timeout" server/src` — kein Treffer, eigenständig bestätigt) explizit in ROADMAP Phase 9.1 verankert. |
+| WR-04: `server/scripts/**` ungetypt | ⚠ Nicht behoben, in Phase 9.1 verankert | `.planning/ROADMAP.md:84`-Abschnitt „Phase 9.1", Umfangspunkt „WR-04". |
+| WR-05: `fix-overtime.ts` ohne Fehlerisolierung pro Nutzer | ⚠ Nicht behoben, in Phase 9.1 verankert | Ebenda, Umfangspunkt „WR-05". |
+| WR-06: Heuristischer Produktionsschutz (Substring statt Pfadvergleich) | ✓ Geschlossen | Alle vier Werkzeuge nutzen jetzt `path.resolve(getDatabasePath()) === path.resolve(getProductionDatabasePath())` als primären Vergleich (per `grep` in allen vier Dateien bestätigt), Substring bleibt als zusätzlicher, begründeter Fallback erhalten. |
+| WR-07: Fixture-abhängiger Feiertagstest | ⚠ Nicht behoben, in Phase 9.1 verankert | Ebenda, Umfangspunkt „WR-07". |
+
+Kein Befund aus dem Review wurde stillschweigend fallengelassen — jeder ist entweder im
+Quellcode geschlossen oder namentlich in der ROADMAP als Phase-9.1-Umfang verankert.
+
+### Required Artifacts (Lückenschluss)
 
 | Artifact | Erwartet | Status | Details |
 |---|---|---|---|
-| `09-INVENTAR-SOLLSTUNDEN.md` | Vollständiges Fundstellen-Inventar | ✓ VERIFIED | 334 Zeilen, 23 Fundstellen, Urteil REQ-17 aktualisiert |
-| `09-DEBUG-SICHTUNG.md` | Sichtung der vier Debug-Sessions | ✓ VERIFIED | 237 Zeilen |
-| `server/src/scripts/overtimePathComparison.ts` + `.test.ts` | Reine Vergleichslogik + Tests | ✓ VERIFIED | `npx vitest run src/scripts/overtimePathComparison.test.ts` läuft (Teil der 206/209 grünen Gesamtsuite) |
-| `server/src/scripts/compareOvertimePaths.ts` | CLI mit Produktions-Guard | ✓ VERIFIED | Guard eigenständig erneut getestet (Exit 2, kein Dateizugriff) |
-| `09-PRUEFNUTZER.md`/`.csv` | Drei reale Prüfnutzer nach D4 | ✓ VERIFIED | userId 2/16/17, konsistent über alle vier Pläne verwendet |
-| `09-VERGLEICH-BEFUND.md` | Erstbefund vor Codeänderung | ✓ VERIFIED | 155 Zeilen, dokumentiert bereits den TRANSACTION-MISMATCH-Befund |
-| `server/scripts/fix-overtime.ts` (A-1-Fix) | Kanonischer Weg statt Bypass | ✓ VERIFIED | Importiert `ensureOvertimeBalanceEntries` aus `overtimeService.ts`, kein `weeklyHours / 5`-Bypass mehr im Code |
-| `09-A1-NACHWEIS.md` | Vorher/Nachher-Beleg A-1 | ✓ VERIFIED | 246 Zeilen |
-| `server/src/scripts/reproduceOvertimeCompDefect.ts` | Reproduktion REQ-19 | ✓ VERIFIED | Guard-Muster identisch zu `compareOvertimePaths.ts` |
-| `09-REQ19-BEFUND.md` | Ursache + D2-Entscheidung | ✓ VERIFIED | 276 Zeilen, H1/H2/H3 geprüft, Zweig A begründet |
-| `deferred-items.md` | Zurückgestellte Nebenbefunde | ✓ VERIFIED | 52 Zeilen — enthält jedoch NICHT den hier gefundenen `validate:overtime:detailed`-Mismatch |
+| `09-INVENTAR-KREDITIERUNG.md` | Vollzähliges, klassifiziertes Inventar | ✓ VERIFIED | 218 Zeilen, zwölf Fundstellen, Suchläufe mit Rohtreffern, Urteilsabschnitt |
+| `09-ABSCHLUSS-NACHWEIS.md` | Kriterium-3-Belege, D2-Entscheidung, WR-03-Bewertung | ✓ VERIFIED | 405 Zeilen, wörtliche Vorher/Nachher-Ausgabe für alle drei Nutzer, Ursachenkorrektur, `deferred-items.md`-Auflösung, G5-Einordnung |
+| `server/src/services/overtimeService.test.ts` | Regressionstest Schreibpfad | ✓ VERIFIED | Existiert, 4 Testfälle, Teil der grünen Gesamtsuite |
+| `server/src/services/overtimeTransactionRebuildService.test.ts` | Regressionstest Monatsende | ✓ VERIFIED | Existiert, 4 Testfälle, Teil der grünen Gesamtsuite |
+| `deferred-items.md` | Auflösung des zurückgestellten 36h-Befunds | ✓ VERIFIED | Abschnitt „AUFLÖSUNG (09-05, Task 4)" — Ursache identifiziert, Verweis auf Phase 9.1 für den Restpunkt |
+| `.planning/ROADMAP.md` | Phase 9.1 an drei Stellen | ✓ VERIFIED | Phasenübersicht-Tabelle (`:26`), eigener Abschnitt (`:84-152`) |
+| `.planning/REQUIREMENTS.md` | Abdeckungstabelle `9 → 9.1` | ✓ VERIFIED | `:166` (Tabelle), `:184-189` (erklärender Absatz) |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `overtimeLiveCalculationService.ts` | `workingDays.ts` | `getDailyTargetHours(user...)` | ✓ WIRED | 5 Aufrufstellen bestätigt |
-| `overtimeService.ts` | `unifiedOvertimeService.ts` | `updateMonthlyOvertime` → `calculateMonthlyOvertime` | ✓ WIRED | Bestätigt, unverändert |
-| `fix-overtime.ts` | `overtimeService.ts` | `ensureOvertimeBalanceEntries` Import | ✓ WIRED | Bestätigt im Quellcode |
-| `compareOvertimePaths.ts` / `reproduceOvertimeCompDefect.ts` | `database.ts`/`connection.ts` | Guard vor dynamischem Import | ✓ WIRED | Kanarientest bestanden |
-| `09-REQ19-BEFUND.md` | `ROADMAP.md` (Phase 9.1) | bei Zweig B | N/A | Zweig A gewählt — Phase 9.1 nicht erforderlich für REQ-19 selbst. Für den hier neu bestätigten Kriterium-3-Mismatch fehlt diese Verankerung jedoch (siehe Gap). |
+| `routes/overtime.ts` (`GET /transactions/live`) | `overtimeLiveCalculationService.ts` | `calculateLiveOvertimeTransactions()` | ✓ WIRED | Fix sitzt direkt in der aufgerufenen Funktion, kein Umweg |
+| `routes/overtime.ts` (`GET /transactions/monthly-summary`) | `overtimeService.ts` | `ensureDailyOvertimeTransactions()` → `ensureAbsenceTransactions()` | ✓ WIRED | Aufrufkette per `grep` erneut nachvollzogen (`:610`, `:781`, `:875`) |
+| `validateOvertimeDetailed.ts` | `config/database.ts` | `getDatabasePath()`/`getProductionDatabasePath()` | ✓ WIRED | Kanarientest bestanden (Exit 2) |
+| `09-05-PLAN.md`/`09-ABSCHLUSS-NACHWEIS.md` | `ROADMAP.md` (Phase 9.1) | D2-Verankerung | ✓ WIRED | Alle drei vorgeschriebenen Stellen bestätigt |
 
-### Behavioral Spot-Checks (eigenständig ausgeführt)
+### Behavioral Spot-Checks (eigenständig ausgeführt, unabhängig vom Orchestrator)
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Fünf-Wege-Vergleich für 3 reale Nutzer | `cd server && npm run validate:overtime:paths -- --from=...09-PRUEFNUTZER.csv` | Exit 0, alle Werte identisch | ✓ PASS |
-| Detailvalidierung Nutzer 2 | `cd server && npm run validate:overtime:detailed -- --userId=2 --month=2026-07` | `❌ TRANSACTION MISMATCH: -5.00h` | ✗ FAIL |
-| Detailvalidierung Nutzer 16 | `cd server && npm run validate:overtime:detailed -- --userId=16 --month=2026-07` | `❌ TRANSACTION MISMATCH: -1.25h` | ✗ FAIL |
-| Detailvalidierung Nutzer 17 | `cd server && npm run validate:overtime:detailed -- --userId=17 --month=2026-04` | `❌ DATABASE MISMATCH: +4.00h`, `❌ TRANSACTION MISMATCH: +0.59h` | ✗ FAIL |
-| Produktions-Guard (Kanarienpfad) | `DATABASE_PATH=.../production.db npx tsx compareOvertimePaths.ts` | Exit 2, kein Dateizugriff | ✓ PASS |
+| D5-Kanarientest gegen realen Produktionspfad | `DATABASE_PATH=/home/ubuntu/databases/production.db npx tsx src/scripts/validateOvertimeDetailed.ts --userId=2 --month=2026-07` | Exit 2, „Produktionsschreibzugriff verweigert" | ✓ PASS |
 | Typcheck Server | `cd server && npx tsc --noEmit` | keine Fehler | ✓ PASS |
-| Serversuite (Regressionsgrenze) | `cd server && npx vitest run` | 206/209 bestanden, dieselben 3 vorbestehenden Fehlschläge wie vor Phase 9 (unabhängig verifiziert, siehe `known_context` des Auftrags) | ✓ PASS (keine Regression) |
-
-**Hinweis zur Methodik:** Die Läufe gegen `validate:overtime:paths` und `validate:overtime:detailed`
-erfolgten direkt gegen `server/database/development.db` (nicht gegen eine Kopie), weil
-`validate:overtime:detailed` rein lesend ist und `validate:overtime:paths` — wie in den Plänen 09-02/
-09-04 selbst so vorgesehen und praktiziert — über `ensureOvertimeBalanceEntries()` lediglich
-`overtime_balance`-Zeilen auf den bereits im Code hinterlegten korrekten Stand bringt (Selbstheilung,
-kein experimenteller Zustand). Es wurden keine Migrationen, Löschungen oder sonstigen destruktiven
-Operationen ausgeführt.
+| Serversuite (Regressionsgrenze) | `cd server && npx vitest run` | 218/221 bestanden, exakt dieselben drei vorbestehenden Fehlschläge (`unifiedOvertimeService.test.ts` ×2, `vacationBackfillService.test.ts` ×1) | ✓ PASS (keine Regression) |
+| `toISOString()`-Entfernung | `grep -n "toISOString" src/scripts/reproduceOvertimeCompDefect.ts` | kein Treffer | ✓ PASS |
+| `isWeekend`-Vorfilter nicht wiedereingeführt | `grep -n "isWeekend" overtimeService.ts overtimeLiveCalculationService.ts` | kein Treffer | ✓ PASS |
+| `overtime_comp`-Kreditfilter in beiden Schreibpfaden entfernt | Quellcode gelesen (`overtimeService.ts:1257-1400`, `:224-390`) | `type IN ('vacation','sick','special','unpaid')`, kein `case 'overtime_comp'` | ✓ PASS |
 
 ### Requirements Coverage
 
 | Requirement | Quelle | Beschreibung | Status | Evidence |
 |---|---|---|---|---|
-| REQ-17 | 09-01, 09-03 | Genau ein Weg zur Sollstundenermittlung | ✓ SATISFIED | Inventar + Angleichung, siehe Truth 4 |
-| REQ-18 | 09-02, 09-03 | Legacy-Pfad angeglichen, übereinstimmende Werte | ✓ SATISFIED | Siehe Truth 1, 5 |
-| REQ-19 | 09-01, 09-04 | `overtime_comp`-Defekt behoben oder dokumentiert offen | ✓ SATISFIED (Kernmechanismus) | Siehe Truth 2, 6 — Erfolgskriterium 3 der ROADMAP bleibt trotzdem offen (siehe Gap) |
+| REQ-17 | 09-01, 09-03 | Genau ein Weg zur Sollstundenermittlung | ✓ SATISFIED | Unverändert seit Durchgang 1; kein wiedereingeführter Vorfilter in dieser Runde (Spot-Check oben) |
+| REQ-18 | 09-02, 09-03 | Legacy-Pfad angeglichen, übereinstimmende Werte | ✓ SATISFIED | Unverändert seit Durchgang 1, NO-REGRESSION-Nachweis erneut bestätigt |
+| REQ-19 | 09-01, 09-04, 09-05 | `overtime_comp`-Defekt behoben oder dokumentiert offen | ✓ SATISFIED (Kernmechanismus vollständig, Rest korrekt nach Phase 9.1 verankert) | Siehe Truth 2, 3, 4-11. `.planning/REQUIREMENTS.md:184-189` bestätigt dieselbe Einordnung. |
 
-Keine verwaisten Requirements gefunden (`grep "Phase 9" REQUIREMENTS.md` liefert nur Fließtext-Erwähnungen, keine zusätzlichen REQ-IDs).
+Keine verwaisten Requirements gefunden.
 
 ### Anti-Patterns Found
 
-Keine TBD/FIXME/XXX/TODO/HACK/PLACEHOLDER in den von Phase 9 geänderten Dateien
-(`overtimeLiveCalculationService.ts`, `overtimeService.ts`, `fix-overtime.ts`,
-`unifiedOvertimeService.ts`, `overtimeTransactionRebuildService.ts`, `compareOvertimePaths.ts`,
-`reproduceOvertimeCompDefect.ts`, `overtimePathComparison.ts`).
-
-Ein Befund außerhalb des Anti-Pattern-Scans, aber im Kern dieser Verifikation: Die von Plan 09-04
-korrigierte Fachlogik (H1: `overtime_comp` ist keine Saldo-Gutschrift) existiert unverändert ein
-drittes Mal in `server/src/scripts/validateOvertimeDetailed.ts:492` — nicht als Debt-Marker
-gekennzeichnet, sondern als stille, unkorrigierte Dublette. Das ist der eigentliche Grund, warum
-Erfolgskriterium 3 fehlschlägt.
+Keine TBD/FIXME/XXX/TODO/HACK/PLACEHOLDER in den von Plan 09-05 geänderten Dateien
+(`overtimeLiveCalculationService.ts`, `overtimeService.ts`, `overtimeTransactionRebuildService.ts`,
+`overtimeTransactionService.ts`, `validateOvertimeDetailed.ts`, `validateOvertimeCalculation.ts`,
+`reproduceOvertimeCompDefect.ts`, `compareOvertimePaths.ts`). Die Kommentare, die frühere Fixes
+referenzieren (`recordOvertimeCompCredit bewusst NICHT importiert`), sind Begründungen, keine
+Debt-Marker.
 
 ### Human Verification Required
 
-Keine. Auf ausdrückliche Anweisung sind UAT-/Sichtprüfungspunkte am Ende des Milestones gebündelt.
-Diese Phase ist rein serverseitig/analytisch; es gibt keine primär visuelle oder Echtzeit-Prüfung,
-die die Sachlichkeit dieser Phase blockieren würde. Der einzige Blocker ist maschinell verifizierbar
-und oben als Gap dokumentiert.
+Keine. Diese Phase ist rein serverseitig/analytisch; die Rebuild-Bedingung aus Truth 3 ist
+maschinell nachvollzogen (Vorher/Nachher-Ausgabe, D5-Kanarientest) und nicht visuell/subjektiv.
+Auf ausdrückliche Anweisung des Anwenders sind UAT-Punkte am Ende des Milestones gebündelt; diese
+Phase liefert keinen Punkt, der die Sachlichkeit ohne menschliche Prüfung blockieren würde.
 
 ### Gaps Summary
 
-Die Phase hat drei von vier inhaltlichen Aufgaben aus dem ROADMAP-Umfang vollständig und mit
-Nachweis erledigt (Inventar, Angleichung, REQ-19-Kernmechanismus). Das dritte ROADMAP-
-Erfolgskriterium — der abweichungsfreie Lauf von `npm run validate:overtime:detailed` für die drei
-Prüfnutzer — ist bei eigener Prüfung nicht erfüllt. Der Befund war Plan 09-02 bereits vor jeder
-Codeänderung bekannt und wurde in `09-VERGLEICH-BEFUND.md` korrekt als "kein Fixversuch — Gegenstand
-von Plan 09-04" vermerkt. Plan 09-04 hat jedoch nur den Teil des Defekts behoben, der die
-Saldo-Neutralisierung des Ausgleichstags selbst betrifft (H1), nicht den davon unabhängigen, bei
-allen drei Nutzern auftretenden Mismatch der Transaktions-Validierung (fehlende „Earned"-Buchungen)
-und nicht die im Diagnosewerkzeug selbst verbliebene Dublette der H1-Logik. Der eigene
-Entscheidungsrahmen der Phase (D2: „Entweder behoben und Nachweis geführt, oder Phase 9.1 in der
-ROADMAP — kein dritter Ausgang") wurde für diesen konkreten, noch offenen Teilbefund nicht
-angewendet — die SUMMARY von Plan 09-04 erklärt REQ-19 uneingeschränkt für abgeschlossen, ohne den
-fortbestehenden Mismatch im namentlich genannten Abnahmewerkzeug zu benennen.
-
-Dies ist kein Einwand gegen die Qualität der geleisteten Arbeit — die Angleichung (REQ-17/18) und
-der REQ-19-Kernfix sind sauber belegt und bei eigener Nachprüfung bestätigt. Es ist ein konkretes,
-noch offenes drittes Erfolgskriterium, das vor dem Abschluss der Phase entweder behoben oder nach
-dem eigenen D2-Verfahren als Phase 9.1 verankert werden muss.
+Keine. Der im ersten Durchgang gefundene dritte Ausgang (Erfolgskriterium 3 weder erfüllt noch
+nach D2 verankert) ist geschlossen: Die eigentliche Ursache (Zeitzonen-Off-by-one im
+Transaktionsjournal) ist gefunden, behoben und mit Vorher/Nachher-Beleg gegen eine Wegwerfkopie
+nachgewiesen; der verbleibende Rest — der Backfill bereits gespeicherter Produktionsdaten, den
+D5 in Phase 9 verbietet — ist korrekt und an allen vorgeschriebenen Stellen als Phase 9.1
+verankert. CR-01 und der bei der Planung neu gefundene Schreibpfad-Blocker sind geschlossen. Das
+Inventar weist zwölf statt der ursprünglich vier vermuteten Fundstellen nach, alle klassifiziert,
+alle erreichbaren Produktivpfade geschlossen. Keine Regression: `npx tsc --noEmit` fehlerfrei,
+`npx vitest run` zeigt unverändert dieselben drei vorbestehenden, dokumentierten Fehlschläge.
 
 ---
 
-_Verified: 2026-08-21T21:57:22Z_
+_Verified: 2026-08-21T23:17:18Z_
 _Verifier: Claude (gsd-verifier)_
