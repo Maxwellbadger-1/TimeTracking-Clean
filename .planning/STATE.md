@@ -130,9 +130,13 @@ See: .planning/PROJECT.md (updated 2026-08-21)
   über den Symlink `server/database.db` ohne gesetztes `DATABASE_PATH` — zwei Prozesse mit
   getrennten WAL/SHM auf einer Datei. Behoben: WAL/SHM in Quarantäne, `REINDEX`
   (`integrity_check: ok`), Cron deaktiviert. Details: `.planning/debug/db-stabilisierung-20260818.md`
+  **Richtigstellung 21.08.2026 (Phase 09-03):** Die Deaktivierung hielt nicht — `deploy-server.yml:123-130`
+  installiert den Cron bei jedem Deployment neu. Er trägt dort allerdings `DATABASE_PATH` bereits
+  gesetzt (`deploy-server.yml:125`), das WAL-Problem von damals ist damit entschärft.
 
-- **Offen daraus:** Staging-Sync (`Permission denied`), Cron-Reaktivierung mit `DATABASE_PATH`,
-  Symlink `server/database.db` auflösen, Quarantäne nach Bewährungszeit löschen.
+- **Offen daraus:** Staging-Sync (`Permission denied`), Symlink `server/database.db` auflösen,
+  Quarantäne nach Bewährungszeit löschen.
+  ~~Cron-Reaktivierung mit `DATABASE_PATH`~~ — erledigt sich von selbst, siehe Richtigstellung oben.
 
 ## Performance Metrics
 
