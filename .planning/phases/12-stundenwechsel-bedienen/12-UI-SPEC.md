@@ -1,12 +1,12 @@
 ---
 phase: 12
 slug: stundenwechsel-bedienen
-status: revised
+status: revised-2
 shadcn_initialized: false
 preset: none
 created: 2026-08-21
 revised: 2026-08-21
-revision: 2
+revision: 3
 ---
 
 # Phase 12 — UI Design Contract
@@ -18,11 +18,19 @@ revision: 2
 Erscheinungsbild. Dieses Dokument schreibt den Bestand fort. Wo ein Muster existiert, ist es
 gesetzt; jede Abweichung ist unten ausdrücklich begründet.
 
-**Revision 2 (21.08.2026).** Der `gsd-ui-checker` hat fünf blockierende Befunde erhoben. Sie sind
-in dieser Fassung behoben; die Änderungen stehen in den Abschnitten *Verschachtelte Modale und
-z-Ebenen*, *Änderungen an Bestandskomponenten*, *Zustände*, *Vorschau/`previewToken`* und
-*Barrierefreiheit*. Alle Zeilenangaben auf Bestandscode wurden am 21.08.2026 an den echten Dateien
-nachgeprüft (Zero-Hallucination-Policy, `.claude/CLAUDE.md`).
+**Revision 2 (21.08.2026).** Der `gsd-ui-checker` hat fünf blockierende Befunde erhoben (B1–B5).
+Sie sind behoben; die Änderungen stehen in den Abschnitten *Verschachtelte Modale und z-Ebenen*,
+*Änderungen an Bestandskomponenten*, *Zustände*, *Vorschau/`previewToken`* und *Barrierefreiheit*.
+
+**Revision 3 (21.08.2026, Frontmatter `status: revised-2`).** Durchgang 2 des Checkers hat B1–B5
+bestätigt und einen weiteren blockierenden Befund erhoben: **B6 — der verschachtelte Dialog liegt im
+`<form>` des `EditUserModal`, und `createPortal` unterbricht die React-Ereigniskette nicht.**
+Behoben in *Formulargrenzen im verschachtelten Baum* (Abschnitt 1) und Abschnitt 2. Zusätzlich
+eingearbeitet: Index-Guard in `popModal`, Abgrenzung zu `PrivacyPolicyModal`, der betroffene
+E2E-Test, korrigierte Zahlwörter bei den `console.log` und der Wertvergleich im Sync-Effekt.
+
+Alle Zeilenangaben auf Bestandscode wurden am 21.08.2026 an den echten Dateien nachgeprüft
+(Zero-Hallucination-Policy, `.claude/CLAUDE.md`).
 
 ---
 
@@ -344,6 +352,46 @@ Umsetzung von CONTEXT **D1**. Im Abschnitt „Arbeitszeit & Berechtigungen" änd
 - Darunter die **Periodenliste** (Abschnitt 4), getrennt durch
   `pt-6 border-t border-gray-200 dark:border-gray-700` — dasselbe Trennmuster, das
   `EditUserModal.tsx` bereits zwischen seinen Blöcken verwendet.
+#### Formulargrenzen im verschachtelten Baum — neu in Revision 3
+
+**Der Befund.** `EditUserModal.tsx` Zeile 168 öffnet `<form onSubmit={handleSubmit} className="space-y-6">`
+und schließt es erst in Zeile 336. Dieses eine Formular umschließt den **gesamten** Modalinhalt —
+also auch den Abschnitt „Arbeitszeit & Berechtigungen", in den diese Spec Hinweispanel,
+Einstiegs-Button und Periodenliste legt. `Button.tsx` setzt **kein** Default-`type` (Zeile 31:
+`<button ref={ref} className={classes} {...props}>`); ein `<button>` ohne `type` ist innerhalb eines
+Formulars per HTML-Standard `type="submit"`.
+
+**`createPortal` hilft hier nicht.** Ein Portal verlagert nur den DOM-Knoten. Ereignisse
+propagieren weiterhin entlang des **React-Baums**, nicht des DOM-Baums. Würde
+`<WorkTimeChangeModal>` neben seinem auslösenden Button — also innerhalb des äußeren `<form>` —
+gerendert, erreichten `submit` und `click` aus dem portalierten Dialog trotzdem
+`EditUserModal.handleSubmit`. Enter im Feld „Stichtag" oder ein Klick auf „Stundenwechsel speichern"
+würde `updateUser.mutateAsync(...)` auslösen und über `onClose()` (`EditUserModal.tsx` Zeile 126–132)
+das äußere Modal samt darin hängendem Wechsel-Dialog schließen — exakt der Verlust des offenen
+Formulars, mit dem diese Spec die Verschachtelung überhaupt begründet.
+
+**Drei Festlegungen, alle verbindlich:**
+
+1. **Renderort.** `<WorkTimeChangeModal>` wird **außerhalb** des `<form>`-Elements gerendert: als
+   Geschwister **nach** `</form>` (Zeile 336), weiterhin innerhalb der Kinder von `Modal`. Damit
+   liegt der Dialog auch im React-Baum außerhalb des Formulars, und die Ereigniskette kann
+   `handleSubmit` gar nicht erst erreichen. **Dasselbe gilt für jeden `ConfirmDialog`, der aus
+   diesem Baum geöffnet wird.** Der Renderort ist Teil des Vertrags, nicht Ermessen der Umsetzung.
+2. **Doppelte Absicherung im Dialog.** Der `onSubmit`-Handler des Wechsel-Dialogs ruft zusätzlich
+   zu `e.preventDefault()` auch `e.stopPropagation()`. Festlegung 1 macht das im Normalfall
+   überflüssig; die Zeile kostet nichts und fängt eine spätere Umstellung des Renderorts ab.
+3. **`type` ist überall ausdrücklich zu setzen.** Die Regel „`type="button"` ist zwingend" gilt für
+   **jeden** Button im verschachtelten Teilbaum — Einstiegs-Button, „Perioden erneut laden",
+   „Vorschau erneut berechnen", „Abbrechen", spätere Zeilenaktionen der Periodenliste und der Toggle
+   im `WorkScheduleEditor` (der ihn in Zeile 91 bereits trägt). Einzige Ausnahme: der Primärbutton
+   des Wechsel-Dialogs ist `type="submit"` — für **sein eigenes** Formular, das nach Festlegung 1
+   nicht mehr im äußeren steckt.
+
+`Button.tsx` bekommt **keinen** Default-`type`. Das wäre eine Änderung an einer Primitive, die in
+jedem Formular der App steckt, und würde bestehende Submit-Buttons stillschweigend entschärfen —
+eine Regression mit großer Reichweite für ein Problem, das an drei genau benannten Stellen lokal
+gelöst ist.
+
 - Der Absende-Pfad des Modals (`EditUserModal.tsx` Zeile 113–114) sendet `weeklyHours` und
   `workSchedule` weiterhin mit, aber unverändert aus `user` — nicht aus dem Formularzustand. So
   kann „Änderungen speichern" das Arbeitszeitmodell nicht mehr still überschreiben.
@@ -420,7 +468,25 @@ bzw. `ConfirmDialog` bereits abgedeckt", war gegen den Quellcode falsch und ist 
 - `pushModal(id: symbol)` — hängt die Instanz oben an und setzt `document.body.style.overflow = 'hidden'`.
 - `popModal(id: symbol)` — entfernt genau diese Instanz (`lastIndexOf` + `splice`, nicht `pop`) und
   setzt `document.body.style.overflow = 'unset'` **nur**, wenn der Stack danach leer ist.
+  **Index-Guard ist Pflicht:** `const i = stack.lastIndexOf(id); if (i === -1) return;` — bei einer
+  unbekannten `id` liefert `lastIndexOf` `-1`, und `splice(-1, 1)` entfernt in JavaScript den
+  **letzten** Eintrag, also den eines fremden Modals. Der Stack bliebe dann dauerhaft nicht leer und
+  `document.body.style.overflow` bis zum Neustart auf `'hidden'` stehen. Heute ist dieser Fehler
+  unmöglich, weil `Modal.tsx` Zeile 30 bedingungslos auf `'unset'` zurücksetzt — der Stack führt
+  die Möglichkeit also neu ein und muss sie selbst schließen.
 - `isTopModal(id: symbol): boolean` — wahr, wenn die Instanz das oberste Element ist.
+
+**Die Instanz-`id` ist stabil.** Sie wird als `const idRef = useRef(Symbol('modal'))` gehalten und
+nie neu erzeugt. Zwingend, weil `isTopModal(id)` im Render-Scope ausgewertet wird (Fokusfalle,
+Fokusring) und eine bei jedem Render neue `id` weder wiedergefunden noch abgemeldet werden könnte.
+
+**Fremder Schreiber auf demselben Global — bewusst nicht eingebunden.**
+`desktop/src/components/privacy/PrivacyPolicyModal.tsx` setzt `document.body.style.overflow` in
+Zeile 27 und 31 unabhängig vom Stack und ist in `App.tsx` Zeile 190 montiert. Er **nimmt nicht am
+Stack teil**: Das Datenschutz-Gate läuft vor jeder Bedienung der Anwendung, eine Überlappung mit
+einem Stack-Modal ist ausgeschlossen. Schlösse er dennoch, während ein Stack-Modal offen ist, käme
+das Scrollen hinter dem Modal zurück — ein rein kosmetischer Effekt in einem Zustand, den es nicht
+gibt. Die Datei wird von dieser Phase nicht angefasst.
 
 `Modal` **und** `ConfirmDialog` nehmen am selben Stack teil. Verbindliche Regeln für beide:
 
@@ -472,6 +538,10 @@ Ort für Perioden-UI, obwohl dort nur Stammdaten wohnen.
 - `<Modal size="lg" zIndexClass="z-[60]" title="Stundenwechsel: {Vorname} {Nachname}">`
   → `max-w-2xl` (`Modal.tsx` Zeile 39), gleiche Breite wie `EditUserModal` und
   `OvertimeCorrectionModal`.
+- Der Dialog wird **außerhalb** des `<form>` von `EditUserModal` gerendert (Abschnitt 1,
+  *Formulargrenzen im verschachtelten Baum*). Sein eigener `onSubmit`-Handler ruft
+  `e.preventDefault()` **und** `e.stopPropagation()`. Jeder Button außer dem Primärbutton trägt
+  ausdrücklich `type="button"`.
 - Innen ein `<form className="space-y-6">`, Struktur exakt nach dem Vorbild
   `OvertimeCorrectionModal.tsx`:
 
@@ -638,14 +708,14 @@ Vollständige Liste. Alles darüber hinaus bleibt unangetastet.
 |-------|----------|---------------|
 | `desktop/src/components/ui/Modal.tsx` | **(1)** Overlay über `createPortal(…, document.body)` rendern. **(2)** `transform` aus Zeile 59 entfernen (`transition-all` bleibt). **(3)** Neue optionale Prop `zIndexClass?: string`, Default `'z-50'`, auf Zeile 44. **(4)** Teilnahme am Modal-Stack: `pushModal`/`popModal`/`isTopModal`; Registrierung an `isOpen` gebunden, Effekt-Abhängigkeit nur `[isOpen]`, `onClose` über `useRef`. **(5)** ESC schließt nur, wenn die Instanz oberste ist. **(6)** `role="dialog" aria-modal="true" aria-labelledby`, Fokusfalle, Fokusrückgabe auf das zuvor fokussierte Element. **(7)** `aria-label="Close modal"` (Zeile 73) → `"Dialog schließen"`. | Kein bestehender Aufrufer übergibt `zIndexClass` → alle bleiben auf `z-50`. Das Overlay ist bereits `fixed inset-0`, sein Aussehen hängt nicht am DOM-Ort; keine CSS-Regel im Projekt selektiert es über seine Baumposition. `transform` erzeugt heute die Identitätstransformation, das Entfernen ist visuell folgenlos. Der Stack ersetzt das unbedingte `overflow = 'unset'` durch ein bedingtes — bei nur einem offenen Modal (dem heutigen Normalfall) ist das Verhalten identisch. ESC-Verhalten bei einem einzelnen Modal unverändert. Fokusfalle und Rollen sind reine Ergänzungen. Der `aria-label`-Text ist unsichtbar und war zuvor als einziger Text der Komponente englisch. |
 | `desktop/src/components/ui/ConfirmDialog.tsx` | **(1)** Overlay über `createPortal(…, document.body)` (Zeile 53–86). **(2)** Neue optionale Prop `zIndexClass?: string`, Default `'z-50'`, auf Zeile 54. **(3)** Teilnahme am selben Modal-Stack, inkl. ESC = Abbrechen für die oberste Instanz — die Komponente hat heute **gar keine** ESC-Behandlung. Die Hooks stehen **oberhalb** von `if (!isOpen) return null;` (Zeile 32). **(4)** `role="dialog" aria-modal="true"`, Fokusfalle, Fokusrückgabe. **(5)** X-Button (Zeile 64–69) bekommt `aria-label="Abbrechen"` — er hat heute keinen zugänglichen Namen. **(6)** Die beiden `console.log`-Aufrufe in Zeile 35 und 41 werden entfernt. | Kein bestehender Aufrufer übergibt `zIndexClass` → alle bleiben auf `z-50`. Portal ändert die Darstellung nicht (`fixed inset-0`). ESC ist neu und schließt nur die oberste Instanz — kein Bestandsverhalten geht verloren, weil es keines gab. `aria-label` ist unsichtbar. Die `console.log`-Zeilen verstoßen gegen die Pre-Commit-Regel in `.claude/CLAUDE.md` („Debug console.logs entfernt"); die Datei wird ohnehin angefasst. Die Prop-Signatur ist mit `13-UI-SPEC.md` abgestimmt. |
-| `desktop/src/pages/UserManagementPage.tsx` | Der lokale State hält nur noch die **ID**: `const [editingUserId, setEditingUserId] = useState<number \| null>(null)` (heute Zeile 38: `useState<User \| null>`). Das Objekt wird bei jedem Render aus der bestehenden Nutzerquery abgeleitet: `const editingUser = users?.find(u => u.id === editingUserId) ?? null;`. Zeile 464 `setEditingUser(user)` → `setEditingUserId(user.id)`. Zeile 523–527 bleiben in ihrer Form (`{editingUser && <EditUserModal … user={editingUser} />}`). **Zusätzlich:** die zehn `console.log`-Aufrufe im Löschpfad (Zeile 128–131, 139, 147, 148, 152, 153) werden entfernt. | Rein lokale Zustandsführung derselben Seite, keine Prop- oder Signaturänderung nach außen. `EditUserModal` bekommt weiterhin ein vollständiges `User`-Objekt. Verschwindet der Nutzer aus der Liste (Löschung), liefert `find` `undefined`, das Modal schließt und `editingUserId` wird zurückgesetzt — das ist in genau diesem Fall auch das richtige Verhalten. Die `console.log`-Entfernung ist reines Streichen von Debugausgaben ohne Steuerfluss; `.claude/CLAUDE.md` führt „Debug console.logs entfernt" als Pre-Commit-Quality-Gate (Zeile 629) und „`console.log` in Production → Entfernen vor Commit" als Verbot (Zeile 571). Die Ausgaben schreiben Nutzer-ID, Nutzername und die ID des angemeldeten Admins in die Browser-Konsole — in einer Personalverwaltung ist das nicht nur unsauber. **`console.error` in Zeile 155–156 und `console.warn` in Zeile 134 bleiben stehen:** das sind Fehler- bzw. Guard-Pfade, keine Debugausgaben. |
+| `desktop/src/pages/UserManagementPage.tsx` | Der lokale State hält nur noch die **ID**: `const [editingUserId, setEditingUserId] = useState<number \| null>(null)` (heute Zeile 38: `useState<User \| null>`). Das Objekt wird bei jedem Render aus der bestehenden Nutzerquery abgeleitet: `const editingUser = users?.find(u => u.id === editingUserId) ?? null;`. Zeile 464 `setEditingUser(user)` → `setEditingUserId(user.id)`. Zeile 523–527 bleiben in ihrer Form (`{editingUser && <EditUserModal … user={editingUser} />}`). **Zusätzlich:** die neun `console.log`-Aufrufe im Löschpfad (Zeile 128–131, 139, 147, 148, 152, 153) werden entfernt. | Rein lokale Zustandsführung derselben Seite, keine Prop- oder Signaturänderung nach außen. `EditUserModal` bekommt weiterhin ein vollständiges `User`-Objekt. Verschwindet der Nutzer aus der Liste (Löschung), liefert `find` `undefined`, das Modal schließt und `editingUserId` wird zurückgesetzt — das ist in genau diesem Fall auch das richtige Verhalten. Die `console.log`-Entfernung ist reines Streichen von Debugausgaben ohne Steuerfluss; `.claude/CLAUDE.md` führt „Debug console.logs entfernt" als Pre-Commit-Quality-Gate (Zeile 629) und „`console.log` in Production → Entfernen vor Commit" als Verbot (Zeile 571). Die Ausgaben schreiben Nutzer-ID, Nutzername und die ID des angemeldeten Admins in die Browser-Konsole — in einer Personalverwaltung ist das nicht nur unsauber. **`console.error` in Zeile 155–156 und `console.warn` in Zeile 134 bleiben stehen:** das sind Fehler- bzw. Guard-Pfade, keine Debugausgaben. |
 | `desktop/src/components/users/WorkScheduleEditor.tsx` | **(1)** Neue optionale Prop `readOnly?: boolean` (Default `false`): setzt `disabled` auf den Toggle (Zeile 90) und auf alle Tagesfelder (Zeile 127) und ergänzt dort die Kontrastklassen `disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:text-gray-600 dark:disabled:text-gray-400 disabled:cursor-not-allowed` — **kein `opacity`**. **(2)** `grid grid-cols-2 gap-3` (Zeile 110) → `grid grid-cols-1 sm:grid-cols-2 gap-3`. | `readOnly` ist optional mit Default `false`; jeder bestehende Aufruf (`EditUserModal.tsx` Zeile 274–277) verhält sich unverändert. Die `disabled:`-Klassen wirken ausschließlich im neuen Zustand. Der Breakpoint verbessert die Darstellung unterhalb 640 px und ändert oberhalb davon nichts. |
 
 ### B. Fachlich erweiterte Bestandskomponenten (in Abschnitt 1 und 5 beschrieben)
 
 | Datei | Änderung | Warum additiv |
 |-------|----------|---------------|
-| `desktop/src/components/users/EditUserModal.tsx` | Wochenstundenfeld schreibgeschützt, `WorkScheduleEditor` mit `readOnly`, Hinweispanel mit Einstiegs-Button, Periodenliste, Dialogsteuerung, Erfolgsbanner. Zusätzlich: der Reset-Effekt (Zeile 41–54) bekommt als Abhängigkeit **`[user.id]` statt `[user]`**, und ein zweiter, schmaler Effekt synchronisiert **nur** `weeklyHours` und `workSchedule`, wenn sich diese beiden Werte in `user` ändern. **Zusätzlich:** die fünf `console.log`-Aufrufe im Absende-Pfad (Zeile 103–106 und 123) werden entfernt. | Sonst wäre der B4-Fix ein Rückschritt: `user` ist nach der Umstellung auf die abgeleitete Query bei jedem Refetch ein **neues Objekt**; ein Effekt mit `[user]` würde dann alle Formularfelder — auch die vom Admin gerade getippten Namen und E-Mail-Adressen — zurücksetzen. `[user.id]` behält das heutige Verhalten (Reset nur beim Nutzerwechsel). Der schmale Sync-Effekt betrifft ausschließlich die beiden Felder, die in dieser Phase schreibgeschützt sind — dort kann er keine Eingabe zerstören. Die `console.log`-Entfernung ändert keinen Steuerfluss und verletzt kein Verhalten; sie erfüllt das Pre-Commit-Quality-Gate „Debug console.logs entfernt" (`.claude/CLAUDE.md` Zeile 629) und das Verbot in Zeile 571. Der Block gibt heute Nutzer-ID, Eintritts- und Austrittsdatum sowie das vollständige `updateData`-Objekt — inklusive E-Mail, Abteilung und Position — in die Browser-Konsole aus. **`console.error` in Zeile 134 bleibt stehen:** das ist Fehlerbehandlung, keine Debugausgabe. |
+| `desktop/src/components/users/EditUserModal.tsx` | Wochenstundenfeld schreibgeschützt, `WorkScheduleEditor` mit `readOnly`, Hinweispanel mit Einstiegs-Button, Periodenliste, Dialogsteuerung, Erfolgsbanner. Zusätzlich: der Reset-Effekt (Zeile 41–54) bekommt als Abhängigkeit **`[user.id]` statt `[user]`**, und ein zweiter, schmaler Effekt synchronisiert **nur** `weeklyHours` und `workSchedule`, wenn sich diese beiden Werte in `user` ändern. Der Sync-Effekt vergleicht **Werte, nicht Objektidentitäten**: Abhängigkeit ist `user.weeklyHours` zusammen mit einer stabilen Serialisierung von `user.workSchedule`, nicht das Objekt selbst. **Zusätzlich:** die fünf `console.log`-Aufrufe im Absende-Pfad (Zeile 103–106 und 123) werden entfernt. | Sonst wäre der B4-Fix ein Rückschritt: `user` ist nach der Umstellung auf die abgeleitete Query bei jedem Refetch ein **neues Objekt**; ein Effekt mit `[user]` würde dann alle Formularfelder — auch die vom Admin gerade getippten Namen und E-Mail-Adressen — zurücksetzen. `[user.id]` behält das heutige Verhalten (Reset nur beim Nutzerwechsel). Der schmale Sync-Effekt betrifft ausschließlich die beiden Felder, die in dieser Phase schreibgeschützt sind — dort kann er keine Eingabe zerstören. Der Wertvergleich ist trotzdem Pflicht: `user.workSchedule` ist ein Objekt und wechselt bei jedem Refetch die Identität, der Effekt liefe also bei jedem Refetch mit. In Phase 12 wäre das folgenlos, in Phase 13 — dort ist der Editor wieder bedienbar — nicht mehr. Der Vertrag soll nicht darauf bauen, dass die Folgephase daran denkt. Die `console.log`-Entfernung ändert keinen Steuerfluss und verletzt kein Verhalten; sie erfüllt das Pre-Commit-Quality-Gate „Debug console.logs entfernt" (`.claude/CLAUDE.md` Zeile 629) und das Verbot in Zeile 571. Der Block gibt heute Nutzer-ID, Eintritts- und Austrittsdatum sowie das vollständige `updateData`-Objekt — inklusive E-Mail, Abteilung und Position — in die Browser-Konsole aus. **`console.error` in Zeile 134 bleibt stehen:** das ist Fehlerbehandlung, keine Debugausgabe. |
 | `desktop/src/components/worktime/OvertimeTransactions.tsx` | Typ `model_change` in `getTypeLabel`, `getTypeDescription`, `getTypeBadgeColor`; zweite Beschreibungszeile mit Periodenbezug. | Nur neue Zweige in bestehenden Zuordnungsfunktionen; kein bestehender Typ ändert sein Aussehen. |
 
 ### C. Neue Dateien
@@ -656,10 +726,41 @@ Vollständige Liste. Alles darüber hinaus bleibt unangetastet.
 | `desktop/src/components/worktime/WorkTimeChangeModal.tsx` | Der Wechsel-Dialog (Abschnitt 2) |
 | `desktop/src/components/worktime/WorkTimePeriodList.tsx` | Die Periodenliste (Abschnitt 4) |
 
+### D. Testbestand — eine Datei
+
+Der Schreibschutz auf dem Feld „Wochenstunden" bricht genau **eine** Zusicherung im E2E-Bestand.
+Die Datei gehört damit in diese Liste; „additiv" ohne geprüften Testbestand wäre eine unbelegte
+Behauptung.
+
+| Datei | Änderung | Art |
+|-------|----------|-----|
+| `desktop/tests/user-edit.spec.ts` | Der Test **„Change employee to 0 hours (critical bug fix test)"** (Zeile 85–115) füllt in Zeile 104 `[name="weeklyHours"]` mit `'0'`, **innerhalb** des Bearbeiten-Dialogs (Zeile 102 wartet auf `text=Benutzer bearbeiten:`). Gegen ein `readOnly`-Feld schlägt `page.fill()` hart fehl. Der Test wird so umgeschrieben, dass die Umstellung auf 0 h über den neuen Wechsel-Dialog läuft — fachlich ist genau dorthin die Aktion gewandert. In **demselben** Test wird zusätzlich der Selektor `button[aria-label="Bearbeiten"]` (Zeile 101) durch `button:has-text("Bearbeiten")` ersetzt, weil er sonst schon vorher scheitert. | verhaltensgleich in der Absicht, neuer Bedienweg |
+
+**Geprüfter Umfang (21.08.2026), damit die Abgrenzung belegt ist:**
+
+- In `user-edit.spec.ts` füllen sieben weitere Stellen `[name="weeklyHours"]` (Zeile 32, 64, 94,
+  125, 172, 211, 243). Alle liegen **vor** `page.click('button:has-text("Benutzer erstellen")')`,
+  also im `CreateUserModal`. Dort bleibt das Feld bedienbar — `readOnly` gilt ausschließlich im
+  `EditUserModal`. Kein Anpassungsbedarf.
+- `edge-cases.spec.ts` und `user-creation.spec.ts` füllen `weeklyHours` ausnahmslos im
+  Anlege-Dialog. Kein Anpassungsbedarf.
+- Der Test „Switch from individual workSchedule to normal hours" greift in Zeile 146–153 im
+  Bearbeiten-Dialog auf `input[type="checkbox"]` zu. Ein solches Element existiert im
+  `WorkScheduleEditor` nicht (der Toggle ist ein `<button>`, Zeile 90); der Zugriff steht hinter
+  `if (await checkbox.count() > 0)` und ist ein toter Zweig. Die neue `readOnly`-Prop bricht ihn
+  daher nicht.
+
+**Vorbestehender Mangel, ausdrücklich nicht Gegenstand dieser Phase:** `user-edit.spec.ts` greift an
+**acht** Stellen auf `button[aria-label="Bearbeiten"]` zu. Dieses Attribut existiert nicht —
+`UserManagementPage.tsx` Zeile 461–467 rendert `<Button size="sm" variant="ghost">Bearbeiten</Button>`
+ohne `aria-label`. Die Datei ist also bereits vor Zeile 104 rot, unabhängig von dieser Phase.
+Repariert wird der Selektor nur in dem einen Test, der ohnehin umgeschrieben wird; die übrigen
+sieben Vorkommen bleiben stehen und sind als eigener Defekt zu führen. **Kein Aufräumfeldzug.**
+
 **Debugausgaben — abschließende Regelung.** In den Dateien, die diese Phase ohnehin verändert, wird
 **jeder** `console.log` entfernt: `ConfirmDialog.tsx` Zeile 35 und 41 (2), `EditUserModal.tsx`
-Zeile 103–106 und 123 (5), `UserManagementPage.tsx` Zeile 128–131, 139, 147, 148, 152 und 153 (10)
-— zusammen **17 Aufrufe**. `Modal.tsx`, `WorkScheduleEditor.tsx` und `OvertimeTransactions.tsx`
+Zeile 103–106 und 123 (5), `UserManagementPage.tsx` Zeile 128–131, 139, 147, 148, 152 und 153 (9)
+— zusammen **16 Aufrufe**. `Modal.tsx`, `WorkScheduleEditor.tsx` und `OvertimeTransactions.tsx`
 enthalten keine (geprüft am 21.08.2026). `console.error` (`EditUserModal.tsx` Zeile 134,
 `UserManagementPage.tsx` Zeile 155–156) und `console.warn` (`UserManagementPage.tsx` Zeile 134)
 bleiben unangetastet — Fehler- und Guard-Pfade sind keine Debugausgaben.
@@ -796,8 +897,8 @@ Alle verwendeten Bausteine sind bestehende Projektkomponenten oder bereits insta
 | `ROADMAP.md` Phase 12 | Erfolgskriterien → Zustände 6/7, Zeitraumsatz, Journalzeile |
 | `13-UI-SPEC.md` (nur gelesen) | Abgestimmte Prop-Signatur `zIndexClass?: string` (Default `'z-50'`) für `Modal` **und** `ConfirmDialog` · z-Ebenen-Regel 50/60/70 |
 | `.claude/CLAUDE.md` | Dark Mode Pflicht · responsive Breakpoints · Loading/Error States · `universalFetch` · Verbot von `toISOString().split('T')[0]` · TypeScript strict, kein `any` · keine `console.log` in Produktion · Zero-Hallucination-Policy für die Zeilenangaben |
-| Codebestand (verifiziert 21.08.2026) | `Modal.tsx` Zeile 15–32/44/48/53/59/65/73 · `ConfirmDialog.tsx` Zeile 9/32/35/41/54/64–69 · `Input.tsx` Zeile 13/18/26/29/34/36–37/41/44 · `WorkScheduleEditor.tsx` Zeile 90/95/110/127/146/151/161 · `EditUserModal.tsx` Zeile 26/41–54/103–106/113–114/123/138–159/197/216/238/249/274–277/280 · `UserManagementPage.tsx` Zeile 38/128–131/134/139/147–148/152–153/155–156/464/523–527 · kein `createPortal` in `desktop/src` · `desktop/package.json` Zeile 38 (react 19.1.0), Zeile 65 (tailwindcss 3.4.1) |
-| Vom Orchestrator entschieden | shadcn nicht initialisieren · `readOnly` statt `disabled`, ohne `tabIndex={-1}`, mit `!`-Hover-Overrides beim Aufrufer statt Zweig in `Input.tsx` · verschachtelte Modale über `createPortal` **plus** Entfernen von `transform` · `zIndexClass` in `Modal` **und** `ConfirmDialog` · Modal-Stack statt Zähler, an `isOpen` gebunden · Fokusrückgabe und Fokusfalle · `UserManagementPage` hält nur die ID, `EditUserModal`-Reset auf `[user.id]` · Speichern nicht an die Periodenliste gekoppelt, dazu Button „Perioden erneut laden" · eigener grauer Zustand 8 „nichts zu tun" · `previewToken` bindet vier Felder ohne Begründung, zustandslos, 15 Minuten, synchrones Verwerfen, Ausgang nach dem zweiten Fehlschlag · Zeichenzähler als „Noch {n} Zeichen" · Ablage der neuen Komponenten unter `worktime/` · Teal für das Modellwechsel-Badge · Stichtag ohne Vorbelegung · Mindestlänge 10 Zeichen für die Begründung · `renderActions`-Schnitt der Periodenliste für Phase 13 · Sortierung der Periodenliste absteigend · `grid-cols-1 sm:grid-cols-2` im `WorkScheduleEditor` · alle 17 `console.log` in den ohnehin veränderten Dateien entfernen (`ConfirmDialog.tsx`, `EditUserModal.tsx`, `UserManagementPage.tsx`), `console.error`/`console.warn` behalten, keine weiteren Dateien anfassen |
+| Codebestand (verifiziert 21.08.2026) | `Modal.tsx` Zeile 15–32/44/48/53/59/65/73 · `ConfirmDialog.tsx` Zeile 9/32/35/41/54/64–69 · `Input.tsx` Zeile 13/18/26/29/34/36–37/41/44 · `WorkScheduleEditor.tsx` Zeile 90/95/110/127/146/151/161 · `EditUserModal.tsx` Zeile 26/41–54/103–106/113–114/123/138–159/197/216/238/249/274–277/280 · `UserManagementPage.tsx` Zeile 38/128–131/134/139/147–148/152–153/155–156/464/523–527 · `Button.tsx` Zeile 31 (kein Default-`type`) · `EditUserModal.tsx` Zeile 168/336 (`<form>`-Grenzen) · `PrivacyPolicyModal.tsx` Zeile 27/31, `App.tsx` Zeile 190 · `desktop/tests/user-edit.spec.ts` Zeile 32/64/85–115/94/101/102/104/125/146–153/172/211/243 · kein `createPortal` in `desktop/src` · `desktop/package.json` Zeile 38 (react 19.1.0), Zeile 65 (tailwindcss 3.4.1) |
+| Vom Orchestrator entschieden | shadcn nicht initialisieren · `readOnly` statt `disabled`, ohne `tabIndex={-1}`, mit `!`-Hover-Overrides beim Aufrufer statt Zweig in `Input.tsx` · verschachtelte Modale über `createPortal` **plus** Entfernen von `transform` · `zIndexClass` in `Modal` **und** `ConfirmDialog` · Modal-Stack statt Zähler, an `isOpen` gebunden · Fokusrückgabe und Fokusfalle · `UserManagementPage` hält nur die ID, `EditUserModal`-Reset auf `[user.id]` · Speichern nicht an die Periodenliste gekoppelt, dazu Button „Perioden erneut laden" · eigener grauer Zustand 8 „nichts zu tun" · `previewToken` bindet vier Felder ohne Begründung, zustandslos, 15 Minuten, synchrones Verwerfen, Ausgang nach dem zweiten Fehlschlag · Zeichenzähler als „Noch {n} Zeichen" · Ablage der neuen Komponenten unter `worktime/` · Teal für das Modellwechsel-Badge · Stichtag ohne Vorbelegung · Mindestlänge 10 Zeichen für die Begründung · `renderActions`-Schnitt der Periodenliste für Phase 13 · Sortierung der Periodenliste absteigend · `grid-cols-1 sm:grid-cols-2` im `WorkScheduleEditor` · Wechsel-Dialog und `ConfirmDialog` außerhalb des `<form>` von `EditUserModal` rendern, `stopPropagation()` als zweite Sicherung, `type` an jedem Button ausdrücklich, **kein** Default-`type` in `Button.tsx` · Index-Guard in `popModal`, stabile Instanz-`id` über `useRef` · `PrivacyPolicyModal` nimmt nicht am Stack teil · genau ein E2E-Test wird umgeschrieben, der kaputte `aria-label`-Selektor nur dort repariert · alle 16 `console.log` in den ohnehin veränderten Dateien entfernen (`ConfirmDialog.tsx`, `EditUserModal.tsx`, `UserManagementPage.tsx`), `console.error`/`console.warn` behalten, keine weiteren Dateien anfassen |
 
 ---
 
@@ -809,6 +910,10 @@ Bearbeiten und Löschen von Perioden, Storno-Darstellung im Kontoauszug, die Akt
 `details`, `confirmDisabled` und `closeOnConfirm`. Vorbereitet ist ausschließlich der Schnitt:
 `renderActions` in der Periodenliste, `readOnly` im `WorkScheduleEditor`, `zIndexClass` in `Modal`
 und `ConfirmDialog`, der Modal-Stack und die freie `danger`-Buttonvariante.
+
+Ebenfalls nicht Teil: ein Default-`type` in `Button.tsx`, die Reparatur der sieben verbleibenden
+`button[aria-label="Bearbeiten"]`-Selektoren in `user-edit.spec.ts` und das Einbinden von
+`PrivacyPolicyModal.tsx` in den Modal-Stack. Alle drei sind oben mit Begründung abgegrenzt.
 
 Ebenfalls nicht Teil: Serverseitige Umsetzung. Dieses Dokument beschreibt den Vertrag, den die
 Oberfläche einhält, und die Daten, die sie vom Server erwartet — nicht deren Berechnung. Das gilt
@@ -826,6 +931,7 @@ an den Server festgehalten, die konkrete Signaturmethode ist Sache der Planung.
 | B3 — ESC schließt beide Modale, Fokusrückgabe fehlt | Abschnitt 1 → *Modal-Stack*; Abschnitt Barrierefreiheit; Änderungstabelle A, `Modal.tsx` (4)–(6) und `ConfirmDialog.tsx` (3)–(4) |
 | B4 — Zustand „Erfolg" nicht erreichbar (`editingUser` als Momentaufnahme) | Änderungstabelle A, `UserManagementPage.tsx`; Änderungstabelle B, `EditUserModal.tsx`; Zustand 15 |
 | B5 — Sackgasse bei Fehler der Periodenliste | Abschnitt 4; Zustand 2 und Zustand 10; Textbuch „Perioden erneut laden" |
+| B6 — verschachtelter Dialog im `<form>`, `createPortal` stoppt die React-Ereigniskette nicht | Abschnitt 1 → *Formulargrenzen im verschachtelten Baum* (Renderort außerhalb `</form>`, `stopPropagation()`, `type` überall ausdrücklich); Abschnitt 2, erster Aufzählungspunkt |
 
 ---
 
@@ -838,4 +944,4 @@ an den Server festgehalten, die konkrete Signaturmethode ist Sache der Planung.
 - [ ] Dimension 5 Spacing: PASS
 - [ ] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending (Revision 2 — erneute Prüfung erforderlich)
+**Approval:** pending (Revision 3 / `revised-2` — erneute Prüfung erforderlich)
