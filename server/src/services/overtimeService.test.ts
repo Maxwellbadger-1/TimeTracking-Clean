@@ -91,4 +91,25 @@ describe('ensureAbsenceTransactions — REQ-19 Schreibpfad', () => {
 
     expect(creditRows).toEqual([]);
   });
+
+  it('mehrtaegiger Urlaub bis zum letzten Kalendertag des Monats erhaelt eine Gutschrift auch fuer diesen letzten Tag (Monatsend-Off-by-one, Task 4)', async () => {
+    // Mittwoch 15.07.2026 bis Freitag 31.07.2026 (Monatsende) — beide Werktage, kein Feiertag.
+    // Wie im Rebuild-Dienst (overtimeTransactionRebuildService.ts) parst new Date(absence.startDate)
+    // ein ISO-Datum ohne Zeitanteil als UTC-Mitternacht; in Europe/Berlin (Sommerzeit) ist das
+    // 02:00 lokal. Weil absenceStart (aus absence.startDate abgeleitet) diesen Zeitanteil traegt,
+    // absenceEnd (haeufig aus dem korrekt lokal gebildeten effectiveEndDate) aber nicht, bricht
+    // die Tagesschleife einen Tag zu frueh ab, sobald eine Abwesenheit bis zum Monatsende reicht.
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(testUserId, 'vacation', '2026-07-15', '2026-07-31', 'approved', 13);
+
+    await ensureAbsenceTransactions(testUserId, '2026-07', '2026-07');
+
+    const creditRows = db.prepare(`
+      SELECT date FROM overtime_transactions WHERE userId = ? AND type = 'vacation_credit'
+    `).all(testUserId) as Array<{ date: string }>;
+
+    expect(creditRows.map(r => r.date)).toContain('2026-07-31');
+  });
 });

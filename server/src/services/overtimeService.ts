@@ -224,8 +224,14 @@ interface WeeklyOvertime {
 function ensureAbsenceTransactionsForMonth(userId: number, month: string): void {
   console.log(`\n  🔧 ensureAbsenceTransactionsForMonth(userId=${userId}, month=${month})`);
 
-  const monthStart = new Date(month + '-01');
-  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  // WR (Plan 09-05 Task 4, dieselbe Ursache wie overtimeTransactionRebuildService.ts und
+  // ensureAbsenceTransactions() oben): new Date(month + '-01') parst als UTC-Mitternacht
+  // statt lokal. Mitgezogen, obwohl diese Funktion unerreichbar ist (09-INVENTAR-
+  // KREDITIERUNG.md #8) — eine unerreichbare Kopie desselben Fehlers führt die nächste
+  // Untersuchung genauso in die Irre wie eine erreichbare.
+  const [year, monthNum] = month.split('-').map(Number);
+  const monthStart = new Date(year, monthNum - 1, 1);
+  const monthEnd = new Date(year, monthNum, 0);
 
   // Get user for workSchedule
   const user = getUserById(userId);
@@ -233,8 +239,10 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
     throw new Error('User not found');
   }
 
-  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(user.hireDate).getTime()));
-  const rangeEnd = new Date(Math.min(monthEnd.getTime(), new Date().getTime()));
+  const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
+  const hireDate = new Date(hYear, hMonth - 1, hDay);
+  const rangeStart = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
+  const rangeEnd = new Date(Math.min(monthEnd.getTime(), getCurrentDate().getTime()));
 
   const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
   const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
@@ -302,8 +310,12 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
   console.log(`    🔧 PHASE 1: Creating earned transactions for absence days (neutralization)...`);
 
   for (const absence of absences) {
-    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+    // WR (Plan 09-05 Task 4): lokale Zerlegung statt new Date(ISO-String) — siehe Guard-
+    // Kommentar am Funktionskopf.
+    const [asYear1, asMonth1, asDay1] = absence.startDate.split('-').map(Number);
+    const [aeYear1, aeMonth1, aeDay1] = absence.endDate.split('-').map(Number);
+    const absenceStart = new Date(Math.max(new Date(asYear1, asMonth1 - 1, asDay1).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(aeYear1, aeMonth1 - 1, aeDay1).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day of absence
     // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
@@ -339,8 +351,12 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
   console.log(`    🔧 PHASE 2: Creating credit transactions (neutralizes earned transactions)...`);
 
   for (const absence of absences) {
-    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
+    // WR (Plan 09-05 Task 4): lokale Zerlegung statt new Date(ISO-String) — siehe Guard-
+    // Kommentar am Funktionskopf.
+    const [asYear2, asMonth2, asDay2] = absence.startDate.split('-').map(Number);
+    const [aeYear2, aeMonth2, aeDay2] = absence.endDate.split('-').map(Number);
+    const absenceStart = new Date(Math.max(new Date(asYear2, asMonth2 - 1, asDay2).getTime(), rangeStart.getTime()));
+    const absenceEnd = new Date(Math.min(new Date(aeYear2, aeMonth2 - 1, aeDay2).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day
     // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
@@ -1262,7 +1278,12 @@ export async function ensureAbsenceTransactions(
   const effectiveEndDate = endDate > today ? today : endDate;
 
   // Don't go before hire date
-  const hireDate = new Date(user.hireDate);
+  // WR (Plan 09-05 Task 4, dieselbe Ursache wie overtimeTransactionRebuildService.ts):
+  // new Date(user.hireDate) parst den ISO-String ohne Zeitanteil als UTC-Mitternacht statt
+  // lokal — lokale Zerlegung wie bei startDate/endDate oben vermeidet den Zeitanteil-
+  // Mismatch, der weiter unten in der Tagesschleife sonst zum Off-by-one führt.
+  const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
+  const hireDate = new Date(hYear, hMonth - 1, hDay);
   const effectiveStartDate = startDate < hireDate ? hireDate : startDate;
 
   const effectiveStartStr = formatDate(effectiveStartDate, 'yyyy-MM-dd');
@@ -1305,8 +1326,20 @@ export async function ensureAbsenceTransactions(
   let transactionsSkipped = 0;
 
   for (const absence of absences) {
-    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), effectiveStartDate.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), effectiveEndDate.getTime()));
+    // WR, empirisch reproduziert (Plan 09-05 Task 4, overtimeService.test.ts "mehrtaegiger
+    // Urlaub bis zum letzten Kalendertag..."): new Date(absence.startDate)/new Date(absence.
+    // endDate) parsen als UTC-Mitternacht (Zeitanteil > 0 lokal), während effectiveStartDate/
+    // effectiveEndDate oben bereits lokal um 00:00 gebildet werden. Reicht eine Abwesenheit
+    // bis zum Monatsende, gewinnt effectiveEndDate (00:00) den Math.min gegen das
+    // zeitverschobene absence.endDate — absenceStart trägt dann einen Zeitanteil,
+    // absenceEnd nicht, und die Tagesschleife unten bricht einen Tag zu früh ab. Lokale
+    // Zerlegung wie überall in dieser Funktion behebt den Zeitanteil-Mismatch.
+    const [asYear, asMonth, asDay] = absence.startDate.split('-').map(Number);
+    const [aeYear, aeMonth, aeDay] = absence.endDate.split('-').map(Number);
+    const absenceStartRaw = new Date(asYear, asMonth - 1, asDay);
+    const absenceEndRaw = new Date(aeYear, aeMonth - 1, aeDay);
+    const absenceStart = new Date(Math.max(absenceStartRaw.getTime(), effectiveStartDate.getTime()));
+    const absenceEnd = new Date(Math.min(absenceEndRaw.getTime(), effectiveEndDate.getTime()));
 
     // Iterate through each day of absence
     // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft

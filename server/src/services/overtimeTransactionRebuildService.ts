@@ -64,10 +64,23 @@ export function rebuildOvertimeTransactionsForMonth(
     }
 
     // STEP 2: Determine calculation period
-    const monthStart = new Date(month + '-01');
-    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    //
+    // WR (09-INVENTAR-KREDITIERUNG.md, Plan 09-05 Task 4): new Date(month + '-01') parst
+    // ISO-Datumsstrings ohne Zeitanteil als UTC-Mitternacht — in Europe/Berlin also 02:00
+    // lokal im Sommer bzw. 01:00 im Winter. monthEnd wurde dagegen (korrekt) über
+    // new Date(jahr, monat, 0) lokal um 00:00 gebildet. Die Tagesschleife in
+    // collectDailyCalculations() (d <= endDate) brach dadurch einen Tag vor Monatsende ab,
+    // weil monthStart einen Zeitanteil > 0 trug, den jeder nachfolgende d.setDate(...)-Schritt
+    // beibehielt. Vorlage für die korrekte, rein lokale Bildung:
+    // unifiedOvertimeService.ts:156-157 (Monatsgrenzen) und :164-165 (hireDate) — beide
+    // zerlegen den ISO-String mit split('-').map(Number) statt ihn per new Date(String) zu
+    // parsen.
+    const [year, monthNum] = month.split('-').map(Number);
+    const monthStart = new Date(year, monthNum - 1, 1);
+    const monthEnd = new Date(year, monthNum, 0);
 
-    const hireDate = new Date(user.hireDate);
+    const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
+    const hireDate = new Date(hYear, hMonth - 1, hDay);
     const today = getCurrentDate();
 
     // Start = later of (month start, hire date)
