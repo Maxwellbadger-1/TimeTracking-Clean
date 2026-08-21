@@ -106,11 +106,14 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
 - Backfill des `overtime_transactions`-Journals über Bestandsdaten (alle Nutzer, alle
   Monate mit vollständig durchlaufenem Zeitraum), mit Generalprobe auf einer
   Produktionskopie vor jedem Schreibzugriff auf die echte Produktionsdatenbank
+
 - Härtung der Betriebsskripte aus `09-REVIEW.md`, die in Plan 09-05 bewusst nicht
   mitbehoben wurden:
+
   - **WR-05** — `server/scripts/fix-overtime.ts` hat keine Fehlerisolierung pro Nutzer
     (ein defekter Datensatz bricht den gesamten täglichen Cron-Lauf ab) und ruft
     `db.close()` im Fehlerpfad nicht auf
+
   - **WR-03 (Restpunkt)** — kein `busy_timeout`-Pragma im Projekt (`grep -rn
     "busy_timeout" server/src` liefert keinen Treffer, unabhängig in Plan 09-05 erneut
     bestätigt); ein täglicher Cron-Prozess und der Server-Prozess halten getrennte
@@ -118,10 +121,13 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
     `SQLITE_BUSY` fehl statt zu warten. Der Wechsel von `fix-overtime.ts` auf die geteilte
     Verbindung (Plan 09-03) ist dabei laut abschließender Bewertung in Plan 09-05 netto
     eine Verbesserung, kein neues Risiko — siehe `09-ABSCHLUSS-NACHWEIS.md`
+
   - **WR-04** — `server/scripts/**` ist von `tsconfig.json:26` ausgeschlossen und damit
     ungetypt (`../dist/`-Importe ohne `.d.ts` sind faktisch `any`)
+
   - **WR-02 (Restumfang)** — weitere Servicefunktionen ohne dedizierte Tests, über die in
     Plan 09-05 hinaus gefundenen Dateien hinaus
+
   - **WR-07** — `overtimeLiveCalculationService.test.ts:96-112` hängt von einem
     Feiertags-Fixture in `development.db` statt von einem selbst kontrollierten
     Setup/Teardown ab
@@ -131,8 +137,10 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
 - Nach dem Backfill zeigt `npm run validate:overtime:detailed` für eine Stichprobe realer
   Nutzer/Monate (mindestens die drei Prüfnutzer aus `09-PRUEFNUTZER.csv`, gegen die echte
   Produktionsdatenbank nach dem Backfill) keine Transaktions-Abweichung mehr
+
 - `fix-overtime.ts` verarbeitet einen einzelnen defekten Datensatz mit Fehlerprotokoll,
   ohne die übrige Belegschaft in diesem Lauf zu blockieren
+
 - Ein `PRAGMA busy_timeout` ist gesetzt und mit einem echten Nebenläufigkeitstest belegt
 - `server/scripts/**` läuft unter `tsc --noEmit`
 
