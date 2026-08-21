@@ -10,6 +10,7 @@ import { performYearEndRollover } from './yearEndRolloverService.js';
 import {
   getVacationTransactions,
   getVacationBalanceFromTransactions,
+  recordVacationTransaction,
 } from './vacationTransactionService.js';
 import { createAbsenceRequest, approveAbsenceRequest } from './absenceService.js';
 
@@ -187,8 +188,9 @@ describe('vacationBalanceService / yearEndRolloverService — Anspruch & Übertr
       expect(tx2).toHaveLength(1);
       expect(tx2[0].days).toBe(15);
 
-      // Zweiter Lauf: bestehende Konten werden übersprungen (if (existing) continue) —
-      // keine weitere, doppelte Anspruchsbuchung.
+      // Zweiter Lauf: bestehende Konten bekommen keinen zweiten Anspruch (kein Vorjahreskonto
+      // vorhanden → carryover bleibt 0, der Nachbuchungszweig aus Task 1/06-05 greift hier
+      // nicht) — keine weitere, doppelte Anspruchsbuchung.
       bulkInitializeVacationBalances(BULK_YEAR, adminId);
 
       const tx1Again = getVacationTransactions(user1, { year: BULK_YEAR });
@@ -268,5 +270,104 @@ describe('vacationBalanceService / yearEndRolloverService — Anspruch & Übertr
     // Das ist die Bedingung, auf der Phase 7 aufbaut: Journal-Saldo == entitlement +
     // carryover − taken. Kein zweiter, unabhängig gepflegter Wert darf abweichen.
     expect(journal).toBe(balance!.entitlement + balance!.carryover - balance!.taken);
+  });
+
+  it('7. CR-03/Gap 2: vorab angelegtes Folgejahreskonto bekommt beim echten Jahreswechsel den fehlenden Übertrag nachgebucht, idempotent', () => {
+    const PREV_YEAR = 2034;
+    const NEW_YEAR = 2035; // exklusiv für diesen Test, unabhängig von Test 8
+    const hireDate = '2020-01-01';
+    const userId = createTestUser({ vacationDaysPerYear: 25, hireDate });
+
+    try {
+      // Vorjahreskonto mit Rest von 20 Tagen (25 Anspruch − 5 genommen).
+      db.prepare(`
+        INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, PREV_YEAR, 25, 0, 5);
+
+      // Simuliert initializeVacationAccountsForNewUser: Konto fürs neue Jahr existiert
+      // bereits vor dem echten Jahreswechsel, carryover noch 0 (Planungsgröße).
+      db.prepare(`
+        INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, NEW_YEAR, 25, 0, 0);
+
+      bulkInitializeVacationBalances(NEW_YEAR, adminId);
+
+      const balance = getVacationBalance(userId, NEW_YEAR);
+      expect(balance?.carryover).toBe(20); // vorher 0 — nachgetragen
+      expect(balance?.entitlement).toBe(25); // unverändert, kein doppelter Anspruch
+
+      const txs = getVacationTransactions(userId, { year: NEW_YEAR });
+      const entitlementTxs = txs.filter((t) => t.type === 'entitlement');
+      const carryoverTxs = txs.filter((t) => t.type === 'carryover');
+      expect(entitlementTxs).toHaveLength(0); // Konto existierte schon, kein Anspruch nachgebucht
+      expect(carryoverTxs).toHaveLength(1);
+      expect(carryoverTxs[0].days).toBe(20);
+      expect(carryoverTxs[0].description).toContain(String(PREV_YEAR));
+
+      // Idempotenz: zweiter Lauf bucht den Übertrag nicht noch einmal.
+      bulkInitializeVacationBalances(NEW_YEAR, adminId);
+      const txsAgain = getVacationTransactions(userId, { year: NEW_YEAR });
+      const carryoverTxsAgain = txsAgain.filter((t) => t.type === 'carryover');
+      expect(carryoverTxsAgain).toHaveLength(1);
+    } finally {
+      db.prepare('DELETE FROM vacation_transactions WHERE year IN (?, ?)').run(PREV_YEAR, NEW_YEAR);
+      db.prepare('DELETE FROM vacation_balance WHERE year IN (?, ?)').run(PREV_YEAR, NEW_YEAR);
+    }
+  });
+
+  // Interaktions-Regressionstest, vom Plan-Checker verlangt (siehe 06-05-PLAN.md, <context>):
+  // sichert die Grenze der Idempotenz-Prüfung aus Task 1 ab. Sie verhindert Doppelbuchung,
+  // korrigiert aber niemals stillschweigend einen bereits gebuchten, historisch abweichenden
+  // Wert (exakt das Muster des echten Phase-7-Backfill-Datensatzes: eine bestehende
+  // carryover-Buchung mit einem niedrigeren Wert als calculateCarryover() heute berechnen würde).
+  it('8. Konto mit bereits vorhandener carryover-Buchung: Existenzprüfung bucht nicht erneut und überschreibt den Wert nicht', () => {
+    const PREV_YEAR_2 = 2036;
+    const NEW_YEAR_2 = 2037; // exklusiv für diesen Test, unabhängig von Test 7
+    const hireDate = '2020-01-01';
+    const userId = createTestUser({ vacationDaysPerYear: 25, hireDate });
+
+    try {
+      // Vorjahreskonto mit Rest von 20 Tagen — calculateCarryover(previousBalance) würde
+      // heute 20 berechnen.
+      db.prepare(`
+        INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, PREV_YEAR_2, 25, 0, 5);
+
+      // Neues Jahr hat bereits ein Konto MIT einer historisch falsch gedeckelten
+      // carryover-Buchung (Muster des echten Phase-7-Backfill-Datensatzes, siehe <context>).
+      db.prepare(`
+        INSERT INTO vacation_balance (userId, year, entitlement, carryover, taken)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, NEW_YEAR_2, 25, 5, 0);
+
+      recordVacationTransaction({
+        userId,
+        year: NEW_YEAR_2,
+        date: `${NEW_YEAR_2}-01-01`,
+        type: 'carryover',
+        days: 5,
+        description: `Übertrag aus ${PREV_YEAR_2} (rückwirkend erzeugt)`,
+        referenceType: 'system',
+        createdBy: adminId,
+      });
+
+      bulkInitializeVacationBalances(NEW_YEAR_2, adminId);
+
+      // Konto bleibt unverändert bei 5 — die Existenzprüfung schreibt den neu berechneten
+      // Wert (20) nicht stillschweigend über den bereits gebuchten (5).
+      const balance = getVacationBalance(userId, NEW_YEAR_2);
+      expect(balance?.carryover).toBe(5);
+
+      const txs = getVacationTransactions(userId, { year: NEW_YEAR_2 });
+      const carryoverTxs = txs.filter((t) => t.type === 'carryover');
+      expect(carryoverTxs).toHaveLength(1); // keine zweite, abweichende Buchung
+      expect(carryoverTxs[0].days).toBe(5);
+    } finally {
+      db.prepare('DELETE FROM vacation_transactions WHERE year IN (?, ?)').run(PREV_YEAR_2, NEW_YEAR_2);
+      db.prepare('DELETE FROM vacation_balance WHERE year IN (?, ?)').run(PREV_YEAR_2, NEW_YEAR_2);
+    }
   });
 });

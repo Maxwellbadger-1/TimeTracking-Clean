@@ -676,8 +676,15 @@ export function deleteVacationBalance(id: number): void {
  * das sie für den Jahreswechsel aufruft. Beide Pfade profitieren dadurch automatisch
  * von derselben Buchungslogik.
  *
- * Idempotent: Ein zweiter Lauf überspringt bereits existierende Konten (`if (existing)
- * continue`) — dadurch entstehen auch keine doppelten Buchungen.
+ * Existiert für `(userId, year)` bereits ein Konto (z. B. weil `initializeVacationAccountsForNewUser`
+ * bei der Nutzeranlage schon ein Planungskonto fürs Folgejahr angelegt hat), wird kein zweiter
+ * Anspruch gebucht — aber ein noch fehlender Übertrag wird nachgetragen, sofern für
+ * `(userId, year)` noch keine `carryover`-Buchung existiert. Diese Existenzprüfung schützt nur
+ * vor Doppelbuchung; sie überschreibt niemals einen bereits gebuchten (ggf. historisch
+ * abweichenden) Wert.
+ *
+ * Idempotent: Ein zweiter Lauf bucht weder den Anspruch noch den Übertrag ein zweites Mal —
+ * beide sind über eine Existenzprüfung auf bereits vorhandene Buchungen abgesichert.
  *
  * @param createdBy Wer die Massenanlage ausgelöst hat (Admin-User-ID). `null` für
  *   System-Automatismen (z. B. Cron-Jahreswechsel ohne menschlichen Auslöser).
@@ -706,9 +713,6 @@ export function bulkInitializeVacationBalances(
   for (const user of users) {
     // Check if balance already exists
     const existing = getVacationBalance(user.id, year);
-    if (existing) {
-      continue; // Skip if already exists
-    }
 
     // Get user's hire date for pro-rata calculation
     const userDetails = db
@@ -732,6 +736,43 @@ export function bulkInitializeVacationBalances(
     const previousYear = year - 1;
     const previousBalance = getVacationBalance(user.id, previousYear);
     const carryover = calculateCarryover(previousBalance);
+
+    if (existing) {
+      // Konto existiert bereits (z. B. vorab über initializeVacationAccountsForNewUser
+      // angelegt) — kein zweiter Anspruch, aber ein fehlender Übertrag wird nachgetragen,
+      // sofern noch keine carryover-Buchung für (userId, year) existiert. Diese Prüfung
+      // verhindert Doppelbuchung; sie überschreibt nie einen bereits gebuchten Wert (siehe
+      // Docstring und Test 8 in vacationEntitlementBooking.test.ts).
+      if (carryover > 0) {
+        const existingCarryover = db.prepare(`
+          SELECT COUNT(*) AS cnt FROM vacation_transactions
+          WHERE userId = ? AND year = ? AND type = 'carryover'
+        `).get(user.id, year) as { cnt: number };
+
+        if (existingCarryover.cnt === 0) {
+          const bookCarryover = db.transaction(() => {
+            db.prepare(`
+              UPDATE vacation_balance SET carryover = ? WHERE userId = ? AND year = ?
+            `).run(carryover, user.id, year);
+
+            recordVacationTransaction({
+              userId: user.id,
+              year,
+              date: `${year}-01-01`,
+              type: 'carryover',
+              days: carryover,
+              description: `Übertrag aus ${previousYear}`,
+              referenceType: 'system',
+              createdBy,
+            });
+          });
+
+          bookCarryover();
+          count++;
+        }
+      }
+      continue;
+    }
 
     // Konto und Buchungen laufen atomar — eine Kontoanlage ohne die zugehörige
     // Anspruchs-/Übertragsbuchung (oder umgekehrt) darf nicht entstehen.
