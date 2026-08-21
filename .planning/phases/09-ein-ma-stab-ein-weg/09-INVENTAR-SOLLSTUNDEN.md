@@ -191,6 +191,10 @@ der Stelle, die den gelesenen Wert ursprünglich geschrieben hat).
 
 ### A-1: `server/scripts/fix-overtime.ts:78` — überspringt Stufe 2 (`workSchedule`)
 
+**Status:** beseitigt in 09-03 Task 3 (Angleichen), belegt in 09-03 Task 4 (Vorher/Nachher-
+Messung: Delta 0,00 für alle drei Prüfnutzer nach der Angleichung). Siehe
+`.planning/phases/09-ein-ma-stab-ein-weg/09-A1-NACHWEIS.md`.
+
 **Übersprungene Stufe:** Stufe 2 von `getDailyTargetHours()` (`user.workSchedule[dayName]`).
 Das Skript berechnet stattdessen für **jeden** Nutzer `targetHoursPerDay = user.weeklyHours / 5`
 (Zeile 78) und multipliziert das mit der über `countWorkingDaysBetween()` ermittelten
@@ -266,7 +270,7 @@ nicht erneut untersucht:
 
 ---
 
-## Urteil REQ-17
+## Urteil REQ-17 (Stand 09-01)
 
 **Nicht erfüllt — 1 Abweichung, siehe A-1.**
 
@@ -287,3 +291,44 @@ Plan 09-03 (REQ-17/18) sollte A-1 als Fixgegenstand aufnehmen: `fix-overtime.ts`
 der tägliche Cron durch die On-Demand-Berechnung (`ensureOvertimeBalanceEntries()` wird bei jedem
 Report-/Dashboard-Aufruf ohnehin ausgeführt) überflüssig ist — diese Bewertung liegt außerhalb des
 Umfangs von Plan 09-01.
+
+---
+
+## Urteil REQ-17
+
+**Erfüllt nach Plan 09-03.** Die einzige festgehaltene Abweichung (A-1) ist beseitigt und mit
+gemessenen Vorher/Nachher-Werten belegt (`09-A1-NACHWEIS.md`: Delta 0,00 für alle drei
+Prüfnutzer nach der Angleichung, während userId 16 — ohne `workSchedule` — auch vorher schon
+0,00 zeigte, was NO REGRESSION für diesen Nutzertyp bestätigt).
+
+Zusätzlich zur formal als A-1 klassifizierten Abweichung hat Plan 09-03 Task 1 einen weiteren,
+funktional verwandten Fund in `server/src/services/overtimeLiveCalculationService.ts:57-68`
+korrigiert: Die Funktion `getAllWorkingDaysBetween()` traf dort eine eigene
+Arbeitstags-Entscheidung (Feiertagsabfrage + `dayOfWeek >= 1 && dayOfWeek <= 5` als Default für
+Nutzer ohne `workSchedule`), statt sich auf `getDailyTargetHours()` zu verlassen. Dieser Fund war
+in der ursprünglichen Fundstellen-Tabelle (Abschnitt „overtimeLiveCalculationService.ts — Live-
+Anzeige" oben) bereits mit `Weg = Vorfilter vor getDailyTargetHours` und `Produktivpfad = ja`
+verzeichnet, wurde in der Abweichungsliste von Plan 09-01 aber nicht als eigenständiges `A-n`
+geführt — ein Umstand, der hier zur Nachvollziehbarkeit festgehalten wird, statt stillschweigend
+übergangen zu werden. Die fachliche Wirkung war identisch zu A-1: Ein Nutzer mit
+`workSchedule.saturday > 0` verlor seinen Samstag, weil der einzige Aufrufer
+(`overtimeLiveCalculationService.ts:242`) vor der Umstellung nur `workSchedule` und
+`weeklyHours` statt des vollständigen `user`-Objekts weiterreichte. Task 1 hat das behoben und
+mit sechs Testfällen abgesichert (`overtimeLiveCalculationService.test.ts`, Commit `348b70f`
+RED, `9a984b6` GREEN).
+
+Task 2 hat außerdem die fünf Wochenend-/Feiertags-Vorfilter in `overtimeService.ts` entfernt
+(Commit `2826f68`) — auch hier lag `Produktivpfad = ja` bei zwei der fünf Stellen
+(`ensureAbsenceTransactionsForMonth` war laut Fundstellen-Tabelle als „nein" (toter Code)
+eingestuft, `ensureAbsenceTransactions` dagegen als „ja"), sodass die Angleichung auch dort eine
+reale Produktivwirkung hatte.
+
+**Kernpfad weiterhin konsistent, jetzt lückenlos:** Alle Stellen, die laut Fundstellen-Tabelle
+`Produktivpfad = ja` UND eine Sollstunden-Ermittlung (nicht nur Pass-Through aus
+`overtime_balance`) tragen, lösen jetzt ausschließlich über `getDailyTargetHours()`
+(`server/src/utils/workingDays.ts:63`) auf: `unifiedOvertimeService`,
+`overtimeLiveCalculationService.ts` (Task 1), `overtimeService.ts` (Task 2),
+`server/scripts/fix-overtime.ts` (Task 3, A-1), `overtimeTransactionRebuildService.ts`,
+`absenceService.ts` und `exportService.ts`. Siehe `09-ANGLEICHUNG-NACHWEIS.md`, Abschnitt
+„Belegkette REQ-18 (D1)", für die vollständige, mit Zeilennummern belegte Aufrufkette vom
+Dashboard-Endpunkt bis zur kanonischen Funktion.
