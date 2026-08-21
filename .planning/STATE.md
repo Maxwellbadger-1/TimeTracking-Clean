@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: Milestone complete
-stopped_at: Plan 08-05 abgeschlossen. Release v1.8.0 veröffentlicht (kein Entwurf), Tag gesetzt und gepusht, alle vier Matrix-Jobs erfolgreich, `latest.json` vollständig. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen.
+stopped_at: Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte (Karin Jochem, Christine Glas) gegen Produktion, unabhängig verifiziert. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
 last_updated: "2026-08-20T21:32:05.468Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 11
-  percent: 75
+  total_plans: 17
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - **Phase:** 08 of 8 (5/5 Pläne abgeschlossen)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
-- **Next action:** Keine offene Phase-8-Arbeit mehr. Optional: Lückenschluss Phase 6 (`gaps_found`, 11/14 must_haves) unabhängig angehen.
-- **Last completed:** Plan 08-05 — Desktop-Release v1.8.0, `latest.json` mit allen vier Plattformen verifiziert
-- **Stopped at:** Plan 08-05 abgeschlossen. Release v1.8.0 veröffentlicht (kein Entwurf), Tag gesetzt und gepusht, alle vier Matrix-Jobs erfolgreich, `latest.json` vollständig. Phase 06 bleibt mit `gaps_found` (11/14 must_haves, siehe `06-VERIFICATION.md`/`06-REVIEW.md`) — dieser Lückenschluss ist weiterhin unabhängig offen.
+- **Next action:** Keine offene Phase-8-Arbeit mehr. Abschließende Verifikation des Phase-6-Lückenschlusses (06-04 bis 06-07) gegen `06-VERIFICATION.md` aussteht.
+- **Last completed:** Plan 06-07 — Korrektur der zwei realen Pre-Hire-Vorausbuchungen (Karin Jochem, Christine Glas) gegen Produktion, ausgeführt und unabhängig verifiziert
+- **Stopped at:** Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte gegen Produktion. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
 
 ## Phase Progress
 
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase | Name | Status |
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
-| 6 | Buchungen bei jedem Vorgang | Ausgeführt (3/3 Plans), Verifikation: Gaps Found — 2026-08-19 |
+| 6 | Buchungen bei jedem Vorgang | Lückenschluss ausgeführt (7/7 Plans), abschließende Verifikation ausstehend — Lückenschluss 2026-08-21 |
 | 7 | Saldo aus Buchungen + Backfill | Complete (3/3 Plans), deployed — 2026-08-19 |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Complete (5/5 Pläne) — Release v1.8.0 veröffentlicht 2026-08-20 |
 
@@ -84,6 +84,9 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: Leere-Begründung-Validierung liegt im Service (updateVacationBalance/upsertVacationBalance), nicht nur in der Route — beide Schreibpfade teilen dieselbe Prüfung
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: upsertVacationBalance bucht jetzt auch bei Neuanlage Anspruch/Übertrag — das ist der reale Admin-Editier-Pfad, VacationBalanceEditModal.tsx ruft für Neuanlage UND Bearbeitung immer POST auf, PUT/updateVacationBalance wird vom Frontend nicht verwendet
 - [Phase 06-buchungen-bei-jedem-vorgang]: 06-03: skipCreationBooking-Flag auf upsertVacationBalance verhindert Doppelbuchung bei initializeVacationAccountsForNewUser (Rule 1)
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-07: entitlement wird bei der Pre-Hire-Korrektur per Gegenbuchung auf 0 gesetzt (nicht nur der Journalsaldo ausgeglichen) — der Kontoauszug-Header zeigt sonst irreführend "Genommen X", obwohl nie Urlaub genommen wurde
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-07: Produktionslauf gegen Karin Jochem (userId 2) und Christine Glas (userId 3) am 21.08.2026 ausgeführt und unabhängig verifiziert (Journalsaldo, vacation_balance, Korrekturbuchung mit Marker [BACKFILL-06-07], 2026er-Konten und userId 1 unangetastet). Ausführung erfolgte per SSH durch den Orchestrator im ausdrücklichen Auftrag des Anwenders; der im Plan vorgeschriebene Zwei-Stufen-Ablauf (Trockenlauf → Prüfung → --apply) blieb dabei gewahrt. Backup vor dem Lauf: /home/ubuntu/databases/backups/production.PRE-06-07_20260821_184143.db
+- [Phase 06-buchungen-bei-jedem-vorgang]: 06-07: Phase 6 musste vor dem Produktionslauf erst deployed werden (Skript existierte auf dem Server noch nicht) — für künftige Datenkorrekturpläne ist das Deployment als Vorbedingung mitzuplanen
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: getVacationJournalEntries sortiert jetzt createdAt DESC, id DESC (Anzeige); getVacationTransactions bleibt bei date ASC, weil der Konsistenzprüfer aus Phase 7 die fachliche Chronologie braucht — Saldo-Kette riss sonst bei rückdatierten Buchungen (Bug, gefunden während der Abnahme)
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: `/promote-to-prod` ist NICHT der Weg, um die Desktop-App gegen Produktion zu richten — es merged staging→main und deployt, schaltet aber keine App-URL um. Abnahme läuft über `npm run sync-dev-db` + lokaler Dev-Server
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: Erwartungswert „Gesamt Verbleibend 2026 = 98 Tage" aus Phase 7 ist überholt — aktuell 112 Tage (Testnutzer „Test Urlaub", id 30, entstand nach dem Backfill-Wert)
@@ -119,6 +122,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 | Phase 06-buchungen-bei-jedem-vorgang P03 | 25min | 4 tasks | 3 files |
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P04 | 1h 41min | 3 tasks | 10 files |
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P05 | ~20min | 3 tasks | 6 files |
+| Phase 06-buchungen-bei-jedem-vorgang P07 | ~40min | 3 tasks | 3 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -144,3 +148,10 @@ See: .planning/PROJECT.md (updated 2026-08-18)
   `.planning/phases/07-saldo-aus-buchungen-backfill/07-UAT.md`.
 
 - **Testdaten in Produktion:** User 30 „Test Urlaub", User 31 „UAT", Antrag 73 (storniert).
+
+- **Phase-6-Lückenschluss (06-04 bis 06-07) ausgeführt, abschließende Verifikation offen.**
+  Alle 7 Pläne der Phase haben eine SUMMARY.md. 06-07 hat am 21.08.2026 die beiden realen
+  2025er-Datenartefakte (Karin Jochem, Christine Glas) gegen Produktion korrigiert und
+  unabhängig verifiziert. Phasenstatus bleibt bis zur erneuten Prüfung gegen
+  `06-VERIFICATION.md` auf „Lückenschluss ausgeführt", nicht „Complete". Details:
+  `.planning/phases/06-buchungen-bei-jedem-vorgang/06-07-SUMMARY.md`.

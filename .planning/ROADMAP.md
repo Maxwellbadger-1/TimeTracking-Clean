@@ -74,6 +74,15 @@ Migration isoliert verifizierbar ist.
 
 **Abhängigkeit:** Phase 5
 
+**Lückenschluss (nach Verifikation `06-VERIFICATION.md`, 11/14 must_haves):**
+
+- [x] 06-04-PLAN.md — initializeVacationBalance() bucht pro rata, schließt Gap 1/Gap 3
+- [x] 06-05-PLAN.md — Übertrag-Nachbuchung bei bestehenden Urlaubskonten (CR-03/Gap 2)
+- [x] 06-06-PLAN.md — calculateCarryover() als einzige Übertragsquelle
+- [x] 06-07-PLAN.md — Korrektur der zwei realen Pre-Hire-Vorausbuchungen (Karin Jochem, Christine Glas) gegen Produktion, ausgeführt und verifiziert 2026-08-21
+
+Verifikation des gesamten Lückenschlusses gegen `06-VERIFICATION.md` steht noch aus.
+
 ---
 
 ### Phase 7: Saldo aus Buchungen + Backfill
@@ -126,7 +135,7 @@ der Produktionsdatenbank.
 - Der angezeigte Saldo stimmt mit der Urlaubsliste überein
 - Release veröffentlicht, `latest.json` enthält alle Plattformen
 
-**Pläne:** 5 Pläne in 4 Wellen
+**Pläne:** 5 Pläne in 4 Wellen (Phase 6 zusätzlich: 4 Lückenschluss-Pläne 06-04 bis 06-07)
 
 Plans:
 **Wave 1**
@@ -155,7 +164,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
-| 6. Buchungen bei jedem Vorgang | 3/3 | Gaps Found | — |
+| 6. Buchungen bei jedem Vorgang | 7/7 | Lückenschluss ausgeführt, Verifikation ausstehend | — |
 | 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
 | 8. Kontoauszug | 5/5 | Complete | 2026-08-20 |
 
