@@ -1,10 +1,12 @@
 ---
 phase: 13
 slug: korrigieren-und-rueckgaengig-machen
-status: draft
+status: revised
 shadcn_initialized: false
 preset: none
 created: 2026-08-21
+revised: 2026-08-21
+revision: 2
 ---
 
 # Phase 13 — UI Design Contract
@@ -55,29 +57,33 @@ verletzt „NO REGRESSION" aus `.claude/CLAUDE.md`. Registry-Sicherheitsgate: **
 
 ## Spacing Scale
 
-Unverändert aus `12-UI-SPEC.md`. Alle Werte sind Vielfache von 4.
+Unverändert aus `12-UI-SPEC.md` — einschließlich des dort geführten Tokens **sm+** (12 px).
+Alle Werte sind Vielfache von 4.
 
 | Token | Tailwind | Value | Verwendung in dieser Phase |
 |-------|----------|-------|----------------------------|
 | xs | `gap-1`, `mt-1` | 4px | Icon↔Text in Zeilenaktionen, Feldfehler unter dem Feld, zweite Zeile in der Beschreibungszelle |
 | sm | `gap-2`, `space-x-2` | 8px | Badge-Innenabstand, Abstand Typ-Badge↔Zustands-Badge, Zahl↔Trendpfeil |
+| **sm+** | `gap-3`, `space-y-3`, `p-3`, `px-4 py-3` | **12px** | Tabellenzellen der Periodenliste und des Kontoauszugs, Abstand zwischen den Aktionsknöpfen einer Zeile (`flex items-center justify-end gap-3`), Aktionszeile des Dialogs, Fußzeile der Bestätigung (`space-x-3` aus `CardFooter`), Abstand der drei `details`-Punkte (`space-y-3`) |
 | md | `gap-4`, `p-4`, `space-y-4` | 16px | Formularfelder untereinander, Innenabstand der Panels (Warnung, Vorschau, Kein Zugriff), Kennzahlenraster |
 | lg | `p-6`, `space-y-6`, `pt-6` | 24px | Modal-Innenabstand, Abstand zwischen Formularblöcken, Trennung Periodenliste↔Korrekturblock |
 | xl | `mb-8` | 32px | Abstand Periodenliste↔restlicher Modalinhalt (aus Phase 12) |
 | 2xl | — | 48px | nicht verwendet (Modale, keine Seitenlayouts) |
 | 3xl | — | 64px | nicht verwendet |
 
-**Ausnahmen — identisch zu Phase 12, keine neuen:**
-- `py-1.5` (6 px) in `Button size="sm"` und `py-2.5` (10 px) in `Input` — Teil der bestehenden
-  Primitive, wird nicht angefasst.
-- Tabellenzellen `px-4 py-3` (16/12 px) — Muster aus `OvertimeTransactions.tsx`; die neue
-  Aktionsspalte und die Storno-Zeilen übernehmen es unverändert.
-- `Input` behält die feste Höhe `h-[42px]`.
+**Ausnahmen — die zwei aus Phase 12, plus eine neue:**
+- `py-1.5` (6 px) in `Button size="sm"` und `py-2.5` (10 px) in `Input` (`Input.tsx` Zeile 26) —
+  Teil der bestehenden Primitive, wird nicht angefasst.
+- `Input` behält die feste Höhe `h-[42px]` (`Input.tsx` Zeile 26).
 - **Neu und nur hier:** Icon-only-Zeilenaktionen unterhalb von 640 px erhalten `p-2` statt
   `px-3 py-1.5`, damit die Trefferfläche 32 × 32 px erreicht (WCAG 2.2 AA, 2.5.8 verlangt 24 × 24 px).
   32 ist ein Vielfaches von 4, die Skala bleibt unverletzt. 44 px wird bewusst **nicht** gefordert:
   Das ist eine Tauri-Desktopanwendung mit Zeigereingabe, 2.5.5 (44 px) ist AAA und hier nicht
   einschlägig.
+
+`px-4 py-3` in Tabellenzellen ist **keine** Ausnahme, sondern der Token `sm+` in Kombination mit
+`md` — genau wie Phase 12 es feststellt. Dasselbe gilt für `gap-3` und `space-x-3`: beides ist
+`sm+`, nicht skalenfremd.
 
 ---
 
@@ -93,15 +99,20 @@ Keine `theme.extend.fontSize`; es gelten die Tailwind-Defaults. Freigegeben sind
 | Abschnittsüberschrift („Arbeitszeitmodell — Perioden", „Sonderfall: Werte waren von jeher falsch") | `text-lg` | 18px | 600 `font-semibold` | 28px (1,56) |
 | Modaltitel (durch `Modal` bzw. `CardTitle` gesetzt) | `text-xl` | 20px | 600 `font-semibold` | 28px (1,4) |
 
-**Gewichte:** 400 (regulär) und 600 (`font-semibold`) sind der Vertrag.
+### Gewichte — ehrliche Fassung
 
-**Deklarierte Ausnahmen — wortgleich aus Phase 12 übernommen, keine neuen:**
-1. `font-medium` (500) für Formularlabels, Eingabewerte und `Button` — kommt fest aus den
-   Primitiven, nicht änderbar ohne alle Formulare der App anzufassen.
-2. `font-bold` (700) ausschließlich für vorzeichenbehaftete Stundenwerte in Journal-, Vorschau- und
-   Bestätigungstabellen. Die Storno-Zeile steht direkt zwischen diesen Zeilen und muss gleich
-   aussehen; die Zahl in der Löschvorschau muss optisch identisch mit der Zahl sein, die danach im
-   Kontoauszug steht.
+Diese Phase verwendet **vier** Schriftgewichte. Zwei davon sind frei gewählt, zwei sind
+bestandsgebunden und ausschließlich an den hier genannten Stellen erlaubt. Formulierung und
+Systematik sind aus `12-UI-SPEC.md` übernommen.
+
+| Gewicht | Status | Wo genau in dieser Phase |
+|---------|--------|--------------------------|
+| 400 regulär | frei gewählt, Vertrag | Fließtext, Tabelleninhalte, Hilfstexte, Fußnoten, Dialogtexte, `details`-Punkte 1 und 2 |
+| 600 `font-semibold` | frei gewählt, Vertrag | Modaltitel, `CardTitle` der Bestätigungen, Abschnittsüberschriften, Überschrift des Warnbanners, Überschrift „Kein Zugriff" |
+| 500 `font-medium` | **bestandsgebunden** | kommt fest aus `Input`, `Select`, `Textarea` und `Button`; zusätzlich aus dem Badge-Muster in `OvertimeTransactions.tsx` (`text-xs font-medium`), das die neuen Zustands-Badges unverändert übernehmen. Kein neuer Einsatzort außerhalb dieser Primitive und dieses Badge-Musters. |
+| 700 `font-bold` | **bestandsgebunden, eng begrenzt** | ausschließlich für vorzeichenbehaftete Stundenwerte: die hervorgehobene Saldoänderung im Vorschaupanel des Korrektur-Dialogs, die Saldoänderung in Punkt 3 der Löschbestätigung, die Beträge der Journal- und der Storno-Zeile. Die Storno-Zeile steht direkt zwischen den Betragszeilen des Kontoauszugs und muss gleich aussehen; die Zahl in der Löschvorschau muss optisch identisch mit der Zahl sein, die danach im Kontoauszug steht. |
+
+Neue Einsatzorte für 500 oder 700 außerhalb dieser Tabelle sind ein Vertragsbruch.
 
 `text-base` (16 px) wird nicht eingeführt; alle Buttons nutzen unverändert `size="md"` bzw.
 `size="sm"` und bringen ihre Größe selbst mit.
@@ -155,8 +166,17 @@ Rot ist ausdrücklich **nicht** die Farbe des Zustands „Kein Zugriff" — Begr
 | Gutschrift / positiver Saldo | green-600 / green-400 | positive Stundenwerte in Vorschau, Löschbestätigung, Journal- und Storno-Zeile; `TrendingUp` |
 | Belastung / negativer Saldo | red-600 / red-400 | negative Stundenwerte; `TrendingDown` |
 | Fehler | red-600 / red-400 auf `bg-red-50` / `bg-red-900/20`, Rahmen `border-red-200` / `border-red-800` | Feldfehler, Vorschau-Fehlerbanner, Speicher- und Löschfehlerbanner |
-| Warnung / Tragweite | amber-600 / amber-400 auf `bg-amber-50` / `bg-amber-900/20`, Rahmen `border-amber-200` / `border-amber-800` | Warnbanner „Das ändert die Vergangenheit" im Korrektur-Dialog, rückwirkende Vorschau, `ConfirmDialog variant="warning"` |
+| Warnung / Tragweite | amber-600 / amber-400 auf `bg-amber-50` / `bg-amber-900/20`, Rahmen `border-amber-200` / `border-amber-800` | Warnbanner „Das ändert die Vergangenheit" im Korrektur-Dialog, rückwirkende Vorschau, `ConfirmDialog variant="warning"` inkl. dessen Icon (siehe Angleichung unten) |
 | Modellwechsel | teal-100/teal-700 hell, teal-900/30 + teal-300 dunkel | Typ-Badge „Modellwechsel" im Kontoauszug — **auch auf der Storno-Zeile** (siehe unten) |
+
+**Angleichung der Warnfarbe im `ConfirmDialog` (vom Orchestrator entschieden).**
+`ConfirmDialog.tsx` Zeile 47 führt `warning: 'text-yellow-600 dark:text-yellow-400'` — **gelb**, nicht
+amber. Die Korrekturbestätigung bekäme damit ein gelbes Warnsymbol unmittelbar nach einem
+amberfarbenen Warnbanner. Deshalb wird `iconColors.warning` auf `text-amber-600 dark:text-amber-400`
+angeglichen; die Änderung steht in der Änderungsliste. Das ist risikofrei: **kein Bestandsaufrufer
+verwendet `variant="warning"`** (`grep` über `desktop/src`, geprüft am 21.08.2026 — die einzigen
+Nutzer sind die Bestätigungen aus Phase 12 und Phase 13). `danger` (red-600/400) und `info`
+(blue-600/400) stimmen bereits mit dieser Palette überein und bleiben unangetastet.
 
 **Keine neue Farbe für Storno (vom Orchestrator entschieden).** Die Storno-Zeile behält das
 teal Typ-Badge ihres Originals und trägt daneben ein **graues Zustands-Badge** „Storno"
@@ -166,6 +186,23 @@ Zusammengehörigkeit sofort sichtbar; das zusätzliche graue Badge macht den Zus
 eigene Storno-Farbe hätte in `OvertimeTransactions.tsx` die achte Badge-Farbe eingeführt (blue,
 amber, orange, purple, gray, teal sind belegt, green/red sind durch Vorzeichen besetzt) und die
 Verwandtschaft der beiden Zeilen optisch zerschnitten.
+
+---
+
+### Visueller Anker
+
+Phase 12 legt den Anker ihres Dialogs fest; diese Phase führt das für ihre beiden neuen Oberflächen
+fort. Kein zweites Element darf im selben Dialog die Kombination aus `text-lg`, `font-bold` und
+semantischer Farbe tragen.
+
+| Oberfläche | Anker | Warum |
+|------------|-------|-------|
+| Korrektur-Dialog | die **hervorgehobene Saldoänderung im Vorschaupanel** (`text-lg font-bold`, grün/rot, mit `TrendingUp`/`TrendingDown`) | identisch zu Phase 12: alles andere im Dialog ist `text-sm`/`text-xs` in neutralen Tönen. Das amberfarbene Warnbanner steht zwar weiter oben, trägt aber `text-sm` — es rahmt die Entscheidung, es ist nicht die Entscheidungsgrundlage. |
+| **Löschbestätigung** | **Punkt 3 der `details`-Liste: die Saldoänderung** (`text-lg font-bold`, grün/rot, mit Trendpfeil) | Ohne Festlegung stünden drei gleichrangige `text-sm`-Punkte in einem grauen Panel, und der gefährlichste Dialog der Phase hätte keinen Blickfang. Punkt 1 (Lückenschluss) und Punkt 2 (Storno) bleiben `text-sm` — sie erklären, Punkt 3 entscheidet. |
+
+Die Reihenfolge der drei `details`-Punkte bleibt davon unberührt: Punkt 3 ist der Anker, steht aber
+weiterhin an dritter Stelle. Der Storno-Punkt darf nicht ans Ende rutschen, und die Zahl gehört
+ans Ende, weil sie die Folge der beiden Sätze davor ist.
 
 ---
 
@@ -209,6 +246,7 @@ Verwandtschaft der beiden Zeilen optisch zerschnitten.
 | Warnbanner (amber), Überschrift | Das ändert die Vergangenheit |
 | Warnbanner, Satz 1 (rückwirkender Fall) | Für {Vorname} {Nachname} wird der Zeitraum vom **{TT.MM.JJJJ}** bis **{TT.MM.JJJJ}** neu gerechnet — das sind {n} Arbeitstage. |
 | Warnbanner, Satz 2 (rückwirkender Fall) | Die für diesen Zeitraum bereits gebuchten Überstunden werden ersetzt. Alles vor dem {TT.MM.JJJJ} bleibt unverändert. |
+| Warnbanner, Satz 3 — **Ausweg, in beiden Panelvarianten sichtbar** | Hat sich die Arbeitszeit erst **ab einem Datum** geändert, ist das kein Korrekturfall: Brechen Sie ab und nutzen Sie „Stundenwechsel ab Datum …" — dann bleibt die Vergangenheit unberührt. |
 | Warnbanner-Ersatz (Periode liegt vollständig in der Zukunft, blaues Panel) | Diese Periode beginnt erst am {TT.MM.JJJJ}. Es wird nichts rückwirkend geändert. |
 | Label „Gültig ab" | Gültig ab |
 | Hilfstext „Gültig ab" (normale Periode) | Verschieben Sie den Beginn, verlängert oder verkürzt sich die Periode davor entsprechend — es entsteht keine Lücke. |
@@ -320,9 +358,12 @@ verspricht, wäre eine Lüge in der Oberfläche.
 | Zweite Zeile der Gegenbuchung | Gleicht die Buchung vom {TT.MM.JJJJ} aus · Beleg #{referenceId} |
 | Beschreibung der Korrekturbuchung | Periode ab {TT.MM.JJJJ} korrigiert: {X,X} → {Y,Y} h/Woche (Grund: {Begründung}) |
 | Beleg-Chip (Schaltfläche auf beiden Zeilen) | Beleg #{referenceId} |
+| Spaltenwert „Datum" beider Zeilen | {Stichtag der Periode, TT.MM.JJJJ} — Festlegung siehe Abschnitt 5 |
 | `aria-label` des Chips (Originalzeile) | Zugehörige Storno-Buchung anzeigen |
 | `aria-label` des Chips (Gegenbuchung) | Zugehörige Ursprungsbuchung anzeigen |
-| Toast, wenn der Partner außerhalb des Filters liegt | Die zugehörige Buchung liegt außerhalb des gewählten Zeitraums ({Monat JJJJ}). |
+| Toast — Partnerzeile nicht geladen (Abschneidegrenze) | Die zugehörige Buchung ist in dieser Ansicht nicht geladen — angezeigt werden nur die letzten {limit} Buchungen. Wählen Sie einen engeren Zeitraum. |
+| Toast — Partnerzeile außerhalb des Monatsfilters | Die zugehörige Buchung liegt außerhalb des gewählten Zeitraums ({Monat JJJJ}). |
+| Toast — Partnerzeile außerhalb des Jahresfilters | Die zugehörige Buchung liegt außerhalb des gewählten Zeitraums ({JJJJ}). |
 
 Die Begründung ist Freitext eines Menschen und wird **unverändert** durchgereicht — kein Trimmen,
 kein Umformatieren von Datumsmustern darin. Regel aus `VacationTransactions.tsx`
@@ -338,10 +379,10 @@ hergestellt; Farbe ist nur eines davon.
 | Merkmal | „Stundenwechsel ab Datum …" (Phase 12) | „Stammdaten rückwirkend korrigieren …" (Phase 13) |
 |---------|----------------------------------------|---------------------------------------------------|
 | **Ort** | blaues Info-Panel **über** der Periodenliste | eigener Block **unter** der Periodenliste, getrennt durch `pt-6 border-t border-gray-200 dark:border-gray-700` |
-| **Rahmung** | Info-Panel (blau) — harmlos | neutraler Block (`bg-gray-50 dark:bg-gray-900/40`, `border-gray-200 dark:border-gray-700`) mit eigener `text-lg`-Überschrift „Sonderfall: Die Werte waren von jeher falsch" |
+| **Rahmung** | Info-Panel (blau) — harmlos | neutraler Block (`bg-gray-50 dark:bg-gray-800`, `border-gray-200 dark:border-gray-700`) mit eigener `text-lg`-Überschrift „Sonderfall: Die Werte waren von jeher falsch" |
 | **Buttonstil** | `variant="secondary" size="sm"`, **ohne Icon** (unverändert aus Phase 12) | `variant="ghost" size="sm"` mit vorangestelltem `AlertTriangle` in amber-600/400 |
 | **Wortwahl** | „Stundenwechsel", „ab Datum" | „korrigieren", „rückwirkend", „von jeher falsch" |
-| **Dialog** | Titel „Stundenwechsel: …", kein Warnbanner, Vorschau blau **oder** amber je nach Stichtag | Titel „Periode korrigieren: …", **immer** ein Warnbanner ganz oben, das den betroffenen Zeitraum konkret nennt |
+| **Dialog** | Titel „Stundenwechsel: …", kein Warnbanner, Vorschau blau **oder** amber je nach Stichtag | Titel „Periode korrigieren: …", **immer** ein Warnbanner ganz oben, das den betroffenen Zeitraum konkret nennt **und den Weg zurück zur harmlosen Aktion weist** (Satz 3) |
 | **Bestätigung** | nur bei rückwirkendem Stichtag | immer, wenn die Periode die Vergangenheit berührt; `confirmText` benennt die Rückwirkung ausdrücklich |
 
 **Entscheidungen dazu (vom Orchestrator entschieden):**
@@ -368,6 +409,15 @@ hergestellt; Farbe ist nur eines davon.
    erste). Begründung: Zwei Dialoge für dieselbe fachliche Operation wären der zuverlässigste Weg,
    dass die beiden Varianten auseinanderdriften — und ein Admin, der „Bearbeiten" für harmlos hält,
    ist genau der Fehler, den REQ-30 verhindern will.
+
+5. **Der Ausweg steht im Warnbanner, nicht nur im Einstiegsblock (Revision 2).** Der kürzeste Weg in
+   den Korrektur-Dialog ist die Zeilenaktion „Korrigieren" — sie liegt in jeder Zeile der
+   Periodenliste in Reichweite. Wer von dort kommt, hat den Abgrenzungssatz des Einstiegsblocks
+   („Hat sich die Arbeitszeit ab einem Datum geändert, nehmen Sie oben …") **nie gelesen**; der steht
+   ausschließlich unter der Liste. Das Warnbanner sagte in Revision 1 nur, *was passiert*, nicht,
+   *was man stattdessen tun sollte*. Deshalb trägt es jetzt als Satz 3 den ausdrücklichen Ausweg —
+   und zwar in **beiden** Panelvarianten, auch im Zukunftsfall, weil die Verwechslung dort genauso
+   möglich ist. Eine Warnung ohne Alternative erzeugt Zögern, keine bessere Entscheidung.
 
 ---
 
@@ -408,7 +458,7 @@ Ablage unter `worktime/`, wie in Phase 12 festgelegt.
 | Reihenfolge | Inhalt |
 |---|---|
 | 1 | Periodenkennung (`text-sm`, gray-600/400): „Periode vom … bis … · derzeit {X,X} h/Woche" |
-| 2 | **Warnbanner** — amber, wenn die Periode die Vergangenheit berührt; blau („Keine Rückwirkung"), wenn sie vollständig in der Zukunft liegt. Nennt den Zeitraum immer konkret. |
+| 2 | **Warnbanner** — amber, wenn die Periode die Vergangenheit berührt; blau („Keine Rückwirkung"), wenn sie vollständig in der Zukunft liegt. Nennt den Zeitraum immer konkret und enthält in beiden Varianten Satz 3 (Verweis auf „Stundenwechsel ab Datum …"). |
 | 3 | Formularfehler-Banner (rot, nur bei `formError`) |
 | 4 | `grid grid-cols-1 md:grid-cols-2 gap-6`: links `Input type="date"` **Gültig ab**, rechts `Input type="date"` **Gültig bis** (`readOnly`, `aria-readonly="true"`, gray-Styling wie das schreibgeschützte Stundenfeld aus Phase 12) |
 | 5 | `Input type="number" min="0" max="60" step="0.5"` **Wochenstunden** |
@@ -449,11 +499,26 @@ Inhalt der Aktionszelle (`px-4 py-3 text-right`, `flex items-center justify-end 
 | Fall | Inhalt |
 |------|--------|
 | Normale Periode | `Button variant="ghost" size="sm"` mit `Pencil` + „Korrigieren" · `Button variant="ghost" size="sm"` mit `Trash2` + „Löschen" in rot (Muster `CorrectionsTable.tsx`) |
-| Erste Periode (`isFirst`) | nur „Korrigieren" · daneben ein **fokussierbarer Hinweis-Chip** `Info` + „Nicht löschbar" (`text-xs`, gray-500/400, `tabIndex={0}`, `role="note"`, `aria-label` mit dem vollen Erklärtext, Tooltip nach dem Muster aus `OvertimeTransactions.tsx`) |
+| Erste Periode (`isFirst`) | nur „Korrigieren" · daneben ein **fokussierbarer Hinweis-Chip** `Info` + „Nicht löschbar" (`text-xs`, gray-500/400, `tabIndex={0}`, `role="note"`, `aria-label` mit dem vollen Erklärtext). Tooltip-Einblendung siehe Festlegung unten — das Bestandsmuster reicht dafür **nicht**. |
 | Löschen läuft für diese Zeile | „Löschen" wird zu `LoadingSpinner size="sm"`, beide Aktionen `disabled` |
 | Kein Admin | `renderActions` wird gar nicht übergeben → die Spalte samt `<th>` entfällt (Phase-12-Verhalten) |
 
-**Keine ausgegraute Löschschaltfläche (vom Orchestrator entschieden).** Ein `disabled`-Button
+**Tooltip-Einblendung — Bestandsmuster reicht nicht (vom Orchestrator entschieden).** Das Tooltip in
+`OvertimeTransactions.tsx` (Zeile 159 und 227) ist **hover-only**:
+`opacity-0 invisible group-hover:opacity-100 group-hover:visible` an einem `group`-Container mit
+`cursor-help`. Wer es kopiert, erfüllt die Zusage „reagiert auf hover **und** Tastaturfokus" nicht.
+Verbindlich für den Chip „Nicht löschbar" sind deshalb drei Ergänzungen gegenüber dem Bestandsmuster:
+
+1. `group-focus-within:opacity-100 group-focus-within:visible` zusätzlich zu den `group-hover:`-Klassen.
+2. Die Einblendung ist mit **ESC** schließbar, ohne dass der Fokus den Chip verlässt (WCAG 2.2, 1.4.13
+   „Content on Hover or Focus"). Der ESC-Handler des Chips ruft `stopPropagation()`, damit er nicht
+   zusätzlich das umgebende Modal schließt — der Modal-Stack aus Phase 12 regelt nur die Rangfolge
+   zwischen Modalen, nicht die zwischen Tooltip und Modal.
+3. Das Tooltip ist rein visuelle Wiederholung. Der **Träger der Information** ist die dauerhaft
+   sichtbare Fußnote unter der Liste, ergänzt um das `aria-label` des Chips. Fällt das Tooltip aus,
+   fehlt keine Aussage.
+
+**Keine ausgegraute Löschschaltfläche (vom Orchestrator entschieden).**
 erklärt nichts, ist mit der Tastatur nicht erreichbar und trägt seinen Tooltip unzuverlässig. Der
 Grund steht deshalb zweifach in der Oberfläche: als fokussierbarer Chip in der Zeile und als
 dauerhaft sichtbare Fußnote unter der Liste. Die Fußnote ist der Träger — sie ist ohne jede
@@ -468,7 +533,7 @@ Kein neuer Dialogtyp. `ConfirmDialog` bekommt drei additive, optionale Props (Ab
 |---|---|
 | 1 | `title` „Periode löschen" mit `AlertTriangle` in red-600/400 (bestehendes `variant="danger"`-Verhalten) |
 | 2 | `message` — welche Periode, welcher Zeitraum, welche Stunden, wessen |
-| 3 | `details`: drei Punkte in einem `bg-gray-50 dark:bg-gray-900/40 rounded-lg p-4 space-y-2`-Panel — Lückenschluss, Storno, Saldoänderung. Der dritte Punkt kommt aus der **Server-Vorschau**. |
+| 3 | `details`: drei Punkte in einem `bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2`-Panel — Lückenschluss, Storno, Saldoänderung. Der dritte Punkt kommt aus der **Server-Vorschau**. |
 | 4 | Fußzeile: `Button variant="ghost"` „Abbrechen" links, `Button variant="danger"` rechts (bestehende Reihenfolge aus `ConfirmDialog`) |
 
 **Die Löschbestätigung lädt eine Server-Vorschau (vom Orchestrator entschieden).** Solange sie
@@ -503,8 +568,37 @@ Erweiterung der bestehenden Komponente, kein neues Bauteil. Zusätzlich zu den P
   Klick/Enter → die Partnerzeile wird per `scrollIntoView({ block: 'center' })` sichtbar gemacht und
   für 2 s mit `ring-2 ring-inset ring-gray-400 dark:ring-gray-500` hervorgehoben; zusätzlich erhält
   sie kurzzeitig den Fokus (`tabIndex={-1}` + `.focus()`), damit ein Screenreader den Sprung mitbekommt.
-  Ist die Partnerzeile im aktuellen Zeitraumfilter nicht enthalten, erscheint stattdessen der Toast
-  aus dem Textbuch — kein stiller Klick ins Leere.
+  Ist die Partnerzeile nicht auffindbar, erscheint stattdessen einer der **drei** Toasts aus dem
+  Textbuch, ausgewählt nach der Tabelle weiter unten — kein stiller Klick ins Leere, in keinem der
+  drei Fälle.
+
+**Welches Datum die Storno-Zeile trägt (vom Orchestrator entschieden).** Die Spalte „Datum" der
+Gegenbuchung trägt **denselben Wert wie das Original** — den Stichtag der gelöschten Periode
+(`periodValidFrom`), nicht den Tag des Stornierens. Phase 12 legt das für die Modellwechsel-Buchung
+bereits so fest; das Storno erbt es. Begründung: Das Löschen löst laut CONTEXT D4 eine Neuberechnung
+ab `validFrom` aus — die Wirkung liegt dort, nicht heute. Der Tag des Stornierens geht dadurch nicht
+verloren; er steht im Klartext in der zweiten Beschreibungszeile („Storniert am … von …").
+
+**Folge, auf die sich der Beleg-Chip stützt:** Beide Zeilen tragen dasselbe Datum und fallen damit
+**immer in denselben Zeitraumfilter**. Der Monats- oder Jahresfilter kann das Paar nicht
+auseinanderreißen — entweder sind beide sichtbar oder keine. Der verbleibende reale Fehlfall ist
+deshalb nicht der Filter, sondern die **Abschneidegrenze**: `OvertimeTransactions.tsx` hat
+`limit = 50` als Default (Zeile 26), `ReportsPage.tsx` übergibt `limit={100}` (Zeile 350), und die
+Fußzeile weist mit „• Maximal {limit} angezeigt" (Zeile 282) darauf hin. Bei `createdAt DESC` steht
+das Storno oben, während das Original jenseits der Grenze liegen kann, obwohl es im Filter läge.
+
+**Alle drei Fehlfälle sind textlich abgedeckt:**
+
+| Fall | Wie erkannt | Reaktion |
+|------|-------------|----------|
+| Partnerzeile geladen | `id` in den geladenen Transaktionen gefunden | Sprung + 2 s Ring-Hervorhebung + kurzzeitiger Fokus |
+| Partnerzeile nicht geladen, Abschneidegrenze erreicht | `id` nicht gefunden **und** `transactions.length >= limit` | Toast „… nur die letzten {limit} Buchungen …" |
+| Partnerzeile außerhalb des Zeitraumfilters | `id` nicht gefunden und Liste **nicht** voll | Toast mit `{Monat JJJJ}`, wenn `month` gesetzt ist, sonst mit `{JJJJ}` |
+
+**Der Jahresfilter ist der Normalfall, nicht der Sonderfall:** `ReportsPage.tsx` Zeile 41 hält
+`selectedMonth` als `useState<number | undefined>(undefined)` — beim Öffnen ist also ein Jahr ohne
+Monat gewählt. Ein Text mit dem Platzhalter `{Monat JJJJ}` wäre dort nicht befüllbar. Daher die
+monatslose Variante.
 
 **Warum drei Mittel für einen Bezug (vom Orchestrator entschieden):** Die Liste ist nach
 `createdAt DESC, id DESC` sortiert (Phase-8-Entscheidung, nicht verhandelbar), das Storno steht also
@@ -513,9 +607,11 @@ trägt der Bezug (a) im Klartext („Storno zur Buchung vom …", „Storniert a
 gemeinsame Belegnummer auf beiden Zeilen und (c) als Sprungmarke. (a) und (b) funktionieren ohne
 Interaktion, im Ausdruck und mit Screenreader; (c) ist die Bequemlichkeit obendrauf.
 
-- **Bekannte, akzeptierte Einschränkung:** Bei Monats-/Jahresfilterung kann eine der beiden Zeilen
-  außerhalb des Filters liegen. Kein Sonderweg für diesen Typ — dafür der erklärende Toast und der
-  Klartextbezug in der sichtbaren Zeile.
+- **Bekannte, akzeptierte Einschränkung:** Liegt der Stichtag außerhalb des gewählten Zeitraums,
+  erscheint **das ganze Paar** nicht — dasselbe Verhalten wie bei jeder anderen Buchung, kein
+  Sonderweg für diesen Typ. Unterhalb der Abschneidegrenze kann eine der beiden Zeilen fehlen; dafür
+  der erklärende Toast und der Klartextbezug in der sichtbaren Zeile. Der Kartenkopf zeigt
+  weiterhin den Gesamtsaldo.
 
 ---
 
@@ -532,9 +628,18 @@ Interaktion, im Ausdruck und mit Screenreader; (c) ist die Bequemlichkeit obendr
 tun ist. Der Leerzustand („Noch kein Stichtag hinterlegt") darf in diesem Fall nicht erscheinen — er
 behauptete, es gäbe keine Daten, obwohl es sie gibt.
 
-Darstellung: `bg-gray-50 dark:bg-gray-900/40`, `border border-gray-200 dark:border-gray-700`,
+Darstellung: `bg-gray-50 dark:bg-gray-800`, `border border-gray-200 dark:border-gray-700`,
 `rounded-lg p-4`, `Lock` in gray-500/400, Überschrift `text-sm font-semibold`, Body `text-sm`
 gray-600/400.
+
+**Eine graue Panelfläche, nicht zwei (vom Orchestrator entschieden).** Alle grauen Panels dieser
+Phase — Korrekturblock, `details`-Panel der Löschbestätigung, Panel „Kein Zugriff", Platzhalter- und
+Ladezustand der Vorschau — nutzen dasselbe Paar `bg-gray-50 dark:bg-gray-800` mit
+`border-gray-200 dark:border-gray-700`. Das ist wortgleich das Phase-12-Panelmuster.
+**Deklarierte Folge:** Im Dunkelmodus ist die Modalfläche selbst gray-800; die Panels heben sich dort
+allein über den Rahmen ab, nicht über die Füllung. Das ist bewusst so übernommen — eine zweite,
+dunklere Fläche (`dark:bg-gray-900/40`) hätte im selben Modal zwei verschiedene Grautöne für
+dieselbe Bedeutung erzeugt und kommt im gesamten `desktop/src` nirgends vor.
 
 **Warum grau und nicht rot (vom Orchestrator entschieden):** Rot ist in dieser Anwendung die Farbe
 für „etwas ist schiefgegangen". Eine korrekt greifende Zugriffsregel ist kein Fehler und kein
@@ -582,13 +687,14 @@ Jeder Zustand ist umzusetzen; `.claude/CLAUDE.md` führt Loading/Error-States al
 | 18 | Löschbestätigung offen, Auswirkung lädt | `ConfirmDialog variant="danger"`; `details` zeigt Punkt 1 und 2 bereits, Punkt 3 als „Auswirkung wird berechnet …"; Bestätigungsknopf `disabled` |
 | 19 | Löschbestätigung bereit | alle drei Punkte gefüllt, Saldoänderung mit Vorzeichen, Farbe und Trendpfeil; Bestätigungsknopf aktiv |
 | 20 | Löschvorschau fehlgeschlagen | Punkt 3 wird zum roten Fehlertext + Button „Erneut berechnen"; Bestätigungsknopf bleibt `disabled` |
-| 21 | Löschen läuft | Bestätigungsknopf `disabled` mit `LoadingSpinner size="sm"` + „Wird gelöscht …"; „Abbrechen" `disabled`; die betroffene Zeile in der Liste zeigt statt der Aktionen einen `LoadingSpinner size="sm"` |
+| 21 | Löschen läuft | Bestätigungsknopf über `confirmLoading`: `disabled`, `LoadingSpinner size="sm" className="mr-2"` vor dem `confirmText`, Text „Wird gelöscht …"; „Abbrechen" und der X-Knopf über `cancelDisabled` **sichtbar deaktiviert** (`disabled:opacity-50 disabled:cursor-not-allowed` aus `Button`), ESC und Backdrop wirkungslos; die betroffene Zeile in der Liste zeigt statt der Aktionen einen `LoadingSpinner size="sm"` |
 | 22 | Löschen fehlgeschlagen | Bestätigungsdialog bleibt offen; rotes Banner darin: „Die Periode wurde nicht gelöscht. Es wurde nichts verändert — weder die Periode noch der Kontoauszug. {Servermeldung}" |
 | 23 | Löschen der ersten Periode serverseitig abgelehnt | wie 22, mit dem Text „Die erste Periode kann nicht gelöscht werden. Korrigieren Sie sie stattdessen." — Fall tritt nur bei umgangener Oberfläche auf, muss aber tragen |
 | 24 | Erste Periode — nicht löschbar (Normalfall) | Aktionszelle ohne Löschknopf, mit fokussierbarem Chip „Nicht löschbar"; Fußnote unter der Liste dauerhaft sichtbar |
 | 25 | Löschen erfolgreich | Dialog schließt; Toast „Periode gelöscht — Storno steht im Kontoauszug"; grünes Banner (8 s) mit dem neuen Ende der Vorperiode; Liste und Kontoauszug invalidiert; **kein** „Rückgängig"-Knopf |
 | 26 | Kontoauszug: Storno-Paar sichtbar | zwei Zeilen, beide mit teal Typ-Badge, je einem grauen Zustands-Badge, gemeinsamem Beleg-Chip und Klartextbezug |
-| 27 | Kontoauszug: Partnerzeile außerhalb des Filters | Klick auf den Beleg-Chip erzeugt den erklärenden Toast; die sichtbare Zeile bleibt hervorgehoben |
+| 27 | Kontoauszug: Partnerzeile nicht geladen (Abschneidegrenze `limit`) | Klick auf den Beleg-Chip erzeugt den Toast „… nur die letzten {limit} Buchungen …"; die sichtbare Zeile bleibt hervorgehoben |
+| 28 | Kontoauszug: Partnerzeile außerhalb des Zeitraumfilters | Klick auf den Beleg-Chip erzeugt den Toast mit `{Monat JJJJ}` bzw. — wenn kein Monat gewählt ist — mit `{JJJJ}`; die sichtbare Zeile bleibt hervorgehoben |
 
 Der Abbruch-Weg (ESC, Backdrop, „Abbrechen") setzt den Korrektur-Dialog vollständig zurück —
 inklusive Vorschau, Fehlern und `previewToken` — nach dem Muster `handleClose` aus
@@ -602,26 +708,73 @@ Vollständige Liste. Alles darüber hinaus bleibt unangetastet.
 
 | Datei | Änderung | Art |
 |-------|----------|-----|
-| `desktop/src/components/ui/ConfirmDialog.tsx` | drei optionale Props: `details?: ReactNode` (gerendert unter `message` in `CardContent`, `mt-4`), `confirmDisabled?: boolean` (auf den Bestätigungsknopf), `zIndexClass?: string` (Default `'z-50'`) | additiv, rückwärtskompatibel |
-| `desktop/src/components/ui/ConfirmDialog.tsx` | `handleConfirm` schließt heute den Dialog **sofort** nach `onConfirm()`. Für den Löschvorgang muss der Dialog offen bleiben (Zustände 21/22). Dafür eine optionale Prop `closeOnConfirm?: boolean` (Default `true`); bei `false` schließt der Aufrufer selbst | additiv, rückwärtskompatibel |
+| `desktop/src/components/ui/ConfirmDialog.tsx` | **fünf** neue optionale Props: `details?: ReactNode` (gerendert unter `message` in `CardContent`, `mt-4`) · `confirmDisabled?: boolean` (auf den Bestätigungsknopf, Zeile 82) · `confirmLoading?: boolean` (setzt zusätzlich `disabled` und rendert `<LoadingSpinner size="sm" className="mr-2" />` **vor** `confirmText`) · `cancelDisabled?: boolean` (auf den „Abbrechen"-Knopf Zeile 78–80 **und** den X-Knopf Zeile 64–69; unterdrückt außerdem ESC und Backdrop) · `closeOnConfirm?: boolean` (Default `true`; bei `false` schließt der Aufrufer selbst, weil der Dialog in den Zuständen 21/22 offen bleiben muss) | additiv, rückwärtskompatibel — alle fünf sind optional, jeder bestehende Aufruf verhält sich unverändert |
+| `desktop/src/components/ui/ConfirmDialog.tsx` | `iconColors.warning` (Zeile 47) `text-yellow-600 dark:text-yellow-400` → `text-amber-600 dark:text-amber-400` | rein visuell, ohne Bestandsaufrufer — `variant="warning"` wird heute nirgends verwendet (geprüft 21.08.2026) |
 | `desktop/src/components/worktime/WorkTimePeriodList.tsx` | `renderActions` wird gesetzt (Prop existiert bereits aus Phase 12) | keine Änderung an der Komponente |
 | `desktop/src/components/worktime/WorkTimePeriodList.tsx` | neue optionale Props `accessDenied?: boolean` und `footnote?: ReactNode` für Zustand 3 und die Fußnote | additiv |
 | `desktop/src/components/worktime/OvertimeTransactions.tsx` | Zustands-Badges, Beleg-Chip, Sprungmarke, zweite Beschreibungszeile für Storno-Paare | additiv |
 | `desktop/src/components/users/EditUserModal.tsx` | Korrekturblock unter der Periodenliste, Fußnote, Dialog-/Bestätigungssteuerung, Erfolgsbanner-Texte | additiv |
-| `desktop/src/api/client.ts` | 403 auf den Perioden-Endpunkten von der globalen Fehler-Toast-Regel ausnehmen (analog `is403OnUsers`) | eine Zeile, verhaltensverengend |
+| `desktop/src/api/client.ts` | **(1)** 403 auf den Perioden-Endpunkten von der globalen Fehler-Toast-Regel ausnehmen — Präzisierung unten. **(2)** Alle **42** `console.log`-Aufrufe entfernen (Zeile 18–50 Startup-Debugblock, 107–115 Request-Dump, 136–150 Response-Dump, 233–244 PUT-Pfad, 256–266 DELETE-Pfad; gezählt am 21.08.2026). Die 8 `console.error` in den Fehlerpfaden bleiben; `console.warn` kommt in der Datei nicht vor. | (1) verhaltensverengend, exakt begrenzt · (2) reines Streichen von Debugausgaben ohne Steuerfluss |
 
-**Abhängigkeit von Phase 12:** `Modal` muss die Prop `zIndexClass` und den Zähler geöffneter Modale
-bereits mitbringen (12-UI-SPEC, Abschnitt 1). `ConfirmDialog` ist heute auf `z-50` festgenagelt und
-baut **nicht** auf `Modal` auf — die `zIndexClass`-Prop dort ist deshalb in dieser Phase mitzuliefern,
-falls Phase 12 nur `Modal` angefasst hat. Ohne sie liegt jede Bestätigung unter dem Dialog, aus dem
-sie stammt.
+**403-Unterdrückung — Präzisierung.** `api/client.ts` Zeile 182 vergleicht heute **exakt**
+(`endpoint === '/users'`), und `shouldShowToast` verengt sich dadurch nur — die bestehende Regel ist
+sauber und wird nicht aufgeweicht. Zwei Dinge muss die Erweiterung dennoch beachten:
+
+1. **Ein Gleichheitsvergleich kann die Perioden-Endpunkte nicht treffen.** Sie sind parametrisiert
+   (`/users/{id}/work-time-periods` und darunter). Es braucht einen Präfix- oder Regex-Vergleich auf
+   den Perioden-Pfad, kein `===`.
+2. **Die Unterdrückung gilt auch für die schreibenden Endpunkte** (korrigieren, löschen, Vorschau) —
+   sonst erschiene neben dem Formularbanner der Zustände 16 und 22 ein zweiter, roter Toast. Dass die
+   Meldung dadurch nicht verlorengeht, ist ausdrücklich Teil der Festlegung: Für den 403-Fall führt
+   das Textbuch den Satz „Ihnen fehlt die Berechtigung für diese Änderung. Es wurde nichts
+   verändert.", und dieser Satz wird im **Formularbanner** des Korrektur-Dialogs bzw. im Bannerbereich
+   der Löschbestätigung gezeigt. Wo kein Formular offen ist (reines Lesen), trägt das Panel
+   „Kein Zugriff" die Aussage.
+
+**Debugausgaben — Phase-12-Regel angewandt.** Phase 12 hat festgelegt: In Dateien, die eine Phase
+ohnehin verändert, wird **jeder** `console.log` entfernt; `console.error` und `console.warn` in
+Fehler- und Guard-Pfaden bleiben stehen. Diese Phase verändert `api/client.ts` und wendet die Regel
+dort an — 42 Aufrufe. Das ist kein Aufräumfeldzug, sondern dieselbe Regel am selben Anlass.
+Grundlage: `.claude/CLAUDE.md` Zeile 629 („Debug console.logs entfernt" als Pre-Commit-Quality-Gate)
+und Zeile 571 („`console.log` in Production → Entfernen vor Commit"). Erschwerend kommt hinzu, dass
+die Ausgaben in genau dieser Datei die **vollständigen Nutzdaten jeder Anfrage** in die
+Browser-Konsole schreiben: Zeile 110 (`'📦 Body:', options?.body`), Zeile 233–237 und 244 (kompletter
+PUT-Körper samt Ergebnis), Zeile 256–259 und 266 (DELETE-Körper samt Ergebnis) sowie Zeile 144
+(`RAW RESPONSE TEXT`). In einer Personalverwaltung sind das Namen, E-Mail-Adressen, Abteilungen,
+Positionen sowie Eintritts- und Austrittsdaten im Klartext.
+
+**Kein Aufräumfeldzug.** Dateien, die diese Phase nicht ohnehin verändert, bleiben unberührt, auch
+wenn sie `console.log` enthalten.
+
+**Abhängigkeiten von Phase 12** — dort geliefert, hier nur gesetzt:
+
+- `Modal` bringt `zIndexClass` mit und nimmt am **Modal-Stack** teil (`desktop/src/components/ui/modalStack.ts`
+  mit `pushModal`/`popModal`/`isTopModal`; 12-UI-SPEC, Abschnitt „Modal-Stack"). Der Stack ist die
+  Obermenge des in Revision 1 dieses Dokuments genannten Zählers: Er regelt zusätzlich, dass ESC und
+  die Fokusfalle nur für die oberste Instanz greifen.
+- `ConfirmDialog` bringt `zIndexClass` **ebenfalls aus Phase 12** mit und nimmt am selben Stack teil.
+  Phase 13 führt die Prop also nicht ein, sondern setzt sie (`z-[60]` bzw. `z-[70]`) und ergänzt die
+  fünf oben gelisteten Props.
+- `WorkTimePeriodList` bringt `renderActions` mit.
+- `WorkScheduleEditor` bringt `readOnly` mit (im Korrektur-Dialog auf `false`).
+
+**Typerweiterung — ausdrücklich für den Planer.** Der in Phase 12 eingeführte Typ `WorkTimePeriod`
+führt `id`, `validFrom`, `validTo`, `weeklyHours` und `workSchedule`. Die Verzweigung der
+Aktionsspalte hängt an **`isFirst`**, die Badges „Aktuell"/„Geplant" hängen an **`isCurrent`**. Beide
+Felder werden dem Typ in dieser Phase hinzugefügt und vom Server geliefert (siehe Datenvertrag). Sie
+im Frontend aus der Liste abzuleiten wäre möglich, aber falsch, sobald die Liste je gefiltert,
+begrenzt oder anders sortiert wird — dann wäre „die erste Zeile" nicht mehr „die erste Periode".
 
 **Beobachtete, hier nicht behobene Altlasten** (vermerkt, damit sie nicht als neu eingeführter Mangel
-gewertet werden): `ConfirmDialog.tsx` enthält zwei `console.log`-Aufrufe entgegen der Pre-Commit-Regel;
-`OvertimeTransactions.tsx` typisiert die Transaktionen als `any` entgegen der Strict-Mode-Regel;
-`EditUserModal.tsx` nutzt an mehreren Stellen starre `grid-cols-2`/`grid-cols-3` ohne Breakpoint.
-Neuer Code dieser Phase führt keines dieser Muster fort — die neuen Transaktionsfelder werden
-typisiert, es gibt keine neuen `console.log`, und jedes neue Raster hat einen Breakpoint.
+gewertet werden): `OvertimeTransactions.tsx` typisiert die Transaktionen als `any` entgegen der
+Strict-Mode-Regel; `EditUserModal.tsx` nutzt in Zeile 197, 216, 238 und 280 starre
+`grid-cols-2`/`grid-cols-3` ohne Breakpoint. Beides liegt im Renderpfad bestehender Funktionen und
+wird in dieser Phase bewusst nicht angefasst („NO REGRESSION"). Neuer Code dieser Phase führt keines
+dieser Muster fort: keine neuen `console.log`, kein `any`, jedes neue Raster mit Breakpoint.
+
+> **Entfallen gegenüber Revision 1:** Der Vermerk zu den beiden `console.log` in `ConfirmDialog.tsx`
+> ist gegenstandslos — Phase 12 entfernt sie bereits. Dasselbe gilt für `EditUserModal.tsx` und
+> `UserManagementPage.tsx`, deren Debugausgaben Phase 12 ebenfalls entfernt.
 
 ---
 
@@ -631,10 +784,11 @@ Beschreibt die Erwartung der UI, nicht die Implementierung.
 
 | Zweck | Erwartete Angaben |
 |-------|-------------------|
-| Periodenliste | je Periode: `id`, `validFrom`, `validTo\|null`, `weeklyHours`, `workSchedule`, `isFirst` (erste Periode ab `hireDate`), `isCurrent` |
+| Periodenliste | je Periode: `id`, `validFrom`, `validTo\|null`, `weeklyHours`, `workSchedule`, **`isFirst`** (erste Periode ab `hireDate`), **`isCurrent`** (heute gültig). `isFirst` und `isCurrent` erweitern den Phase-12-Typ `WorkTimePeriod`. |
 | Korrektur-Vorschau | `rangeFrom`, `rangeTo`, `workingDays`, `targetHoursBefore`, `targetHoursAfter`, `targetHoursDelta`, `balanceBefore`, `balanceAfter`, `balanceDelta`, `previousPeriod` (falls `validFrom` verschoben wird: `validFrom`, `weeklyHours`, `newValidTo`), `previewToken` |
 | Lösch-Vorschau | `deletedPeriod`, `previousPeriod` (`validFrom`, `weeklyHours`, `newValidTo`), `reversedTransaction` (`id`, `date`, `hours`), `rebuildFrom`, `balanceBefore`, `balanceAfter`, `balanceDelta`, `previewToken` |
 | Kontoauszug | zusätzlich je Transaktion: `id`, `referenceId`, `reversalOf\|null`, `reversedBy\|null`, `reversedAt\|null`, `reversedByName\|null`, `periodValidFrom`, `createdAt`, `createdByName` |
+| Kontoauszug — Spalte „Datum" | gespeist aus **`date`**, und `date` trägt bei Modellwechsel-, Korrektur- **und Storno**-Buchungen den Stichtag der Periode (`periodValidFrom`), nicht `createdAt`. `createdAt` und `reversedAt` erscheinen ausschließlich im Klartext der zweiten Beschreibungszeile. |
 | Rechte | 403 mit maschinenlesbarem Fehlerfeld für alle Perioden-Endpunkte (lesen, anlegen, korrigieren, löschen, Vorschau) |
 
 ---
@@ -669,7 +823,10 @@ Breakpoints wie im Bestand: `sm` 640, `md` 768, `lg` 1024.
 - Das schreibgeschützte Feld „Gültig bis" erhält `aria-readonly="true"` und bleibt lesbar
   (`readOnly`, nicht `disabled` — Kontrast ≥ 4,5:1 in beiden Modi, Regel aus Phase 12).
 - Der Chip „Nicht löschbar" ist mit `tabIndex={0}` erreichbar und trägt seine vollständige Erklärung
-  im `aria-label`; die Tooltip-Einblendung reagiert auf `hover` **und** `focus-visible`.
+  im `aria-label`. Die Tooltip-Einblendung reagiert auf `hover` **und** `focus-within` und ist mit ESC
+  ausblendbar (WCAG 2.2, 1.4.13) — das Bestandsmuster aus `OvertimeTransactions.tsx` ist hover-only
+  und muss dafür ergänzt werden, nicht kopiert. Sehende Tastaturnutzer sind sonst ausgeschlossen;
+  Screenreader wären über das `aria-label` versorgt, die Fußnote trägt beide Gruppen.
 - Die Löschbestätigung nennt im `aria-label` des Bestätigungsknopfes die Periode:
   „Periode vom {TT.MM.JJJJ} löschen und stornieren".
 - Der Beleg-Chip ist ein echtes `<button>` mit `aria-label`; nach dem Sprung erhält die Zielzeile
@@ -707,7 +864,8 @@ Alle verwendeten Bausteine sind bestehende Projektkomponenten oder bereits insta
 | `ROADMAP.md` Phase 13 | Erfolgskriterien → Zustände 19/25/26 (Löschen und Storno sichtbar), 11 (Korrektur ohne Begründung abgewiesen), 3 (Mitarbeiter sieht fremde Perioden nicht) |
 | `.claude/CLAUDE.md` | Dark Mode Pflicht · responsive Breakpoints · Loading/Error States · `universalFetch` · Soft Delete statt Hard Delete · TypeScript strict, kein `any` |
 | Codebestand | `ConfirmDialog`, `Modal`, `Button`, `Input`, `Textarea`, `Card`, `LoadingSpinner` · Zeilen-Löschmuster aus `CorrectionsTable.tsx` · Tooltip-Muster aus `OvertimeTransactions.tsx` · 403-Behandlung aus `useUsers.ts` und `api/client.ts` · Zugriffsregel-Kommentar aus `VacationTransactions.tsx` |
-| Vom Orchestrator entschieden | shadcn nicht initialisieren · ein Dialog für die Korrektur mit zwei Türen, Zeilenaktion heißt „Korrigieren" · Korrekturblock unter der Liste, neutral grau, Amber erst im Dialog · Phase-12-Button bleibt ohne Icon (Asymmetrie als Unterscheidungsmerkmal) · kein Type-to-confirm · `ConfirmDialog` erweitern statt zweiten Bestätigungsstil bauen · Löschbestätigung mit Server-Vorschau, Bestätigung bis dahin gesperrt · `validTo` nie editierbar, `validFrom` der ersten Periode gesperrt · erste Periode: fokussierbarer Chip + dauerhafte Fußnote statt ausgegrautem Knopf · Storno-Bezug über Klartext + gemeinsamen Beleg-Chip + Sprungmarke · Originalbetrag bleibt ungestrichen stehen · Zustands-Badges grau statt neuer Farbe · „Kein Zugriff" grau mit Schloss, nicht rot · 403 auf Perioden-Endpunkten vom globalen Fehler-Toast ausnehmen · kein „Rückgängig" im Erfolgs-Toast · Icon-only-Zeilenaktionen mit `p-2` unter 640 px |
+| Vom Orchestrator entschieden (Revision 1) | shadcn nicht initialisieren · ein Dialog für die Korrektur mit zwei Türen, Zeilenaktion heißt „Korrigieren" · Korrekturblock unter der Liste, neutral grau, Amber erst im Dialog · Phase-12-Button bleibt ohne Icon (Asymmetrie als Unterscheidungsmerkmal) · kein Type-to-confirm · `ConfirmDialog` erweitern statt zweiten Bestätigungsstil bauen · Löschbestätigung mit Server-Vorschau, Bestätigung bis dahin gesperrt · `validTo` nie editierbar, `validFrom` der ersten Periode gesperrt · erste Periode: fokussierbarer Chip + dauerhafte Fußnote statt ausgegrautem Knopf · Storno-Bezug über Klartext + gemeinsamen Beleg-Chip + Sprungmarke · Originalbetrag bleibt ungestrichen stehen · Zustands-Badges grau statt neuer Farbe · „Kein Zugriff" grau mit Schloss, nicht rot · 403 auf Perioden-Endpunkten vom globalen Fehler-Toast ausnehmen · kein „Rückgängig" im Erfolgs-Toast · Icon-only-Zeilenaktionen mit `p-2` unter 640 px |
+| Vom Orchestrator entschieden (Revision 2) | Storno-Zeile trägt den Stichtag der Periode, nicht den Storno-Tag — dadurch kann der Zeitraumfilter das Paar nicht trennen · drei getrennte Fallback-Texte für den Beleg-Chip (Abschneidegrenze, Monatsfilter, Jahresfilter) · Ausweg-Satz im Warnbanner statt nur im Einstiegsblock · `confirmLoading` und `cancelDisabled` am `ConfirmDialog` statt eines zweiten Dialogstils · `iconColors.warning` von gelb auf amber angeglichen (kein Bestandsaufrufer) · eine einzige graue Panelfläche (`dark:bg-gray-800`), Trennung im Dunkelmodus über den Rahmen · visueller Anker der Löschbestätigung ist Punkt 3 · Token `sm+` (12 px) aus Phase 12 übernommen · vier Schriftgewichte ehrlich benannt · Präfix-/Regex-Vergleich für die 403-Unterdrückung, auch für schreibende Endpunkte · Phase-12-Debugausgaben-Regel auf `api/client.ts` angewandt (42 `console.log`) · Tooltip-Muster um `focus-within` und ESC ergänzt · `isFirst`/`isCurrent` als Typerweiterung ausgewiesen |
 
 ---
 
@@ -724,6 +882,36 @@ Nicht Teil dieser UI-SPEC:
 - **Massenpflege mehrerer Nutzer** — nicht angefragt.
 - Bestehende Altlasten in `EditUserModal.tsx`, `OvertimeTransactions.tsx` und `ConfirmDialog.tsx`
   über die oben gelisteten additiven Änderungen hinaus.
+
+---
+
+## Revisionsvermerk
+
+**Revision 2 — 21.08.2026.** Überarbeitung nach der Prüfung durch `gsd-ui-checker` (Ergebnis:
+BLOCKED, zwei blockierende Befunde plus Empfehlungen). Kein Neuentwurf: Aufbau, Textbuch,
+Rollenmatrix, die Auflösung „eine Aktion mit zwei Türen" und alle Entscheidungen aus Revision 1
+bleiben unverändert bestehen.
+
+| Befund | Behebung | Wo |
+|--------|----------|-----|
+| **B1** Beleg-Chip ohne Text für den häufigsten Fehlfall | Drei getrennte Fallback-Texte (Abschneidegrenze `limit`, Monatsfilter, Jahresfilter ohne Monat) samt Erkennungslogik als Tabelle; Zustand 27 in 27 und 28 aufgeteilt. Zusätzlich die fehlende Festlegung nachgeholt: Die Storno-Zeile trägt den **Stichtag der Periode**, nicht den Storno-Tag — dadurch kann der Zeitraumfilter das Paar nicht mehr trennen, und der verbleibende reale Fehlfall ist die Abschneidegrenze. | Textbuch „Kontoauszug", Abschnitt 5, Zustände 27/28, Datenvertrag |
+| **B2** Zustand 21 mit der Änderungsliste nicht baubar | `ConfirmDialog` bekommt `confirmLoading?: boolean` (Spinner im Knopf) und `cancelDisabled?: boolean` (Abbrechen, X, ESC, Backdrop) zusätzlich zu `details`, `confirmDisabled` und `closeOnConfirm`. Zustand 21 nennt die Props ausdrücklich. | Änderungsliste, Zustand 21 |
+| **Kern-Empfehlung REQ-30** Ausweg nur im Einstiegsblock sichtbar | Satz 3 im Warnbanner, in **beiden** Panelvarianten: abbrechen und „Stundenwechsel ab Datum …" nutzen. Als Begründung 5 aufgenommen, weil die Zeilenaktion der kürzeste Weg in den Dialog ist. | Textbuch „Korrektur-Dialog", Trenn-Tabelle, Begründung 5 |
+| **E1** visueller Anker fehlt | Eigener Abschnitt: Anker des Korrektur-Dialogs ist die hervorgehobene Saldoänderung, Anker der Löschbestätigung ist Punkt 3 der `details`-Liste. | Abschnitt „Visueller Anker" |
+| **E2** Warnfarbe gelb statt amber | `iconColors.warning` wird angeglichen; kein Bestandsaufrufer nutzt `variant="warning"` (geprüft). | Semantik-Palette, Änderungsliste |
+| **E3** zweite graue Panelfläche | Alle grauen Panels nutzen `bg-gray-50 dark:bg-gray-800` (Phase-12-Muster). Die Folge — im Dunkelmodus trennt der Rahmen, nicht die Füllung — ist deklariert. | Rollen- und Rechtezustände, drei Fundstellen |
+| **E4** Schriftgewichte beschönigt | Phase-12-Fassung übernommen: **vier** Gewichte, zwei frei gewählt, zwei bestandsgebunden, als Tabelle mit Einsatzorten. | Typography |
+| **E5** „Spacing unverändert" trug nicht | Token `sm+` (12 px) aus Phase 12 übernommen; `px-4 py-3`, `gap-3` und `space-x-3` sind damit keine Ausnahmen mehr. Es bleiben die zwei Phase-12-Ausnahmen plus die neue 32-px-Trefferfläche. | Spacing Scale |
+| **E6** `client.ts`-Ausnahme unpräzise | Präfix-/Regex-Vergleich statt `===` (die Endpunkte sind parametrisiert); die Unterdrückung gilt ausdrücklich auch für die schreibenden Endpunkte, dort trägt das Formularbanner die 403-Meldung. | Änderungsliste |
+| **E7** `console.log` in `client.ts` | Phase-12-Regel angewandt: alle 42 `console.log` entfernt, `console.error` bleibt. Die Datei protokolliert heute vollständige PUT-/DELETE-Nutzdaten. | Änderungsliste |
+| **E8** Chip-Tooltip nur hover | `group-focus-within` ergänzt, ESC-Ausblendbarkeit (WCAG 2.2, 1.4.13) gefordert, Bestandsmuster ausdrücklich als unzureichend markiert. | Abschnitt 3, Barrierefreiheit |
+| **E9** `renderActions` braucht `isFirst` | Typerweiterung `isFirst`/`isCurrent` am Phase-12-Typ `WorkTimePeriod` ausgewiesen, mit Begründung gegen die Frontend-Ableitung. | Änderungsliste, Datenvertrag |
+| **Streichungen** | `zIndexClass` wird von Phase 12 eingeführt und hier nur gesetzt (vereinheitlicht); „Zähler geöffneter Modale" → **Modal-Stack** mit `isTopModal`; der Altlast-Vermerk zu den `console.log` in `ConfirmDialog.tsx` ist entfallen, weil Phase 12 sie entfernt. | Änderungsliste |
+
+Alle vom Prüfer genannten Quellcode-Fundstellen wurden vor der Übernahme selbst nachgeprüft und
+trafen sämtlich zu: `ReportsPage.tsx` Zeile 41 und 350, `OvertimeTransactions.tsx` Zeile 26, 159,
+227 und 282, `ConfirmDialog.tsx` Zeile 17–18, 47 und 78–83, `api/client.ts` Zeile 110, 182–189,
+233–244 und 256–266. `12-UI-SPEC.md` wurde nicht verändert.
 
 ---
 
