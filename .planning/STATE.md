@@ -197,7 +197,7 @@ Acht offene Debug-Sessions in `.planning/debug/`:
 | Thema | Einschätzung | Weiterbehandlung |
 |-------|--------------|------------------|
 | `urlaubstage-bei-ablehnung-verloren` | Auslöser von v2.0 — durch diesen Milestone strukturell behoben | erledigt, Datei als Beleg |
-| `db-stabilisierung-20260818` | Behoben 18.08., Symlink am 20.08. entfernt | Restpunkt: Cron mit `DATABASE_PATH` reaktivieren |
+| `db-stabilisierung-20260818` | Behoben 18.08., Symlink am 20.08. entfernt | Kein Restpunkt: Cron ist nicht deaktiviert, sondern wird bei jedem Deployment neu installiert (`deploy-server.yml:123-130`) und trägt `DATABASE_PATH` bereits gesetzt (`deploy-server.yml:125`) — siehe `09-A1-NACHWEIS.md` |
 | `carmen-rothemund-overtime-analysis` | Überstundenberechnung | Milestone v3.0 |
 | `overtime-compensation-workschedule-bug` | Überstunden + `workSchedule` | Milestone v3.0 |
 | `overtime-validation-backend-mismatch` | `getOvertimeBalance()` ohne Monatsfilter | Milestone v3.0, REQ-19 |

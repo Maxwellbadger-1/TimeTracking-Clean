@@ -1,0 +1,256 @@
+{
+  "generatedAt": "2026-08-21T21:18:18.673Z",
+  "databasePath": "C:\\Users\\maxfe\\Maxflow Software\\Projekte\\Stiftung TimeTracker\\TimeTracking-Clean\\server\\database\\a1-nachher.db",
+  "toleranceHours": 0.01,
+  "results": [
+    {
+      "userId": 2,
+      "month": "2026-07",
+      "values": [
+        {
+          "name": "unified",
+          "value": -6.5
+        },
+        {
+          "name": "dashboard",
+          "value": -6.5
+        },
+        {
+          "name": "report_summary",
+          "value": -6.5
+        },
+        {
+          "name": "report_daily",
+          "value": -6.5
+        },
+        {
+          "name": "balance_row",
+          "value": -6.5
+        }
+      ],
+      "comparison": {
+        "divergent": false,
+        "maxDelta": 0,
+        "pairs": [
+          {
+            "a": "unified",
+            "b": "dashboard",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "report_summary",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "report_summary",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_summary",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "report_summary",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_daily",
+            "b": "balance_row",
+            "delta": 0
+          }
+        ],
+        "missing": []
+      }
+    },
+    {
+      "userId": 16,
+      "month": "2026-07",
+      "values": [
+        {
+          "name": "unified",
+          "value": -29.75
+        },
+        {
+          "name": "dashboard",
+          "value": -29.75
+        },
+        {
+          "name": "report_summary",
+          "value": -29.75
+        },
+        {
+          "name": "report_daily",
+          "value": -29.75
+        },
+        {
+          "name": "balance_row",
+          "value": -29.75
+        }
+      ],
+      "comparison": {
+        "divergent": false,
+        "maxDelta": 0,
+        "pairs": [
+          {
+            "a": "unified",
+            "b": "dashboard",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "report_summary",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "report_summary",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_summary",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "report_summary",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_daily",
+            "b": "balance_row",
+            "delta": 0
+          }
+        ],
+        "missing": []
+      }
+    },
+    {
+      "userId": 17,
+      "month": "2026-04",
+      "values": [
+        {
+          "name": "unified",
+          "value": -3.83
+        },
+        {
+          "name": "dashboard",
+          "value": -3.8299999999999983
+        },
+        {
+          "name": "report_summary",
+          "value": -3.8299999999999983
+        },
+        {
+          "name": "report_daily",
+          "value": -3.83
+        },
+        {
+          "name": "balance_row",
+          "value": -3.8299999999999983
+        }
+      ],
+      "comparison": {
+        "divergent": false,
+        "maxDelta": 1.7763568394002505e-15,
+        "pairs": [
+          {
+            "a": "unified",
+            "b": "dashboard",
+            "delta": 1.7763568394002505e-15
+          },
+          {
+            "a": "unified",
+            "b": "report_summary",
+            "delta": 1.7763568394002505e-15
+          },
+          {
+            "a": "unified",
+            "b": "report_daily",
+            "delta": 0
+          },
+          {
+            "a": "unified",
+            "b": "balance_row",
+            "delta": 1.7763568394002505e-15
+          },
+          {
+            "a": "dashboard",
+            "b": "report_summary",
+            "delta": 0
+          },
+          {
+            "a": "dashboard",
+            "b": "report_daily",
+            "delta": 1.7763568394002505e-15
+          },
+          {
+            "a": "dashboard",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_summary",
+            "b": "report_daily",
+            "delta": 1.7763568394002505e-15
+          },
+          {
+            "a": "report_summary",
+            "b": "balance_row",
+            "delta": 0
+          },
+          {
+            "a": "report_daily",
+            "b": "balance_row",
+            "delta": 1.7763568394002505e-15
+          }
+        ],
+        "missing": []
+      }
+    }
+  ]
+}
