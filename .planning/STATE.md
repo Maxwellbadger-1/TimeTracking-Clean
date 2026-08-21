@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: verifying
-stopped_at: Completed 09-05-PLAN.md
-last_updated: "2026-08-21T23:10:51.172Z"
+status: executing
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-08-21T23:53:06.585Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
   percent: 14
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 09 — Ein Maßstab, ein Weg
+**Current focus:** Phase 10 — Perioden-Fundament
 
 ## Current Status
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 09-05-PLAN.md
+- **Stopped at:** Completed 10-01-PLAN.md
 
 ## Phase Progress
 
@@ -135,6 +135,10 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase ?]: [Phase 09-05] Zwoelf statt vier Fundstellen der overtime_comp-Kreditierungsregel gezaehlt statt angenommen - CR-01 und der Schreibpfad geschlossen, Monatsend-Off-by-one in zwei Funktionen behoben
 - [Phase ?]: [Phase 09-05] Produktionsschutz-Guard kombiniert Pfadgleichheit + NODE_ENV + Substring-Fallback statt reiner Heuristik - getProductionDatabasePath() liefert strukturell nicht den realen Produktionspfad, gemessen dass der Substring-Fallback fuer den D5-Kanarientest noetig bleibt
 - [Phase ?]: [Phase 09-05] Erfolgskriterium 3 der ROADMAP erfuellt: alle drei Pruefnutzer zeigen nach Rebuild mit dem gefixten Code Transaction validation PASSED - Nachweis in 09-ABSCHLUSS-NACHWEIS.md, Phase 9.1 (Journal-Backfill, Betriebs-Haertung) in ROADMAP/REQUIREMENTS verankert (D2)
+- [Phase 10-perioden-fundament]: 10-01: DDL woertlich aus dem ddl_contract uebernommen, keine eigene Aenderung
+- [Phase 10-perioden-fundament]: 10-01: PRAGMA index_list(user_work_periods) liefert 3 Eintraege (2 benannte Indizes + 1 SQLite-Autoindex fuer UNIQUE(userId, validFrom)) - Tests pruefen auf benannte Indizes statt fester Gesamtzahl
+- [Phase 10-perioden-fundament]: 10-01: schemaMigrationParity.test.ts nutzt Dateien in os.tmpdir() statt :memory:, weil initializeDatabase() WAL-Modus erzwingt
+- [Phase 10-perioden-fundament]: 10-01: requirements.mark-complete fuer REQ-20/REQ-22 nicht anwendbar - REQUIREMENTS.md dieses Milestones nutzt kein Checkbox-/Pending-Complete-Format, nur eine Phasenzuordnungstabelle; Abdeckung bleibt wie gehabt ueber die Phase-10-Zeilen dokumentiert
 
 ## Quick Tasks Completed
 
@@ -173,6 +177,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 09 P03 | 90min | 5 tasks | 11 files |
 | Phase 09-ein-ma-stab-ein-weg P04 | 50min | 3 tasks | 7 files |
 | Phase 09-ein-ma-stab-ein-weg P05 | 55min | - tasks | - files |
+| Phase 10-perioden-fundament P01 | 45min | 2 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -208,9 +213,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Position
 
-Phase: 09 (Ein Maßstab, ein Weg) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: 10 (Perioden-Fundament) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-08-21
 
 ## Operator Next Steps
