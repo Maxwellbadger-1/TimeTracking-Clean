@@ -6,20 +6,50 @@ Zeiterfassungssystem für die Stiftung: Node.js-Server auf Oracle Cloud, Tauri-D
 die Mitarbeiter. Erfasst Arbeitszeiten, berechnet Überstunden nach deutschem Arbeitsrecht und
 verwaltet Abwesenheiten (Urlaub, Krankheit, unbezahlt, Überstundenausgleich).
 
-## Aktueller Milestone: 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
+## Aktueller Stand
 
-**Core Value:** Kein Urlaubstag verschwindet mehr unbemerkt. Jede Bewegung wird als Buchung
-festgehalten, der Saldo ist ihre Summe — Abweichungen können strukturell nicht mehr entstehen,
-und wenn doch etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei Monaten.
+**Ausgeliefert:** Milestone v2.0 abgeschlossen am 21.08.2026 — Server in Produktion,
+Desktop-Release v1.8.0. Das Urlaubskonto führt seither ein Journal: jede Bewegung ist eine
+Buchung, der Saldo ihre Summe, beide Rollen sehen einen Kontoauszug.
+
+**Als nächstes:** Milestone v3.0 — Historisierte Arbeitszeitmodelle. Eine Änderung der
+Arbeitsstunden soll ab einem Stichtag gelten, ohne die davor gerechneten Überstunden zu
+verschieben. Requirements-Entwurf: `.planning/REQUIREMENTS-v3-draft.md` (REQ-17 bis REQ-33),
+Entscheidungsgrundlage: `.planning/notes/arbeitszeitmodelle-historisierung.md`.
+
+---
+
+<details>
+<summary>Milestone v2.0 (abgeschlossen 2026-08-21): Urlaubskonto — Korrektheit & Nachvollziehbarkeit</summary>
+
+**Core Value (erreicht):** Kein Urlaubstag verschwindet mehr unbemerkt. Jede Bewegung wird als
+Buchung festgehalten, der Saldo ist ihre Summe — Abweichungen können strukturell nicht mehr
+entstehen, und wenn doch etwas schiefgeht, ist es am selben Tag sichtbar statt nach drei
+Monaten.
 
 **Auslöser:** Am 18.08.2026 fiel auf, dass sechs stornierte Urlaubstage nicht zurückgebucht
 worden waren. Die Untersuchung fand zehn Befunde — 16 verlorene Urlaubstage bei zwei
-Mitarbeitern, 175,5 falsch ausgewiesene Tage bei sechs weiteren. Die Einzelfehler sind behoben;
-dieser Milestone beseitigt die strukturelle Ursache: `vacation_balance.taken` ist ein
-handgepflegter Zähler ohne Historie.
+Mitarbeitern, 175,5 falsch ausgewiesene Tage bei sechs weiteren. Die Einzelfehler wurden
+sofort behoben; der Milestone beseitigte die strukturelle Ursache: `vacation_balance.taken`
+war ein handgepflegter Zähler ohne Historie.
 
-Details: `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`,
-`.planning/debug/urlaubstage-bei-ablehnung-verloren.md`
+### Requirements v2.0 — alle validiert
+
+- ✓ `vacation_transactions` als Journal mit `balanceBefore`/`balanceAfter` — v2.0 (Phase 5)
+- ✓ Buchungstypen als CHECK-Constraint, Auslöser und Begründung je Buchung — v2.0 (Phase 5)
+- ✓ Genehmigung/Ablehnung/Löschung buchen in derselben DB-Transaktion — v2.0 (Phase 6)
+- ✓ Admin-Korrektur mit Pflichtbegründung statt stillem Überschreiben — v2.0 (Phase 6)
+- ✓ Anspruch und Übertrag bei Nutzeranlage und Jahreswechsel gebucht — v2.0 (Phase 6)
+- ✓ `taken` als abgeleitete Summe der Buchungen — v2.0 (Phase 7)
+- ✓ Konsistenzprüfer als Skript und Admin-Endpunkt, in CI — v2.0 (Phase 7)
+- ✓ Backfill der Historie, Salden unverändert (98 Tage) — v2.0 (Phase 7)
+- ✓ Kontoauszug für Mitarbeiter und Admin, verlinkt auf den Antrag — v2.0 (Phase 8)
+- ✓ Serverseitige Rollenprüfung, IDOR-Lücke geschlossen — v2.0 (Phase 8)
+
+Vollständige Historie: `.planning/MILESTONES.md`,
+Archiv: `.planning/milestones/v2.0-ROADMAP.md` und `v2.0-REQUIREMENTS.md`
+
+</details>
 
 ---
 
@@ -92,6 +122,12 @@ Production DB (`/home/ubuntu/database-shared.db` oder aktueller Pfad) darf NICHT
 | Symlink statt DATABASE_PATH-Änderung als primäre Lösung | Symlinks funktionieren transparent für Node.js ohne Config-Änderungen | ✓ Validated in Phase 1 |
 | Copy, never Move | Production DB muss jederzeit rollback-fähig bleiben | ✓ Festgelegt |
 | `server/database.db` als lokaler Dev-Name | Konsistent mit bestehender .gitignore-Konfiguration | ✓ Validated in Phase 3 |
+| Journal statt Zähler beim Urlaubskonto | Ein handgepflegter Wert ohne Historie läuft zwangsläufig auseinander; die Abweichung ist erst sichtbar, wenn sie zufällig auffällt | ✓ Validated in Phase 5–7 |
+| Buchung und Statuswechsel in einer DB-Transaktion | Eine vergessene Gegenbuchung war die Ursache des Auslösers — Atomarität schließt sie strukturell aus | ✓ Validated in Phase 6 |
+| Storno statt Löschung bei Korrekturen | Der Auszug muss die Geschichte zeigen, nicht ein bereinigtes Ergebnis | ✓ Validated in Phase 6–8 |
+| Übertrag unbegrenzt, kein Verfall | Fünf widersprüchliche Berechnungen (drei gedeckelt, zwei unbegrenzt) mussten auf eine Regel zusammengeführt werden | ✓ Validated in Phase 6 |
+| Backfill mit Abbruchbedingung statt Best-Effort | Ein Backfill, der bei Abweichung weiterläuft, erzeugt genau die stillen Differenzen, die der Milestone beseitigen sollte | ✓ Validated in Phase 7 |
+| Symlink auf dem Server entfernt (20.08.) | SQLite legt die WAL-Datei neben dem geöffneten Pfad an — zwei Prozesse mit getrennten Sperrbereichen auf eine Datei | ✓ Korrigiert die Entscheidung aus Phase 2 |
 
 ## Evolution
 
@@ -104,4 +140,4 @@ Dieses Dokument entwickelt sich bei Phase-Übergängen und Milestone-Abschlüsse
 4. Entscheidungen zu loggen? → Key Decisions
 
 ---
-*Last updated: 2026-08-18 — Milestone 2 gestartet (Urlaubskonto: Korrektheit & Nachvollziehbarkeit)*
+*Last updated: 2026-08-21 — nach Abschluss von Milestone v2.0 (Urlaubskonto: Korrektheit & Nachvollziehbarkeit)*

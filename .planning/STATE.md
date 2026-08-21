@@ -1,10 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: milestone
-status: Ready to plan
-stopped_at: Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte gegen Produktion. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
-last_updated: "2026-08-21T19:02:24.487Z"
+milestone_name: Urlaubskonto - Korrektheit und Nachvollziehbarkeit
+status: Awaiting next milestone
+stopped_at: Milestone v2.0 abgeschlossen und archiviert. Alle vier Phasen (5-8) Complete, Phase 6 Verifikation 14/14 bestanden. Nächster Schritt: Milestone v3.0 "Historisierte Arbeitszeitmodelle" zuschneiden (Requirements-Entwurf liegt).
+last_updated: "2026-08-21T19:16:36.068Z"
+last_activity: 2026-08-21 — Milestone v2.0 completed and archived
 progress:
   total_phases: 4
   completed_phases: 4
@@ -20,25 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-18)
 
 **Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Phase 08 abgeschlossen — Milestone 2 inhaltlich fertig, Restpunkt Phase 6 (`gaps_found`) unabhängig offen
+**Current focus:** Milestone v2.0 abgeschlossen und archiviert — Vorbereitung von Milestone v3.0 „Historisierte Arbeitszeitmodelle"
 
 ## Current Status
 
-- **Phase:** 07 of 8 (saldo aus buchungen backfill)
-- **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
+- **Phase:** Keine aktive Phase (Milestone v2.0 abgeschlossen, v3.0 noch nicht zugeschnitten)
+- **Milestone:** v2.0 abgeschlossen 2026-08-21 — nächster: v3.0 Historisierte Arbeitszeitmodelle
 - **Initialized:** 2026-08-18
-- **Next action:** Keine offene Phase-8-Arbeit mehr. Abschließende Verifikation des Phase-6-Lückenschlusses (06-04 bis 06-07) gegen `06-VERIFICATION.md` aussteht.
-- **Last completed:** Plan 06-07 — Korrektur der zwei realen Pre-Hire-Vorausbuchungen (Karin Jochem, Christine Glas) gegen Produktion, ausgeführt und unabhängig verifiziert
-- **Stopped at:** Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte gegen Produktion. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
+- **Next action:** `/gsd:new-milestone` — Requirements-Entwurf liegt in `.planning/REQUIREMENTS-v3-draft.md` (REQ-17 bis REQ-33), Phasen ab 9.
+- **Last completed:** Phase 6 Lückenschluss — Verifikation 14/14 bestanden (Commit `24a2158`)
+- **Stopped at:** Milestone v2.0 vollständig abgeschlossen: alle vier Phasen Complete, Archive unter `.planning/milestones/` angelegt, MILESTONES.md und ROADMAP.md aktualisiert.
 
 ## Phase Progress
 
-### Milestone 2 (aktuell)
+### Milestone v2.0 (abgeschlossen 2026-08-21)
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 5 | Journal-Fundament | Complete (2/2 Plans), deployed — 2026-08-19 |
-| 6 | Buchungen bei jedem Vorgang | Lückenschluss ausgeführt (7/7 Plans), abschließende Verifikation ausstehend — Lückenschluss 2026-08-21 |
+| 6 | Buchungen bei jedem Vorgang | Complete (7/7 Plans), Verifikation 14/14 bestanden — 2026-08-21 |
 | 7 | Saldo aus Buchungen + Backfill | Complete (3/3 Plans), deployed — 2026-08-19 |
 | 8 | Kontoauszug für Mitarbeiter und Admin | Complete (5/5 Pläne) — Release v1.8.0 veröffentlicht 2026-08-20 |
 
@@ -155,3 +156,36 @@ See: .planning/PROJECT.md (updated 2026-08-18)
   unabhängig verifiziert. Phasenstatus bleibt bis zur erneuten Prüfung gegen
   `06-VERIFICATION.md` auf „Lückenschluss ausgeführt", nicht „Complete". Details:
   `.planning/phases/06-buchungen-bei-jedem-vorgang/06-07-SUMMARY.md`.
+
+## Current Position
+
+Phase: Milestone v2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-21 — Milestone v2.0 completed and archived
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd:new-milestone
+
+---
+
+## Zurückgestellte Punkte
+
+Beim Abschluss von Milestone v2.0 am 2026-08-21 bewusst zurückgestellt und dokumentiert.
+Acht offene Debug-Sessions in `.planning/debug/`:
+
+| Thema | Einschätzung | Weiterbehandlung |
+|-------|--------------|------------------|
+| `urlaubstage-bei-ablehnung-verloren` | Auslöser von v2.0 — durch diesen Milestone strukturell behoben | erledigt, Datei als Beleg |
+| `db-stabilisierung-20260818` | Behoben 18.08., Symlink am 20.08. entfernt | Restpunkt: Cron mit `DATABASE_PATH` reaktivieren |
+| `carmen-rothemund-overtime-analysis` | Überstundenberechnung | Milestone v3.0 |
+| `overtime-compensation-workschedule-bug` | Überstunden + `workSchedule` | Milestone v3.0 |
+| `overtime-validation-backend-mismatch` | `getOvertimeBalance()` ohne Monatsfilter | Milestone v3.0, REQ-19 |
+| `OVERTIME-FIX-PLAN` | Sammelplan Überstunden | Milestone v3.0 |
+| `unpaid-leave-logic-issues` | Logik unbezahlter Urlaub | offen, unzugeordnet |
+| `notifications-position-column-missing` | `position`-Spalte fehlt in der lokalen Entwicklungsdatenbank | offen, klein, unabhängig |
+
+Vier der acht betreffen die Überstundenberechnung und werden in Milestone v3.0
+(Historisierte Arbeitszeitmodelle) aufgegriffen — REQ-19 des Entwurfs verweist bereits
+auf zwei davon.

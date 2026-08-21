@@ -1,225 +1,70 @@
-# Roadmap
+# Roadmap — TimeTracking System
 
-## Milestone 2: Urlaubskonto — Korrektheit & Nachvollziehbarkeit
+## Milestones
 
-**Gestartet:** 2026-08-18
-**Ziel:** Kein Urlaubstag verschwindet mehr unbemerkt. Jede Bewegung wird gebucht, der Saldo
-ist ihre Summe, und jeder Beteiligte kann nachvollziehen, wie sein Konto zustande kommt.
-
-**Auslöser:** Root-Cause-Analyse vom 18.08.2026
-(`.planning/debug/urlaubstage-bei-ablehnung-verloren.md`) — 16 verlorene Urlaubstage bei zwei
-Mitarbeitern, 175,5 falsch ausgewiesene Tage bei sechs weiteren. Einzelfehler behoben, die
-strukturelle Ursache nicht.
+- ✅ **v1.0 — 2-Tier DB Architecture** — Phasen 1–4 (abgeschlossen 2026-04-02)
+- ✅ **v2.0 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit** — Phasen 5–8 (abgeschlossen 2026-08-21)
+- 📋 **v3.0 — Historisierte Arbeitszeitmodelle** — ab Phase 9 (in Planung)
 
 ---
 
-## Phases
+## Phasen
 
-| Phase | Name | Requirements |
-|-------|------|--------------|
-| 5 | Journal-Fundament | REQ-01 – REQ-04 |
-| 6 | Buchungen bei jedem Vorgang | REQ-05 – REQ-07, REQ-15 |
-| 7 | Saldo aus Buchungen + Backfill | REQ-08 – REQ-10, REQ-16 |
-| 8 | Kontoauszug für Mitarbeiter und Admin | REQ-11 – REQ-14 |
+<details>
+<summary>✅ v1.0 — 2-Tier DB Architecture (Phasen 1–4) — abgeschlossen 2026-04-02</summary>
 
----
+- [x] Phase 1: Server DB Consolidation (5/5 Pläne)
+- [x] Phase 2: Symlink + PM2 Ecosystem (2/2 Pläne)
+- [x] Phase 3: Local Dev Sync Script (2/2 Pläne)
+- [x] Phase 4: Deploy Workflow + Documentation (3/3 Pläne)
 
-## Phase Details
+Details: `.planning/MILESTONES.md`
 
-### Phase 5: Journal-Fundament
+</details>
 
-**Ziel:** Die Buchungstabelle existiert, ist migriert und kann geschrieben werden — ohne dass
-sich am Verhalten des Systems etwas ändert.
+<details>
+<summary>✅ v2.0 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit (Phasen 5–8) — abgeschlossen 2026-08-21</summary>
 
-**Umfang**
+- [x] Phase 5: Journal-Fundament (2/2 Pläne) — 2026-08-19
+- [x] Phase 6: Buchungen bei jedem Vorgang (7/7 Pläne) — 2026-08-21, Verifikation 14/14
+- [x] Phase 7: Saldo aus Buchungen + Backfill (3/3 Pläne) — 2026-08-19
+- [x] Phase 8: Kontoauszug für Mitarbeiter und Admin (5/5 Pläne) — 2026-08-20, Release v1.8.0
 
-- Tabelle `vacation_transactions` nach dem Vorbild von `overtime_transactions`
-- Migration über den bestehenden `migrationRunner` — idempotent, ohne Ausfallzeit
-- Service-Schicht `vacationTransactionService.ts`: Buchung schreiben, Journal lesen,
-  Saldo aus Buchungen berechnen
+Vollständige Phasenbeschreibungen: `.planning/milestones/v2.0-ROADMAP.md`
+Requirements mit Ergebnis: `.planning/milestones/v2.0-REQUIREMENTS.md`
 
-- Buchungstypen als `CHECK`-Constraint, damit unbekannte Typen gar nicht erst entstehen
+</details>
 
-**Erfolgskriterien**
+### 📋 v3.0 — Historisierte Arbeitszeitmodelle (ab Phase 9)
 
-- Migration läuft auf einer Kopie der Produktions-DB fehlerfrei durch, `integrity_check: ok`
-- Eine Buchung lässt sich schreiben und wieder auslesen, `balanceBefore`/`balanceAfter` stimmen
-- Bestehendes Verhalten unverändert — noch schreibt kein Vorgang ins Journal
+Noch nicht zugeschnitten. Requirements liegen als Entwurf vor:
+`.planning/REQUIREMENTS-v3-draft.md` (REQ-17 bis REQ-33).
+Entscheidungsgrundlage: `.planning/notes/arbeitszeitmodelle-historisierung.md`
 
-**Warum zuerst:** Ohne Tabelle keine Buchungen. Bewusst ohne Verhaltensänderung, damit die
-Migration isoliert verifizierbar ist.
-
----
-
-### Phase 6: Buchungen bei jedem Vorgang
-
-**Ziel:** Jede Bewegung auf dem Urlaubskonto erzeugt ab jetzt eine Buchungszeile.
-
-**Umfang**
-
-- `approveAbsenceRequest`, `rejectAbsenceRequest`, `deleteAbsenceRequest` buchen — in derselben
-  DB-Transaktion wie der Statuswechsel
-
-- Anspruch und Übertrag bei Nutzeranlage und Jahreswechsel werden gebucht
-- Admin-Änderungen am Konto erzeugen `correction` mit Pflichtbegründung
-- Regressionstests für genau die Fälle, die diesen Milestone ausgelöst haben
-
-**Erfolgskriterien**
-
-- `pending → approved → rejected` erzeugt zwei Buchungen, Saldo unverändert
-- `pending → approved → rejected → approved` erzeugt drei Buchungen, `taken` = Tage (nicht 2×)
-- Nutzeranlage mit 0 Urlaubstagen bucht 0, nicht 30
-- Admin-Korrektur ohne Begründung wird abgelehnt
-- Alle Tests grün (die zwei vorbestehend roten in `unifiedOvertimeService.test.ts` ausgenommen)
-
-**Abhängigkeit:** Phase 5
-
-**Lückenschluss (nach Verifikation `06-VERIFICATION.md`, 11/14 must_haves):**
-
-- [x] 06-04-PLAN.md — initializeVacationBalance() bucht pro rata, schließt Gap 1/Gap 3
-- [x] 06-05-PLAN.md — Übertrag-Nachbuchung bei bestehenden Urlaubskonten (CR-03/Gap 2)
-- [x] 06-06-PLAN.md — calculateCarryover() als einzige Übertragsquelle
-- [x] 06-07-PLAN.md — Korrektur der zwei realen Pre-Hire-Vorausbuchungen (Karin Jochem, Christine Glas) gegen Produktion, ausgeführt und verifiziert 2026-08-21
-
-Verifikation des gesamten Lückenschlusses gegen `06-VERIFICATION.md` steht noch aus.
+**Ziel:** Eine Änderung der Arbeitsstunden gilt ab einem Stichtag — was davor gerechnet
+wurde, bleibt unangetastet.
 
 ---
 
-### Phase 7: Saldo aus Buchungen + Backfill
+## Fortschritt
 
-**Ziel:** Der Saldo *ist* die Summe der Buchungen. Die Historie wird rückwirkend erzeugt.
-
-**Umfang**
-
-- Backfill-Skript: Historie aus `absence_requests` und `audit_log` rekonstruieren;
-  nicht rekonstruierbare Anteile als gekennzeichnete Anfangsbuchung
-
-- `taken` wird zur abgeleiteten Größe
-- Konsistenzprüfer: Journal ↔ `vacation_balance` ↔ genehmigte Anträge; als Skript und
-  Admin-Endpunkt
-
-- Prüfer läuft in CI gegen eine Testdatenbank
-
-**Erfolgskriterien**
-
-- Nach dem Backfill ergeben sich **exakt** die heutigen Salden — Gesamt-Rest 2026 = 98 Tage,
-  Carmen 5, Benedikt 15, die sechs Konten 0
-
-- Der Prüfer meldet null Abweichungen
-- Ein künstlich eingebauter Fehler wird vom Prüfer erkannt
-- Backup vor dem Backfill, Rückweg dokumentiert und erprobt
-
-**Abhängigkeit:** Phase 6 — sonst fehlen dem Backfill die laufenden Buchungen
-
-**Risiko:** Der heikelste Schritt des Milestones. Läuft zuerst vollständig auf einer Kopie
-der Produktionsdatenbank.
+| Phase | Milestone | Pläne | Status | Abgeschlossen |
+|-------|-----------|-------|--------|---------------|
+| 1. Server DB Consolidation | v1.0 | 5/5 | Complete | 2026-04-02 |
+| 2. Symlink + PM2 Ecosystem | v1.0 | 2/2 | Complete | 2026-04-02 |
+| 3. Local Dev Sync Script | v1.0 | 2/2 | Complete | 2026-04-02 |
+| 4. Deploy Workflow + Documentation | v1.0 | 3/3 | Complete | 2026-04-02 |
+| 5. Journal-Fundament | v2.0 | 2/2 | Complete | 2026-08-19 |
+| 6. Buchungen bei jedem Vorgang | v2.0 | 7/7 | Complete | 2026-08-21 |
+| 7. Saldo aus Buchungen + Backfill | v2.0 | 3/3 | Complete | 2026-08-19 |
+| 8. Kontoauszug für Mitarbeiter und Admin | v2.0 | 5/5 | Complete | 2026-08-20 |
 
 ---
 
-### Phase 8: Kontoauszug für Mitarbeiter und Admin
+## Offene Nebenpunkte
 
-**Ziel:** Was gebucht wurde, ist auch sichtbar — für beide Rollen.
+Nicht einem Milestone zugeordnet, siehe STATE.md „Zurückgestellte Punkte":
 
-**Umfang**
-
-- API-Endpunkte für das Journal, mit serverseitiger Rollenprüfung
-- Mitarbeiter: Auszug des eigenen Kontos mit Datum, Vorgang, Tagen, laufendem Saldo
-- Admin: Auszug jedes Mitarbeiters, nach Jahr filterbar, mit Korrekturbuchung
-- Verlinkung auf den auslösenden Abwesenheitsantrag
-- Desktop-Release, damit die Änderungen die Anwender erreichen
-
-**Erfolgskriterien**
-
-- Ein Mitarbeiter kann das Journal eines anderen weder sehen noch über die API abrufen
-- Carmens Auszug zeigt die Storno-Geschichte nachvollziehbar: genehmigt −6, storniert +6
-- Der angezeigte Saldo stimmt mit der Urlaubsliste überein
-- Release veröffentlicht, `latest.json` enthält alle Plattformen
-
-**Pläne:** 5 Pläne in 4 Wellen (Phase 6 zusätzlich: 4 Lückenschluss-Pläne 06-04 bis 06-07)
-
-Plans:
-**Wave 1**
-
-- [x] 08-01-PLAN.md — Server: Journal-Endpunkt mit serverseitiger Rollenprüfung (REQ-11/12/13/14)
-- [x] 08-03-PLAN.md — Desktop: Pflichtbegründung für Admin-Korrekturbuchungen (REQ-12)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 08-02-PLAN.md — Desktop: Kontoauszug für Mitarbeiter und Admin, Verlinkung zum Antrag (REQ-11/12/13)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 08-04-PLAN.md — Qualitätstor, Server-Deployment und Abnahme
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 08-05-PLAN.md — Desktop-Release v1.8.0 mit vollständiger `latest.json`
-
-**Abhängigkeit:** Phase 7
-
----
-
-## Progress Table
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
-| 6. Buchungen bei jedem Vorgang | 7/7 | Complete | 2026-08-21 |
-| 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
-| 8. Kontoauszug | 5/5 | Complete | 2026-08-20 |
-
----
-
-## Coverage
-
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| REQ-01 Tabelle `vacation_transactions` | 5 | Complete |
-| REQ-02 Buchungstypen | 5 | Complete |
-| REQ-03 Migration idempotent | 5 | Complete |
-| REQ-04 Auslöser + Begründung | 5 | Complete |
-| REQ-05 Buchung bei Antragsvorgängen | 6 | Pending |
-| REQ-06 Admin-Korrektur mit Pflichtbegründung | 6 | Pending |
-| REQ-07 Anspruch/Übertrag buchen | 6 | Pending |
-| REQ-08 `taken` abgeleitet | 7 | Pending |
-| REQ-09 Konsistenzprüfer | 7 | Pending |
-| REQ-10 Backfill | 7 | Pending |
-| REQ-11 Auszug Mitarbeiter | 8 | Complete |
-| REQ-12 Auszug Admin | 8 | Complete |
-| REQ-13 Verlinkung Antrag | 8 | Complete |
-| REQ-14 Rollenprüfung serverseitig | 8 | Complete |
-| REQ-15 Regressionstests | 6 | Pending |
-| REQ-16 Prüfer in CI | 7 | Pending |
-
-**Coverage:** 16/16 Requirements zugeordnet (100%)
-
----
-
-## Key Constraints (Non-Negotiable)
-
-- **Produktions-DB ist live** — Backup vor Migration und Backfill, Rückweg erprobt
-- **Salden dürfen sich durch die Umstellung nicht ändern** — Gesamt-Rest 2026 bleibt 98 Tage
-- **Kein Deployment ohne grünen `tsc --noEmit`** für Server und Desktop
-- **Desktop-Änderungen brauchen ein Release** — `deploy-server.yml` deployt nur `server/**`
-- Bestehende Muster nutzen statt neue erfinden: `overtime_transactions`, `migrationRunner`
-
----
-
-## Archiv
-
-### Milestone 1: 2-Tier DB Architecture — abgeschlossen 2026-04-02
-
-| Phase | Status |
-|-------|--------|
-| 1. Server DB Consolidation | Complete (5/5) |
-| 2. Symlink + PM2 Ecosystem | Complete (5/5) |
-| 3. Local Dev Sync Script | Complete (2/2) |
-| 4. Deploy Workflow + Documentation | Complete (3/3) |
-
-**Core Value erreicht:** `git push main` deployt in unter 10 Minuten.
-
-**Nachtrag 2026-08-18:** Die in Phase 2 eingeführte Symlink-Architektur hat unbeabsichtigt
-eine Fehlerquelle geschaffen — ein Cronjob ohne gesetztes `DATABASE_PATH` öffnete dieselbe
-Datenbank über den Symlink-Pfad, wodurch zwei Prozesse mit getrennten WAL-Dateien auf eine
-Datei zugriffen. Behoben am 18.08.2026, siehe `.planning/debug/db-stabilisierung-20260818.md`.
-Offener Restpunkt: Symlink auflösen, Cron mit `DATABASE_PATH` reaktivieren.
+- Symlink-Restpunkt aus der DB-Stabilisierung: Cron mit `DATABASE_PATH` reaktivieren
+- `position`-Spalte fehlt in der lokalen Entwicklungsdatenbank
+- Logik für unbezahlten Urlaub — offene Analyse
