@@ -3,135 +3,38 @@
  * Recalculates overtime for all users by ensuring all months from hire date to current month exist
  */
 
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Import database config to use correct database based on NODE_ENV
 import { databaseConfig } from '../dist/config/database.js';
 const dbPath = databaseConfig.path;
-const db = new Database(dbPath);
 
 console.log(`📁 Using database: ${dbPath}`);
 
-// Import working days utility (SSOT - Single Source of Truth)
-// This ensures holiday exclusion is consistent across the entire system
-import { countWorkingDaysBetween } from '../dist/utils/workingDays.js';
+// Import timezone utility (CRITICAL: Use Europe/Berlin, NOT UTC!)
+import { getCurrentMonth } from '../dist/utils/timezone.js';
 
-// Import timezone utilities (CRITICAL: Use Europe/Berlin, NOT UTC!)
-import { getCurrentMonth, getTodayString, parseDate } from '../dist/utils/timezone.js';
-
-// Same logic as in overtimeService.ts
-function ensureOvertimeBalanceEntries(userId: number, targetMonth: string) {
-  const user = db
-    .prepare('SELECT hireDate, weeklyHours FROM users WHERE id = ?')
-    .get(userId) as { hireDate: string; weeklyHours: number } | undefined;
-
-  if (!user || !user.hireDate) {
-    return;
-  }
-
-  const hireDate = new Date(user.hireDate);
-  const targetDate = new Date(targetMonth + '-01');
-
-  // Generate all months from hire date to target month
-  const months: string[] = [];
-  const current = new Date(hireDate.getFullYear(), hireDate.getMonth(), 1);
-
-  while (current <= targetDate) {
-    // BUG FIX: Use local date methods, NOT toISOString() which gives UTC month!
-    // July 1 00:00 CEST = June 30 22:00 UTC → would give wrong month!
-    const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-    months.push(monthStr);
-    current.setMonth(current.getMonth() + 1);
-  }
-
-  // Get today's date (for calculating target hours only up to today, not until month end!)
-  // CRITICAL: Use getTodayString() + parseDate() for Europe/Berlin timezone!
-  // BUG FIX: .setHours(0,0,0,0) on getCurrentDate() causes timezone issues (shifts date by 1 day on dev!)
-  const today = parseDate(getTodayString());
-
-  // Recalculate all months (ALWAYS update, even if entry exists)
-  for (const month of months) {
-    // Calculate month boundaries
-    const monthStart = new Date(month + '-01');
-    // CRITICAL: Use UTC to avoid timezone issues (DST can cause off-by-one errors)
-    const year = monthStart.getFullYear();
-    const monthIndex = monthStart.getMonth();
-    const lastDay = new Date(year, monthIndex + 1, 0).getDate(); // Get last day number
-    const monthEnd = new Date(`${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
-
-    // CRITICAL: Only count working days up to TODAY, not until month end!
-    // This is how professional systems (Personio, DATEV) do it:
-    // "Overtime = What you SHOULD have worked BY TODAY - What you ACTUALLY worked BY TODAY"
-    const effectiveEnd = new Date(Math.min(monthEnd.getTime(), today.getTime()));
-
-    // Calculate working days from (hire date or month start) to (today or month end)
-    // IMPORTANT: Use countWorkingDaysBetween() for consistency - it excludes holidays!
-    // CRITICAL: Pass our DB instance so it uses the SAME database (not connection.ts!)
-    const startDate = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
-    const workingDays = countWorkingDaysBetween(startDate, effectiveEnd, db);
-
-    const targetHoursPerDay = user.weeklyHours / 5;
-    const targetHours = workingDays * targetHoursPerDay;
-
-    // Get actual hours (worked hours)
-    const workedResult = db
-      .prepare('SELECT COALESCE(SUM(hours), 0) as total FROM time_entries WHERE userId = ? AND date LIKE ?')
-      .get(userId, month + '%') as { total: number };
-    const workedHours = workedResult?.total || 0;
-
-    // Get absence credits (approved vacation, sick, overtime_comp)
-    const absenceResult = db
-      .prepare(`
-        SELECT COALESCE(SUM(days), 0) as total
-        FROM absence_requests
-        WHERE userId = ?
-          AND status = 'approved'
-          AND (type = 'vacation' OR type = 'sick' OR type = 'overtime_comp')
-          AND (
-            (strftime('%Y-%m', startDate) = ? OR strftime('%Y-%m', endDate) = ?)
-            OR (startDate < ? || '-01' AND endDate > ? || '-01')
-          )
-      `)
-      .get(userId, month, month, month, month) as { total: number };
-    const absenceCredits = (absenceResult?.total || 0) * targetHoursPerDay;
-
-    // Get unpaid leave (REDUCES target hours, does NOT give credits!)
-    const unpaidLeaveResult = db
-      .prepare(`
-        SELECT COALESCE(SUM(days), 0) as total
-        FROM absence_requests
-        WHERE userId = ?
-          AND status = 'approved'
-          AND type = 'unpaid'
-          AND (
-            (strftime('%Y-%m', startDate) = ? OR strftime('%Y-%m', endDate) = ?)
-            OR (startDate < ? || '-01' AND endDate > ? || '-01')
-          )
-      `)
-      .get(userId, month, month, month, month) as { total: number };
-    const unpaidLeaveReduction = (unpaidLeaveResult?.total || 0) * targetHoursPerDay;
-
-    // IMPORTANT: Unpaid leave reduces target hours (user doesn't need to work those days)
-    const adjustedTargetHours = targetHours - unpaidLeaveReduction;
-    const actualHours = workedHours + absenceCredits;
-    const overtime = actualHours - adjustedTargetHours;
-
-    // UPSERT: Update existing entries or create new ones
-    db.prepare(`
-      INSERT INTO overtime_balance (userId, month, targetHours, actualHours)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(userId, month)
-      DO UPDATE SET targetHours = ?, actualHours = ?
-    `).run(userId, month, adjustedTargetHours, actualHours, adjustedTargetHours, actualHours);
-
-    console.log(`  ✅ Updated ${month}: Target=${adjustedTargetHours.toFixed(2)}h, Actual=${actualHours.toFixed(2)}h, Overtime=${overtime.toFixed(2)}h`);
-  }
-}
+/**
+ * REQ-17 / Abweichung A-1 (09-INVENTAR-SOLLSTUNDEN.md, 09-A1-NACHWEIS.md): Dieses Skript
+ * ermittelte Sollstunden früher selbst über `targetHoursPerDay = user.weeklyHours / 5` -
+ * eine eigene, zweite Kopie der Logik aus overtimeService.ts, die kein `workSchedule` kannte.
+ * Für Nutzer mit individuellem Wochenplan (z. B. userId 2, 17) berechnete das Skript falsche
+ * Sollstunden und überschrieb per UPSERT jede zuvor korrekt berechnete `overtime_balance`-Zeile
+ * bei jedem Deployment (.github/workflows/deploy-server.yml:118) und täglich um 3 Uhr per
+ * Cronjob (deploy-server.yml:125).
+ *
+ * Angleichung (D1 - angleichen, nicht stilllegen): Statt der eigenen Kopie wird jetzt die
+ * bereits exportierte, kanonische Funktion importiert:
+ * server/src/services/overtimeService.ts:684 `ensureOvertimeBalanceEntries()`. Sie delegiert
+ * intern an unifiedOvertimeService.calculateMonthlyOvertime(), das für jeden Tag
+ * getDailyTargetHours() aufruft (server/src/utils/workingDays.ts:63) - denselben Maßstab wie
+ * Dashboard und Berichte. Das Schreibverhalten bleibt identisch: derselbe UPSERT auf dieselben
+ * zwei Spalten von overtime_balance (overtimeService.ts:767).
+ *
+ * Dieses Skript bleibt bestehen und läuft unverändert weiter (Auslieferungslogik, siehe
+ * 09-A1-NACHWEIS.md, Abschnitt „Auslieferungslogik (Übergabe an Phase 14)"; der
+ * Deploy-Workflow selbst wird in Phase 9 nicht geändert).
+ */
+import { ensureOvertimeBalanceEntries } from '../dist/services/overtimeService.js';
+import { db } from '../dist/database/connection.js';
 
 console.log('🔧 Starting overtime recalculation...\n');
 
@@ -148,41 +51,49 @@ console.log(`📊 Found ${users.length} active users\n`);
 let totalProcessed = 0;
 let totalUpdated = 0;
 
-for (const user of users) {
-  console.log(`👤 Processing: ${user.firstName} ${user.lastName} (ID: ${user.id})`);
+async function main(): Promise<void> {
+  for (const user of users) {
+    console.log(`👤 Processing: ${user.firstName} ${user.lastName} (ID: ${user.id})`);
 
-  // Count existing entries before
-  const beforeCount = db
-    .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
-    .get(user.id) as { count: number };
+    // Count existing entries before
+    const beforeCount = db
+      .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
+      .get(user.id) as { count: number };
 
-  ensureOvertimeBalanceEntries(user.id, currentMonth);
+    // Kanonischer Weg statt eigener Kopie - siehe Kommentar oben (REQ-17, A-1)
+    await ensureOvertimeBalanceEntries(user.id, currentMonth);
 
-  // Count entries after
-  const afterCount = db
-    .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
-    .get(user.id) as { count: number };
+    // Count entries after
+    const afterCount = db
+      .prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
+      .get(user.id) as { count: number };
 
-  const created = afterCount.count - beforeCount.count;
-  const updated = afterCount.count; // All entries were processed (created or updated)
-  totalUpdated += updated;
-  totalProcessed++;
+    const created = afterCount.count - beforeCount.count;
+    const updated = afterCount.count; // All entries were processed (created or updated)
+    totalUpdated += updated;
+    totalProcessed++;
 
-  if (created > 0) {
-    console.log(`  📝 Created ${created} new month entries`);
+    if (created > 0) {
+      console.log(`  📝 Created ${created} new month entries`);
+    }
+    console.log(`  🔄 Processed ${updated} total month entries`);
+
+    // Show current total overtime (actualHours - targetHours)
+    const totalResult = db
+      .prepare('SELECT COALESCE(SUM(actualHours - targetHours), 0) as total FROM overtime_balance WHERE userId = ?')
+      .get(user.id) as { total: number };
+
+    console.log(`  ⏰ Total overtime: ${totalResult.total.toFixed(2)}h\n`);
   }
-  console.log(`  🔄 Processed ${updated} total month entries`);
 
-  // Show current total overtime (actualHours - targetHours)
-  const totalResult = db
-    .prepare('SELECT COALESCE(SUM(actualHours - targetHours), 0) as total FROM overtime_balance WHERE userId = ?')
-    .get(user.id) as { total: number };
+  console.log('✅ DONE!');
+  console.log(`📊 Users processed: ${totalProcessed}`);
+  console.log(`🔄 Total entries updated: ${totalUpdated}`);
 
-  console.log(`  ⏰ Total overtime: ${totalResult.total.toFixed(2)}h\n`);
+  db.close();
 }
 
-console.log('✅ DONE!');
-console.log(`📊 Users processed: ${totalProcessed}`);
-console.log(`🔄 Total entries updated: ${totalUpdated}`);
-
-db.close();
+main().catch((error) => {
+  console.error('❌ FATAL:', error);
+  process.exit(1);
+});
