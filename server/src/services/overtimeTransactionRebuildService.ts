@@ -295,17 +295,19 @@ function collectDailyCalculations(
 }
 
 /**
- * Handle absence day: Creates TWO transactions
- * 1. earned: (0 - targetHours) = negative hours (Soll/Ist difference)
- * 2. credit: +targetHours (absence credit, except unpaid)
+ * Handle absence day: Creates ONE or TWO transactions, depending on absence type.
+ * 1. earned: (0 - targetHours) = negative hours (Soll/Ist difference) — always created.
+ * 2. credit: +targetHours (absence credit) — created for vacation/sick/special only.
  *
- * Result: Net effect = 0 for ALL absence types.
- * Paid (vacation/sick/etc): earned(-targetHours) + credit(+targetHours) = 0
- * Unpaid: earned(-targetHours) + unpaid_deduction(+targetHours) = 0
- *
- * NOTE: The net-0 transaction effect is correct for the running balance.
- * The difference for unpaid vs paid is captured in updateOvertimeBalanceForMonth:
- * unpaid days reduce targetHours in the monthly aggregation (Soll-Stunden Reduktion).
+ * Result:
+ * Paid FROM ANOTHER ACCOUNT (vacation/sick/special): earned(-targetHours) +
+ *   credit(+targetHours) = 0 (net effect = 0, correct: the day is paid from the
+ *   vacation/sick account, not from the overtime account).
+ * Unpaid: earned(-targetHours) + unpaid_deduction(+targetHours) = 0 (net effect = 0; the
+ *   actual Soll-Reduktion is handled in updateOvertimeBalanceForMonth).
+ * overtime_comp (REQ-19, 09-REQ19-BEFUND.md): NO transaction 2 — the day is paid FROM the
+ *   overtime account itself, so it must NOT be neutralized. Net effect = earned(-targetHours),
+ *   correctly debiting the account by the day's target hours.
  */
 function handleAbsenceDay(
   userId: number,
@@ -333,8 +335,10 @@ function handleAbsenceDay(
   transactionsCreated++;
   currentBalance += earnedHours;
 
-  // Transaction 2: credit (positive, neutralizes earned, except for unpaid)
-  if (day.absence.type !== 'unpaid') {
+  // Transaction 2: credit (positive, neutralizes earned) — NOT for unpaid, NOT for
+  // overtime_comp. overtime_comp is paid FROM the overtime account itself (REQ-19); a
+  // neutralizing credit here would pay the day twice (once via absence, once via credit).
+  if (day.absence.type !== 'unpaid' && day.absence.type !== 'overtime_comp') {
     const creditType = getCreditType(day.absence.type!);
     const creditHours = day.targetHours; // Full target hours
 
@@ -351,7 +355,7 @@ function handleAbsenceDay(
 
     transactionsCreated++;
     currentBalance += creditHours;
-  } else {
+  } else if (day.absence.type === 'unpaid') {
     // Unpaid: Create neutralizing transaction for audit trail transparency.
     // Net effect on running balance = 0 (earned + deduction = 0).
     // The actual overtime impact (Soll-Reduktion) is handled in updateOvertimeBalanceForMonth.
@@ -369,6 +373,8 @@ function handleAbsenceDay(
     transactionsCreated++;
     currentBalance += day.targetHours;
   }
+  // overtime_comp: no transaction 2 — only the earned(-targetHours) transaction stands,
+  // correctly debiting the overtime account by the day's target hours.
 
   return transactionsCreated;
 }
@@ -376,24 +382,26 @@ function handleAbsenceDay(
 /**
  * Calculate running balance after absence day.
  *
- * Both paid and unpaid absences produce net = 0 change in the running balance.
+ * Paid FROM ANOTHER ACCOUNT (vacation/sick/special) and unpaid produce net = 0 change in
+ * the running balance:
  * Paid: earned(-targetHours) + credit(+targetHours) = 0
  * Unpaid: earned(-targetHours) + unpaid_deduction(+targetHours) = 0
+ * overtime_comp (REQ-19) produces net = -targetHours: earned(-targetHours), no credit — the
+ * day is paid FROM the overtime account itself and must actually reduce the balance.
  *
- * The difference for unpaid is captured in updateOvertimeBalanceForMonth
- * which excludes unpaid days from the targetHours sum (Soll-Reduktion).
+ * The Soll-Reduktion for unpaid is captured separately in updateOvertimeBalanceForMonth
+ * (excludes unpaid days from the targetHours sum).
  */
 function calculateRunningBalanceAfterAbsence(
   currentBalance: number,
   targetHours: number,
   absenceType: string
 ): number {
-  // Both paid and unpaid: net change = 0
-  // (earned = -targetHours, credit/deduction = +targetHours)
   const earnedChange = -targetHours;
-  const creditChange = targetHours; // Always +targetHours (neutralizes earned for all types)
-
-  void absenceType; // absenceType distinction handled in updateOvertimeBalanceForMonth
+  // overtime_comp: no neutralizing credit (REQ-19) — the day genuinely debits the account.
+  // All other absence types (paid-from-elsewhere and unpaid) neutralize to net 0 here; the
+  // Soll-Reduktion for unpaid happens separately in updateOvertimeBalanceForMonth.
+  const creditChange = absenceType === 'overtime_comp' ? 0 : targetHours;
 
   return currentBalance + earnedChange + creditChange;
 }
@@ -480,10 +488,14 @@ function updateOvertimeBalanceForMonth(
   }, 0);
 
   const actualHours = dailyCalculations.reduce((sum, day) => {
-    // Actual = time entries + absence credits (all except unpaid)
+    // Actual = time entries + absence credits (vacation/sick/special only) + corrections.
+    // NOT for unpaid (no credit, CLAUDE.md rule). NOT for overtime_comp (REQ-19,
+    // 09-REQ19-BEFUND.md): the day is paid FROM the overtime account itself — crediting it
+    // here as well would pay the day twice and keep the balance saldoneutral instead of
+    // reducing it by the day's target hours.
     let dayActual = day.timeEntriesHours;
 
-    if (day.absence.type && day.absence.type !== 'unpaid') {
+    if (day.absence.type && day.absence.type !== 'unpaid' && day.absence.type !== 'overtime_comp') {
       dayActual += day.targetHours; // Absence credit
     }
 

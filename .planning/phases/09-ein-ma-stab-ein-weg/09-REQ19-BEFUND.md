@@ -216,5 +216,61 @@ Korrektur exakt die in der Reproduktion gemessenen 4h. Diese Zahl ist für Phase
 
 ## Ergebnis Zweig A
 
-Wird nach Umsetzung von Task 3 ergänzt (Fix, Testzahlen vorher/nachher, Reproduktions-Exit-Code
-vorher/nachher, Saldenunterschied für Nutzer C).
+**Geänderte Stellen (2 Services, wie unter „Entscheidung nach D2" festgelegt):**
+1. `server/src/services/unifiedOvertimeService.ts:336-353` (`getAbsenceCredit`) —
+   `overtime_comp` aus der kreditierenden Typliste entfernt (`IN ('vacation', 'sick',
+   'special')` statt zuvor zusätzlich `'overtime_comp'`).
+2. `server/src/services/overtimeTransactionRebuildService.ts`:
+   - `updateOvertimeBalanceForMonth()` (Zeile 474 ff., Bedingung ehemals Zeile 486): Kredit für
+     `actualHours` jetzt nur für `vacation`/`sick`/`special`, nicht mehr für `overtime_comp`.
+   - `handleAbsenceDay()` (Zeile 310 ff.): erzeugt für `overtime_comp` keine neutralisierende
+     Gutschrift-Transaktion mehr — nur die `earned`-Transaktion (`-targetHours`) bleibt.
+   - `calculateRunningBalanceAfterAbsence()` (Zeile 386 ff.): `creditChange = 0` für
+     `overtime_comp` statt `targetHours`, sodass der laufende Saldo netto um `targetHours`
+     sinkt.
+
+**TDD-Nachweis (`server/src/services/unifiedOvertimeService.test.ts`):**
+- RED-Commit: neuer Test „should reduce overtime by targetHours on an approved overtime_comp
+  day" schlägt vor dem Fix fehl (`actualHours=8` statt `0`, `overtime=0` statt `-8`).
+- Regressionstest ergänzt: `vacation`/`sick` bleiben saldoneutral (`actualHours=targetHours`,
+  `overtime=0`) — besteht unverändert vor und nach dem Fix.
+- GREEN-Commit: beide Tests bestehen nach dem Fix.
+
+**Reproduktions-Exit-Code (Nutzer C, `userId 17`, Monat `2026-04`):**
+- Vorher: Exit 1 (Defekt reproduziert, Differenz `4h`).
+- Nachher: Exit 0 (`npm run repro:overtime-comp -- --userId=17 --month=2026-04`, Differenz
+  `0h`).
+
+**`npm run validate:overtime:paths -- --from=../.planning/phases/09-ein-ma-stab-ein-weg/09-PRUEFNUTZER.csv` (alle drei Prüfnutzer, nach dem Fix):**
+Exit 0, alle fünf Wege (`unified`, `dashboard`, `report_summary`, `report_daily`,
+`balance_row`) stimmen für alle drei Nutzer überein:
+- Nutzer A (`userId 2`): `-6.50h` (unverändert — kein `overtime_comp` betroffen).
+- Nutzer B (`userId 16`): `-29.75h` (unverändert — kein `overtime_comp` betroffen).
+- Nutzer C (`userId 17`): `-7.83h` (vorher `-3.83h` — Saldo um exakt `4h` gesunken, dem
+  `erwarteterAbzug` aus der Reproduktion).
+
+**Testzahl vorher/nachher (`cd server && npx vitest run`):**
+- Vorher (Ausgangswert dieses Plans, identisch mit dem in Plan 09-03 gemessenen Endstand):
+  207 Tests gesamt, 204 bestanden, 3 fehlgeschlagen.
+- Nachher: 209 Tests gesamt, 206 bestanden, 3 fehlgeschlagen — dieselben drei bereits vor
+  diesem Plan bekannten, unabhängigen Fehlschläge (User-6/7-Hire-Date-Regressionstests in
+  `unifiedOvertimeService.test.ts`, ein Test in `vacationBackfillService.test.ts`). Kein
+  Rückgang: 206 ≥ 204.
+
+**`npx tsc --noEmit`:** ohne Fehler.
+
+**Saldenunterschied für Nutzer C:** `4h` (von `-3.83h` auf `-7.83h`) — exakt die Sollstunden
+des genehmigten Ausgleichstags (`erwarteterAbzug` aus der Reproduktion).
+
+**Pre-existierender, unveränderter Nebenbefund (nicht Teil dieses Fixes, dokumentiert in
+`deferred-items.md`):** `overtimeTransactionRebuildService.ts`s eigene `targetHours`-Summe
+weicht bei erneutem Aufruf von `updateMonthlyOvertime()` (z. B. nach einer neuen
+Abwesenheitsgenehmigung) unabhängig vom REQ-19-Fix von der `unifiedOvertimeService`-Summe ab
+(`36h` statt `40h` für Nutzer C/2026-04) — verifiziert als bereits vor diesem Fix vorhanden
+(Gegenprobe mit zurückgesetztem Code gegen eine Wegwerfkopie der Datenbank). Betrifft NICHT den
+über `GET /api/overtime/:userId` angezeigten Saldo, weil dieser ausschließlich über
+`ensureOvertimeBalanceEntries()` (nur `unifiedOvertimeService`-Pfad) läuft, siehe
+`deferred-items.md`.
+
+**REQ-19-Urteil: behoben.** Ein genehmigter `overtime_comp`-Antrag reduziert den
+Überstundensaldo jetzt nachweislich um seine Sollstunden, statt saldoneutral zu bleiben.

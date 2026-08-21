@@ -334,8 +334,13 @@ export class UnifiedOvertimeService {
   }
 
   private getAbsenceCredit(userId: number, date: string, targetHours: number): number {
-    // Only credit for absences that give credit (vacation, sick, overtime_comp, special)
-    // NOT for unpaid leave
+    // Only credit for absences that give credit FROM ANOTHER ACCOUNT (vacation, sick, special).
+    // NOT for unpaid leave (reduces target instead, see getUnpaidReduction()).
+    // NOT for overtime_comp (REQ-19, 09-REQ19-BEFUND.md, Hypothese H1): Ein genehmigter
+    // Überstundenausgleich wird AUS dem Überstundenkonto selbst bezahlt. Eine zusätzliche
+    // Tagesgutschrift auf genau dieses Konto würde den Tag zweimal zahlen und den Ausgleichstag
+    // saldoneutral halten, statt den Saldo um die Sollstunden dieses Tages zu senken
+    // (.claude/CLAUDE.md → Überstunden-Berechnung).
     const result = db
       .prepare(
         `SELECT type
@@ -343,7 +348,7 @@ export class UnifiedOvertimeService {
          WHERE userId = ?
            AND status = 'approved'
            AND date(?) BETWEEN date(startDate) AND date(endDate)
-           AND type IN ('vacation', 'sick', 'overtime_comp', 'special')`
+           AND type IN ('vacation', 'sick', 'special')`
       )
       .get(userId, date) as { type: string } | undefined;
 
