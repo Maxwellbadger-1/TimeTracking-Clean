@@ -28,6 +28,7 @@
     "test:coverage": "vitest run --coverage",
     "validate:overtime": "tsx src/scripts/validateOvertimeCalculation.ts",
     "validate:overtime:detailed": "tsx src/scripts/validateOvertimeDetailed.ts",
+    "validate:overtime:paths": "tsx src/scripts/compareOvertimePaths.ts",
     "fill:transactions": "tsx src/scripts/fillAllOvertimeTransactions.ts",
     "validate:all-test-users": "tsx src/scripts/validateAllTestUsers.ts",
     "refresh:overtime": "tsx src/scripts/refreshOvertimeBalances.ts",
