@@ -40,24 +40,30 @@ kommen. Kein Fundament mit Riss.
 
 - Inventar aller Stellen, die Soll-Arbeitszeit berechnen; jede läuft über
   `getDailyTargetHours()` (`server/src/utils/workingDays.ts:63`)
+
 - Legacy-Pfad `overtimeService.ts` (monatliche Aggregation über `overtime_balance`) entweder
   stilllegen oder nachweislich auf dieselbe Auflösung setzen wie `unifiedOvertimeService.ts`
+
 - Den bekannten Defekt „Überstundenausgleich erreicht den Saldo nicht" verifizieren, beheben
   oder als bewusst offen dokumentieren
+
 - Die vier offenen Überstunden-Debug-Sessions sichten und zuordnen
 
 **Erfolgskriterien**
 
 - Für denselben Nutzer und Monat zeigen Dashboard und Berichte denselben Überstundenwert —
   an mindestens drei realen Nutzern geprüft
+
 - Ein genehmigter `overtime_comp`-Antrag reduziert den Überstundensaldo, oder die Abweichung
   ist mit Grund dokumentiert
+
 - `npm run validate:overtime:detailed` läuft für diese Nutzer ohne Abweichungsmeldung
 
 **Pläne:** 4 Pläne in 4 Wellen
 
 Pläne:
-- [ ] 09-01-PLAN.md — Inventar der Sollstunden-Ermittlung und Sichtung der vier Debug-Sessions (Welle 1)
+
+- [x] 09-01-PLAN.md — Inventar der Sollstunden-Ermittlung und Sichtung der vier Debug-Sessions (Welle 1)
 - [ ] 09-02-PLAN.md — Vergleichswerkzeug `validate:overtime:paths`, Prüfnutzerauswahl, Erstbefund (Welle 2)
 - [ ] 09-03-PLAN.md — Legacy-Pfad angleichen, Wochenend-Vorfilter beseitigen, Nachweis führen (Welle 3)
 - [ ] 09-04-PLAN.md — `overtime_comp`-Defekt reproduzieren, Ursache belegen, Fix oder Phase 9.1 (Welle 4)
@@ -90,6 +96,7 @@ Verhalten des Systems etwas ändert.
 
 - Migration läuft auf einer Kopie der Produktionsdatenbank fehlerfrei durch,
   `integrity_check: ok`
+
 - Jeder aktive Nutzer hat genau eine Periode, deren Werte den heutigen Stammdaten entsprechen
 - Ein Überlappungsversuch wird von der Datenbank abgewiesen, nicht erst von der Oberfläche
 - Bestehendes Verhalten unverändert — noch liest keine Berechnung aus den Perioden
@@ -109,8 +116,10 @@ Verhaltensänderung, damit die Migration isoliert verifizierbar bleibt.
 
 - `getDailyTargetHours(user, datum)` löst über die Periode auf statt über den aktuellen
   Stammdatensatz
+
 - Entscheidung und Umsetzung: Perioden vorladen oder je Aufruf nachschlagen (Tagesschleifen
   über ein Jahr sind der kritische Fall)
+
 - Alle Aufrufer nachziehen: 7 Services, 3 Validierungsskripte, Desktop-Anzeigen
 - `scripts/validateOvertimeDetailed.ts` prüft gegen den periodengültigen Maßstab
 - Rebuild-Wege (`overtimeTransactionRebuildService`, `refreshOvertimeBalances`)
@@ -120,6 +129,7 @@ Verhaltensänderung, damit die Migration isoliert verifizierbar bleibt.
 
 - Ein Testnutzer mit Modellwechsel bekommt für jeden Tag die Sollstunden, die an diesem Tag
   galten — vor und nach dem Stichtag geprüft
+
 - Ein zweifach ausgeführter Rebuild liefert identische Ergebnisse
 - Für Nutzer ohne Modellwechsel sind alle Salden vor und nach dem Umbau unverändert
 - Das Validierungswerkzeug meldet bei einem Nutzer mit Modellwechsel keine Abweichung
@@ -148,6 +158,7 @@ der Produktionsdatenbank.
 - Eine Umstellung 40→20 zum 01.10. verändert die Überstunden vor dem 01.10. um keine Minute
 - Ein rückwirkender Stichtag (Vertrag gilt seit 01.07., eingetragen im September) rechnet ab
   dem 01.07. neu und lässt davor alles stehen
+
 - Die Vorschau zeigt vor dem Speichern denselben Wert, der danach tatsächlich im Konto steht
 - Die Saldodifferenz ist im Kontoauszug als eigene Zeile mit Begründung sichtbar
 
@@ -163,6 +174,7 @@ der Produktionsdatenbank.
 
 - „Stammdaten korrigieren" als getrennte Aktion mit eigener Warnung und Pflichtbegründung —
   für den Fall, dass die hinterlegten Stunden von jeher falsch waren
+
 - Periode bearbeiten und löschen; Neuberechnung ab ihrem Beginn
 - Korrekturbuchungen werden storniert statt gelöscht, die Storno-Geschichte bleibt sichtbar
 - Serverseitige Rollenprüfung für alle Perioden-Endpunkte
@@ -171,6 +183,7 @@ der Produktionsdatenbank.
 
 - Eine versehentlich eingetragene Umstellung lässt sich löschen; danach entsprechen die
   Überstunden exakt dem Stand davor
+
 - Nach dem Löschen zeigt der Auszug Buchung und Storno — nicht eine bereinigte Lücke
 - Die Korrektur-Aktion ohne Begründung wird abgewiesen
 - Ein Mitarbeiter kann die Perioden eines anderen weder sehen noch über die API abrufen
@@ -187,8 +200,10 @@ der Produktionsdatenbank.
 
 - Testabdeckung: Reduzierung mit künftigem Stichtag, Erhöhung mit rückwirkendem Stichtag,
   Stichtag mitten im Monat, Wechsel über einen Jahreswechsel, Periode löschen und neu rechnen
+
 - Vollständiger Durchlauf auf einer Kopie der Produktionsdatenbank mit Vorher/Nachher-Vergleich
   aller Salden
+
 - Backup vor dem Produktionslauf, Rückweg dokumentiert und erprobt
 - Der konkret anstehende Umstellungsfall wird eingetragen und verifiziert
 - Desktop-Release, damit die Änderungen die Anwender erreichen
@@ -280,8 +295,10 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 
 - **Produktionsdatenbank ist live** — Backup vor Migration, Rückweg erprobt, `DATABASE_PATH`
   bei jedem Skript explizit setzen (kein Symlink mehr auf dem Server)
+
 - **Salden dürfen sich durch die Umstellung allein nicht ändern** — nur ein tatsächlich
   eingetragener Modellwechsel darf Zahlen bewegen
+
 - **Kein Deployment ohne grünen `tsc --noEmit`** für Server und Desktop
 - **Desktop-Änderungen brauchen ein Release** — `deploy-server.yml` deployt nur `server/**`
 - Bestehende Muster nutzen statt neue erfinden: `migrationRunner`, `overtime_transactions`,

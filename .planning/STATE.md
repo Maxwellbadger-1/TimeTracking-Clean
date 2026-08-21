@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: "Milestone v3.0 aufgesetzt: REQUIREMENTS.md mit REQ-17 bis REQ-33, ROADMAP.md mit sechs Phasen (9–14), 100 % Abdeckung. `.planning/phases/` ist leer."
-last_updated: "2026-08-21T20:17:00.651Z"
-last_activity: 2026-08-21 -- Phase 9 planning complete
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-08-21T20:32:26.270Z"
+last_activity: 2026-08-21
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Milestone v3.0 zugeschnitten (Phasen 9–14) — Phase 9 noch nicht begonnen
+**Current focus:** Phase 09 — Ein Maßstab, ein Weg
 
 ## Current Status
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Milestone v3.0 aufgesetzt: REQUIREMENTS.md mit REQ-17 bis REQ-33, ROADMAP.md mit sechs Phasen (9–14), 100 % Abdeckung. `.planning/phases/` ist leer.
+- **Stopped at:** Completed 09-01-PLAN.md
 
 ## Phase Progress
 
@@ -106,6 +106,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-04: DATABASE_PATH muss in jedem produktionsdatenbank-berührenden Skript/Workflow-Schritt explizit gesetzt werden — Symlink server/database.db existiert auf dem Server seit 20.08.2026 nicht mehr; deploy-server.yml, migrate.ts und validateSchema.ts hatten das noch nicht nachgezogen
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-05: Release v1.8.0 veröffentlicht — alle drei Versionsdateien synchron, Tag gesetzt, alle vier Matrix-Jobs (macOS arm64/x64, Windows, Linux) erfolgreich, latest.json enthält alle vier Auto-Update-Plattformschlüssel mit Signatur. Phase 8 damit vollständig (5/5 Pläne)
 - [Phase 08-kontoauszug-f-r-mitarbeiter-und-admin]: 08-05: Zwei untracked Debris-Dateien (.claude/CLAUDETESTOUT.md, zwei stale WAL/SHM-Quarantänedateien) vor dem Versionssprung entfernt, um den von der Release-Checkliste geforderten sauberen git status zu erreichen — keine der Dateien war je getrackt
+- [Phase ?]: [09-01] server/scripts/fix-overtime.ts als Produktivpfad=ja eingestuft (Abweichung A-1 zu REQ-17) — laeuft bei jedem Deployment und taeglich per Cron (deploy-server.yml), berechnet Sollstunden ueber weeklyHours/5 statt getDailyTargetHours() und ignoriert damit workSchedule
+- [Phase ?]: [09-01] REQ-19-Kernbefund aktiv verifiziert: overtime_comp-Debit erreicht den Saldo nicht, weil ensureOvertimeBalanceEntries() und updateOvertimeBalanceForMonth() actualHours bei jeder Neuberechnung ohne Kenntnis von type='compensation'-Buchungen ueberschreiben
+- [Phase ?]: [09-01] Alle vier offenen Ueberstunden-Debug-Sessions (carmen-rothemund-overtime-analysis, overtime-compensation-workschedule-bug, overtime-validation-backend-mismatch, OVERTIME-FIX-PLAN) als behoben verifiziert - die beschriebenen Fixes sind im heutigen Code vorhanden
 
 ## Quick Tasks Completed
 
@@ -135,6 +138,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P04 | 1h 41min | 3 tasks | 10 files |
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P05 | ~20min | 3 tasks | 6 files |
 | Phase 06-buchungen-bei-jedem-vorgang P07 | ~40min | 3 tasks | 3 files |
+| Phase 09-ein-ma-stab-ein-weg P01 | 55min | 3 tasks | 3 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -170,10 +174,10 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
+Phase: 09 (Ein Maßstab, ein Weg) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-08-21 -- Phase 9 planning complete
+Last activity: 2026-08-21
 
 ## Operator Next Steps
 
