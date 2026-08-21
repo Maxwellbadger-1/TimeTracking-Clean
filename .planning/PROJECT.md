@@ -6,16 +6,34 @@ Zeiterfassungssystem für die Stiftung: Node.js-Server auf Oracle Cloud, Tauri-D
 die Mitarbeiter. Erfasst Arbeitszeiten, berechnet Überstunden nach deutschem Arbeitsrecht und
 verwaltet Abwesenheiten (Urlaub, Krankheit, unbezahlt, Überstundenausgleich).
 
-## Aktueller Stand
+## Aktueller Milestone: v3.0 — Historisierte Arbeitszeitmodelle
 
-**Ausgeliefert:** Milestone v2.0 abgeschlossen am 21.08.2026 — Server in Produktion,
-Desktop-Release v1.8.0. Das Urlaubskonto führt seither ein Journal: jede Bewegung ist eine
-Buchung, der Saldo ihre Summe, beide Rollen sehen einen Kontoauszug.
+**Core Value:** Eine Stundenumstellung verschiebt keine Vergangenheit. Was bis zum Stichtag
+gerechnet wurde, bleibt stehen; ab dem Stichtag gilt das neue Modell. Wer wissen will, warum
+sich ein Saldo geändert hat, sieht es im Kontoauszug statt es zu erraten.
 
-**Als nächstes:** Milestone v3.0 — Historisierte Arbeitszeitmodelle. Eine Änderung der
-Arbeitsstunden soll ab einem Stichtag gelten, ohne die davor gerechneten Überstunden zu
-verschieben. Requirements-Entwurf: `.planning/REQUIREMENTS-v3-draft.md` (REQ-17 bis REQ-33),
-Entscheidungsgrundlage: `.planning/notes/arbeitszeitmodelle-historisierung.md`.
+**Auslöser:** `users.weeklyHours` und `users.workSchedule` sind flache Felder ohne Historie.
+`getDailyTargetHours()` löst die Sollstunden aus dem heutigen Stammdatensatz auf, weshalb jeder
+Rebuild die gesamte Vergangenheit mit den neuen Stunden nachrechnet — still, ohne dass es
+jemand auslöst. Ein konkreter Umstellungsfall steht an (Stand 21.08.2026).
+
+**Zielfunktionen**
+
+- Arbeitszeit-Perioden (`user_work_periods`) mit Gültigkeitszeitraum statt flacher Felder
+- Datumsabhängige Sollstunden-Auflösung in allen Berechnungswegen und im Validierungswerkzeug
+- Stundenwechsel ab Stichtag — auch rückwirkend — mit Vorschau und sichtbarer Korrekturbuchung
+- Stammdaten-Korrektur als getrennte Aktion mit Pflichtbegründung
+- Perioden bearbeiten und löschen; Storno statt Löschung
+- Vorgeschaltet: einen gemeinsamen Maßstab für alle Überstundenzahlen herstellen
+
+**Bewusst außen vor:** Urlaubstage (`vacationDaysPerYear`) — siehe
+`.planning/seeds/urlaubsanspruch-teilzeitwechsel.md`
+
+Details: `.planning/REQUIREMENTS.md` (REQ-17 bis REQ-33), `.planning/ROADMAP.md` (Phasen 9–14),
+Entscheidungsgrundlage: `.planning/notes/arbeitszeitmodelle-historisierung.md`
+
+**Zuletzt ausgeliefert:** Milestone v2.0 am 21.08.2026 — Server in Produktion, Desktop-Release
+v1.8.0. Das Urlaubskonto führt seither ein Journal.
 
 ---
 

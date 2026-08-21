@@ -1,13 +1,9 @@
-# Requirements (ENTWURF) — Milestone 3: Historisierte Arbeitszeitmodelle
+# Requirements — Milestone v3.0: Historisierte Arbeitszeitmodelle
 
-**Status:** ENTWURF — noch nicht aktiviert. Milestone 2 läuft noch (Phase 6 Lückenschluss).
 **Erstellt:** 2026-08-21
 **Grundlage:** `.planning/notes/arbeitszeitmodelle-historisierung.md` (explore-Session)
-**Vorheriger Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
-
-> **Aktivierung:** Sobald Phase 6 abgeschlossen ist, wird diese Datei zu `REQUIREMENTS.md`
-> und der Roadmapper erzeugt die Phasen ab **Phase 9**. Bis dahin nichts an STATE.md,
-> ROADMAP.md oder `.planning/phases/` anfassen — dort arbeitet eine parallele Session.
+**Vorheriger Milestone:** v2.0 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
+(abgeschlossen 2026-08-21)
 
 ---
 
@@ -161,15 +157,41 @@ Saldo geändert hat, sieht es im Kontoauszug statt es zu erraten.
 
 ---
 
-## Vor der Aktivierung zu klären
+## Zuordnung zu Phasen
 
-1. **Phase 6 abgeschlossen?** Erst danach STATE.md, ROADMAP.md und `.planning/phases/`
-   anfassen — dort arbeitet parallel eine andere Session.
+| Requirement | Phase |
+|-------------|-------|
+| REQ-17 Genau ein Weg zur Sollstundenermittlung | 9 — Ein Maßstab, ein Weg |
+| REQ-18 Legacy-Pfad angeglichen oder stillgelegt | 9 |
+| REQ-19 `overtime_comp`-Defekt geklärt | 9 |
+| REQ-20 Tabelle `user_work_periods` | 10 — Perioden-Fundament |
+| REQ-21 Migration ohne Verhaltensänderung | 10 |
+| REQ-22 Keine Überlappung, keine Lücke | 10 |
+| REQ-23 Auflösung über die gültige Periode | 11 — Datumsabhängige Berechnung |
+| REQ-24 Rebuild periodengetreu und wiederholbar | 11 |
+| REQ-25 Validierungswerkzeug periodenbewusst | 11 |
+| REQ-26 Stichtag auch rückwirkend | 12 — Stundenwechsel bedienen |
+| REQ-27 Vorschau vor dem Speichern | 12 |
+| REQ-28 Saldo wird nicht umgerechnet | 12 |
+| REQ-29 Differenz als sichtbare Buchung | 12 |
+| REQ-30 Getrennte Korrektur-Aktion | 13 — Korrigieren und rückgängig machen |
+| REQ-31 Periode bearbeitbar, Storno statt Löschung | 13 |
+| REQ-32 Testabdeckung der Wechselfälle | 14 — Absicherung und Auslieferung |
+| REQ-33 Generalprobe auf Produktionskopie | 14 |
 
-2. **Perioden vorladen oder nachschlagen?** `getDailyTargetHours()` macht bereits einen
+**Abdeckung:** 17/17 (100 %)
+
+---
+
+## Offene Fragen für die Phasenplanung
+
+1. **Perioden vorladen oder nachschlagen?** `getDailyTargetHours()` macht bereits einen
    DB-Zugriff (`holidays`, `workingDays.ts:67`) — ein zweiter Lookup wäre architektonisch
-   konsistent, in Tagesschleifen über ein ganzes Jahr aber teuer. Entscheidung gehört in
-   `/gsd:discuss-phase`.
+   konsistent, in Tagesschleifen über ein ganzes Jahr aber teuer. Gehört in
+   `/gsd:discuss-phase 11`.
 
-3. **Umfang von REQ-19** — ist der `overtime_comp`-Defekt ein Einzeiler oder eine eigene
-   Phase? Vor dem Zuschnitt kurz verifizieren, sonst kippt die Phasenaufteilung.
+2. **Umfang von REQ-19** — ist der `overtime_comp`-Defekt ein Einzeiler oder eine eigene
+   Phase? In Phase 9 zuerst verifizieren; sollte er größer sein, wird dort neu zugeschnitten.
+
+3. **Umfang von REQ-18** — ob der Legacy-Pfad stillgelegt oder nur angeglichen wird,
+   entscheidet sich nach der Sichtung in Phase 9. `OVERTIME_ARCHITECTURE.md` steht auf 🔴.

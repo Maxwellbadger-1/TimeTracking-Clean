@@ -1,38 +1,48 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Urlaubskonto - Korrektheit und Nachvollziehbarkeit
-status: Awaiting next milestone
-stopped_at: Milestone v2.0 abgeschlossen und archiviert. Alle vier Phasen (5-8) Complete, Phase 6 Verifikation 14/14 bestanden. Nächster Schritt: Milestone v3.0 "Historisierte Arbeitszeitmodelle" zuschneiden (Requirements-Entwurf liegt).
-last_updated: "2026-08-21T19:16:36.068Z"
-last_activity: 2026-08-21 — Milestone v2.0 completed and archived
+milestone: v3.0
+milestone_name: Historisierte Arbeitszeitmodelle
+status: planning
+last_updated: "2026-08-21T19:28:40.770Z"
+last_activity: 2026-08-21
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-18)
+See: .planning/PROJECT.md (updated 2026-08-21)
 
-**Core value:** Kein Urlaubstag verschwindet mehr unbemerkt — jede Bewegung wird gebucht, der Saldo ist ihre Summe.
-**Current focus:** Milestone v2.0 abgeschlossen und archiviert — Vorbereitung von Milestone v3.0 „Historisierte Arbeitszeitmodelle"
+**Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
+**Current focus:** Milestone v3.0 zugeschnitten (Phasen 9–14) — Phase 9 noch nicht begonnen
 
 ## Current Status
 
-- **Phase:** Keine aktive Phase (Milestone v2.0 abgeschlossen, v3.0 noch nicht zugeschnitten)
-- **Milestone:** v2.0 abgeschlossen 2026-08-21 — nächster: v3.0 Historisierte Arbeitszeitmodelle
+- **Phase:** 9 von 14 — noch nicht begonnen
+- **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:new-milestone` — Requirements-Entwurf liegt in `.planning/REQUIREMENTS-v3-draft.md` (REQ-17 bis REQ-33), Phasen ab 9.
-- **Last completed:** Phase 6 Lückenschluss — Verifikation 14/14 bestanden (Commit `24a2158`)
-- **Stopped at:** Milestone v2.0 vollständig abgeschlossen: alle vier Phasen Complete, Archive unter `.planning/milestones/` angelegt, MILESTONES.md und ROADMAP.md aktualisiert.
+- **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
+- **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
+- **Stopped at:** Milestone v3.0 aufgesetzt: REQUIREMENTS.md mit REQ-17 bis REQ-33, ROADMAP.md mit sechs Phasen (9–14), 100 % Abdeckung. `.planning/phases/` ist leer.
 
 ## Phase Progress
+
+### Milestone v3.0 (aktuell)
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 9 | Ein Maßstab, ein Weg | Nicht begonnen — REQ-17 bis REQ-19 |
+| 10 | Perioden-Fundament | Nicht begonnen — REQ-20 bis REQ-22 |
+| 11 | Datumsabhängige Berechnung | Nicht begonnen — REQ-23 bis REQ-25 |
+| 12 | Stundenwechsel bedienen | Nicht begonnen — REQ-26 bis REQ-29 |
+| 13 | Korrigieren und rückgängig machen | Nicht begonnen — REQ-30 bis REQ-31 |
+| 14 | Absicherung und Auslieferung | Nicht begonnen — REQ-32 bis REQ-33 |
 
 ### Milestone v2.0 (abgeschlossen 2026-08-21)
 
@@ -159,10 +169,10 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Position
 
-Phase: Milestone v2.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-21 — Milestone v2.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-21 — Milestone v3.0 started
 
 ## Operator Next Steps
 
