@@ -95,18 +95,14 @@ function _calculateAbsenceCreditsForMonth(
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day and sum getDailyTargetHours()
+    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr vor der Summe. Feiertag,
+    // workSchedule und Wochenende werden ausschließlich von getDailyTargetHours() selbst
+    // entschieden (server/src/utils/workingDays.ts:66-91); ein arbeitsfreier Tag liefert
+    // dort bereits 0 und trägt zur Summe nichts bei — der Vorfilter war redundant.
     let absenceHours = 0;
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue;
-
-      // Check if holiday
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue;
-
       // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       absenceHours += getDailyTargetHours(user, dateStr);
     }
 
@@ -184,17 +180,13 @@ function _calculateUnpaidLeaveForMonth(
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day and sum getDailyTargetHours()
+    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr vor der Summe. Feiertag,
+    // workSchedule und Wochenende werden ausschließlich von getDailyTargetHours() selbst
+    // entschieden (server/src/utils/workingDays.ts:66-91); ein arbeitsfreier Tag liefert
+    // dort bereits 0 und trägt zur Summe nichts bei — der Vorfilter war redundant.
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue;
-
-      // Check if holiday
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue;
-
       // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       totalUnpaidHours += getDailyTargetHours(user, dateStr);
     }
   }
@@ -305,16 +297,12 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day of absence
+    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
+    // Feiertag, workSchedule und Wochenende in dieser Reihenfolge selbst
+    // (server/src/utils/workingDays.ts:66-91) und liefert an arbeitsfreien Tagen bereits 0 -
+    // die nachfolgende Prüfung übernimmt die Entscheidung allein.
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue; // Skip weekends
-
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-
-      // Check if holiday
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue; // Skip holidays
 
       // Get target hours for this day (workSchedule-aware!)
       const targetHours = getDailyTargetHours(user, dateStr);
@@ -346,15 +334,12 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
 
     // Iterate through each day
+    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
+    // Feiertag, workSchedule und Wochenende in dieser Reihenfolge selbst
+    // (server/src/utils/workingDays.ts:66-91) und liefert an arbeitsfreien Tagen bereits 0 -
+    // die nachfolgende Prüfung übernimmt die Entscheidung allein.
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue;
-
-      // Check if holiday
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue;
 
       // Calculate daily target hours (workSchedule-aware)
       const dailyHours = getDailyTargetHours(user, dateStr);
@@ -1308,16 +1293,12 @@ export async function ensureAbsenceTransactions(
     const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), effectiveEndDate.getTime()));
 
     // Iterate through each day of absence
+    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
+    // Feiertag, workSchedule und Wochenende in dieser Reihenfolge selbst
+    // (server/src/utils/workingDays.ts:66-91) und liefert an arbeitsfreien Tagen bereits 0 -
+    // die nachfolgende Prüfung übernimmt die Entscheidung allein.
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      if (isWeekend) continue; // Skip weekends
-
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-
-      // Check if holiday
-      const isHoliday = db.prepare('SELECT id FROM holidays WHERE date = ?').get(dateStr);
-      if (isHoliday) continue; // Skip holidays
 
       // Get target hours for this day (workSchedule-aware!)
       const targetHours = getDailyTargetHours(user, dateStr);
