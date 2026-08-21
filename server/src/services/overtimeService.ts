@@ -14,7 +14,10 @@ import {
   getOvertimeBalance,
   recordVacationCredit,
   recordSickCredit,
-  recordOvertimeCompCredit,
+  // recordOvertimeCompCredit bewusst NICHT importiert (REQ-19, CR-01, Plan 09-05 Task 2):
+  // overtime_comp wird hier nicht mehr automatisch kreditiert. Die Funktion selbst bleibt
+  // in overtimeTransactionService.ts exportiert — der Transaktionstyp overtime_comp_credit
+  // bleibt im Schema und in Bestandsdaten gültig, nur seine automatische Erzeugung entfällt.
   recordSpecialCredit,
   recordUnpaidAdjustment,
   recordOvertimeCorrection
@@ -261,17 +264,23 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
   console.log(`    ✅ Deleted ${deleteResult.changes} old transactions`);
 
   // Now load ALL currently approved absences for this month (all types!)
+  //
+  // REQ-19, CR-01, 09-INVENTAR-KREDITIERUNG.md #8: 'overtime_comp' bewusst NICHT in dieser
+  // Liste — dieselbe Begründung wie in ensureAbsenceTransactions() oben. Diese Funktion hat
+  // in der Planung zu 09-05 keinen Aufrufer im Produktivcode (nicht erreichbar), wird aber
+  // aus Konsistenzgründen mitgezogen: eine unerreichbare Kopie der Regel führt die nächste
+  // Untersuchung genauso in die Irre wie eine erreichbare.
   const absences = db.prepare(`
     SELECT id, type, startDate, endDate
     FROM absence_requests
     WHERE userId = ?
       AND status = 'approved'
-      AND type IN ('vacation', 'sick', 'overtime_comp', 'special', 'unpaid')
+      AND type IN ('vacation', 'sick', 'special', 'unpaid')
       AND startDate <= ?
       AND endDate >= ?
   `).all(userId, rangeEndStr, rangeStartStr) as Array<{
     id: number;
-    type: 'vacation' | 'sick' | 'overtime_comp' | 'special' | 'unpaid';
+    type: 'vacation' | 'sick' | 'special' | 'unpaid';
     startDate: string;
     endDate: string;
   }>;
@@ -356,10 +365,6 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
           break;
         case 'sick':
           recordSickCredit(userId, dateStr, dailyHours, absence.id);
-          transactionsCreated++;
-          break;
-        case 'overtime_comp':
-          recordOvertimeCompCredit(userId, dateStr, dailyHours, absence.id);
           transactionsCreated++;
           break;
         case 'special':
@@ -1269,18 +1274,29 @@ export async function ensureAbsenceTransactions(
   }, '📅 Absence date range');
 
   // Get all approved absences in date range (NOW INCLUDING unpaid!)
+  //
+  // REQ-19, CR-01, 09-INVENTAR-KREDITIERUNG.md #7: 'overtime_comp' bewusst NICHT in dieser
+  // Liste. Ein Überstundenausgleich wird AUS dem Überstundenkonto selbst bezahlt (die
+  // negative earned-Buchung dafür entsteht bereits vorgelagert in
+  // ensureDailyOvertimeTransactions(), :817-843) und darf hier keine zusätzliche
+  // *_credit-Zeile erhalten — vorher schrieb dieser Pfad bei jedem GET auf
+  // /api/overtime/transactions/monthly-summary (routes/overtime.ts:556) eine positive
+  // overtime_comp_credit-Zeile. Wird 'overtime_comp' hier weggelassen, entfällt zugleich
+  // der sonst nötige Sonderfall in der Vorabprüfung unten (:1307ff) und im switch (case
+  // 'overtime_comp') — beide würden sonst bei jedem Aufruf einen Zähler-Durchlauf ins Leere
+  // erzeugen (Plan 09-05, Task 2).
   const absences = db.prepare(`
     SELECT id, type, startDate, endDate
     FROM absence_requests
     WHERE userId = ?
       AND status = 'approved'
-      AND type IN ('vacation', 'sick', 'overtime_comp', 'special', 'unpaid')
+      AND type IN ('vacation', 'sick', 'special', 'unpaid')
       AND startDate <= ?
       AND endDate >= ?
     ORDER BY startDate ASC
   `).all(userId, effectiveEndStr, effectiveStartStr) as Array<{
     id: number;
-    type: 'vacation' | 'sick' | 'overtime_comp' | 'special' | 'unpaid';
+    type: 'vacation' | 'sick' | 'special' | 'unpaid';
     startDate: string;
     endDate: string;
   }>;
@@ -1305,9 +1321,12 @@ export async function ensureAbsenceTransactions(
       if (targetHours === 0) continue; // Skip non-working days
 
       // Check if transaction already exists
+      // REQ-19, CR-01: 'overtime_comp' ist nicht mehr Teil von absence.type (siehe die
+      // Abfrage oben) — kein Sonderfall hier nötig, sonst entstünde bei jedem Aufruf ein
+      // Zähler-Durchlauf ins Leere (existing-Query für einen Typ, der nie geschrieben wird).
       const transactionType = absence.type === 'unpaid'
         ? 'unpaid_deduction'
-        : `${absence.type}_credit` as 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit';
+        : `${absence.type}_credit` as 'vacation_credit' | 'sick_credit' | 'special_credit';
 
       const existing = db.prepare(`
         SELECT id FROM overtime_transactions
@@ -1326,9 +1345,6 @@ export async function ensureAbsenceTransactions(
           break;
         case 'sick':
           recordSickCredit(userId, dateStr, targetHours, absence.id);
-          break;
-        case 'overtime_comp':
-          recordOvertimeCompCredit(userId, dateStr, targetHours, absence.id);
           break;
         case 'special':
           recordSpecialCredit(userId, dateStr, targetHours, absence.id);

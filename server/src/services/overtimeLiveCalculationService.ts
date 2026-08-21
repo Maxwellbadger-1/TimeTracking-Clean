@@ -151,7 +151,16 @@ export function calculateLiveOvertimeTransactions(
   }>;
 
   // Build Set of absence dates (working days only, excluding holidays/weekends)
+  //
+  // REQ-19, 09-REQ19-BEFUND.md, CR-01 (09-REVIEW.md), 09-INVENTAR-KREDITIERUNG.md #6:
+  // absenceDates wird bewusst OHNE Typfilter aufgebaut (alle Abwesenheitstypen, inkl.
+  // overtime_comp), weil Schritt 4 unten weiterhin für ALLE Abwesenheitstage keine eigene
+  // "earned"-Buchung erzeugen darf, AUSSER für overtime_comp — dafür wird hier zusätzlich
+  // overtimeCompDates befüllt: die Teilmenge der Abwesenheitstage, die vom Überstundenkonto
+  // selbst bezahlt werden und deshalb wie ein normaler "kein Zeiteintrag"-Tag behandelt
+  // werden müssen (negative earned-Buchung, keine Gutschrift).
   const absenceDates = new Set<string>();
+  const overtimeCompDates = new Set<string>();
   for (const absence of absences) {
     const absenceStartDate = new Date(absence.startDate + 'T12:00:00');
     const absenceEndDate = new Date(absence.endDate + 'T12:00:00');
@@ -171,6 +180,9 @@ export function calculateLiveOvertimeTransactions(
       if (targetHours === 0) continue;
 
       absenceDates.add(dateStr);
+      if (absence.type === 'overtime_comp') {
+        overtimeCompDates.add(dateStr);
+      }
     }
   }
 
@@ -231,8 +243,11 @@ export function calculateLiveOvertimeTransactions(
   const allWorkingDays = getAllWorkingDaysBetween(startDate, endDate, userForCalc);
 
   for (const date of allWorkingDays) {
-    // Skip days with absences (they get their own credit transactions below)
-    if (absenceDates.has(date)) {
+    // Skip days with absences (they get their own credit transactions below) — AUSSER
+    // overtime_comp-Tagen (REQ-19, CR-01): Ein Überstundenausgleich wird AUS dem
+    // Überstundenkonto selbst bezahlt, muss also die normale negative earned-Buchung
+    // erhalten wie ein Tag ohne Zeiterfassung, statt übersprungen zu werden.
+    if (absenceDates.has(date) && !overtimeCompDates.has(date)) {
       continue;
     }
 
@@ -308,6 +323,11 @@ export function calculateLiveOvertimeTransactions(
           description = `Krankheit (genehmigt #${absence.id})`;
           break;
         case 'overtime_comp':
+          // REQ-19, CR-01: overtime_comp erhält keine Gutschrift mehr (die negative
+          // earned-Buchung entsteht bereits in Schritt 4 oben). Der Eintrag bleibt hier
+          // als informationelle 0h-Zeile erhalten (wie unpaid_deduction), damit der
+          // genehmigte Ausgleichstag in der Liste sichtbar bleibt — getTypePriority-
+          // Sortierung (unten, Prio 2) und Anzeigelogik bleiben dadurch unverändert.
           transactionType = 'overtime_comp_credit';
           description = `Überstundenausgleich (genehmigt #${absence.id})`;
           break;
@@ -324,8 +344,11 @@ export function calculateLiveOvertimeTransactions(
       }
 
       // Add transaction
-      // IMPORTANT: unpaid_adjustment shows 0 hours (reduces target, no credit)
-      const hours = absence.type === 'unpaid' ? 0 : targetHours;
+      // IMPORTANT: unpaid_adjustment shows 0 hours (reduces target, no credit).
+      // overtime_comp likewise shows 0 hours (REQ-19, CR-01): the day is paid FROM the
+      // overtime account itself via the negative earned-Buchung from Schritt 4, not
+      // credited a second time here.
+      const hours = (absence.type === 'unpaid' || absence.type === 'overtime_comp') ? 0 : targetHours;
 
       transactions.push({
         date: dateStr,

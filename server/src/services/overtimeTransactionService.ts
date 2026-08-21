@@ -282,8 +282,14 @@ export function recordSickCredit(
 /**
  * Record overtime compensation credit (Überstunden-Ausgleich Gutschrift)
  *
- * AUTOMATIC: Called when overtime_comp is approved or when ensuring transactions
- * Credits target hours for overtime compensation days
+ * NICHT MEHR AUTOMATISCH AUFGERUFEN (REQ-19, CR-01, 09-REVIEW.md, Plan 09-05 Task 2):
+ * ensureAbsenceTransactions() und ensureAbsenceTransactionsForMonth() (overtimeService.ts)
+ * schließen 'overtime_comp' seit Plan 09-05 aus ihrer Abfrage auf absence_requests aus, weil
+ * ein genehmigter Überstundenausgleich aus dem Überstundenkonto selbst bezahlt wird und keine
+ * zusätzliche Gutschrift auf dasselbe Konto erhalten darf. Diese Funktion bleibt exportiert
+ * und der Transaktionstyp 'overtime_comp_credit' bleibt im Schema und in Bestandsdaten
+ * gültig — nur die automatische Erzeugung neuer Zeilen entfällt. Nicht als tote Funktion
+ * missverstehen: Bestandsdaten mit diesem Typ sind weiterhin gültige historische Buchungen.
  *
  * @param userId User ID
  * @param date Date (YYYY-MM-DD)

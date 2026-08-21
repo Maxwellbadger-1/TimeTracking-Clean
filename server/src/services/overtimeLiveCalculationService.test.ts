@@ -188,7 +188,7 @@ describe('calculateLiveOvertimeTransactions — REQ-19/CR-01 overtime_comp', () 
     expect(netHours).toBe(-4);
   });
 
-  it('Urlaubstag (Soll 4h): unveraendert vacation_credit +4h, keine negative earned-Buchung, Nettowirkung 0h', () => {
+  it('Urlaubstag (Soll 4h): unveraendert vacation_credit +4h, keine negative earned-Buchung, Saldo-Nettowirkung 0h', () => {
     db.prepare(`
       INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -203,10 +203,14 @@ describe('calculateLiveOvertimeTransactions — REQ-19/CR-01 overtime_comp', () 
     const earnedTx = transactions.filter(t => t.date === '2026-01-14' && t.type === 'time_entry');
     expect(earnedTx).toEqual([]);
 
-    const netHours = transactions
-      .filter(t => t.date === '2026-01-14')
-      .reduce((sum, t) => sum + t.hours, 0);
-    expect(netHours).toBe(0);
+    // "Nettowirkung 0h" bezieht sich auf den Ueberstundensaldo (Urlaub kommt aus dem
+    // Urlaubskonto, das Ueberstundenkonto bleibt unberuehrt), NICHT auf die Summe der
+    // Listeneintraege: Die Live-Liste zeigt fuer Urlaubstage bewusst nur die
+    // +4h-Gutschriftzeile ohne eigene Gegenbuchung (Schritt 4 ueberspringt absenceDates
+    // weiterhin fuer vacation/sick/special/unpaid) - unveraendertes Verhalten vor und nach
+    // diesem Plan.
+    const balance = calculateCurrentOvertimeBalance(testUserId, '2026-01-14', '2026-01-14');
+    expect(balance).toBe(0);
   });
 
   it('unpaid-Tag: unveraendert unpaid_deduction mit 0h', () => {
