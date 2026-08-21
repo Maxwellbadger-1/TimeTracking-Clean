@@ -23,6 +23,7 @@ Umstellungsfall steht an.
 | Phase | Name | Requirements |
 |-------|------|--------------|
 | 9 | Ein Maßstab, ein Weg | REQ-17 – REQ-19 |
+| 9.1 | Journal-Backfill und Betriebs-Härtung | REQ-19 (Rest) |
 | 10 | Perioden-Fundament | REQ-20 – REQ-22 |
 | 11 | Datumsabhängige Berechnung | REQ-23 – REQ-25 |
 | 12 | Stundenwechsel bedienen | REQ-26 – REQ-29 |
@@ -67,7 +68,7 @@ Pläne:
 - [x] 09-02-PLAN.md — Vergleichswerkzeug `validate:overtime:paths`, Prüfnutzerauswahl, Erstbefund (Welle 2)
 - [x] 09-03-PLAN.md — Legacy-Pfad angleichen, Wochenend-Vorfilter beseitigen, Nachweis führen (Welle 3)
 - [x] 09-04-PLAN.md — `overtime_comp`-Defekt reproduzieren, Ursache belegen, Fix oder Phase 9.1 (Welle 4)
-- [ ] 09-05-PLAN.md — Lückenschluss: alle Kopien der `overtime_comp`-Kreditierung zählen und schließen, Monatsend-Fehler im Journal, Kriterium-3-Nachweis, D2-Verankerung (Welle 5)
+- [x] 09-05-PLAN.md — Lückenschluss: alle Kopien der `overtime_comp`-Kreditierung zählen und schließen, Monatsend-Fehler im Journal, Kriterium-3-Nachweis, D2-Verankerung (Welle 5)
 
 **Entscheidung aus `09-CONTEXT.md` (D1):** Der Legacy-Pfad wird angeglichen, nicht stillgelegt —
 der vollständige Rückbau bleibt out of scope.
@@ -77,6 +78,70 @@ verdoppelt sie den Fehler und macht ihn schwerer auffindbar.
 
 **Risiko:** Der Umfang ist vor der Sichtung unklar — `OVERTIME_ARCHITECTURE.md` steht auf 🔴.
 Sollte sich der Legacy-Rückbau als eigenes Vorhaben erweisen, wird hier neu zugeschnitten.
+
+---
+
+### Phase 9.1: Journal-Backfill und Betriebs-Härtung
+
+**Ziel:** Die bereits gespeicherten `overtime_transactions`-Journalzeilen der
+Produktionsdatenbank sind so vollständig wie die Zeilen, die ein Rebuild nach Plan 09-05
+heute neu erzeugt — und die Betriebsskripte, die täglich unbeobachtet gegen Produktion
+laufen, sind gegen die in `09-REVIEW.md` gefundenen Restrisiken abgesichert.
+
+**Auslöser (D2, kein dritter Ausgang):** Plan 09-05 hat den Monatsend-Off-by-one in
+`overtimeTransactionRebuildService.ts` und `overtimeService.ts` behoben
+(`new Date(month + '-01')` parste als UTC-Mitternacht statt lokal) und mit einem Nachweis
+gegen eine Wegwerfkopie belegt, dass `npm run validate:overtime:detailed` für alle drei
+Prüfnutzer (userId 2/2026-07, 16/2026-07, 17/2026-04) danach abweichungsfrei läuft
+(`09-ABSCHLUSS-NACHWEIS.md`, Erfolgskriterium 3 der Phase 9 erfüllt). Der Codefix repariert
+damit nur **künftige** Rebuilds. Die schon in der Produktionsdatenbank gespeicherten
+`overtime_transactions`-Zeilen bleiben unvollständig — jeder vollständig durchlaufene
+Monat endet dort am vorletzten Kalendertag (u. a. userId 3/17 auf `2026-09-29`, userId 15
+auf `2026-03-30`, userId 21/22/29 auf `2026-07-30`) —, bis für jeden betroffenen Nutzer und
+Monat ein Rebuild läuft. Das ist ein Backfill über Bestandsdaten und damit ein
+Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
+
+**Umfang**
+
+- Backfill des `overtime_transactions`-Journals über Bestandsdaten (alle Nutzer, alle
+  Monate mit vollständig durchlaufenem Zeitraum), mit Generalprobe auf einer
+  Produktionskopie vor jedem Schreibzugriff auf die echte Produktionsdatenbank
+- Härtung der Betriebsskripte aus `09-REVIEW.md`, die in Plan 09-05 bewusst nicht
+  mitbehoben wurden:
+  - **WR-05** — `server/scripts/fix-overtime.ts` hat keine Fehlerisolierung pro Nutzer
+    (ein defekter Datensatz bricht den gesamten täglichen Cron-Lauf ab) und ruft
+    `db.close()` im Fehlerpfad nicht auf
+  - **WR-03 (Restpunkt)** — kein `busy_timeout`-Pragma im Projekt (`grep -rn
+    "busy_timeout" server/src` liefert keinen Treffer, unabhängig in Plan 09-05 erneut
+    bestätigt); ein täglicher Cron-Prozess und der Server-Prozess halten getrennte
+    Verbindungen auf dieselbe Datei — ein echter Schreibkonflikt schlägt sofort mit
+    `SQLITE_BUSY` fehl statt zu warten. Der Wechsel von `fix-overtime.ts` auf die geteilte
+    Verbindung (Plan 09-03) ist dabei laut abschließender Bewertung in Plan 09-05 netto
+    eine Verbesserung, kein neues Risiko — siehe `09-ABSCHLUSS-NACHWEIS.md`
+  - **WR-04** — `server/scripts/**` ist von `tsconfig.json:26` ausgeschlossen und damit
+    ungetypt (`../dist/`-Importe ohne `.d.ts` sind faktisch `any`)
+  - **WR-02 (Restumfang)** — weitere Servicefunktionen ohne dedizierte Tests, über die in
+    Plan 09-05 hinaus gefundenen Dateien hinaus
+  - **WR-07** — `overtimeLiveCalculationService.test.ts:96-112` hängt von einem
+    Feiertags-Fixture in `development.db` statt von einem selbst kontrollierten
+    Setup/Teardown ab
+
+**Erfolgskriterien**
+
+- Nach dem Backfill zeigt `npm run validate:overtime:detailed` für eine Stichprobe realer
+  Nutzer/Monate (mindestens die drei Prüfnutzer aus `09-PRUEFNUTZER.csv`, gegen die echte
+  Produktionsdatenbank nach dem Backfill) keine Transaktions-Abweichung mehr
+- `fix-overtime.ts` verarbeitet einen einzelnen defekten Datensatz mit Fehlerprotokoll,
+  ohne die übrige Belegschaft in diesem Lauf zu blockieren
+- Ein `PRAGMA busy_timeout` ist gesetzt und mit einem echten Nebenläufigkeitstest belegt
+- `server/scripts/**` läuft unter `tsc --noEmit`
+
+**Abhängigkeit:** Phase 9
+
+**Warum als eigene Phase statt in Phase 9:** D2 (`09-CONTEXT.md`) weist einen Backfill über
+Bestandsdaten ausdrücklich einer eigenen Phase zu, sobald er über eine reine Codeänderung
+hinausgeht — genau der hier vorliegende Fall. D5 verbietet den nötigen
+Produktionsschreibzugriff in Phase 9.
 
 ---
 

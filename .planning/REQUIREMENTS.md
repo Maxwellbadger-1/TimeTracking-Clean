@@ -163,7 +163,7 @@ Saldo geändert hat, sieht es im Kontoauszug statt es zu erraten.
 |-------------|-------|
 | REQ-17 Genau ein Weg zur Sollstundenermittlung | 9 — Ein Maßstab, ein Weg |
 | REQ-18 Legacy-Pfad angeglichen oder stillgelegt | 9 |
-| REQ-19 `overtime_comp`-Defekt geklärt | 9 |
+| REQ-19 `overtime_comp`-Defekt geklärt | 9 → 9.1 |
 | REQ-20 Tabelle `user_work_periods` | 10 — Perioden-Fundament |
 | REQ-21 Migration ohne Verhaltensänderung | 10 |
 | REQ-22 Keine Überlappung, keine Lücke | 10 |
@@ -180,6 +180,15 @@ Saldo geändert hat, sieht es im Kontoauszug statt es zu erraten.
 | REQ-33 Generalprobe auf Produktionskopie | 14 |
 
 **Abdeckung:** 17/17 (100 %)
+
+**REQ-19, 9 → 9.1 (D2, Plan 09-05):** Der Kernmechanismus (ein genehmigter Überstundenausgleich
+senkt den Saldo statt ihn zu kreditieren) ist in Phase 9 auf allen Produktivpfaden und
+Werkzeugen behoben — Erfolgskriterium 3 der ROADMAP läuft für die drei Prüfnutzer
+abweichungsfrei (`09-ABSCHLUSS-NACHWEIS.md`). Offen bleibt ausschließlich der Backfill der
+bereits gespeicherten, unvollständigen `overtime_transactions`-Journalzeilen in der
+Produktionsdatenbank — der Codefix repariert nur künftige Rebuilds, nicht Bestandsdaten. D5
+verbietet einen Produktionsschreibzugriff in Phase 9; der Backfill ist deshalb als eigener
+Umfang in Phase 9.1 verankert, kein dritter Ausgang.
 
 ---
 
