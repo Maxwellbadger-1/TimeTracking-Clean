@@ -39,17 +39,30 @@
  */
 
 import path from 'path';
-import { getDatabasePath } from '../config/database.js';
+import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
+import { formatDate } from '../utils/timezone.js';
 
 // ---------------------------------------------------------------------------------------
-// Produktionsschutz (D5) — muss vor jedem Import eines Service-Moduls laufen, siehe Kopf.
+// Produktionsschutz (D5, WR-06) — muss vor jedem Import eines Service-Moduls laufen, siehe
+// Kopf. Kombinierter Vergleich statt reiner Zeichenketten-Heuristik: Pfadgleichheit mit
+// getProductionDatabasePath() UND NODE_ENV, Substring-Fallback bleibt zusätzlich erhalten
+// (Plan 09-05, Task 3 — dieselbe Begründung wie in validateOvertimeDetailed.ts: gemessen
+// resolviert der reale Produktionspfad /home/ubuntu/databases/production.db unter Windows
+// zu C:\home\ubuntu\databases\production.db, verschieden von
+// path.resolve(getProductionDatabasePath()) = <repo>/server/database.db).
 // ---------------------------------------------------------------------------------------
 
 function assertNotProduction(): void {
-  const resolvedPath = getDatabasePath();
+  const resolvedPath = path.resolve(getDatabasePath());
+  const productionPath = path.resolve(getProductionDatabasePath());
   const nodeEnv = process.env.NODE_ENV;
 
-  if (resolvedPath.includes('production') || nodeEnv === 'production') {
+  const looksLikeProduction =
+    resolvedPath === productionPath ||
+    nodeEnv === 'production' ||
+    resolvedPath.toLowerCase().includes('production');
+
+  if (looksLikeProduction) {
     console.error('FEHLER: Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md).');
     console.error(`  Aufgelöster Datenbankpfad: ${resolvedPath}`);
     console.error(`  NODE_ENV: ${nodeEnv ?? '(nicht gesetzt)'}`);
@@ -168,9 +181,16 @@ async function main(): Promise<void> {
   console.log('');
 
   // 2. Genehmigte overtime_comp-Anträge, die den Monat berühren
+  //
+  // WR-01 (09-REVIEW.md): new Date(yy, mm, 0) erzeugt ein Date-Objekt auf lokale Mitternacht
+  // des letzten Kalendertags — korrekt als Kalenderdatum, aber die zuvor hier verwendete
+  // UTC-Serialisierungsmethode (jetzt durch formatDate() ersetzt) verschob das Ergebnis in
+  // Europe/Berlin auf den Vortag (22:00/23:00 UTC) — genau das in .claude/CLAUDE.md unter
+  // "Timezone Bugs" verbotene Muster. formatDate() liest die lokalen Date-Komponenten
+  // direkt, ohne UTC-Konvertierung.
   const monthStart = `${month}-01`;
   const [yy, mm] = month.split('-').map(Number);
-  const monthEnd = new Date(yy, mm, 0).toISOString().slice(0, 10);
+  const monthEnd = formatDate(new Date(yy, mm, 0), 'yyyy-MM-dd');
 
   const compRequests = db
     .prepare(
@@ -280,7 +300,7 @@ async function main(): Promise<void> {
   console.log('7. calculateDailyOvertime() je Tag des Ausgleichszeitraums');
   for (const r of compRequests) {
     for (let d = new Date(r.startDate + 'T12:00:00'); d <= new Date(r.endDate + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       const dailyResult = unifiedOvertimeService.calculateDailyOvertime(userId, dateStr);
       console.log(
         `   ${dateStr}: targetHours=${dailyResult.targetHours} actualHours=${dailyResult.actualHours} ` +
@@ -301,7 +321,7 @@ async function main(): Promise<void> {
   let absenceCreditSummeAusgleichstage = 0;
   for (const r of compRequests) {
     for (let d = new Date(r.startDate + 'T12:00:00'); d <= new Date(r.endDate + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = formatDate(d, 'yyyy-MM-dd');
       const dailyResult = unifiedOvertimeService.calculateDailyOvertime(userId, dateStr);
       absenceCreditSummeAusgleichstage += dailyResult.breakdown.absenceCredit;
     }

@@ -44,7 +44,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { getDatabasePath } from '../config/database.js';
+import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 import {
   comparePaths,
   TOLERANCE_HOURS,
@@ -53,14 +53,27 @@ import {
 } from './overtimePathComparison.js';
 
 // ---------------------------------------------------------------------------------------
-// Produktionsschutz (D5) — muss vor jedem Import eines Service-Moduls laufen, siehe Kopf.
+// Produktionsschutz (D5, WR-06) — muss vor jedem Import eines Service-Moduls laufen, siehe
+// Kopf. Kombinierter Vergleich statt reiner Zeichenketten-Heuristik: Pfadgleichheit mit
+// getProductionDatabasePath() UND NODE_ENV, Substring-Fallback bleibt zusätzlich erhalten
+// (Plan 09-05, Task 3 — gemessen resolviert der reale Produktionspfad
+// /home/ubuntu/databases/production.db unter Windows zu
+// C:\home\ubuntu\databases\production.db, verschieden von
+// path.resolve(getProductionDatabasePath()) = <repo>/server/database.db; ohne den
+// Substring-Fallback würde der Kanarientest aus diesem Plan den Guard nicht auslösen).
 // ---------------------------------------------------------------------------------------
 
 function assertNotProduction(): void {
-  const resolvedPath = getDatabasePath();
+  const resolvedPath = path.resolve(getDatabasePath());
+  const productionPath = path.resolve(getProductionDatabasePath());
   const nodeEnv = process.env.NODE_ENV;
 
-  if (resolvedPath.includes('production') || nodeEnv === 'production') {
+  const looksLikeProduction =
+    resolvedPath === productionPath ||
+    nodeEnv === 'production' ||
+    resolvedPath.toLowerCase().includes('production');
+
+  if (looksLikeProduction) {
     console.error('FEHLER: Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md).');
     console.error(`  Aufgelöster Datenbankpfad: ${resolvedPath}`);
     console.error(`  NODE_ENV: ${nodeEnv ?? '(nicht gesetzt)'}`);

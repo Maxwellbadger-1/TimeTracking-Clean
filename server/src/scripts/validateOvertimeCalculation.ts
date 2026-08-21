@@ -19,15 +19,45 @@
  * - Test scenario validation
  */
 
-import Database from 'better-sqlite3';
 import path from 'path';
+import type BetterSqlite3 from 'better-sqlite3';
 import { formatDate } from '../utils/timezone.js';
-import {
-  calculateTargetHoursForPeriod,
-  calculateAbsenceHoursWithWorkSchedule,
-} from '../utils/workingDays';
+import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 import type { UserPublic } from '../types/index.js';
 import { createTestScenario, getAllScenarioNames } from '../test/generateTestData';
+
+/**
+ * PRODUKTIONSSCHUTZ (D5, WR-06, Plan 09-05 Task 3) — MUSS vor jedem Import eines
+ * DB-öffnenden Moduls stehen. Begründung und kombinierte Prüfung identisch zu
+ * validateOvertimeDetailed.ts und compareOvertimePaths.ts:9-43: '../utils/workingDays'
+ * importiert transitiv '../database/connection.js', das beim `import` bereits die
+ * Datenbankdatei öffnet. calculateTargetHoursForPeriod/calculateAbsenceHoursWithWorkSchedule
+ * werden deshalb unten per `await import(...)` innerhalb von main() geladen, nicht statisch.
+ */
+function assertNotProduction(): void {
+  const resolvedPath = path.resolve(getDatabasePath());
+  const productionPath = path.resolve(getProductionDatabasePath());
+  const nodeEnv = process.env.NODE_ENV;
+
+  const looksLikeProduction =
+    resolvedPath === productionPath ||
+    nodeEnv === 'production' ||
+    resolvedPath.toLowerCase().includes('production');
+
+  if (looksLikeProduction) {
+    console.error('FEHLER: Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md).');
+    console.error(`  Aufgelöster Datenbankpfad: ${resolvedPath}`);
+    console.error(`  NODE_ENV: ${nodeEnv ?? '(nicht gesetzt)'}`);
+    console.error('  Setze DATABASE_PATH auf eine lokale Entwicklungskopie, z. B. ./database/development.db');
+    process.exit(2);
+  }
+}
+
+assertNotProduction();
+
+// Dynamisch befüllt in main(), erst nach dem Guard oben (siehe Begründung).
+let calculateTargetHoursForPeriod: typeof import('../utils/workingDays').calculateTargetHoursForPeriod;
+let calculateAbsenceHoursWithWorkSchedule: typeof import('../utils/workingDays').calculateAbsenceHoursWithWorkSchedule;
 
 // ============================================================================
 // Types
@@ -64,27 +94,34 @@ interface ValidationResult {
 // ============================================================================
 // Database Connection
 // ============================================================================
-
-function getDatabase(): Database.Database {
-  const dbPath = path.join(__dirname, '../../database.db');
-  return new Database(dbPath);
-}
+//
+// Vorher: new Database(path.join(__dirname, '../../database.db')) — eine zweite,
+// fest verdrahtete Verbindung auf die tote Legacy-Datei server/database.db, ignorierte
+// DATABASE_PATH vollständig. Jetzt: geteilte Verbindung aus database/connection.js,
+// dynamisch importiert in main() nach dem Produktionsschutz-Guard oben (Task 3,
+// dieselbe Begründung wie in validateOvertimeDetailed.ts: WAL-Vorfall vom 18.08.2026,
+// .planning/debug/db-stabilisierung-20260818.md — zwei Verbindungen auf dieselbe Datei
+// sind das Risiko, nicht die Lösung).
 
 // ============================================================================
 // Validation Logic
 // ============================================================================
 
 function validateUser(
-  db: Database.Database,
+  db: BetterSqlite3.Database,
   userId: number,
   expectedOvertime?: string
 ): ValidationResult {
   // Get user
+  // RULE 3 (blocking bug, Plan 09-05 Task 3): 'departmentId' ist keine Spalte von `users`
+  // (schema.ts:42, `department TEXT`) — jeder Aufruf mit --userId= warf zuvor
+  // "SqliteError: no such column: departmentId" und machte diesen Modus des Werkzeugs
+  // vollständig unbenutzbar, unabhängig von REQ-19. Gemessen bei der Ausführung dieses Plans.
   const user = db
     .prepare(
       `
     SELECT
-      id, firstName, lastName, email, weeklyHours, workSchedule, hireDate, role, departmentId
+      id, firstName, lastName, email, weeklyHours, workSchedule, hireDate, role, department
     FROM users
     WHERE id = ? AND deletedAt IS NULL
   `
@@ -135,7 +172,7 @@ function validateUser(
     workSchedule: user.workSchedule,
     hireDate: user.hireDate,
     role: user.role,
-    department: user.departmentId,
+    department: user.department,
     position: null,
     vacationDaysPerYear: 30,
     endDate: null,
@@ -197,7 +234,12 @@ function validateUser(
     if (absence.type === 'unpaid') {
       unpaidDays += absence.daysRequired;
       // Unpaid leave: NO credit, already handled in targetHours calculation
-    } else if (absence.type === 'vacation' || absence.type === 'sick' || absence.type === 'overtime_comp') {
+    } else if (absence.type === 'vacation' || absence.type === 'sick' || absence.type === 'special') {
+      // REQ-19, 09-INVENTAR-KREDITIERUNG.md #10: 'overtime_comp' entfernt (wird AUS dem
+      // Überstundenkonto selbst bezahlt, keine Gutschrift — unifiedOvertimeService.ts:336-357).
+      // 'special' ergänzt: fehlte hier zuvor komplett, eine von REQ-19 unabhängige, eigene
+      // Abweichung vom kanonischen Kredit-Filter (Plan 09-05, Task 3; in
+      // 09-INVENTAR-KREDITIERUNG.md vermerkt statt stillschweigend übernommen).
       // Calculate credit based on workSchedule or weeklyHours
       if (user.workSchedule) {
         credit = calculateAbsenceHoursWithWorkSchedule(
@@ -273,7 +315,13 @@ function validateUser(
 // ============================================================================
 
 function formatOvertimeHours(hours: number): string {
-  const sign = hours >= 0 ? '+' : '';
+  // RULE 1 (bug fix, Plan 09-05 Task 3): 'sign' war für negative Stunden eine leere
+  // Zeichenkette statt '-' — jeder negative Saldo (z. B. das Ergebnis eines
+  // overtime_comp-Tages nach REQ-19) erschien in der Konsolenausgabe ohne Minuszeichen,
+  // ununterscheidbar von einem positiven Saldo gleicher Größe. Gemessen bei der
+  // Ausführung dieses Plans anhand des neu korrigierten overtime-compensation-Szenarios
+  // (expectedOvertime: -24 zeigte zuvor "24:00h" statt "-24:00h").
+  const sign = hours >= 0 ? '+' : '-';
   const h = Math.floor(Math.abs(hours));
   const m = Math.round((Math.abs(hours) - h) * 60);
   return `${sign}${h}:${String(m).padStart(2, '0')}h`;
@@ -413,8 +461,15 @@ function validateScenario(scenarioName: string): void {
 
   let absenceCredits = 0;
   for (const absence of scenario.absences) {
-    if (absence.type === 'unpaid') {
-      // Unpaid: no credit
+    // Allowlist statt Blockliste (REQ-19, unifiedOvertimeService.ts:336-357,
+    // getAbsenceCredit()): nur vacation/sick erhalten hier eine Gutschrift (TestAbsence in
+    // generateTestData.ts kennt nur 'vacation' | 'sick' | 'unpaid' | den Ausgleichstyp —
+    // 'special' kommt in Testdaten nicht vor). Unpaid (reduziert Soll stattdessen) und der
+    // aus dem Überstundenkonto selbst bezahlte Ausgleichstag bleiben ohne Gutschrift. Vorher
+    // fiel der Ausgleichstag durch die alte Blockliste (nur 'unpaid' ausgeschlossen) und
+    // wurde im else-Zweig unten wie vacation/sick kreditiert (Plan 09-05, Task 3; Testdaten
+    // in generateTestData.ts:createOvertimeCompensationScenario() entsprechend korrigiert).
+    if (absence.type !== 'vacation' && absence.type !== 'sick') {
       continue;
     }
 
@@ -466,6 +521,12 @@ function validateScenario(scenarioName: string): void {
 // ============================================================================
 
 async function main() {
+  // Dynamische Imports NACH dem Produktionsschutz oben (siehe Begründung am Guard):
+  // '../utils/workingDays' zieht transitiv die geteilte DB-Verbindung.
+  const workingDays = await import('../utils/workingDays.js');
+  calculateTargetHoursForPeriod = workingDays.calculateTargetHoursForPeriod;
+  calculateAbsenceHoursWithWorkSchedule = workingDays.calculateAbsenceHoursWithWorkSchedule;
+
   const args = process.argv.slice(2);
 
   // Parse arguments
@@ -499,8 +560,8 @@ async function main() {
     return;
   }
 
-  // Database validation
-  const db = getDatabase();
+  // Database validation — geteilte Verbindung (siehe Kommentar bei "Database Connection" oben)
+  const { db } = await import('../database/connection.js');
 
   if (validateAll) {
     console.log('\n🔍 Validiere ALLE Benutzer...\n');

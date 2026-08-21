@@ -16,6 +16,7 @@
 
 import type { DayName } from '../utils/workingDays';
 import { formatDate } from '../utils/timezone.js';
+import { fileURLToPath } from 'url';
 
 // ============================================================================
 // Types
@@ -577,9 +578,14 @@ function createOvertimeCompensationScenario(): TestScenario {
     absences,
     referenceDate: '2025-02-07', // Friday
     expectedTargetHours: 40, // 5 days × 8h
-    expectedActualHours: 40, // 16h worked + 24h overtime_comp credit
-    expectedOvertime: 0, // 40 - 40 = 0
-    explanation: 'Week: Mo-Tue worked (16h), Wed-Fri overtime_comp (3 × 8h = 24h credit). Target: 40h. Actual: 40h. Overtime: 0h.',
+    // REQ-19 (09-REQ19-BEFUND.md, unifiedOvertimeService.ts:336-357): Ein genehmigter
+    // Überstundenausgleich wird AUS dem Überstundenkonto selbst bezahlt und erhält deshalb
+    // KEINE Gutschrift — anders als vacation/sick. Vor REQ-19 lauteten diese Erwartungswerte
+    // expectedActualHours: 40 / expectedOvertime: 0 (overtime_comp fälschlich wie vacation/sick
+    // kreditiert); mit Plan 09-05, Task 3 auf den korrekten Wert gebracht.
+    expectedActualHours: 16, // nur die 16h Zeiterfassung (Mo-Di), keine overtime_comp-Gutschrift
+    expectedOvertime: -24, // 16h Ist - 40h Soll = -24h (die 3 Ausgleichstage senken den Saldo)
+    explanation: 'Week: Mo-Tue worked (16h), Wed-Fri overtime_comp (3 Tage, KEINE Gutschrift — bezahlt aus dem Überstundenkonto selbst, REQ-19). Target: 40h. Actual: 16h. Overtime: -24h.',
   };
 }
 
@@ -634,7 +640,13 @@ export function printScenario(scenario: TestScenario): void {
 // CLI Interface (optional)
 // ============================================================================
 
-if (require.main === module) {
+// RULE 3 (execute-plan.md, blocking issue): 'require.main === module' ist ein CommonJS-Muster
+// und wirft in diesem ESM-Modul ("type": "module", server/package.json) bei JEDEM Import
+// dieser Datei einen ReferenceError ('require is not defined') — nicht nur beim direkten CLI-
+// Aufruf. Das machte auch validateOvertimeCalculation.ts unbenutzbar, sobald dessen statischer
+// Import von generateTestData.ts ausgewertet wurde (gemessen, Plan 09-05 Task 3). ESM-Äquivalent:
+// Vergleich des tatsächlichen Einstiegspunkts (process.argv[1]) mit dem eigenen Modulpfad.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const scenarioName = args[0];
 

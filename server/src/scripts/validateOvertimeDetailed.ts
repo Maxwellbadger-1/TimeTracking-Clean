@@ -11,7 +11,8 @@
  * Features:
  * - Day-by-day target hours breakdown with workSchedule visualization
  * - Holiday highlighting (federal + state-specific)
- * - Absence credit calculation (vacation, sick, overtime comp, unpaid)
+ * - Absence credit calculation (vacation, sick, special credited; overtime comp and unpaid
+ *   reduce/debit instead, REQ-19)
  * - Time entries breakdown grouped by date
  * - Manual corrections tracking
  * - Overtime transactions analysis (earned, credits, adjustments, carryover)
@@ -35,14 +36,70 @@
  * 11. Frontend API Validation (component-level comparison)
  */
 
-import Database from 'better-sqlite3';
-import { getUserById } from '../services/userService.js';
-import { getDailyTargetHours } from '../utils/workingDays.js';
+import path from 'path';
+import type BetterSqlite3 from 'better-sqlite3';
+import type { UserPublic } from '../types/index.js';
 import { getCurrentDate } from '../utils/timezone.js';
+import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 // @ts-expect-error - node-fetch doesn't have types in this project
 import fetch from 'node-fetch';
 
-const db = new Database('./database/development.db');
+/**
+ * PRODUKTIONSSCHUTZ (D5, WR-06, Plan 09-05 Task 3) — MUSS vor jedem Import eines
+ * DB-öffnenden Moduls stehen, siehe compareOvertimePaths.ts:9-43 für die volle Begründung:
+ * '../services/userService.js' und '../utils/workingDays.js' importieren transitiv
+ * '../database/connection.js', das die Datenbankdatei bereits beim `import` öffnet
+ * (nicht erst bei einem Funktionsaufruf) und dabei initializeDatabase()/createIndexes()
+ * ausführt. Ein Guard NACH einer statischen Import-Zeile auf diese Module wäre wirkungslos.
+ * Deshalb: nur import-sichere Module oben (Node-Builtins, Typ-only-Importe, getDatabasePath()
+ * — löst nur einen String auf, öffnet keine Datei), Guard synchron auf Modulebene direkt
+ * danach, alle DB-berührenden Module erst über `await import(...)` innerhalb von main().
+ *
+ * Kombinierter Vergleich statt reiner Zeichenketten-Heuristik (WR-06): Pfadgleichheit mit
+ * getProductionDatabasePath() UND NODE_ENV. Die reine Substring-Prüfung bleibt zusätzlich
+ * erhalten, weil getProductionDatabasePath() strukturell den lokalen Fallback-Pfad
+ * `server/database.db` liefert (config/database.ts:41-43), NICHT den tatsächlichen
+ * Produktionspfad `/home/ubuntu/databases/production.db` — gemessen: Ohne den Substring-Fall
+ * würde der Kanarientest `DATABASE_PATH=/home/ubuntu/databases/production.db` (ohne
+ * NODE_ENV=production) den Guard NICHT auslösen, weil path.resolve() dieses Pfades unter
+ * Windows zu `C:\home\ubuntu\databases\production.db` auflöst — verschieden von
+ * path.resolve(getProductionDatabasePath()). Alle drei Prüfungen zusammen sind strikt
+ * robuster als jede einzelne.
+ */
+function assertNotProduction(): void {
+  const resolvedPath = path.resolve(getDatabasePath());
+  const productionPath = path.resolve(getProductionDatabasePath());
+  const nodeEnv = process.env.NODE_ENV;
+
+  const looksLikeProduction =
+    resolvedPath === productionPath ||
+    nodeEnv === 'production' ||
+    resolvedPath.toLowerCase().includes('production');
+
+  if (looksLikeProduction) {
+    console.error('FEHLER: Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md).');
+    console.error(`  Aufgelöster Datenbankpfad: ${resolvedPath}`);
+    console.error(`  NODE_ENV: ${nodeEnv ?? '(nicht gesetzt)'}`);
+    console.error('  Setze DATABASE_PATH auf eine lokale Entwicklungskopie, z. B. ./database/development.db');
+    process.exit(2);
+  }
+}
+
+assertNotProduction();
+
+// Module-scope Bindings, erst in main() per `await import(...)` befüllt (siehe Guard-
+// Begründung oben). db ist die GETEILTE Verbindung aus database/connection.js — kein
+// zweiter new Database()-Aufruf mehr (Task 3 Teil A, WAL-Vorfall vom 18.08.2026,
+// .planning/debug/db-stabilisierung-20260818.md). Das Skript importierte bereits vorher
+// getUserById aus userService.js, das dieselbe geteilte Verbindung transitiv zieht — es
+// liefen also zwei Verbindungen im selben Prozess auf dieselbe Datei. Eine eigene,
+// separat geöffnete readonly-Verbindung wäre eine dritte Verbindung gewesen und hätte das
+// Risiko vergrößert statt verkleinert; die schemainitialisierenden Nebenwirkungen
+// (initializeDatabase()/createIndexes()) entstehen ohnehin bereits durch den bestehenden
+// getUserById-Import, unabhängig von dieser Änderung.
+let db: BetterSqlite3.Database;
+let getUserById: (id: number) => UserPublic | undefined;
+let getDailyTargetHours: (user: UserPublic, date: Date | string) => number;
 
 // API Base URL for frontend validation
 const API_BASE = 'http://localhost:3000/api';
@@ -482,14 +539,21 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
   // 5. Get absences - SPLIT INTO TWO QUERIES (Credits vs. Unpaid)
   // IMPORTANT: Match overtimeService.ts logic exactly!
 
-  // 5a. Get absence CREDITS (vacation, sick, overtime_comp)
+  // 5a. Get absence CREDITS (vacation, sick, special)
+  //
+  // REQ-19, 09-INVENTAR-KREDITIERUNG.md #9: 'overtime_comp' entfernt — ein genehmigter
+  // Überstundenausgleich wird AUS dem Überstundenkonto selbst bezahlt und ist deshalb keine
+  // Gutschrift (unifiedOvertimeService.ts:336-357, getAbsenceCredit()). 'special' ergänzt:
+  // Diese Abfrage behauptete "Match overtimeService.ts logic exactly!" (siehe Kommentar oben),
+  // ließ 'special' aber bislang ganz aus — eine eigene, von REQ-19 unabhängige Abweichung vom
+  // kanonischen Kredit-Filter, hier bei der Gelegenheit mitkorrigiert (Plan 09-05, Task 3).
   const absenceCredits = db
     .prepare(
       `SELECT id, type, startDate, endDate, days
        FROM absence_requests
        WHERE userId = ?
          AND status = 'approved'
-         AND type IN ('vacation', 'sick', 'overtime_comp')
+         AND type IN ('vacation', 'sick', 'special')
          AND startDate <= ?
          AND endDate >= ?`
     )
@@ -530,14 +594,14 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
   if (totalAbsences === 0) {
     console.log('  (Keine Abwesenheiten in diesem Zeitraum)');
   } else {
-    // Process CREDITS (vacation, sick, overtime_comp)
+    // Process CREDITS (vacation, sick, special)
     absenceCredits.forEach((abs) => {
       const typeLabel =
         abs.type === 'vacation'
           ? '🏖️  Urlaub'
           : abs.type === 'sick'
             ? '🤒 Krank'
-            : '⏰ Überstundenausgleich';
+            : '🎗️  Sonderurlaub';
 
       console.log(`\n  ${typeLabel}: ${abs.startDate} bis ${abs.endDate} (Gesamt: ${abs.days} Kalendertage)`);
 
@@ -748,10 +812,22 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
     referenceId: number | null;
   }>;
 
-  // Group transactions by type
+  // Group transactions by type.
+  //
+  // 09-INVENTAR-KREDITIERUNG.md / 09-VERIFICATION.md: 'time_entry' und 'earned' sind
+  // semantisch identisch (overtimeTransactionService.ts:690-691, "'time_entry' and 'earned'
+  // are semantically identical (daily overtime from time entries)"), aber die tatsächlich in
+  // overtime_transactions geschriebenen Zeilen tragen den Typ 'time_entry'
+  // (overtimeTransactionRebuildService.ts, overtimeService.ts). Ohne diese Abbildung blieb
+  // transactionsByType.earned immer leer, die Zeile "Earned (Time Entries)" meldete immer
+  // "+0h (0 txs)" — das war der Ursprung der Fehldiagnose "Earned-Buchungen fehlen
+  // vollständig" in 09-VERIFICATION.md. Die Buchungen existierten immer, nur unter dem
+  // falschen Schlüssel gesucht. TRANSACTION BALANCE (transactionTotal, unten) summiert alle
+  // Typen ungefiltert und war von diesem Fehler nie betroffen.
   const transactionsByType = transactions.reduce((acc, t) => {
-    if (!acc[t.type]) acc[t.type] = [];
-    acc[t.type].push(t);
+    const groupKey = t.type === 'time_entry' ? 'earned' : t.type;
+    if (!acc[groupKey]) acc[groupKey] = [];
+    acc[groupKey].push(t);
     return acc;
   }, {} as Record<string, typeof transactions>);
 
@@ -833,7 +909,7 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
   console.log('│                                                                            │');
   console.log(`│  Time Entries (Worked):               ${('+' + totalWorkedHours.toString()).padStart(8)}h                    │`);
   console.log(`│  Absence Credits:                                                          │`);
-  console.log(`│    ├─ Vacation/Sick/Overtime Comp:    ${('+' + totalAbsenceCredits.toString()).padStart(8)}h                    │`);
+  console.log(`│    ├─ Vacation/Sick/Special:          ${('+' + totalAbsenceCredits.toString()).padStart(8)}h                    │`);
   console.log(`│  Manual Corrections:                  ${(totalCorrections >= 0 ? '+' : '') + totalCorrections.toString().padStart(8)}h                    │`);
   console.log('│  ──────────────────────────────────────────────────────────────────────  │');
   console.log(`│  TOTAL ACTUAL:                        ${actualHours.toString().padStart(8)}h  ◄── Final Ist   │`);
@@ -1000,6 +1076,18 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
 
 // Main execution
 async function main() {
+  // Dynamische Imports NACH dem Produktionsschutz oben (siehe Begründung am Guard):
+  // Diese drei Module ziehen transitiv die geteilte DB-Verbindung.
+  const [{ db: sharedDb }, { getUserById: sharedGetUserById }, { getDailyTargetHours: sharedGetDailyTargetHours }] =
+    await Promise.all([
+      import('../database/connection.js'),
+      import('../services/userService.js'),
+      import('../utils/workingDays.js'),
+    ]);
+  db = sharedDb;
+  getUserById = sharedGetUserById;
+  getDailyTargetHours = sharedGetDailyTargetHours;
+
   const options = parseArgs();
 
   if (!options.userId && !options.all) {
@@ -1029,11 +1117,11 @@ async function main() {
     await validateOvertimeForUser(options.userId, options.month);
   }
 
-  db.close();
+  db?.close();
 }
 
 main().catch(error => {
   console.error('Fatal error:', error);
-  db.close();
+  db?.close();
   process.exit(1);
 });
