@@ -164,7 +164,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Journal-Fundament | 2/2 | Complete | 2026-08-19 |
-| 6. Buchungen bei jedem Vorgang | 7/7 | Lückenschluss ausgeführt, Verifikation ausstehend | — |
+| 6. Buchungen bei jedem Vorgang | 7/7 | Complete | 2026-08-21 |
 | 7. Saldo aus Buchungen + Backfill | 3/3 | Complete | 2026-08-19 |
 | 8. Kontoauszug | 5/5 | Complete | 2026-08-20 |
 

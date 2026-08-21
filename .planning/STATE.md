@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: Milestone complete
-stopped_at: Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte (Karin Jochem, Christine Glas) gegen Produktion, unabhängig verifiziert. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
-last_updated: "2026-08-20T21:32:05.468Z"
+status: Ready to plan
+stopped_at: Phase-06-Lückenschluss (06-04 bis 06-07) ausgeführt und committet. 06-07 korrigiert die zwei realen 2025er-Datenartefakte gegen Produktion. Abschließende Verifikation der Phase gegen `06-VERIFICATION.md` steht noch aus — Phasenstatus daher weiterhin nicht "Complete".
+last_updated: "2026-08-21T19:02:24.487Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
   completed_plans: 17
   percent: 100
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-08-18)
 
 ## Current Status
 
-- **Phase:** 08 of 8 (5/5 Pläne abgeschlossen)
+- **Phase:** 07 of 8 (saldo aus buchungen backfill)
 - **Milestone:** 2 — Urlaubskonto: Korrektheit & Nachvollziehbarkeit
 - **Initialized:** 2026-08-18
 - **Next action:** Keine offene Phase-8-Arbeit mehr. Abschließende Verifikation des Phase-6-Lückenschlusses (06-04 bis 06-07) gegen `06-VERIFICATION.md` aussteht.
