@@ -58,3 +58,30 @@ Die zusätzlichen 15 Fehlschläge (`balanceTracking.test.ts`, `overtimeTransacti
 5 der 7 `workingDays.test.ts`-Fälle) scheinen zum Zeitpunkt der ursprünglichen Koordinator-Messung
 noch nicht aufgetreten zu sein (vermutlich Datenumgebung/Datum-Drift seit 2026-08-19) — sie sind
 aber nachweislich nicht durch 06-06 verursacht.
+
+---
+
+## Testzahlen aus Worktrees sind nicht vergleichbar (gefunden 2026-08-21, Welle 2)
+
+`*.db` steht in der `.gitignore` (Zeile 27). Ein per `isolation: "worktree"` erzeugter
+Worktree startet deshalb **ohne** `server/database/development.db`. Die Tests legen dort
+beim ersten Lauf eine neue, praktisch leere Datenbank an — 368 KB gegenüber 1,28 MB im
+Hauptbaum, der eine Kopie der Produktionsdaten enthält.
+
+Folge: Executor-Agenten in Worktrees melden reproduzierbar **18 Fehlschläge**, wo der
+Hauptbaum **3** zeigt. Die Differenz stammt aus fehlendem Schema (`overtime_transactions.
+balanceAfter`) und fehlenden Feiertagsdaten für 2026 — beides Dinge, die in der
+Arbeitsdatenbank vorhanden sind, in einer frisch angelegten aber nicht.
+
+**Was daraus folgt:**
+- Absolute Testzahlen aus einem Worktree taugen nicht als Gate. Der A/B-Vergleich gegen den
+  Basis-Commit *innerhalb* desselben Worktrees bleibt gültig — nur der Vergleich mit
+  Messungen des Orchestrators nicht.
+- Das maßgebliche Regressionsgate ist der Lauf im Hauptbaum nach dem Merge.
+- Zwei Executor-Agenten haben in dieser Phase je ~20 Minuten darauf verwendet, die 18
+  Fehlschläge zu untersuchen und gegen den Basis-Commit zu verifizieren. Das ist vermeidbare
+  Arbeit, wenn der Auftrag die Erwartung vorab klarstellt.
+
+Die saubere Lösung ist dieselbe wie beim übergeordneten Punkt: eine eigene, pro Lauf frisch
+migrierte Testdatenbank (`NODE_ENV=test`), statt der Arbeitsdatenbank. Dann sind Haupt- und
+Worktree-Läufe identisch und die Frage stellt sich nicht mehr.
