@@ -15,7 +15,7 @@
  */
 
 import logger from '../utils/logger.js';
-import { bulkInitializeVacationBalances } from './vacationBalanceService.js';
+import { bulkInitializeVacationBalances, calculateCarryover, getVacationBalance } from './vacationBalanceService.js';
 import { bulkInitializeOvertimeBalancesForNewYear, getYearEndOvertimeBalance } from './overtimeService.js';
 import { logAudit } from './auditService.js';
 import { db } from '../database/connection.js';
@@ -194,14 +194,8 @@ export function previewYearEndRollover(year: number): {
     // Get vacation carryover from previous year
     let vacationCarryover = 0;
     try {
-      const vacationBalance = db
-        .prepare('SELECT entitlement, carryover, taken FROM vacation_balance WHERE userId = ? AND year = ?')
-        .get(user.id, previousYear) as { entitlement: number; carryover: number; taken: number } | undefined;
-
-      if (vacationBalance) {
-        // remainingDays = entitlement + carryover - taken
-        vacationCarryover = vacationBalance.entitlement + vacationBalance.carryover - vacationBalance.taken;
-      }
+      const vacationBalance = getVacationBalance(user.id, previousYear);
+      vacationCarryover = calculateCarryover(vacationBalance);
     } catch (error) {
       warnings.push(`Could not calculate vacation balance: ${error instanceof Error ? error.message : String(error)}`);
     }

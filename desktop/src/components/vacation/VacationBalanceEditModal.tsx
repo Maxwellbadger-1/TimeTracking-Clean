@@ -83,8 +83,8 @@ export function VacationBalanceEditModal({
 
     // Validate carryover
     const carryoverNum = parseInt(carryover);
-    if (isNaN(carryoverNum) || carryoverNum < 0 || carryoverNum > 10) {
-      setCarryoverError('Übertrag muss zwischen 0 und 10 Tagen liegen');
+    if (isNaN(carryoverNum) || carryoverNum < 0) {
+      setCarryoverError('Übertrag darf nicht negativ sein');
       isValid = false;
     }
 
@@ -178,9 +178,8 @@ export function VacationBalanceEditModal({
           onChange={(e) => setCarryover(e.target.value)}
           error={carryoverError}
           min="0"
-          max="10"
           step="1"
-          helperText="Übertrag aus Vorjahr (max. 5 Tage automatisch)"
+          helperText="Übertrag aus Vorjahr"
         />
 
         {/* Reason */}

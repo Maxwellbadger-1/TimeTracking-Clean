@@ -116,6 +116,31 @@ interface VacationBalanceUpdateInput {
 }
 
 /**
+ * Berechnet den Übertrag ins Folgejahr aus dem Vorjahresrest.
+ *
+ * EINZIGE Berechnungsquelle der Übertragsregel — jede der fünf Stellen, die einen Übertrag
+ * berechnet (upsertVacationBalance, updateVacationBalance, bulkInitializeVacationBalances hier
+ * in dieser Datei, absenceService.initializeVacationBalance, yearEndRolloverService.previewYearEndRollover),
+ * ruft ausschließlich diese Funktion auf. Vor diesem Fix implementierten diese fünf Stellen drei
+ * unterschiedliche Verhaltensweisen unabhängig voneinander (drei gedeckelt auf 5 Tage, eine
+ * unbegrenzt mit Untergrenze 0, eine unbegrenzt OHNE Untergrenze) — siehe 06-REVIEW.md WR-03 und
+ * 06-VERIFICATION.md (Interaktionsanalyse zwischen Gap 1/Gap 2).
+ *
+ * Anwenderentscheidung (bindend): Übertrag ist unbegrenzt, kein Verfall. Resturlaub geht
+ * vollständig ins Folgejahr.
+ *
+ * @param previousBalance Der Kontostand des Vorjahres (oder null, wenn keiner existiert)
+ * @returns Der zu übertragende Betrag — nie negativ, nie gekappt
+ */
+export function calculateCarryover(
+  previousBalance: { remaining: number } | null
+): number {
+  return previousBalance && previousBalance.remaining > 0
+    ? previousBalance.remaining
+    : 0;
+}
+
+/**
  * Get all vacation balances (optionally filtered by userId or year)
  */
 export function getAllVacationBalances(filters?: {
@@ -207,8 +232,8 @@ export function upsertVacationBalance(
     throw new Error('Entitlement must be between 0 and 50 days');
   }
 
-  if (data.carryover < 0 || data.carryover > 10) {
-    throw new Error('Carryover must be between 0 and 10 days');
+  if (data.carryover < 0) {
+    throw new Error('Carryover must be 0 or greater');
   }
 
   // VALIDATION: Check carryover against previous year's remaining balance
@@ -217,12 +242,11 @@ export function upsertVacationBalance(
     const previousBalance = getVacationBalance(data.userId, previousYear);
 
     if (previousBalance) {
-      const maxCarryover = Math.min(previousBalance.remaining, 5); // Max 5 days per German law
+      const maxCarryover = calculateCarryover(previousBalance);
       if (data.carryover > maxCarryover) {
         throw new Error(
           `Carryover cannot exceed previous year's remaining balance. ` +
-          `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days, ` +
-          `German law limit: 5 days)`
+          `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days)`
         );
       }
     } else {
@@ -472,8 +496,8 @@ export function updateVacationBalance(
   }
 
   if (data.carryover !== undefined) {
-    if (data.carryover < 0 || data.carryover > 10) {
-      throw new Error('Carryover must be between 0 and 10 days');
+    if (data.carryover < 0) {
+      throw new Error('Carryover must be 0 or greater');
     }
 
     // VALIDATION: Check carryover against previous year's remaining balance
@@ -482,12 +506,11 @@ export function updateVacationBalance(
       const previousBalance = getVacationBalance(existing.userId, previousYear);
 
       if (previousBalance) {
-        const maxCarryover = Math.min(previousBalance.remaining, 5); // Max 5 days per German law
+        const maxCarryover = calculateCarryover(previousBalance);
         if (data.carryover > maxCarryover) {
           throw new Error(
             `Carryover cannot exceed previous year's remaining balance. ` +
-            `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days, ` +
-            `German law limit: 5 days)`
+            `Maximum allowed: ${maxCarryover} days (${previousYear} remaining: ${previousBalance.remaining} days)`
           );
         }
       } else {
@@ -708,10 +731,7 @@ export function bulkInitializeVacationBalances(
     // NO expiry date - vacation days remain valid indefinitely
     const previousYear = year - 1;
     const previousBalance = getVacationBalance(user.id, previousYear);
-    const carryover =
-      previousBalance && previousBalance.remaining > 0
-        ? previousBalance.remaining // Transfer ALL days
-        : 0;
+    const carryover = calculateCarryover(previousBalance);
 
     // Konto und Buchungen laufen atomar — eine Kontoanlage ohne die zugehörige
     // Anspruchs-/Übertragsbuchung (oder umgekehrt) darf nicht entstehen.

@@ -8,6 +8,7 @@ import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
+import { calculateCarryover } from './vacationBalanceService.js';
 
 /**
  * Absence Service
@@ -1397,10 +1398,7 @@ export function initializeVacationBalance(
   // Check if previous year balance exists for carryover
   const previousYear = year - 1;
   const previousBalance = getVacationBalance(userId, previousYear);
-  const carryover =
-    previousBalance && previousBalance.remaining > 0
-      ? Math.min(previousBalance.remaining, 5) // Max 5 days carryover
-      : 0;
+  const carryover = calculateCarryover(previousBalance);
 
   // Insert or update balance
   const query = `
