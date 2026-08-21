@@ -63,6 +63,20 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | 3 | Local Dev Sync Script | Complete (2/2 plans) |
 | 4 | Deploy Workflow + Documentation | Complete (3/3 plans) |
 
+## Offene Pflichtpunkte (nicht durch Werkzeuge erfasst)
+
+- **Phase 9.1 — Journal-Backfill und Betriebs-Härtung.** Verankert in ROADMAP.md (Zeile 26,
+  Abschnitt ab Zeile 141, Fortschrittstabelle Zeile 344) und REQUIREMENTS.md (Zeile 166).
+  **Achtung:** Die Phase hat noch keine Pläne. `gsd-sdk query roadmap.analyze` meldet sie
+  deshalb faelschlich als `complete` (0 von 0 offenen Plaenen) und ein autonomer Lauf
+  wuerde sie ueberspringen. Sie ist nicht erledigt.
+  **Festgelegt am 22.08.2026:** Der Backfill schreibt in die Produktionsdatenbank und laeuft
+  deshalb gemeinsam mit dem Produktionslauf der Phase 14 — ein Wartungsfenster, ein Backup,
+  eine Verifikation. Die reinen Codeanteile (WR-02 bis WR-05, WR-07 aus 09-REVIEW.md) koennen
+  vorher laufen. Der Produktionsschreibzugriff bedarf der ausdruecklichen Freigabe des Anwenders.
+
+---
+
 ## Decisions
 
 - **01-server-db-consolidation-01:** Used chmod 750 for /home/ubuntu/databases/ directories — tighter than 755 minimum, excludes other users entirely for better security

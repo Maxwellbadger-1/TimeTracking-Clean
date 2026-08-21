@@ -146,6 +146,16 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
 
 **Abhängigkeit:** Phase 9
 
+> **⚠ Ausführungsfenster — nicht überlesen.** Diese Phase hat noch keine Pläne. Werkzeuge,
+> die den Fortschritt aus der Zahl offener Pläne ableiten, melden sie deshalb fälschlich als
+> „complete" (0 von 0 offen). Sie ist **nicht** erledigt.
+>
+> **Festgelegt am 22.08.2026:** Der Backfill schreibt in die Produktionsdatenbank und wird
+> deshalb **gemeinsam mit dem Produktionslauf der Phase 14** ausgeführt — ein Wartungsfenster,
+> ein Backup, eine Verifikation. Die reinen Codeanteile (WR-02 bis WR-05, WR-07) können
+> vorher laufen. Der Produktionsschreibzugriff bedarf der ausdrücklichen Freigabe des
+> Anwenders (siehe Phase 14, Entscheidung D2).
+
 **Warum als eigene Phase statt in Phase 9:** D2 (`09-CONTEXT.md`) weist einen Backfill über
 Bestandsdaten ausdrücklich einer eigenen Phase zu, sobald er über eine reine Codeänderung
 hinausgeht — genau der hier vorliegende Fall. D5 verbietet den nötigen
@@ -330,7 +340,8 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 6. Buchungen bei jedem Vorgang | v2.0 | 7/7 | Complete | 2026-08-21 |
 | 7. Saldo aus Buchungen + Backfill | v2.0 | 3/3 | Complete | 2026-08-19 |
 | 8. Kontoauszug | v2.0 | 5/5 | Complete | 2026-08-20 |
-| 9. Ein Maßstab, ein Weg | v3.0 | 0/? | Nicht begonnen | — |
+| 9. Ein Maßstab, ein Weg | v3.0 | 5/5 | Complete | 2026-08-22 |
+| 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/? | **Nicht begonnen — Ausführung im Produktionsfenster der Phase 14** | — |
 | 10. Perioden-Fundament | v3.0 | 0/? | Nicht begonnen | — |
 | 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
 | 12. Stundenwechsel bedienen | v3.0 | 0/? | Nicht begonnen | — |
