@@ -85,3 +85,29 @@ Arbeitsdatenbank vorhanden sind, in einer frisch angelegten aber nicht.
 Die saubere Lösung ist dieselbe wie beim übergeordneten Punkt: eine eigene, pro Lauf frisch
 migrierte Testdatenbank (`NODE_ENV=test`), statt der Arbeitsdatenbank. Dann sind Haupt- und
 Worktree-Läufe identisch und die Frage stellt sich nicht mehr.
+
+---
+
+## Vier arbeitende Mitarbeiter ohne Urlaubsanspruch (gefunden 2026-08-21, Sichtprüfung Welle 2)
+
+Beim Prüfen der Urlaubskonto-Verwaltung fielen acht Konten für 2026 ohne jede Journalbuchung
+auf. **Kein Phase-6-Mangel:** Alle acht haben `users.vacationDaysPerYear = 0`, ihr
+Kontostand von 0 ist korrekt abgeleitet, und es gibt schlicht keine Bewegung zu buchen.
+
+Vier von ihnen erfassen jedoch aktiv Arbeitszeit:
+
+| Mitarbeiter | id | Eintritt | Wochenstunden | Zeiteinträge | vacationDaysPerYear |
+|---|---|---|---|---|---|
+| Hans Schauer | 20 | 2026-04-01 | 7 | 27 (Apr–Jul) | 0 |
+| Maria Schauer | 21 | 2026-04-01 | 5 | 21 (Apr–Jul) | 0 |
+| Beate Walleiter | 22 | 2026-01-01 | 0 | 25 (Mär–Jul) | 0 |
+| Christina Wasensteiner | 29 | 2026-01-01 | 0 | 31 (Jan–Jul) | 0 |
+
+Sie bauen damit keinen Urlaubsanspruch auf. Das kann gewollt sein (geringfügige
+Beschäftigung, Urlaub anders geregelt) oder beim Anlegen übersehen worden sein. Bei
+Walleiter und Wasensteiner stehen zusätzlich 0 Wochenstunden trotz erfasster Zeiten, was
+eher für unvollständige Stammdaten spricht — mit Folgen auch für die Überstundenberechnung,
+die `weeklyHours` als Soll heranzieht.
+
+**Keine Codeänderung geplant.** Das ist eine Stammdatenfrage für die Stiftung, keine
+Fehlfunktion. Vermerkt, damit der Befund nicht verlorengeht.
