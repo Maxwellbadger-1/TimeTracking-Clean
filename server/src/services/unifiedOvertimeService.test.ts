@@ -364,4 +364,50 @@ describe('UnifiedOvertimeService', () => {
       expect(result.breakdown.absenceCredits).toBeGreaterThan(0);
     });
   });
+
+  describe('REQ-19: overtime_comp muss den Saldo erreichen (09-04-PLAN.md, 09-REQ19-BEFUND.md)', () => {
+    it('should reduce overtime by targetHours on an approved overtime_comp day (not stay saldoneutral)', () => {
+      // Dienstag, 13.01.2026 (Werktag, kein Feiertag) - genehmigter Überstundenausgleich,
+      // keine Zeiteinträge. Fachliche Erwartung (.claude/CLAUDE.md, Plan-Interfaces-Block):
+      // "Der Saldo muss um die Sollstunden dieses Tages SINKEN." Vor dem Fix (H1,
+      // 09-REQ19-BEFUND.md) lieferte getAbsenceCredit() für overtime_comp dieselbe Gutschrift
+      // wie für vacation/sick, wodurch actualHours == targetHours und overtime == 0 wurde -
+      // der Tag blieb saldoneutral statt den Saldo zu senken.
+      db.prepare(`
+        INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, 'overtime_comp', '2026-01-13', '2026-01-13', 'approved', 1);
+
+      const result = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-13');
+
+      expect(result.targetHours).toBe(8); // 40h / 5 Tage
+      expect(result.actualHours).toBe(0); // KEINE Gutschrift - der Tag wird aus dem Ueberstundenkonto bezahlt
+      expect(result.overtime).toBe(-8); // Saldo sinkt exakt um die Sollstunden des Tages
+      expect(result.breakdown.absenceCredit).toBe(0);
+    });
+
+    it('should keep vacation and sick saldoneutral (regression boundary, .claude/CLAUDE.md: "Krankheit/Urlaub: Als gearbeitete Stunden zaehlen")', () => {
+      db.prepare(`
+        INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, 'vacation', '2026-01-13', '2026-01-13', 'approved', 1);
+
+      db.prepare(`
+        INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, 'sick', '2026-01-14', '2026-01-14', 'approved', 1);
+
+      const vacationResult = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-13');
+      expect(vacationResult.targetHours).toBe(8);
+      expect(vacationResult.actualHours).toBe(8); // Gutschrift bleibt - Urlaub kommt aus dem Urlaubskonto
+      expect(vacationResult.overtime).toBe(0); // saldoneutral, unveraendert
+      expect(vacationResult.breakdown.absenceCredit).toBe(8);
+
+      const sickResult = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-14');
+      expect(sickResult.targetHours).toBe(8);
+      expect(sickResult.actualHours).toBe(8);
+      expect(sickResult.overtime).toBe(0);
+      expect(sickResult.breakdown.absenceCredit).toBe(8);
+    });
+  });
 });
