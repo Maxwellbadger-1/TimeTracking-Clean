@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { getAllWorkingDaysBetween } from './overtimeLiveCalculationService.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { db } from '../database/connection.js';
+import {
+  getAllWorkingDaysBetween,
+  calculateLiveOvertimeTransactions,
+  calculateCurrentOvertimeBalance,
+} from './overtimeLiveCalculationService.js';
 import type { UserPublic } from '../types/index.js';
 
 /**
@@ -121,5 +126,116 @@ describe('getAllWorkingDaysBetween', () => {
     const sorted = [...days].sort();
     expect(days).toEqual(sorted);
     expect(new Set(days).size).toBe(days.length);
+  });
+});
+
+/**
+ * CR-01 (09-REVIEW.md): `overtime_comp` kreditierte den Ausgleichstag bisher wie
+ * `vacation`/`sick`, statt ihn wie einen normalen "kein Zeiteintrag"-Tag negativ zu buchen.
+ * Nettoeffekt vor dem Fix: +targetHours statt -targetHours (09-INVENTAR-KREDITIERUNG.md #6).
+ * Fixtures werden pro Test frisch angelegt (WR-07) statt auf development.db-Bestandsdaten
+ * zu vertrauen.
+ */
+describe('calculateLiveOvertimeTransactions — REQ-19/CR-01 overtime_comp', () => {
+  let testUserId: number;
+
+  beforeEach(() => {
+    const result = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_livecr01',
+      'test@livecr01.com',
+      'Test',
+      'LiveCR01',
+      'hash',
+      'employee',
+      20, // 20h / 5 Tage = 4h/Tag
+      '2026-01-01'
+    );
+    testUserId = result.lastInsertRowid as number;
+  });
+
+  afterEach(() => {
+    db.prepare('DELETE FROM users WHERE id = ?').run(testUserId);
+    db.prepare('DELETE FROM time_entries WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_corrections WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM absence_requests WHERE userId = ?').run(testUserId);
+  });
+
+  it('overtime_comp-Tag (Soll 4h, keine Zeiterfassung): genau eine -4h time_entry-Buchung, keine overtime_comp_credit-Buchung', () => {
+    // Dienstag, 13.01.2026 — Werktag, kein Feiertag (wie unifiedOvertimeService.test.ts)
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(testUserId, 'overtime_comp', '2026-01-13', '2026-01-13', 'approved', 1);
+
+    const transactions = calculateLiveOvertimeTransactions(testUserId, '2026-01-13', '2026-01-13');
+
+    const creditTx = transactions.filter(t => t.type === 'overtime_comp_credit' && t.hours !== 0);
+    expect(creditTx).toEqual([]);
+
+    const earnedTx = transactions.filter(t => t.date === '2026-01-13' && t.type === 'time_entry');
+    expect(earnedTx).toHaveLength(1);
+    expect(earnedTx[0].hours).toBe(-4);
+
+    // Nettowirkung des Tages auf die Liste: -4h (keine Gutschrift gleicht sie mehr aus)
+    const netHours = transactions
+      .filter(t => t.date === '2026-01-13')
+      .reduce((sum, t) => sum + t.hours, 0);
+    expect(netHours).toBe(-4);
+  });
+
+  it('Urlaubstag (Soll 4h): unveraendert vacation_credit +4h, keine negative earned-Buchung, Nettowirkung 0h', () => {
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(testUserId, 'vacation', '2026-01-14', '2026-01-14', 'approved', 1);
+
+    const transactions = calculateLiveOvertimeTransactions(testUserId, '2026-01-14', '2026-01-14');
+
+    const creditTx = transactions.filter(t => t.date === '2026-01-14' && t.type === 'vacation_credit');
+    expect(creditTx).toHaveLength(1);
+    expect(creditTx[0].hours).toBe(4);
+
+    const earnedTx = transactions.filter(t => t.date === '2026-01-14' && t.type === 'time_entry');
+    expect(earnedTx).toEqual([]);
+
+    const netHours = transactions
+      .filter(t => t.date === '2026-01-14')
+      .reduce((sum, t) => sum + t.hours, 0);
+    expect(netHours).toBe(0);
+  });
+
+  it('unpaid-Tag: unveraendert unpaid_deduction mit 0h', () => {
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(testUserId, 'unpaid', '2026-01-15', '2026-01-15', 'approved', 1);
+
+    const transactions = calculateLiveOvertimeTransactions(testUserId, '2026-01-15', '2026-01-15');
+
+    const deductionTx = transactions.filter(t => t.date === '2026-01-15' && t.type === 'unpaid_deduction');
+    expect(deductionTx).toHaveLength(1);
+    expect(deductionTx[0].hours).toBe(0);
+  });
+
+  it('Summe der Transaktionsliste widerspricht calculateCurrentOvertimeBalance() nicht mehr im Vorzeichen des Ausgleichstags', () => {
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(testUserId, 'overtime_comp', '2026-01-13', '2026-01-13', 'approved', 1);
+
+    const transactions = calculateLiveOvertimeTransactions(testUserId, '2026-01-13', '2026-01-13');
+    const listSum = transactions
+      .filter(t => t.date === '2026-01-13')
+      .reduce((sum, t) => sum + t.hours, 0);
+
+    const balance = calculateCurrentOvertimeBalance(testUserId, '2026-01-13', '2026-01-13');
+
+    expect(listSum).toBe(balance);
+    expect(listSum).toBeLessThan(0); // Saldo sinkt, statt zu steigen
   });
 });
