@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-08-21T21:27:49.435Z"
+status: verifying
+stopped_at: Completed 09-04-PLAN.md
+last_updated: "2026-08-21T21:49:02.138Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 0
+  completed_plans: 4
+  percent: 17
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 09-03-PLAN.md
+- **Stopped at:** Completed 09-04-PLAN.md
 
 ## Phase Progress
 
@@ -115,6 +115,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 09-ein-ma-stab-ein-weg]: [09-03] userForCalc (bereits als UserPublic gebaut) statt der rohen DB-Zeile an getAllWorkingDaysBetween() übergeben - haelt die Signatur konsistent mit getDailyTargetHours()
 - [Phase 09-ein-ma-stab-ein-weg]: [09-03] a1-vorher.db nicht fuer die Nachher-Messung wiederverwendet - sie enthaelt bereits kanonisch ueberschriebene Zeilen aus dem Task-3-Werkzeuglauf; frische Kopie a1-nachher.db gezogen
 - [Phase 09-ein-ma-stab-ein-weg]: [09-03] Zeilenzitate aus dem Plan-Interfaces-Abschnitt, die durch Task 2s Zeilenentfernung um 15 Zeilen verschoben wurden, in den Nachweisdokumenten mit beiden Staenden zitiert
+- [Phase 09-ein-ma-stab-ein-weg]: [09-04] Zweig A gewaehlt (Fix in Phase 9 statt Phase 9.1): 2 Services betroffen (unifiedOvertimeService.ts, overtimeTransactionRebuildService.ts), keine Datenmigration noetig - overtime_balance wird bei jedem Dashboard-/Berichtsaufruf ueber ensureOvertimeBalanceEntries() ohnehin vollstaendig neu berechnet (self-heal)
+- [Phase 09-ein-ma-stab-ein-weg]: [09-04] Beide Services mussten geaendert werden, nicht nur unifiedOvertimeService.ts: updateMonthlyOvertime() schreibt overtime_balance zweimal nacheinander (unifiedOvertimeService-UPSERT, dann rebuildOvertimeTransactionsForMonth-UPSERT); der zweite Schreibvorgang haette den Fix im ersten sonst wieder ueberschrieben
+- [Phase 09-ein-ma-stab-ein-weg]: [09-04] Pre-existierende, vom REQ-19-Fix unabhaengige targetHours-Abweichung in overtimeTransactionRebuildService.ts (36h statt 40h fuer Nutzer C) per Gegenprobe verifiziert und in deferred-items.md dokumentiert statt mitbehoben - ausserhalb des REQ-19-Scopes, betrifft nicht den ueber GET /api/overtime/:userId angezeigten Saldo
 
 ## Quick Tasks Completed
 
@@ -151,6 +154,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 09-ein-ma-stab-ein-weg P01 | 55min | 3 tasks | 3 files |
 | Phase 09-ein-ma-stab-ein-weg P02 | 35min | 3 tasks | 8 files |
 | Phase 09 P03 | 90min | 5 tasks | 11 files |
+| Phase 09-ein-ma-stab-ein-weg P04 | 50min | 3 tasks | 7 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -188,7 +192,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 Phase: 09 (Ein Maßstab, ein Weg) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-21
 
 ## Operator Next Steps

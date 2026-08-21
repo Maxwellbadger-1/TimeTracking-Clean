@@ -66,7 +66,7 @@ Pläne:
 - [x] 09-01-PLAN.md — Inventar der Sollstunden-Ermittlung und Sichtung der vier Debug-Sessions (Welle 1)
 - [x] 09-02-PLAN.md — Vergleichswerkzeug `validate:overtime:paths`, Prüfnutzerauswahl, Erstbefund (Welle 2)
 - [x] 09-03-PLAN.md — Legacy-Pfad angleichen, Wochenend-Vorfilter beseitigen, Nachweis führen (Welle 3)
-- [ ] 09-04-PLAN.md — `overtime_comp`-Defekt reproduzieren, Ursache belegen, Fix oder Phase 9.1 (Welle 4)
+- [x] 09-04-PLAN.md — `overtime_comp`-Defekt reproduzieren, Ursache belegen, Fix oder Phase 9.1 (Welle 4)
 
 **Entscheidung aus `09-CONTEXT.md` (D1):** Der Legacy-Pfad wird angeglichen, nicht stillgelegt —
 der vollständige Rückbau bleibt out of scope.
