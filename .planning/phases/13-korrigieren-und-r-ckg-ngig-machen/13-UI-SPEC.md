@@ -518,7 +518,7 @@ Verbindlich für den Chip „Nicht löschbar" sind deshalb drei Ergänzungen geg
    sichtbare Fußnote unter der Liste, ergänzt um das `aria-label` des Chips. Fällt das Tooltip aus,
    fehlt keine Aussage.
 
-**Keine ausgegraute Löschschaltfläche (vom Orchestrator entschieden).**
+**Keine ausgegraute Löschschaltfläche (vom Orchestrator entschieden).** Ein `disabled`-Button
 erklärt nichts, ist mit der Tastatur nicht erreichbar und trägt seinen Tooltip unzuverlässig. Der
 Grund steht deshalb zweifach in der Oberfläche: als fokussierbarer Chip in der Zeile und als
 dauerhaft sichtbare Fußnote unter der Liste. Die Fußnote ist der Träger — sie ist ohne jede
@@ -526,7 +526,7 @@ Interaktion lesbar.
 
 ### 4. Löschbestätigung — `ConfirmDialog variant="danger"`, erweitert
 
-Kein neuer Dialogtyp. `ConfirmDialog` bekommt drei additive, optionale Props (Abschnitt
+Kein neuer Dialogtyp. `ConfirmDialog` bekommt fünf additive, optionale Props (Abschnitt
 „Änderungen an Bestandskomponenten"). Aufbau:
 
 | Reihenfolge | Inhalt |
@@ -584,8 +584,10 @@ verloren; er steht im Klartext in der zweiten Beschreibungszeile („Storniert a
 auseinanderreißen — entweder sind beide sichtbar oder keine. Der verbleibende reale Fehlfall ist
 deshalb nicht der Filter, sondern die **Abschneidegrenze**: `OvertimeTransactions.tsx` hat
 `limit = 50` als Default (Zeile 26), `ReportsPage.tsx` übergibt `limit={100}` (Zeile 350), und die
-Fußzeile weist mit „• Maximal {limit} angezeigt" (Zeile 282) darauf hin. Bei `createdAt DESC` steht
-das Storno oben, während das Original jenseits der Grenze liegen kann, obwohl es im Filter läge.
+Fußzeile weist mit „• Maximal {limit} angezeigt" (Zeile 282) darauf hin. Der genutzte Endpunkt `/overtime/transactions/live`
+sortiert nach `date DESC` plus Typ-Priorität (`overtimeLiveCalculationService.ts:416-422`) — nicht
+nach `createdAt`. Da beide Zeilen dasselbe `date` tragen, stehen sie unmittelbar nebeneinander; der
+Abschneidefall verengt sich darauf, dass der Schnitt genau zwischen die beiden fällt.
 
 **Alle drei Fehlfälle sind textlich abgedeckt:**
 
@@ -600,9 +602,11 @@ das Storno oben, während das Original jenseits der Grenze liegen kann, obwohl e
 Monat gewählt. Ein Text mit dem Platzhalter `{Monat JJJJ}` wäre dort nicht befüllbar. Daher die
 monatslose Variante.
 
-**Warum drei Mittel für einen Bezug (vom Orchestrator entschieden):** Die Liste ist nach
-`createdAt DESC, id DESC` sortiert (Phase-8-Entscheidung, nicht verhandelbar), das Storno steht also
-oben und das Original irgendwo weiter unten — bei Monatsfilterung womöglich gar nicht. Deshalb
+**Warum drei Mittel für einen Bezug (vom Orchestrator entschieden):** Die angezeigte Liste ist nach
+`date DESC` plus Typ-Priorität sortiert (`overtimeLiveCalculationService.ts:416-422`). Beide Zeilen
+tragen dasselbe `date` und stehen damit benachbart — die Nachbarschaft allein trägt den Bezug aber
+nicht: Sie geht verloren, sobald die Abschneidegrenze dazwischenfällt oder die Zeilen gedruckt bzw.
+vorgelesen werden. Deshalb
 trägt der Bezug (a) im Klartext („Storno zur Buchung vom …", „Storniert am … von …"), (b) als
 gemeinsame Belegnummer auf beiden Zeilen und (c) als Sprungmarke. (a) und (b) funktionieren ohne
 Interaktion, im Ausdruck und mit Screenreader; (c) ist die Bequemlichkeit obendrauf.
@@ -925,3 +929,75 @@ trafen sämtlich zu: `ReportsPage.tsx` Zeile 41 und 350, `OvertimeTransactions.t
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+---
+
+## Nachträge aus Prüfdurchgang 2 (Orchestrator, 21.08.2026)
+
+Der UI-Checker hat diese Spec in Durchgang 2 **abgenommen** (alle sechs Dimensionen PASS, beide
+Blocker mit Quellcodebeleg geschlossen). Drei sachliche Fehler wurden direkt im Text korrigiert:
+der abgeschnittene Satz zur ausgegrauten Löschschaltfläche, das Zahlwort „drei" bei den
+`ConfirmDialog`-Props (es sind fünf) und die zweimalige Behauptung, die Liste sei nach
+`createdAt DESC, id DESC` sortiert — der tatsächlich genutzte Endpunkt
+`/overtime/transactions/live` sortiert nach `date DESC` plus Typ-Priorität
+(`overtimeLiveCalculationService.ts:416-422`).
+
+Die folgenden vier Punkte sind **beim Planen dieser Phase mitzuziehen**. Sie sind nicht
+blockierend, aber jeder von ihnen wäre sonst eine Lücke im Vertrag.
+
+### N-1 — Formulargrenzen aus Phase 12 gelten auch hier
+
+`12-UI-SPEC.md` (Revision 3, Abschnitt „Formulargrenzen im verschachtelten Baum") legt fest: Ein
+verschachtelter Dialog wird **außerhalb** des `<form>`-Elements von `EditUserModal` gerendert — als
+Geschwister nach `</form>` —, sein `onSubmit` ruft zusätzlich zu `preventDefault()` auch
+`stopPropagation()`, und `type="button"` ist für **jeden** Button im verschachtelten Teilbaum
+zwingend. Grund: `createPortal` verlagert nur den DOM-Knoten, Ereignisse propagieren weiter entlang
+des React-Baums.
+
+Phase 12 erklärt die Regel ausdrücklich für generalisiert („Dasselbe gilt für jeden
+`ConfirmDialog`, der aus diesem Baum geöffnet wird") und nennt „spätere Zeilenaktionen der
+Periodenliste" beim Namen. Betroffen sind hier: der Ghost-Button „Stammdaten rückwirkend
+korrigieren …", alle Zeilenaktionen der Periodenliste, `WorkTimePeriodEditModal` und **beide**
+`ConfirmDialog`s dieser Phase. Die Abhängigkeitsliste zu Phase 12 ist entsprechend zu ergänzen.
+
+### N-2 — Der X-Knopf des `ConfirmDialog` ist kein `Button`-Primitiv
+
+`ConfirmDialog.tsx:64-69` rendert ein rohes `<button>`. Die in Zustand 21 zugesagten Klassen
+`disabled:opacity-50 disabled:cursor-not-allowed` „aus `Button`" erreichen ihn nicht — er braucht
+eigene Disabled-Klassen. Zusätzlich: Die Zusage „Backdrop wirkungslos" beschreibt ein Verhalten,
+das `ConfirmDialog` heute gar nicht hat (Zeile 54 trägt keinen `onClick`). Defensiv richtig, aber
+als solche zu kennzeichnen statt als Beschreibung des Bestands.
+
+Ebenfalls zu markieren: `cancelDisabled` unterdrückt ESC per Prop, während `12-UI-SPEC.md` Regel 5
+ausdrücklich „Kein `disableEscape`-Prop" festlegt. Die Abweichung ist vertretbar — ein stiller
+Totknopf wäre schlechter —, aber sie ist eine Abweichung und gehört benannt.
+
+### N-3 — Datenvertrag: `date` der Partnerzeile statt „Stichtag der Periode"
+
+Die Storno-Zeile trägt laut Datenvertrag „den Stichtag der Periode (`periodValidFrom`)". Robuster
+ist: **die Storno-Zeile trägt das `date` ihrer Partnerzeile.** Im angenommenen Fall (eine Buchung
+je Periode) ist das identisch; falls eine korrigierte Periode je zwei zu stornierende Buchungen mit
+verschiedenen Daten trägt, bleibt die Formulierung tragfähig, die andere nicht.
+
+### N-4 — `api/client.ts`: die Green-Server-Probe gehört mit weg
+
+Die Vorgabe „alle 42 `console.log` entfernen, 8 `console.error` bleiben" ist in den Zahlen exakt (am
+Quellcode verifiziert), aber unvollständig: `client.ts:31-48` ist eine fest verdrahtete
+Erreichbarkeitsprobe gegen `http://129.159.8.19:3001/api/health` (Green/Staging), die bei **jedem
+Modulladen** feuert — also bei jedem App-Start jedes Anwenders, auch in Produktion. Ihr einziger
+Zweck sind die zu entfernenden `console.log` in Zeile 41-43, plus **zwei der acht**
+`console.error` (Zeile 46-47), die damit *nicht* in Fehlerpfaden liegen.
+
+Streicht man nur die `console.log`, bleibt ein `.then(d => {})` mit leerem Rumpf, ein Netzaufruf an
+eine Staging-IP bei jedem App-Start und ein rotes „❌ Green Server UNREACHABLE" in der Konsole jedes
+Produktionsnutzers.
+
+**Vorgabe:** Zeile 31-48 vollständig entfernen, oder hinter `import.meta.env.DEV` legen. Die
+Formulierung „die 8 `console.error` in den Fehlerpfaden" ist auf „6 in Fehlerpfaden, 2 in der zu
+entfernenden Green-Server-Probe" zu korrigieren.
+
+Ein `console.debug` hinter einem Dev-Flag ist **nicht** nötig: `client.ts` spiegelt Anfrage, Antwort
+und Fehler samt Nutzdaten ohnehin vollständig über `debugLog()` in den DebugPanel (Zeile 96-105,
+160-167, 170-177, 201-207). Die Konsolenausgaben sind reine Dopplung. Der einzige diagnostisch
+tragende Pfad ist der JSON-Parse-Fehler — der protokolliert über `console.error` (Zeile 152-156) und
+bleibt erhalten.
