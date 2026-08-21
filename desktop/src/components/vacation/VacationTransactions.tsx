@@ -107,10 +107,21 @@ function formatBookedAt(
  */
 function formatDescription(description: string | null): string {
   if (!description) return '—';
-  return description
+
+  // Die Admin-Begründung hängt der Server als `(Grund: …)` ans Ende
+  // (`vacationBalanceService.ts`: `Korrektur ${label} ${alt} → ${neu} (Grund: ${reason})`).
+  // Das ist Freitext eines Menschen und wird deshalb unangetastet durchgereicht: Schriebe
+  // jemand dort eine Referenznummer im Muster JJJJ-MM-TT, hätte die Datumsersetzung sie
+  // stillschweigend in ein deutsches Datum verwandelt und den Beleg verfälscht.
+  const grundIndex = description.search(/\(Grund:/);
+  const generiert = grundIndex === -1 ? description : description.slice(0, grundIndex);
+  const freitext = grundIndex === -1 ? '' : description.slice(grundIndex);
+
+  const bereinigt = generiert
     .replace(/\s*\(rückwirkend erzeugt\)/g, '')
-    .replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3.$2.$1')
-    .trim();
+    .replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3.$2.$1');
+
+  return (bereinigt + freitext).trim();
 }
 
 /**

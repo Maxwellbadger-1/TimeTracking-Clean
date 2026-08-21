@@ -8,6 +8,15 @@ import {
   type VacationBalanceSummary,
 } from '../../hooks';
 
+/**
+ * Obergrenze für die Begründung.
+ *
+ * Der Server prüft nur auf „nicht leer", nicht auf Länge. Der Text landet aber unverändert
+ * als Buchungstext im Kontoauszug des Mitarbeiters — eine versehentlich eingefügte Textwand
+ * würde die Tabelle dort auseinanderziehen. 500 Zeichen reichen für jede echte Begründung.
+ */
+const REASON_MAX_LENGTH = 500;
+
 interface VacationBalanceEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -82,6 +91,9 @@ export function VacationBalanceEditModal({
     // Validate reason
     if (reason.trim().length < 5) {
       setReasonError('Bitte begründen Sie die Änderung (mindestens 5 Zeichen)');
+      isValid = false;
+    } else if (reason.trim().length > REASON_MAX_LENGTH) {
+      setReasonError(`Begründung darf höchstens ${REASON_MAX_LENGTH} Zeichen lang sein`);
       isValid = false;
     }
 
@@ -181,6 +193,7 @@ export function VacationBalanceEditModal({
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             required
+            maxLength={REASON_MAX_LENGTH}
             className={`
               block w-full px-4 py-2.5 rounded-lg
               bg-white dark:bg-gray-800
@@ -205,8 +218,11 @@ export function VacationBalanceEditModal({
             </p>
           )}
           {!reasonError && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Wird als Buchungstext im Kontoauszug des Mitarbeiters angezeigt.
+            <p className="mt-1 flex justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <span>Wird als Buchungstext im Kontoauszug des Mitarbeiters angezeigt.</span>
+              <span className="shrink-0 tabular-nums">
+                {reason.length}/{REASON_MAX_LENGTH}
+              </span>
             </p>
           )}
         </div>
