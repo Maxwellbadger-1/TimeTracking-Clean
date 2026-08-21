@@ -27,17 +27,23 @@ import { unifiedOvertimeService } from './unifiedOvertimeService.js';
 /**
  * Get all working days between two dates (inclusive)
  *
+ * REQ-17: Diese Funktion entscheidet nicht mehr selbst, ob ein Tag ein Arbeitstag ist.
+ * Die Entscheidung liegt ausschließlich bei getDailyTargetHours() — der kanonischen Stelle
+ * für Sollstunden (server/src/utils/workingDays.ts:63). Vorher prüfte diese Funktion
+ * Feiertage und Wochentage in einer eigenen, zweiten Kopie der Logik; für Nutzer ohne
+ * workSchedule galt dabei pauschal "Montag-Freitag", wodurch ein Samstag mit
+ * workSchedule.saturday > 0 nie in die Rückgabe gelangte, sobald der Aufrufer nur
+ * workSchedule statt des vollständigen user-Objekts weiterreichte.
+ *
  * @param startDate Start date (YYYY-MM-DD)
  * @param endDate End date (YYYY-MM-DD)
- * @param workSchedule Work schedule object (optional)
- * @param weeklyHours Weekly hours fallback if no workSchedule
+ * @param user Vollständiges Nutzerobjekt (workSchedule und weeklyHours stecken bereits darin)
  * @returns Array of date strings (YYYY-MM-DD) for all working days
  */
-function getAllWorkingDaysBetween(
+export function getAllWorkingDaysBetween(
   startDate: string,
   endDate: string,
-  workSchedule: Record<string, number> | null,
-  _weeklyHours: number
+  user: UserPublic
 ): string[] {
   const workingDays: string[] = [];
   const start = new Date(startDate + 'T12:00:00');
@@ -46,29 +52,12 @@ function getAllWorkingDaysBetween(
   // Iterate through each day
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = formatDate(d, 'yyyy-MM-dd');
-    const dayOfWeek = d.getDay();
 
-    // Check if this day is a holiday
-    const isHoliday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
-    if (isHoliday) {
-      continue; // Skip holidays
-    }
-
-    // Determine if this is a working day
-    let isWorkingDay = false;
-
-    if (workSchedule) {
-      // Use workSchedule to determine working days
-      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      const dayName = dayNames[dayOfWeek];
-      const hoursForDay = workSchedule[dayName] || 0;
-      isWorkingDay = hoursForDay > 0;
-    } else {
-      // Default: Monday-Friday are working days (weeklyHours/5)
-      isWorkingDay = dayOfWeek >= 1 && dayOfWeek <= 5;
-    }
-
-    if (isWorkingDay) {
+    // getDailyTargetHours() prüft Feiertag, workSchedule und Wochenende in dieser
+    // Reihenfolge selbst (workingDays.ts:66-91). Ein Tag ist genau dann ein Arbeitstag,
+    // wenn diese eine, kanonische Auflösung Stunden > 0 liefert.
+    const targetHours = getDailyTargetHours(user, dateStr);
+    if (targetHours > 0) {
       workingDays.push(dateStr);
     }
   }
@@ -239,7 +228,7 @@ export function calculateLiveOvertimeTransactions(
   // ========================================
   // 4. Calculate "earned" transactions for ALL working days
   // ========================================
-  const allWorkingDays = getAllWorkingDaysBetween(startDate, endDate, workSchedule, user.weeklyHours);
+  const allWorkingDays = getAllWorkingDaysBetween(startDate, endDate, userForCalc);
 
   for (const date of allWorkingDays) {
     // Skip days with absences (they get their own credit transactions below)
