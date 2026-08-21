@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-08-21T20:32:26.270Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-08-21T20:47:41.141Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 09-01-PLAN.md
+- **Stopped at:** Completed 09-02-PLAN.md
 
 ## Phase Progress
 
@@ -109,6 +109,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase ?]: [09-01] server/scripts/fix-overtime.ts als Produktivpfad=ja eingestuft (Abweichung A-1 zu REQ-17) — laeuft bei jedem Deployment und taeglich per Cron (deploy-server.yml), berechnet Sollstunden ueber weeklyHours/5 statt getDailyTargetHours() und ignoriert damit workSchedule
 - [Phase ?]: [09-01] REQ-19-Kernbefund aktiv verifiziert: overtime_comp-Debit erreicht den Saldo nicht, weil ensureOvertimeBalanceEntries() und updateOvertimeBalanceForMonth() actualHours bei jeder Neuberechnung ohne Kenntnis von type='compensation'-Buchungen ueberschreiben
 - [Phase ?]: [09-01] Alle vier offenen Ueberstunden-Debug-Sessions (carmen-rothemund-overtime-analysis, overtime-compensation-workschedule-bug, overtime-validation-backend-mismatch, OVERTIME-FIX-PLAN) als behoben verifiziert - die beschriebenen Fixes sind im heutigen Code vorhanden
+- [Phase 09-ein-ma-stab-ein-weg]: [09-02] Karin Jochem (userId 2) statt Carmen Rothemund als Pruefnutzer A gewaehlt - Carmen ist bereits Nutzer C (overtime_comp-Reproduktionsfall fuer Plan 09-04), alle drei Pruefnutzer muessen verschiedene userId sein
+- [Phase 09-ein-ma-stab-ein-weg]: [09-02] npm run sync-dev-db nicht ausgefuehrt (laufender Dev-Server haelt DB offen, mv waere fehlgeschlagen) - Aktualitaet stattdessen direkt geprueft (18 aktive Nutzer, letzter time_entries.date 2026-08-20), als Abweichung dokumentiert
+- [Phase 09-ein-ma-stab-ein-weg]: [09-02] Erstbefund zeigt 0 Abweichungen zwischen den fuenf Ueberstunden-Wegen bei allen drei Pruefnutzern, aber einen separaten Transaktions-Mismatch (overtime_transactions unvollstaendig) - deckt sich mit dem REQ-19-Kernbefund aus 09-01, kein neuer REQ-17/18-Fund
 
 ## Quick Tasks Completed
 
@@ -139,6 +142,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 08-kontoauszug-f-r-mitarbeiter-und-admin P05 | ~20min | 3 tasks | 6 files |
 | Phase 06-buchungen-bei-jedem-vorgang P07 | ~40min | 3 tasks | 3 files |
 | Phase 09-ein-ma-stab-ein-weg P01 | 55min | 3 tasks | 3 files |
+| Phase 09-ein-ma-stab-ein-weg P02 | 35min | 3 tasks | 8 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -175,7 +179,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 09 (Ein Maßstab, ein Weg) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-21
 
