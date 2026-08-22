@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, forwardRef, useId } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -6,8 +6,28 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   helperText?: string;
 }
 
+/**
+ * WR-16 (Code-Review Phase 12): Das `<label>` trug weder `htmlFor` noch umschloss es das
+ * Eingabefeld, und das Feld hatte weder `id` noch `aria-label`. Ein Screenreader las fuer
+ * die drei zentralen Felder des neuen Wechsel-Dialogs ("Stichtag", "Neue Wochenstunden",
+ * "Begruendung") nur "Bearbeitungsfeld" ohne Namen. Ebenso war die Fehlermeldung nicht
+ * angebunden: das `<p role="alert">` wird beim Erscheinen vorgelesen, aber beim spaeteren
+ * Ansteuern des Feldes erfuhr der Nutzer den Fehler nicht mehr.
+ *
+ * Die Ergaenzung ist rein additiv — kein Aufrufer muss etwas uebergeben, die Prop-Signatur
+ * nach aussen ist unveraendert, und die DOM-Struktur (label direkt gefolgt vom Feld) bleibt
+ * gleich, damit bestehende Selektoren wie `label:has-text("Stichtag") + input` weiter
+ * greifen. Uebergibt ein Aufrufer eine eigene `id`, gewinnt sie: `htmlFor` folgt ihr, und
+ * das nachgestellte `{...props}` ueberschreibt die generierte.
+ */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helperText, className = '', ...props }, ref) => {
+    const generatedId = useId();
+    const inputId = props.id ?? generatedId;
+    const errorId = `${inputId}-error`;
+    const helperId = `${inputId}-helper`;
+    const showHelper = !!helperText && !error;
+
     const inputStyles = error
       ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
       : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600';
@@ -15,13 +35,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor={inputId}
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             {label}
             {props.required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
         <input
           ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : showHelper ? helperId : undefined}
           className={`
             block w-full h-[42px] px-4 py-2.5 rounded-lg
             bg-white dark:bg-gray-800
@@ -41,12 +67,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+          <p id={errorId} className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
             {error}
           </p>
         )}
-        {helperText && !error && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {showHelper && (
+          <p id={helperId} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {helperText}
           </p>
         )}
