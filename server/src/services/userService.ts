@@ -591,6 +591,29 @@ export async function updateUser(
       // (neues hireDate, alte Periodenkette) ist genau der Datendefekt, den D4 verbietet.
       if (hireDateChanged) {
         syncStartPeriodToHireDate(id, data.hireDate, existingUser);
+
+        // WR-09 (Code-Review Phase 11, Durchlauf 2): Die Saldolöschung steht jetzt IN der
+        // Transaktion, nicht mehr dahinter in einem eigenen `try/catch`, das seinen Fehler
+        // nur protokollierte ("Don't fail the update").
+        //
+        // WARUM: Vorher konnte sie scheitern (gesperrte Datei, Verbindungsverlust), ohne
+        // dass irgendjemand es merkte — der Nutzer blieb mit NEUEM `hireDate`, NEUER
+        // Periode und Salden zurück, die gegen das ALTE `hireDate` gerechnet waren, und die
+        // API antwortete mit 200 und dem aktualisierten Nutzer. Genau die Art von
+        // unsichtbarem Ausfall, die dieser Durchlauf an mehreren Stellen beseitigt.
+        //
+        // Die Reihenfolge bleibt erhalten (erst Periode nachführen, dann Salden löschen),
+        // und `db.prepare(...).run()` ist synchron — es passt damit in eine
+        // better-sqlite3-Transaktion, die kein `await` verträgt. Schlägt es fehl, wird die
+        // gesamte Änderung zurückgerollt und der Aufrufer bekommt den Fehler.
+        //
+        // `overtime_transactions` bleiben unangetastet (unveränderlicher Prüfpfad); die
+        // gelöschten `overtime_balance`-Zeilen entstehen beim nächsten Zugriff neu.
+        logger.info(
+          { userId: id, oldHireDate: existingUser.hireDate, newHireDate: data.hireDate },
+          '🔄 hireDate changed, clearing overtime balance in same transaction (WR-09)'
+        );
+        db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
       }
 
       if (!mustMirrorPeriod) {
@@ -632,21 +655,12 @@ export async function updateUser(
     logger.debug({ hireDate: updatedUser.hireDate, endDate: updatedUser.endDate }, '📤 Updated user dates');
 
     // CRITICAL: Handle side effects of changes
-
-    // If hireDate changed, DELETE and recalculate all overtime entries (SAP/Personio Best Practice)
-    // This ensures correct calculation from new employment start date
-    if (data.hireDate !== undefined && data.hireDate !== existingUser.hireDate) {
-      logger.info({ oldHireDate: existingUser.hireDate, newHireDate: data.hireDate }, '🔄 hireDate changed, clearing and recalculating overtime');
-      try {
-        // Delete overtime_balance entries - they will be recreated on next API call
-        // Note: overtime_transactions are kept (immutable audit trail)
-        db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
-        logger.info('✅ Overtime balance cleared - will recalculate on next access');
-      } catch (error) {
-        logger.error({ err: error }, '❌ Failed to clear overtime after hireDate change');
-        // Don't fail the update, but log the error
-      }
-    }
+    //
+    // WR-09: Der frühere Block "If hireDate changed, DELETE ... overtime_balance" stand
+    // HIER — außerhalb der Transaktion und mit einem `catch`, das den Fehler verschluckte.
+    // Er ist nach oben in `applyUpdate()` gezogen (Begründung dort). An dieser Stelle
+    // bleiben nur noch die Seiteneffekte, die tatsächlich asynchron sind und deshalb NICHT
+    // in eine better-sqlite3-Transaktion passen.
 
     // If weeklyHours changed, recalculate all overtime_balance entries
     if (data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours) {
