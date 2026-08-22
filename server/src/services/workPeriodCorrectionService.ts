@@ -39,7 +39,11 @@
  * im Zweig ohne Riegel-Aussetzung — als zusätzliches Sicherheitsnetz gegen bereits bestehende
  * Kettenschäden, die die Trigger aus Migration 008/013 für sich allein nicht sähen (T-13-14).
  *
- * DD-12 — DIE JOURNALBUCHUNG: Nur beim Speichern und nur bei `balanceDelta !== 0`. Wortgleiches
+ * DD-12 — DIE JOURNALBUCHUNG: Beim Speichern, UNBEDINGT — auch bei `balanceDelta === 0`
+ * (CR-01, Code-Review Phase 13: der Bestätigungsdialog sagt dem Admin unbedingt zu, dass die
+ * Korrektur „als eigener Eintrag festgehalten" wird und „im Kontoauszug dauerhaft sichtbar"
+ * bleibt; ohne Zeile überlebte die Pflichtbegründung nur in `audit_log.changes`, das keine
+ * Oberfläche darstellt). Eine Zeile mit `hours: 0` ist rechenneutral. Wortgleiches
  * Muster zu Schritt 16 aus `applyWorkTimeChange()`: `type: 'model_change'`, `hours: balanceDelta`,
  * `balanceBefore`/`balanceAfter` beide auf den Laufsaldo der Kette vor dem neuen `validFrom`
  * (die Zeile verschiebt den Laufsaldo um 0 — ihre Wirkung steckt bereits in den neu gerechneten
@@ -305,7 +309,34 @@ export function correctWorkPeriod(
         .all(period.userId, rangeEndMonth) as Array<{ month: string }>
     ).map((row) => row.month);
 
-    const rebuildMonths = [...affectedMonths, ...staleFutureMonths];
+    // WR-08 (Code-Review Phase 13): Die Rebuild-Liste darf keine ZUKUNFTSMONATE NEU
+    // ANLEGEN. `affectedMonths` ist der Anzeige-Zeitraum der Vorschau und enthaelt fuer
+    // eine Periode, die vollstaendig in der Zukunft liegt, genau diesen Zukunftsmonat
+    // (rangeStart > heute ergibt rangeEnd = rangeStart).
+    // `rebuildOvertimeTransactionsForMonth()` legte dafuer eine
+    // `overtime_balance`-Zeile mit vollem Monatssoll und ohne Ist an — genau das, was
+    // die WR-02-Entscheidung aus Phase 12 ausdruecklich ausschliesst ("Neue Zukunftsmonate
+    // anzulegen waere falsch"). Auf `balanceDelta` wirkte sich das nicht aus
+    // (`getOvertimeBalance()` filtert `month <= currentMonth`), aber die Zeile blieb
+    // stehen, tauchte bei jedem spaeteren Aufruf wieder als `staleFutureMonths` auf und
+    // verfaelschte jede Auswertung, die `overtime_balance` ohne Monatsfilter liest.
+    //
+    // Ein Zukunftsmonat wird deshalb nur noch dann mitgerechnet, wenn fuer ihn BEREITS eine
+    // Zeile existiert — dieselbe Regel, die `staleFutureMonths` fuer die Monate jenseits
+    // des Bereichsendes anwendet.
+    const currentMonth = today.slice(0, 7);
+    const materializedMonths = new Set(
+      (
+        db
+          .prepare(`SELECT month FROM overtime_balance WHERE userId = ?`)
+          .all(period.userId) as Array<{ month: string }>
+      ).map((row) => row.month)
+    );
+
+    const rebuildMonths = [
+      ...affectedMonths.filter((m) => m <= currentMonth || materializedMonths.has(m)),
+      ...staleFutureMonths,
+    ];
 
     // 4. Ist-Basis herstellen — sonst enthielte die gemessene Differenz den Nachhall einer
     //    ausstehenden Selbstheilung.

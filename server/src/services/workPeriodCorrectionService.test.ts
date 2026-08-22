@@ -614,6 +614,79 @@ describe('correctWorkPeriod — Pflichtbegruendung, Rebuild-Grenze, Lueckenschlu
       }
     }
   );
+
+  it(
+    'WR-08 (Code-Review Phase 13): die Korrektur einer reinen Zukunftsperiode legt KEINE ' +
+      'overtime_balance-Zeile fuer den Zukunftsmonat an — eine solche Zeile traege ein volles ' +
+      'Monatssoll ohne Ist und verfaelschte jede Auswertung ohne Monatsfilter. Bereits ' +
+      'vorhandene Zukunftszeilen werden weiterhin mitgerechnet.',
+    () => {
+      const hireDate = firstOfMonthOffset(today, -3);
+      const futureStart = firstOfMonthOffset(today, 2);
+      const futureMonth = futureStart.slice(0, 7);
+      const userId = createEmployee('wr08-zukunftsmonat', 40, hireDate);
+      try {
+        insertTestWorkPeriod(userId, {
+          validFrom: hireDate,
+          validTo: futureStart,
+          weeklyHours: 40,
+          workSchedule: null,
+        });
+        const futurePeriod = insertTestWorkPeriod(userId, {
+          validFrom: futureStart,
+          weeklyHours: 32,
+          workSchedule: null,
+        });
+        insertWeekdayTimeEntries(userId, hireDate, today, 8);
+        rebuildOvertimeTransactionsForMonth(userId, hireDate.slice(0, 7));
+        rebuildOvertimeTransactionsForMonth(userId, today.slice(0, 7));
+
+        const countFutureRows = () =>
+          (
+            db
+              .prepare('SELECT COUNT(*) as c FROM overtime_balance WHERE userId = ? AND month = ?')
+              .get(userId, futureMonth) as { c: number }
+          ).c;
+
+        // Ausgangslage: fuer den Zukunftsmonat existiert keine Zeile.
+        expect(countFutureRows()).toBe(0);
+
+        correctWorkPeriod(
+          {
+            periodId: futurePeriod.id,
+            validFrom: futurePeriod.validFrom,
+            weeklyHours: 20,
+            workSchedule: null,
+            reason: 'Korrektur der geplanten Periode — vertraglich sind 20 h vereinbart',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+
+        // Der Rebuild hat den Zukunftsmonat NICHT materialisiert.
+        expect(countFutureRows()).toBe(0);
+
+        // Gegenprobe: existiert die Zeile bereits (z. B. durch genehmigten Zukunftsurlaub),
+        // wird sie weiterhin mitgerechnet und bleibt bestehen — die WR-02-Entscheidung aus
+        // Phase 12 gilt unveraendert.
+        rebuildOvertimeTransactionsForMonth(userId, futureMonth);
+        expect(countFutureRows()).toBe(1);
+
+        correctWorkPeriod(
+          {
+            periodId: futurePeriod.id,
+            validFrom: futurePeriod.validFrom,
+            weeklyHours: 24,
+            workSchedule: null,
+            reason: 'Zweite Korrektur der geplanten Periode — jetzt doch 24 h',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+        expect(countFutureRows()).toBe(1);
+      } finally {
+        cleanupEmployee(userId);
+      }
+    }
+  );
 });
 
 describe('Aufraeumnachweis (13-03)', () => {
