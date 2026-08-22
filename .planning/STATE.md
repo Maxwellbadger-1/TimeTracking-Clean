@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 12-09-PLAN.md (Phase 12 vollstaendig, 9/9 Plaene)
-last_updated: "2026-08-22T18:39:58.601Z"
+stopped_at: Completed 13-01-PLAN.md (Migration 013/014, Soft-Delete/Storno-Fundament)
+last_updated: "2026-08-22T18:41:03.340Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 12-09-PLAN.md (Phase 12 vollstaendig, 9/9 Plaene)
+- **Stopped at:** Completed 13-01-PLAN.md (Migration 013/014, Soft-Delete/Storno-Fundament)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -197,6 +197,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-09]: Periodenlisten-Format ist '0 h' (kein erzwungenes Komma), verifiziert gegen WorkTimePeriodList.tsx statt der Plan-Platzhalterformulierung '0,0 h'
 - [Phase 12-09]: WorkTimeChangeModal-Formularfelder haben kein name/htmlFor - E2E-Selektor ueber label:has-text(X) + input/textarea statt [name=...]
 - [Phase 12-09]: Vollstaendiger E2E-Lauf in dieser lokalen Umgebung blockiert (Port 3000 durch fremdes Next.js-Projekt belegt, Port 1420 bereits von aktiver Fremd-Session belegt) - Fehler tritt im unveraenderten Login-Fixture auf, nicht am geaenderten Testcode; als UAT-Punkt 39 fuer Phase 14 dokumentiert
+- [Phase 13-01]: schemaMigrationParity.test.ts um migration013.up() und Quoting-Normalisierung erweitert, damit der bestehende Paritaetstest durch die Tabellen-Neubau-Technik nicht regressionsrot wird
+- [Phase 13-01]: Neue deletedAt-/reversalOf-abhaengige Indizes einzeln try/catch-abgesichert ausserhalb des kombinierten db.exec()-Indexblocks, da initializeDatabase() vor runMigrations() laeuft und ein Fehlschlag sonst den gesamten Indexblock abgerissen haette
+- [Phase 13-01]: Migration 013/014 direkt gegen server/database/development.db ausgefuehrt (mit Backup), weil alle Tests laut vitest.config.ts gegen dieselbe Arbeitsdatenbank laufen
 
 ## Quick Tasks Completed
 
@@ -260,6 +263,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12 P08 | 35min | 3 tasks | 7 files |
 | Phase 12-stundenwechsel-bedienen P07 | ~55min | 3 tasks | 6 files |
 | Phase 12-stundenwechsel-bedienen P09 | 50min | 2 tasks | 1 files |
+| Phase 13 P01 | 55min | 3 tasks | 7 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
