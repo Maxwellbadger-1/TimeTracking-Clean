@@ -8,6 +8,7 @@ import { apiLimiter, loginLimiter } from './middleware/rateLimits.js';
 import './database/connection.js'; // Initialize database
 import { seedDatabase } from './database/seed.js';
 import { runMigrations } from './database/migrationRunner.js';
+import { resetStaleChainGuardSuspension } from './services/workPeriodService.js';
 import { db } from './database/connection.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -213,6 +214,19 @@ async function startServer() {
 
     // Run database migrations (auto-backfill transaction history)
     await runMigrations(db);
+
+    // B-2 (Sicherheitspruefung Phase 13): Haengengebliebenen Kettenriegel zuruecksetzen.
+    //
+    // NACH runMigrations(), nicht davor: Die Steuertabelle work_period_chain_guard entsteht
+    // erst in Migration 013. Auf einer Bestandsdatenbank, die noch nicht dort ist, gaebe ein
+    // Zugriff davor einen "no such table"-Fehler und der Server startete gar nicht mehr.
+    // Nach dem Migrationslauf ist die Tabelle in jedem Fall da (Migration 013 legt sie an,
+    // initializeDatabase() haelt die Paritaet fuer Neuinstallationen).
+    //
+    // VOR app.listen(): Solange suspended auf 1 steht, pruefen die vier aussetzbaren
+    // Trigger-Klauseln aus Migration 013 nichts. Kein HTTP-Request darf in dieses Fenster
+    // fallen.
+    resetStaleChainGuardSuspension();
 
     // Initialize holidays (fetch from API)
     await initializeHolidays();

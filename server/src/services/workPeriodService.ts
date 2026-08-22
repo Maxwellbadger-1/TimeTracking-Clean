@@ -64,6 +64,7 @@
  */
 
 import { db } from '../database/connection.js';
+import logger from '../utils/logger.js';
 import { isRealCalendarDate } from '../utils/validation.js';
 import { getTodayString } from '../utils/timezone.js';
 import type {
@@ -98,6 +99,46 @@ export class WorkPeriodConflictError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = 'WorkPeriodConflictError';
+  }
+}
+
+/**
+ * Eigene Fehlerklasse für den Verstoß gegen die Nutzungsbedingung des aussetzbaren
+ * Kettenriegels (B-2, Sicherheitsprüfung Phase 13; T-13-02).
+ *
+ * Ein benannter Fehler statt eines nackten `Error`, damit ein Test die Regel gezielt belegen
+ * kann und ein Aufrufer sie nicht versehentlich mit einer fachlichen Ablehnung verwechselt:
+ * Dies ist kein Eingabefehler eines Nutzers, sondern ein Programmierfehler im Aufrufpfad.
+ * Er gehört deshalb ausdrücklich NICHT in `translateWorkPeriodError()` und wird nicht in eine
+ * freundliche 409-Meldung übersetzt.
+ */
+export class ChainGuardOutsideTransactionError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'ChainGuardOutsideTransactionError';
+  }
+}
+
+/**
+ * Trägerobjekt für die Startmeldung, wenn beim Hochfahren ein aus einem früheren Lauf
+ * hängengebliebener ausgesetzter Kettenriegel gefunden und zurückgesetzt wurde (B-2).
+ *
+ * Warum ein `Error` und keine reine Textzeile: `logger.warn({ err }, …)` läuft dadurch durch
+ * den pino-Fehler-Serializer und bekommt einen Stacktrace, der die Startsequenz benennt —
+ * ohne den steht im Log nur, DASS etwas war, nicht wo. Geworfen wird das Objekt nie; der
+ * Server startet nach der Rücksetzung normal weiter.
+ */
+export class StaleChainGuardSuspensionError extends Error {
+  constructor() {
+    super(
+      'work_period_chain_guard.suspended stand beim Serverstart auf 1. Der Kettenriegel aus ' +
+        'Migration 013 war damit ausgesetzt: die vier aussetzbaren Trigger-Klauseln auf ' +
+        'user_work_periods haben nichts geprüft. Ursache ist ein früherer Lauf, der die ' +
+        'Aussetzung außerhalb einer Transaktionsklammer vorgenommen hat oder zwischen ' +
+        'Aussetzung und Rücksetzung abgebrochen ist. Der Wert wurde auf 0 zurückgesetzt; die ' +
+        'in diesem Fenster geschriebenen Perioden sollten über checkPeriodChain() geprüft werden.'
+    );
+    this.name = 'StaleChainGuardSuspensionError';
   }
 }
 
@@ -738,14 +779,72 @@ export function softDeleteWorkPeriod(periodId: number, deletedBy: number | null)
  * `findings`-Array abbrechen (die Transaktion wirft und rollt damit zurück) — der Riegel prüft
  * während der Aussetzung nichts, die Kettenintegrität muss deshalb manuell nachgeholt werden.
  * (Aufrufer: Plan 13-03.)
+ *
+ * B-2 (Sicherheitsprüfung Phase 13): Diese Bedingung stand bis hierher NUR in diesem
+ * Kommentar. `db.inTransaction` erzwingt sie jetzt zur Laufzeit. Der Unterschied ist nicht
+ * kosmetisch: Innerhalb der Klammer ist ein Absturz zwischen Aussetzung und `finally`
+ * folgenlos, weil SQLite die ganze Klammer beim nächsten Öffnen zurückrollt. AUSSERHALB der
+ * Klammer läuft das `UPDATE ... suspended = 1` im Autocommit — ein Absturz danach ließe den
+ * Riegel für diese Datenbankdatei dauerhaft und lautlos ausgesetzt. Die vier aussetzbaren
+ * Trigger-Klauseln aus Migration 013 prüften dann schlicht nichts mehr, ohne Fehlermeldung
+ * und ohne dass ein Test es bemerkte. Ein lauter Fehler beim Aufruf ist die einzige Antwort,
+ * die diesen Zustand gar nicht erst entstehen lässt.
  */
 export function withSuspendedChainGuard<T>(fn: () => T): T {
+  if (!db.inTransaction) {
+    throw new ChainGuardOutsideTransactionError(
+      'withSuspendedChainGuard() wurde außerhalb einer aktiven Transaktion aufgerufen. ' +
+        'Die Aussetzung des Kettenriegels ist ausschließlich innerhalb einer laufenden ' +
+        'db.transaction()-Klammer erlaubt (T-13-02), weil nur dort ein Rollback die ' +
+        'Aussetzung sicher zurücknimmt. Es wurde nichts verändert.'
+    );
+  }
+
   db.prepare(`UPDATE work_period_chain_guard SET suspended = 1 WHERE id = 1`).run();
   try {
     return fn();
   } finally {
     db.prepare(`UPDATE work_period_chain_guard SET suspended = 0 WHERE id = 1`).run();
   }
+}
+
+/**
+ * Defensive Rücksetzung des Kettenriegels beim Serverstart (B-2, Sicherheitsprüfung Phase 13).
+ *
+ * WARUM ÜBERHAUPT, wenn `withSuspendedChainGuard()` die Transaktionsklammer jetzt erzwingt:
+ * Die Erzwingung wirkt ab dem nächsten Start dieses Codes — sie räumt keine Datenbankdatei
+ * auf, die ein früherer Lauf (oder ein Wartungsskript, das `work_period_chain_guard` von Hand
+ * anfasst) mit `suspended = 1` hinterlassen hat. Genau dieser Zustand ist der gefährliche:
+ * die vier aussetzbaren Trigger-Klauseln aus Migration 013 prüfen dann nichts, und nichts im
+ * System sagt es. Deshalb wird der Wert beim Hochfahren bedingungslos auf 0 gezogen.
+ *
+ * Der `UPDATE` trägt `AND suspended <> 0`, damit `result.changes` genau dann 1 ist, wenn
+ * tatsächlich ein hängengebliebener Riegel gefunden wurde — im Normalfall wird keine Zeile
+ * angefasst und es entsteht keine Logzeile.
+ *
+ * Der Vorfall wird über `logger.warn({ err }, …)` gemeldet, nicht über `{ error }`: pino
+ * wendet seinen Fehler-Serializer auf `err` an; `message`/`stack` sind auf `Error` nicht
+ * aufzählbar und lägen sonst als `{}` im Log (WR-06, Code-Review Phase 11). Der Server startet
+ * trotzdem durch — der Riegel steht nach dieser Zeile wieder scharf, ein Abbruch würde nur
+ * den bereits behobenen Zustand zementieren.
+ *
+ * Gibt zurück, ob tatsächlich ein ausgesetzter Riegel zurückgesetzt wurde.
+ */
+export function resetStaleChainGuardSuspension(): boolean {
+  const result = db
+    .prepare(`UPDATE work_period_chain_guard SET suspended = 0 WHERE id = 1 AND suspended <> 0`)
+    .run();
+
+  if (result.changes === 0) {
+    return false;
+  }
+
+  logger.warn(
+    { err: new StaleChainGuardSuspensionError() },
+    '⚠️ work_period_chain_guard.suspended stand beim Start auf 1 — Kettenriegel war ausgesetzt und wurde zurückgesetzt'
+  );
+
+  return true;
 }
 
 /**

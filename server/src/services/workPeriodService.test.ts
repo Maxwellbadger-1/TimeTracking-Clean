@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../database/connection.js';
 import {
   resolveWorkPeriodAt,
@@ -17,7 +17,11 @@ import {
   softDeleteWorkPeriod,
   getWorkPeriodsWithFlags,
   withSuspendedChainGuard,
+  resetStaleChainGuardSuspension,
+  ChainGuardOutsideTransactionError,
+  StaleChainGuardSuspensionError,
 } from './workPeriodService.js';
+import logger from '../utils/logger.js';
 import type { UserWorkPeriod, WorkSchedule } from '../types/index.js';
 
 /**
@@ -637,29 +641,43 @@ describe('Soft-Delete (Phase 13, D2/D3)', () => {
   it('withSuspendedChainGuard() setzt work_period_chain_guard.suspended innerhalb des Aufrufs auf 1 und danach wieder auf 0 — auch dann, wenn die übergebene Funktion wirft', () => {
     userId = createPhase13TestUser('chain-guard');
 
-    let suspendedDuringCall: number | undefined;
-    withSuspendedChainGuard(() => {
-      suspendedDuringCall = (
+    const readSuspended = (): number =>
+      (
         db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
       ).suspended;
-    });
-    expect(suspendedDuringCall).toBe(1);
 
-    const afterCall = (
-      db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
-    ).suspended;
-    expect(afterCall).toBe(0);
+    // B-2 (Sicherheitsprüfung Phase 13): Dieser Test rief `withSuspendedChainGuard()` bisher
+    // OHNE Transaktionsklammer auf und belegte damit unfreiwillig, dass die Nutzungsbedingung
+    // aus T-13-02 nicht durchgesetzt wird. Jetzt läuft er innerhalb einer `db.transaction()`
+    // und hält sich an die Regel, die er nachweisen soll.
+    //
+    // Beide Messwerte werden NOCH INNERHALB der Klammer gelesen. Läse man sie danach, bewiese
+    // eine 0 nur den Rollback bzw. den Commit — nicht das `finally` in der Funktion, um das es
+    // hier geht.
+    let suspendedDuringCall: number | undefined;
+    let suspendedAfterCall: number | undefined;
+    let suspendedAfterThrow: number | undefined;
 
-    expect(() =>
+    db.transaction(() => {
       withSuspendedChainGuard(() => {
-        throw new Error('x');
-      })
-    ).toThrow();
+        suspendedDuringCall = readSuspended();
+      });
+      suspendedAfterCall = readSuspended();
 
-    const afterThrow = (
-      db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
-    ).suspended;
-    expect(afterThrow).toBe(0);
+      // Der Wurf wird INNERHALB der Klammer gefangen, damit die Transaktion committet und die
+      // Rücksetzung nachweislich aus dem `finally` stammt und nicht aus dem Rollback.
+      expect(() =>
+        withSuspendedChainGuard(() => {
+          throw new Error('x');
+        })
+      ).toThrow();
+      suspendedAfterThrow = readSuspended();
+    })();
+
+    expect(suspendedDuringCall).toBe(1);
+    expect(suspendedAfterCall).toBe(0);
+    expect(suspendedAfterThrow).toBe(0);
+    expect(readSuspended()).toBe(0);
   });
 
   it(
@@ -727,5 +745,161 @@ describe('workPeriodService — Aufräumnachweis', () => {
       .prepare('SELECT COUNT(*) as count FROM user_work_periods WHERE note = ?')
       .get(TEST_NOTE_MARKER) as { count: number };
     expect(markerRow.count).toBe(0);
+  });
+});
+/**
+ * B-2 (13-SECURITY.md) — die Nutzungsbedingung des aussetzbaren Kettenriegels.
+ *
+ * T-13-02 sagt zu: „Die Aussetzung ist AUSSCHLIESSLICH innerhalb einer `db.transaction()`-
+ * Klammer erlaubt." Diese Zusage stand bis zur Sicherheitsprüfung nur im Kopfkommentar von
+ * `withSuspendedChainGuard()`; `grep -rn "inTransaction" server/src` lieferte null Treffer.
+ * Die beiden Tests hier sind der Riegel hinter der Zusage:
+ *
+ *  1. Ein Aufruf außerhalb einer Transaktion wird abgewiesen, statt klaglos zu arbeiten.
+ *  2. Ein aus einem früheren Lauf hängengebliebener ausgesetzter Riegel wird beim Serverstart
+ *     zurückgesetzt — die Erzwingung aus (1) wirkt nur nach vorn und räumt keine Datenbank
+ *     auf, die bereits mit `suspended = 1` dasteht.
+ *
+ * Warum das zusammen zählt: Innerhalb der Klammer ist ein Absturz folgenlos (SQLite rollt
+ * zurück). Außerhalb liefe das `UPDATE ... suspended = 1` im Autocommit und der Riegel bliebe
+ * dauerhaft und lautlos aus — offen genau dann, wenn man ihn braucht.
+ */
+describe('B-2 (Sicherheitsprüfung Phase 13): Der Kettenriegel erzwingt die Transaktionsklammer', () => {
+  const readSuspended = (): number =>
+    (
+      db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
+    ).suspended;
+
+  afterEach(() => {
+    // Kein Test dieser Datei darf einen ausgesetzten Riegel hinterlassen — er vergiftete
+    // sonst jede nachfolgende Datei desselben Laufs (geteilte Verbindung).
+    db.prepare('UPDATE work_period_chain_guard SET suspended = 0 WHERE id = 1').run();
+  });
+
+  it('weist eine Aussetzung außerhalb einer aktiven Transaktion ab und fasst den Riegel dabei nicht an', () => {
+    expect(db.inTransaction).toBe(false);
+    expect(readSuspended()).toBe(0);
+
+    let fnWurdeAufgerufen = false;
+    expect(() =>
+      withSuspendedChainGuard(() => {
+        fnWurdeAufgerufen = true;
+      })
+    ).toThrow(ChainGuardOutsideTransactionError);
+
+    // Die Ablehnung ist vollständig: weder lief die übergebene Funktion, noch steht der Riegel
+    // danach auf 1. Ein Fehler NACH dem `UPDATE ... suspended = 1` wäre der schlechtere Fall.
+    expect(fnWurdeAufgerufen).toBe(false);
+    expect(readSuspended()).toBe(0);
+  });
+
+  it('nennt in der Fehlermeldung die verletzte Bedingung, statt nur „ungültig" zu sagen', () => {
+    let caught: unknown;
+    try {
+      withSuspendedChainGuard(() => undefined);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(ChainGuardOutsideTransactionError);
+    expect((caught as Error).name).toBe('ChainGuardOutsideTransactionError');
+    expect((caught as Error).message).toContain('db.transaction()');
+    expect((caught as Error).message).toContain('Es wurde nichts verändert.');
+  });
+
+  it('lässt die Aussetzung innerhalb einer Transaktionsklammer weiterhin zu — die Regel sperrt den legitimen Weg nicht', () => {
+    let suspendedInnen: number | undefined;
+
+    db.transaction(() => {
+      withSuspendedChainGuard(() => {
+        suspendedInnen = readSuspended();
+      });
+    })();
+
+    expect(suspendedInnen).toBe(1);
+    expect(readSuspended()).toBe(0);
+  });
+
+  it('setzt einen aus einem früheren Lauf hängengebliebenen ausgesetzten Riegel beim Serverstart zurück und protokolliert den Vorfall', () => {
+    // Genau der Zustand, den ein Lauf hinterlassen hätte, der die Klammer verletzt und danach
+    // abgestürzt ist: ein Autocommit-`UPDATE` ohne Rücksetzung.
+    db.prepare('UPDATE work_period_chain_guard SET suspended = 1 WHERE id = 1').run();
+    expect(readSuspended()).toBe(1);
+
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(resetStaleChainGuardSuspension()).toBe(true);
+      expect(readSuspended()).toBe(0);
+
+      // Der Vorfall darf nicht still bleiben — und das Fehlerobjekt muss unter `err` liegen,
+      // dem Schlüssel, den der pino-Serializer auspackt. Unter `error` wären `message` und
+      // `stack` als nicht aufzählbare Eigenschaften zu `{}` geworden (WR-06, Phase 11).
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [mergeObject] = warnSpy.mock.calls[0] as [Record<string, unknown>, string];
+      expect(mergeObject).toHaveProperty('err');
+      expect(mergeObject.err).toBeInstanceOf(StaleChainGuardSuspensionError);
+      expect((mergeObject.err as Error).message).toContain('work_period_chain_guard.suspended');
+
+      // Zweiter Lauf auf einer sauberen Datenbank: nichts zu tun, keine zweite Logzeile.
+      expect(resetStaleChainGuardSuspension()).toBe(false);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('macht den Riegel durch die Rücksetzung tatsächlich wieder scharf — nicht nur den Zählerstand', () => {
+    const username = `test-13-b2-scharf-${Math.random().toString(36).slice(2, 8)}`;
+    const userId = (
+      db
+        .prepare(
+          `INSERT INTO users (username, email, firstName, lastName, password, role, weeklyHours, hireDate)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(username, `${username}@test.local`, 'Test', 'B2', 'hash', 'employee', 40, '2020-01-01')
+        .lastInsertRowid
+    ) as number;
+
+    try {
+      createWorkPeriod({
+        userId,
+        validFrom: '2020-01-01',
+        validTo: '2020-06-01',
+        weeklyHours: 40,
+        workSchedule: null,
+        note: TEST_NOTE_MARKER,
+      });
+
+      // Hängengebliebener Riegel: Die Überlappung geht durch, weil die Trigger-Klauseln aus
+      // Migration 013 bei `suspended = 1` nichts prüfen. Das ist der Schaden, um den es geht.
+      db.prepare('UPDATE work_period_chain_guard SET suspended = 1 WHERE id = 1').run();
+      const durchgerutscht = db
+        .prepare(
+          `INSERT INTO user_work_periods (userId, validFrom, validTo, weeklyHours, workSchedule, note, createdBy)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(userId, '2020-03-01', '2020-06-01', 25, null, TEST_NOTE_MARKER, null);
+      expect(durchgerutscht.changes).toBe(1);
+      db.prepare('DELETE FROM user_work_periods WHERE id = ?').run(durchgerutscht.lastInsertRowid);
+
+      // Nach der Start-Rücksetzung weist derselbe Versuch wieder ab.
+      const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      try {
+        expect(resetStaleChainGuardSuspension()).toBe(true);
+      } finally {
+        warnSpy.mockRestore();
+      }
+
+      expect(() =>
+        db
+          .prepare(
+            `INSERT INTO user_work_periods (userId, validFrom, validTo, weeklyHours, workSchedule, note, createdBy)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(userId, '2020-03-01', '2020-06-01', 25, null, TEST_NOTE_MARKER, null)
+      ).toThrow(/user_work_periods:/);
+    } finally {
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    }
   });
 });

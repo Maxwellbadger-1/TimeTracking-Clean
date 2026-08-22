@@ -492,12 +492,20 @@ describe('correctWorkPeriod — Pflichtbegruendung, Rebuild-Grenze, Lueckenschlu
       // periodA ueberlappende Periode C wird UNTER Aussetzung des Riegels direkt eingefuegt
       // (Bypass der Trigger) — genau das Bild, das ein defekter Altbestand hinterlassen koennte.
       const conflictStart = firstOfMonthOffset(today, -2);
-      withSuspendedChainGuard(() => {
-        db.prepare(
-          `INSERT INTO user_work_periods (userId, validFrom, validTo, weeklyHours, workSchedule, note, createdBy)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).run(userId, conflictStart, splitDate, 25, null, 'conflict-fixture-13-03', null);
-      });
+      // B-2 (Sicherheitspruefung Phase 13): withSuspendedChainGuard() weist einen Aufruf
+      // ausserhalb einer aktiven Transaktion jetzt mit ChainGuardOutsideTransactionError ab
+      // (T-13-02 wird erzwungen, nicht mehr nur im Kommentar zugesagt). Die Fixture haelt sich
+      // deshalb an dieselbe Regel wie der Produktivpfad und klammert die Aussetzung in eine
+      // db.transaction(). Inhaltlich aendert sich nichts: eingefuegt wird derselbe
+      // Kettenschaden, nur jetzt atomar.
+      db.transaction(() => {
+        withSuspendedChainGuard(() => {
+          db.prepare(
+            `INSERT INTO user_work_periods (userId, validFrom, validTo, weeklyHours, workSchedule, note, createdBy)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).run(userId, conflictStart, splitDate, 25, null, 'conflict-fixture-13-03', null);
+        });
+      })();
 
       const guardAfterFixture = db
         .prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1')
