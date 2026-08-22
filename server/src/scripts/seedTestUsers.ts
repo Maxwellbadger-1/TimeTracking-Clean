@@ -736,7 +736,7 @@ async function main(): Promise<void> {
         ensureOvertimeBalanceEntries(user.id, currentMonth);
         logger.info({ userId: user.id }, '✅ Overtime balance calculated');
       } catch (error) {
-        logger.error({ userId: user.id, error }, '❌ Failed to calculate overtime balance');
+        logger.error({ userId: user.id, err: error }, '❌ Failed to calculate overtime balance');
       }
     }
 

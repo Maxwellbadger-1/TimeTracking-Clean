@@ -152,7 +152,7 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
         }
         const errorMsg = `User ${user.id}: ${error instanceof Error ? error.message : String(error)}`;
         stats.errors.push(errorMsg);
-        logger.error({ error, userId: user.id }, `❌ Failed to migrate user ${user.id}`);
+        logger.error({ err: error, userId: user.id }, `❌ Failed to migrate user ${user.id}`);
       }
     }
 
@@ -166,7 +166,7 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
       '🎉🎉🎉 MIGRATION COMPLETED 🎉🎉🎉'
     );
   } catch (error) {
-    logger.error({ error }, '❌❌❌ MIGRATION FAILED ❌❌❌');
+    logger.error({ err: error }, '❌❌❌ MIGRATION FAILED ❌❌❌');
     throw error;
   }
 
@@ -261,12 +261,12 @@ async function migrateUserOvertimeTransactions(
       // genau der stille Rückfall, den D4 verbietet — der Lauf bricht ab.
       if (error instanceof MissingWorkPeriodError) {
         logger.error(
-          { error, userId, date },
+          { err: error, userId, date },
           `❌ Datendefekt: keine Arbeitszeitperiode für Nutzer ${userId} am ${date} — Migration abgebrochen (D4)`
         );
         throw error;
       }
-      logger.warn({ error, userId, date }, `⚠️ Failed to process date ${date}`);
+      logger.warn({ err: error, userId, date }, `⚠️ Failed to process date ${date}`);
       // Continue with next date
     }
   }
@@ -349,7 +349,7 @@ export async function verifyMigration(): Promise<{
       return { success: false, issues };
     }
   } catch (error) {
-    logger.error({ error }, '❌ Migration verification FAILED');
+    logger.error({ err: error }, '❌ Migration verification FAILED');
     return {
       success: false,
       issues: [`Verification error: ${error instanceof Error ? error.message : String(error)}`],
