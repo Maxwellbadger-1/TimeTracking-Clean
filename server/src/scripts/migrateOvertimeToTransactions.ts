@@ -13,13 +13,79 @@
  *
  * USAGE:
  *   npm run migrate:overtime
+ *
+ * PRODUKTIONSSCHUTZ (Plan 11-08, T-11-27): Dieses Skript SCHREIBT Überstundentransaktionen
+ * und importierte zuvor `db`, `getDailyTargetHours`, `getUserById` statisch — auf Produktion
+ * (`NODE_ENV=production`, kein `DATABASE_PATH` gesetzt) hätte das die Produktionsdatenbank
+ * beim `import` bereits geöffnet, vor jeder Prüfung. Muster wie
+ * `validateOvertimeDetailed.ts`/`reproduceOvertimeCompDefect.ts`: nur import-sichere Module
+ * oben, Guard synchron auf Modulebene, alle DB-berührenden Module per `await import(...)` in
+ * `ensureDependencies()`, aufgerufen am Kopf jeder exportierten Funktion.
  */
 
-import { db } from '../database/connection.js';
-import logger from '../utils/logger.js';
-import { getDailyTargetHours } from '../utils/workingDays.js';
-import { getUserById } from '../services/userService.js';
-import { recordOvertimeEarned, deleteEarnedTransactionsForDate } from '../services/overtimeTransactionService.js';
+import path from 'path';
+import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
+import type BetterSqlite3 from 'better-sqlite3';
+import type { UserPublic } from '../types/index.js';
+import type { WorkPeriodContext } from '../services/workPeriodContext.js';
+
+function assertNotProduction(): void {
+  const resolvedPath = path.resolve(getDatabasePath());
+  const productionPath = path.resolve(getProductionDatabasePath());
+  const nodeEnv = process.env.NODE_ENV;
+
+  const looksLikeProduction =
+    resolvedPath === productionPath ||
+    nodeEnv === 'production' ||
+    resolvedPath.toLowerCase().includes('production');
+
+  if (looksLikeProduction) {
+    console.error('FEHLER: Produktionsschreibzugriff verweigert (D5, 09-CONTEXT.md; T-11-27, 11-08-PLAN.md).');
+    console.error(`  Aufgelöster Datenbankpfad: ${resolvedPath}`);
+    console.error(`  NODE_ENV: ${nodeEnv ?? '(nicht gesetzt)'}`);
+    console.error('  Setze DATABASE_PATH auf eine lokale Entwicklungskopie, z. B. ./database/development.db');
+    process.exit(2);
+  }
+}
+
+assertNotProduction();
+
+// Dynamisch befüllt über ensureDependencies(), erst nach dem Guard oben (siehe Begründung).
+let db: BetterSqlite3.Database;
+let logger: typeof import('../utils/logger.js').default;
+let getDailyTargetHours: typeof import('../utils/workingDays.js').getDailyTargetHours;
+let getUserById: (id: number) => UserPublic | undefined;
+let createWorkPeriodContext: () => WorkPeriodContext;
+let recordOvertimeEarned: typeof import('../services/overtimeTransactionService.js').recordOvertimeEarned;
+let deleteEarnedTransactionsForDate: typeof import('../services/overtimeTransactionService.js').deleteEarnedTransactionsForDate;
+let dependenciesLoaded = false;
+
+async function ensureDependencies(): Promise<void> {
+  if (dependenciesLoaded) return;
+  const [
+    { db: sharedDb },
+    { default: sharedLogger },
+    { getDailyTargetHours: sharedGetDailyTargetHours },
+    { getUserById: sharedGetUserById },
+    { createWorkPeriodContext: sharedCreateWorkPeriodContext },
+    { recordOvertimeEarned: sharedRecordOvertimeEarned, deleteEarnedTransactionsForDate: sharedDeleteEarnedTransactionsForDate },
+  ] = await Promise.all([
+    import('../database/connection.js'),
+    import('../utils/logger.js'),
+    import('../utils/workingDays.js'),
+    import('../services/userService.js'),
+    import('../services/workPeriodContext.js'),
+    import('../services/overtimeTransactionService.js'),
+  ]);
+  db = sharedDb;
+  logger = sharedLogger;
+  getDailyTargetHours = sharedGetDailyTargetHours;
+  getUserById = sharedGetUserById;
+  createWorkPeriodContext = sharedCreateWorkPeriodContext;
+  recordOvertimeEarned = sharedRecordOvertimeEarned;
+  deleteEarnedTransactionsForDate = sharedDeleteEarnedTransactionsForDate;
+  dependenciesLoaded = true;
+}
 
 interface MigrationStats {
   totalUsers: number;
@@ -32,6 +98,7 @@ interface MigrationStats {
  * Main migration function
  */
 export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
+  await ensureDependencies();
   logger.info('🚀🚀🚀 STARTING OVERTIME MIGRATION 🚀🚀🚀');
 
   const stats: MigrationStats = {
@@ -108,6 +175,11 @@ async function migrateUserOvertimeTransactions(
     throw new Error(`User not found: ${userId}`);
   }
 
+  // REQ-25 (Plan 11-08): EIN Kontext je Nutzer-Migrationslauf, nicht je Tag (s.
+  // 11-08-PLAN.md, Task 2) — die Tagesschleife unten benutzt denselben Kontext für jeden
+  // Tag dieses Nutzers.
+  const periods = createWorkPeriodContext();
+
   // Get all unique dates with time entries
   const dates = db.prepare(`
     SELECT DISTINCT date
@@ -128,7 +200,7 @@ async function migrateUserOvertimeTransactions(
       deleteEarnedTransactionsForDate(userId, date);
 
       // Calculate target hours (respects holidays and workSchedule!)
-      const targetHours = getDailyTargetHours(user, date);
+      const targetHours = getDailyTargetHours(user, date, periods);
 
       // Calculate actual hours
       const actualHours = db.prepare(`
@@ -172,6 +244,7 @@ export async function verifyMigration(): Promise<{
   success: boolean;
   issues: string[];
 }> {
+  await ensureDependencies();
   logger.info('🔍 VERIFYING MIGRATION...');
 
   const issues: string[] = [];

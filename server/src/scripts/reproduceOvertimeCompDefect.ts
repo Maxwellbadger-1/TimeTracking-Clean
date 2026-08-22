@@ -41,6 +41,7 @@
 import path from 'path';
 import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 import { formatDate } from '../utils/timezone.js';
+import type { UserPublic } from '../types/index.js';
 
 // ---------------------------------------------------------------------------------------
 // Produktionsschutz (D5, WR-06) — muss vor jedem Import eines Service-Moduls laufen, siehe
@@ -137,6 +138,10 @@ async function main(): Promise<void> {
   const { db } = await import('../database/connection.js');
   const { unifiedOvertimeService } = await import('../services/unifiedOvertimeService.js');
   const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
+  // REQ-25 (Plan 11-08): erwarteterAbzug MUSS denselben (periodengültigen) Maßstab benutzen
+  // wie absenceService (Plan 11-07), sonst reproduziert dieses Skript ab jetzt einen Defekt,
+  // den es selbst erzeugt.
+  const { createWorkPeriodContext } = await import('../services/workPeriodContext.js');
 
   // Startprotokoll gegen den Fehlgriff auf die tote server/database.db
   // (.planning/notes/db-pfad-diskrepanz-20260821.md).
@@ -172,6 +177,30 @@ async function main(): Promise<void> {
   }
 
   const workSchedule = userRow.workSchedule ? JSON.parse(userRow.workSchedule) : null;
+
+  // REQ-25 (Plan 11-08): EIN Kontext für diesen Lauf (ein Nutzer, ein Monat). userPublic
+  // liefert nur id/hireDate für die Periodenauflösung (s. calculateAbsenceHoursWithWorkSchedule-
+  // Dokumentation in workingDays.ts) — die übrigen Felder sind Platzhalter, analog zum
+  // etablierten Muster in validateOvertimeCalculation.ts.
+  const userPublic: UserPublic = {
+    id: userRow.id,
+    username: '',
+    email: '',
+    firstName: userRow.firstName,
+    lastName: userRow.lastName,
+    role: 'employee',
+    department: null,
+    position: null,
+    weeklyHours: userRow.weeklyHours,
+    workSchedule,
+    vacationDaysPerYear: 30,
+    hireDate: userRow.hireDate,
+    endDate: null,
+    status: 'active',
+    privacyConsentAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  const periods = createWorkPeriodContext();
 
   console.log('1. Stammdaten des Nutzers');
   console.log(`   Name: ${userRow.firstName} ${userRow.lastName} (userId ${userRow.id})`);
@@ -224,10 +253,10 @@ async function main(): Promise<void> {
   let erwarteterAbzug = 0;
   for (const r of compRequests) {
     erwarteterAbzug += calculateAbsenceHoursWithWorkSchedule(
+      userPublic,
       r.startDate,
       r.endDate,
-      workSchedule,
-      userRow.weeklyHours
+      periods
     );
   }
   erwarteterAbzug = Math.round(erwarteterAbzug * 100) / 100;

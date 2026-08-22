@@ -24,6 +24,7 @@ import type BetterSqlite3 from 'better-sqlite3';
 import { formatDate } from '../utils/timezone.js';
 import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 import type { UserPublic } from '../types/index.js';
+import type { WorkPeriodContext } from '../services/workPeriodContext.js';
 import { createTestScenario, getAllScenarioNames } from '../test/generateTestData';
 
 /**
@@ -58,6 +59,15 @@ assertNotProduction();
 // Dynamisch befüllt in main(), erst nach dem Guard oben (siehe Begründung).
 let calculateTargetHoursForPeriod: typeof import('../utils/workingDays').calculateTargetHoursForPeriod;
 let calculateAbsenceHoursWithWorkSchedule: typeof import('../utils/workingDays').calculateAbsenceHoursWithWorkSchedule;
+// REQ-25 (Plan 11-08): DB-Validierungslauf (validateUser) benutzt createWorkPeriodContext()
+// (echte Perioden). Das Szenario-Werkzeug (validateScenario) benutzt stubWorkPeriodContext()
+// aus test-support/workPeriodFixtures.ts — Szenario-Nutzer sind rein synthetisch (in-memory
+// Zähler-IDs aus generateTestData.ts, s. Kommentar in validateScenario) und existieren nicht
+// in user_work_periods; createWorkPeriodContext() würde dort MissingWorkPeriodError werfen.
+// stubWorkPeriodContext() löst über dieselbe resolveWorkPeriodIn()-Funktion auf wie der
+// echte Kontext (keine zweite Auflösungslogik), nur ohne Datenbankzugriff.
+let createWorkPeriodContext: typeof import('../services/workPeriodContext.js').createWorkPeriodContext;
+let stubWorkPeriodContext: typeof import('../test-support/workPeriodFixtures.js').stubWorkPeriodContext;
 
 // ============================================================================
 // Types
@@ -181,11 +191,16 @@ function validateUser(
     createdAt: new Date().toISOString(),
   };
 
+  // REQ-25 (Plan 11-08): EIN Kontext für diesen Validierungslauf — alle Vergleichswege
+  // unten (Zielstunden, Abwesenheitsgutschriften) benutzen denselben Kontext.
+  const periods = createWorkPeriodContext();
+
   // Calculate target hours
   const targetHours = calculateTargetHoursForPeriod(
     userPublic,
     user.hireDate,
-    referenceDate
+    referenceDate,
+    periods
   );
 
   // Get time entries
@@ -243,10 +258,10 @@ function validateUser(
       // Calculate credit based on workSchedule or weeklyHours
       if (user.workSchedule) {
         credit = calculateAbsenceHoursWithWorkSchedule(
+          userPublic,
           absence.startDate,
           absence.endDate,
-          user.workSchedule,
-          user.weeklyHours
+          periods
         );
       } else {
         // Standard: daysRequired × (weeklyHours / 5)
@@ -451,10 +466,25 @@ function validateScenario(scenarioName: string): void {
     createdAt: new Date().toISOString(),
   };
 
+  // REQ-25 (Plan 11-08): Szenario-Nutzer sind synthetisch (in-memory Zähler-ID aus
+  // generateTestData.ts) und existieren nicht in user_work_periods — stubWorkPeriodContext()
+  // statt createWorkPeriodContext() (s. Kommentar bei den Modul-Haltern oben). Eine Periode,
+  // gültig ab hireDate, mit dem Wochenplan/den Wochenstunden des Szenarios.
+  const periods = stubWorkPeriodContext([
+    {
+      userId: userPublic.id,
+      validFrom: scenario.user.hireDate,
+      validTo: null,
+      weeklyHours: scenario.user.weeklyHours,
+      workSchedule: scenario.user.workSchedule,
+    },
+  ]);
+
   const targetHours = calculateTargetHoursForPeriod(
     userPublic,
     scenario.user.hireDate,
-    scenario.referenceDate
+    scenario.referenceDate,
+    periods
   );
 
   const workedHours = scenario.timeEntries.reduce((sum, entry) => sum + entry.hours, 0);
@@ -475,10 +505,10 @@ function validateScenario(scenarioName: string): void {
 
     if (scenario.user.workSchedule) {
       absenceCredits += calculateAbsenceHoursWithWorkSchedule(
+        userPublic,
         absence.startDate,
         absence.endDate,
-        scenario.user.workSchedule,
-        scenario.user.weeklyHours
+        periods
       );
     } else {
       absenceCredits += absence.daysRequired * (scenario.user.weeklyHours / 5);
@@ -522,10 +552,19 @@ function validateScenario(scenarioName: string): void {
 
 async function main() {
   // Dynamische Imports NACH dem Produktionsschutz oben (siehe Begründung am Guard):
-  // '../utils/workingDays' zieht transitiv die geteilte DB-Verbindung.
-  const workingDays = await import('../utils/workingDays.js');
+  // '../utils/workingDays', '../services/workPeriodContext.js' und
+  // '../test-support/workPeriodFixtures.js' ziehen transitiv die geteilte DB-Verbindung
+  // (workPeriodFixtures.js importiert workPeriodService.js für createWorkPeriod/
+  // resolveWorkPeriodIn).
+  const [workingDays, workPeriodContextModule, workPeriodFixtures] = await Promise.all([
+    import('../utils/workingDays.js'),
+    import('../services/workPeriodContext.js'),
+    import('../test-support/workPeriodFixtures.js'),
+  ]);
   calculateTargetHoursForPeriod = workingDays.calculateTargetHoursForPeriod;
   calculateAbsenceHoursWithWorkSchedule = workingDays.calculateAbsenceHoursWithWorkSchedule;
+  createWorkPeriodContext = workPeriodContextModule.createWorkPeriodContext;
+  stubWorkPeriodContext = workPeriodFixtures.stubWorkPeriodContext;
 
   const args = process.argv.slice(2);
 

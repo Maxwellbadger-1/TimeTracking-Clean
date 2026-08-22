@@ -10,6 +10,14 @@
 import Database from 'better-sqlite3';
 import { getUserById } from '../services/userService.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
+// REQ-25 (Plan 11-08): periodengültiger Maßstab statt aktuellem Nutzerstamm — Kontext je
+// Nutzer/Monat (s. validateUser unten). Statischer Import bewusst unverändert gelassen:
+// dieses Skript hat (wie schon vor diesem Plan) weder Produktionsschutz noch DATABASE_PATH-
+// Respektierung — es öffnet `./database/development.db` fest verdrahtet. Das auf den
+// Produktionsschutz-Pfad umzustellen wäre ein eigener, nicht in diesem Plan beauftragter
+// Umbau (s. SUMMARY, Abschnitt „Deferred Issues"); die Signatur-Nachführung selbst ändert an
+// diesem bestehenden Zustand nichts.
+import { createWorkPeriodContext } from '../services/workPeriodContext.js';
 import fs from 'fs';
 import path from 'path';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
@@ -47,6 +55,9 @@ function validateUser(userId: number, month: string): ValidationResult {
 
   const name = `${user.firstName} ${user.lastName}`;
 
+  // REQ-25 (Plan 11-08): EIN Kontext für diesen Validierungslauf (Nutzer + Monat).
+  const periods = createWorkPeriodContext();
+
   // Parse month
   const [year, monthNum] = month.split('-').map(Number);
   const startDate = new Date(year, monthNum - 1, 1);
@@ -70,7 +81,7 @@ function validateUser(userId: number, month: string): ValidationResult {
   let totalTargetHours = 0;
   for (let d = new Date(effectiveStartDate); d <= effectiveEndDate; d.setDate(d.getDate() + 1)) {
     const dateStr = formatDate(d, 'yyyy-MM-dd');
-    const dailyTarget = getDailyTargetHours(user, dateStr);
+    const dailyTarget = getDailyTargetHours(user, dateStr, periods);
     totalTargetHours += dailyTarget;
   }
 
@@ -104,7 +115,7 @@ function validateUser(userId: number, month: string): ValidationResult {
       const dateStr = formatDate(d, 'yyyy-MM-dd');
       if (holidaySet.has(dateStr)) continue;
 
-      const dailyHours = getDailyTargetHours(user, dateStr);
+      const dailyHours = getDailyTargetHours(user, dateStr, periods);
       if (dailyHours > 0) {
         absenceHours += dailyHours;
       }
