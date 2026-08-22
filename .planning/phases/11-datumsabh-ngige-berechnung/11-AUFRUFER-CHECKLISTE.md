@@ -213,3 +213,85 @@ Keine Fundstelle der vier Grep-Läufe bleibt ohne Zeile: 22+2+1+1 (Lauf 1) + 6+1
 nicht per Grep gefundenen Zeilen `WorkScheduleDisplay.tsx:60` und `WorkScheduleEditor.tsx:44,186`
 sowie der drei Sondergruppen ohne Grep-Ursprung (`fix-overtime.ts`, debug/test-Skripte,
 `countWorkingDaysForUser`).
+
+---
+
+## Compiler-Fehlerliste nach 11-04
+
+**Erstellt:** 2026-08-22 (Plan 11-04, Task 3)
+**Befehl:** `cd server && npx tsc --noEmit`
+
+**Wörtliche Fehlerzahl: 29 Fehler in 10 Dateien.** (Dieser TypeScript-Stand druckt keine
+`Found N errors`-Zusammenfassungszeile; die 29 ist die Zeilenzahl der Fehlerausgabe, geprüft
+mit `wc -l` gegen die gespeicherte Ausgabe.)
+
+### Dateiliste mit Fehlerzahl
+
+| Datei | Fehlerzahl | Zuständiger Plan |
+|---|---|---|
+| `server/src/services/overtimeService.ts` | 7 (Zeilen 109, 193, 329, 370, 570, 853, 1353) | 11-06 |
+| `server/src/services/overtimeLiveCalculationService.ts` | 5 (Zeilen 59, 179, 254, 305, 407) | 11-06 |
+| `server/src/services/absenceService.ts` | 4 (Zeilen 361, 792, 864, 1195) | 11-07 |
+| `server/src/scripts/validateOvertimeCalculation.ts` | 4 (Zeilen 185, 246, 454, 478) | 11-08 |
+| `server/src/scripts/validateAllTestUsers.ts` | 2 (Zeilen 73, 107) | 11-08 |
+| `server/src/services/overtimeTransactionRebuildService.ts` | 1 (Zeile 263) | 11-05 |
+| `server/src/services/unifiedOvertimeService.ts` | 1 (Zeile 115) | 11-05 |
+| `server/src/services/exportService.ts` | 1 (Zeile 98) | 11-07 |
+| `server/src/scripts/migrateOvertimeToTransactions.ts` | 1 (Zeile 131) | 11-08 |
+| `server/src/scripts/reproduceOvertimeCompDefect.ts` | 1 (Zeile 227) | 11-08 |
+| `server/src/scripts/validateOvertimeDetailed.ts` | 1 (Zeile 1089 — Sonderfall, s. u.) | 11-08 |
+
+Summe: 7+5+4+4+2+1+1+1+1+1+1 = 29. Nach Plan: 11-05 = 2, 11-06 = 12, 11-07 = 5,
+11-08 = 9 (Zeilenzahl in dieser Fehlerliste; die Checkliste selbst führt für 11-08 elf
+Tabellenzeilen — s. Abweichung unten).
+
+### Abgleich gegen die Fundstellen-Tabelle
+
+**Zeilendrift (erwartet laut Kopfnotiz dieser Datei — „Zeilennummern haben sich seit Phase 9
+verschoben"):** `reproduceOvertimeCompDefect.ts` 226→227, `validateOvertimeCalculation.ts`
+245→246 und 477→478, `absenceService.ts` 360→361, 791→792, 863→864 — jeweils genau eine Zeile
+Verschiebung, kein struktureller Befund. Alle übrigen Fundstellen treffen exakt
+(`migrateOvertimeToTransactions.ts:131`, `validateAllTestUsers.ts:73/107`, `validateOvertimeCalculation.ts:185/454`,
+`absenceService.ts:1195`, `exportService.ts:98`, beide Zeilen in `overtimeTransactionRebuildService.ts`
+und `unifiedOvertimeService.ts`, alle fünf Zeilen in `overtimeLiveCalculationService.ts`, alle
+sieben Zeilen in `overtimeService.ts`).
+
+**Struktureller Sonderfall — `validateOvertimeDetailed.ts`:** Die Checkliste führt drei
+Aufrufstellen (Zeilen 473, 634, 682). Der Compiler wirft dort jedoch KEINEN Fehler — stattdessen
+genau einen, an Zeile 1089, mit einem anderen Fehlercode (`TS2322` statt `TS2554`). Ursache,
+gelesen in der Datei: Zeile 102 deklariert eine modul-lokale Variable
+`let getDailyTargetHours: (user: UserPublic, date: Date | string) => number;` mit der ALTEN
+Signatur. Die drei Aufrufe (473, 634, 682) rufen diese lokale Variable auf und kompilieren gegen
+deren (veraltete) Typsignatur weiterhin fehlerfrei. Erst die Zuweisung der echten Funktion an
+diese Variable (Zeile 1089, `getDailyTargetHours = sharedGetDailyTargetHours;`, dynamischer
+Import aus `workingDays.js` Zeile 1081) verletzt die Typsignatur und wirft `TS2322`. **Das ist
+weder Unvollständigkeit noch toter Code** — Plan 11-08 muss sowohl die lokale Typdeklaration
+(Zeile 102) als auch alle drei Aufrufstellen (473, 634, 682) auf die neue Signatur bringen; der
+Compiler zeigt nur den ersten von vier notwendigen Änderungspunkten, weil TypeScript die
+Verletzung an der Zuweisung meldet, nicht an jedem einzelnen (weiterhin zur lokalen Deklaration
+passenden) Aufruf.
+
+**Zähldifferenz 11-08 (Checkliste: 11, Fehlerliste: 9 direkte + 1 struktureller Sonderfall mit
+3 verdeckten Aufrufstellen = 12 tatsächlich betroffene Zeilen):** Die „Zusammenfassung nach
+Plan"-Tabelle oben in dieser Datei nennt für 11-08 die Zahl 10; die Fundstellen-Tabelle selbst
+listet 11 Zeilen (1 migrate + 2 validateAllTestUsers + 3 validateOvertimeDetailed +
+4 validateOvertimeCalculation + 1 reproduceOvertimeCompDefect). Die Fehlerliste dieses
+Abgleichs zeigt 9 direkte Fehlerzeilen für 11-08 (migrate:1, validateAllTestUsers:2,
+validateOvertimeCalculation:4, reproduceOvertimeCompDefect:1, validateOvertimeDetailed:1) —
+die fehlenden 2 sind die durch den strukturellen Sonderfall verdeckten weiteren zwei
+Aufrufstellen in `validateOvertimeDetailed.ts` (634, 682; 473 fällt mit dem einen sichtbaren
+Fehler zusammen). Die ursprüngliche „10" in der Zusammenfassungstabelle war bereits vor diesem
+Abgleich um eins von der Fundstellen-Tabelle (11) abweichend — beide Abweichungen sind hiermit
+vermerkt, keine wird stillschweigend übernommen.
+
+**Kein produktiver/Skript-Aufrufer der Checkliste fehlt in der Fehlerliste** außer dem oben
+erklärten Sonderfall. Kein Fehler der `tsc`-Ausgabe steht ohne zugehörige Checklistenzeile.
+
+### Nicht in dieser Fehlerliste (bestätigt kein Widerspruch)
+
+- `server/src/utils/workingDays.ts`/`workingDays.test.ts` (11-04): durch diesen Plan bereits
+  auf die neue Signatur gebracht — kein Fehler mehr, wie erwartet.
+- Desktop-Fundstellen (11-09): `tsconfig.json` des Servers schließt nur `server/src/**/*` ein;
+  Desktop hat eine eigene, hier nicht geprüfte Kompilierung.
+- `fix-overtime.ts`, debug/test-Skripte im Serverwurzelverzeichnis: außerhalb `src/**/*`, damit
+  außerhalb des `tsc`-Umfangs — wie in der Fundstellen-Tabelle vermerkt.
