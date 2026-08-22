@@ -5,6 +5,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 
+export interface Holiday {
+  id: number;
+  date: string;
+  name: string;
+  federal: number;
+}
+
+/**
+ * CR-05 (Code-Review Phase 12): `apiClient.request()` WIRFT bei einem Serverfehler nicht,
+ * sondern liefert `{ success: false, error, data: undefined }` (`src/api/client.ts`).
+ * Beide Hooks hier prueften `response.success` nicht und lieferten deshalb stumm `[]` —
+ * ein Ladefehler war von "es gibt keine Feiertage" nicht zu unterscheiden.
+ *
+ * Konkrete Wirkung im `AbsenceRequestForm`: `holidaysError` wurde nie wahr, der dort
+ * ausdruecklich gebaute Schutz `previewUnavailable` war ein Scheinschutz, jeder Feiertag
+ * zaehlte als voller Arbeitstag — und die Pruefung "Du hast nur noch {n} Urlaubstage
+ * verfuegbar" blockierte damit einen sachlich zulaessigen Weihnachtsurlaub, ohne dass
+ * irgendetwas auf den Ladefehler hinwies.
+ */
+
 /**
  * Get all holidays for a specific year
  * @param year - Year to fetch holidays for (defaults to current year on backend)
@@ -14,10 +34,12 @@ export function useHolidays(year?: number) {
     queryKey: ['holidays', year],
     queryFn: async () => {
       const params = year ? `?year=${year}` : '';
-      const response = await apiClient.get(`/holidays${params}`);
-      // Ensure we always return an array (never undefined)
       // Note: Backend defaults to current year if no year provided
-      return (response.data || []) as Array<{ id: number; date: string; name: string; federal: number }>;
+      const response = await apiClient.get<Holiday[]>(`/holidays${params}`);
+      if (!response.success) {
+        throw new Error(response.error || 'Feiertage konnten nicht geladen werden');
+      }
+      return response.data || [];
     },
     retry: false,
     refetchOnWindowFocus: false,
@@ -51,13 +73,17 @@ export function useMultiYearHolidays() {
         currentYear + 1,
         currentYear + 2
       ];
-      const allHolidays: Array<{ id: number; date: string; name: string; federal: number }> = [];
+      const allHolidays: Holiday[] = [];
 
       // Fetch holidays for all 5 years
       for (const year of years) {
-        const response = await apiClient.get(`/holidays?year=${year}`);
-        const yearHolidays = (response.data || []) as Array<{ id: number; date: string; name: string; federal: number }>;
-        allHolidays.push(...yearHolidays);
+        const response = await apiClient.get<Holiday[]>(`/holidays?year=${year}`);
+        // CR-05: Ein Fehlschlag ist ein Fehler, kein leeres Jahr. Ein unvollstaendiges
+        // Feiertagsfenster wuerde eine falsche Abwesenheitsvorschau erzeugen.
+        if (!response.success) {
+          throw new Error(response.error || `Feiertage ${year} konnten nicht geladen werden`);
+        }
+        allHolidays.push(...(response.data || []));
       }
 
       return allHolidays;
