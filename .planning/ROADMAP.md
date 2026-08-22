@@ -345,7 +345,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 13-02-PLAN.md — Lesepfade filtern, Soft-Delete- und Lückenschluss-Schreibweg, Verträge, Freigabe der Phase-12-Rechenbausteine (D2, D3)
-- [ ] 13-06-PLAN.md — Kontoauszug-Lesepfad: Storno-Felder, gemeinsame Belegnummer, nicht summierende Gegenbuchung (D2)
+- [x] 13-06-PLAN.md — Kontoauszug-Lesepfad: Storno-Felder, gemeinsame Belegnummer, nicht summierende Gegenbuchung (D2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

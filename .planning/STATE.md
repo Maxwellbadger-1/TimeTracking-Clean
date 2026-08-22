@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: "Completed 13-02-PLAN.md (Datenmodell-Unterbau: Filter, Soft-Delete/Luekenschluss-Schreibwege, Vertraege, Freigabe Phase-12-Bausteine)"
-last_updated: "2026-08-22T19:01:16.213Z"
+stopped_at: "Completed 13-06-PLAN.md (Kontoauszug-Lesepfad fuer das Storno-Paar: id/reversalOf/reversedBy/reversedAt/reversedByName, gemeinsame Belegnummer, stabile Sortierung, Tests)"
+last_updated: "2026-08-22T19:02:08.705Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-02-PLAN.md (Datenmodell-Unterbau: Filter, Soft-Delete/Luekenschluss-Schreibwege, Vertraege, Freigabe Phase-12-Bausteine)
+- **Stopped at:** Completed 13-06-PLAN.md (Kontoauszug-Lesepfad fuer das Storno-Paar: id/reversalOf/reversedBy/reversedAt/reversedByName, gemeinsame Belegnummer, stabile Sortierung, Tests)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -202,6 +202,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13-01]: Migration 013/014 direkt gegen server/database/development.db ausgefuehrt (mit Backup), weil alle Tests laut vitest.config.ts gegen dieselbe Arbeitsdatenbank laufen
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-02: UserWorkPeriodListItem zunaechst lokal in workPeriodService.ts, dann nach types/index.ts verschoben (Task 1/Task 2 Reihenfolgekonflikt geloest ohne Nutzerentscheid)
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-02: PreviewRollback generisch gemacht, runWithPreviewRollback() als geteilte Trockenlauf-Huelle fuer Plan 13-03/13-04 freigegeben - applyWorkTimeChange() unveraendert im Verhalten (23/23 Tests gruen)
+- [Phase 13-06]: referenceId auf beiden Paarzeilen ist row.reversalOf ?? row.id (DD-24) - die Id der Buchungszeile selbst, nicht der Periode
+- [Phase 13-06]: id/reversalOf/reversedBy/reversedAt/reversedByName nur bei type === model_change gesetzt - keine Bedeutungsaenderung fuer die uebrigen Transaktionstypen
+- [Phase 13-06]: Test-Cleanup loescht user_work_periods nicht explizit, sondern raeumt ueber ON DELETE CASCADE beim Loeschen des Nutzers auf - der BEFORE-DELETE-Riegel wuerde ein echtes DELETE der letzten Periode verweigern
 
 ## Quick Tasks Completed
 
@@ -267,6 +270,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P09 | 50min | 2 tasks | 1 files |
 | Phase 13 P01 | 55min | 3 tasks | 7 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P02 | 35min | 3 tasks | 8 files |
+| Phase 13 P06 | 35min | 2 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
