@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: "Completed 13-02-PLAN.md (Datenmodell-Unterbau: Filter, Soft-Delete/Luekenschluss-Schreibwege, Vertraege, Freigabe Phase-12-Bausteine)"
-last_updated: "2026-08-22T18:53:25.735Z"
+last_updated: "2026-08-22T19:01:16.213Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 33
+  completed_plans: 34
   percent: 57
 ---
 
@@ -303,7 +303,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
