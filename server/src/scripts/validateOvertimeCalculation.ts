@@ -68,6 +68,11 @@ let calculateAbsenceHoursWithWorkSchedule: typeof import('../utils/workingDays')
 // echte Kontext (keine zweite Auflösungslogik), nur ohne Datenbankzugriff.
 let createWorkPeriodContext: typeof import('../services/workPeriodContext.js').createWorkPeriodContext;
 let stubWorkPeriodContext: typeof import('../test-support/workPeriodFixtures.js').stubWorkPeriodContext;
+// CR-01: Für `instanceof` im `--all`-Lauf. Muss aus demselben dynamischen Import stammen
+// wie die Rechenfunktionen — ein statischer `import { MissingWorkPeriodError }` würde
+// '../utils/workingDays' vor dem Produktionsschutz oben laden und damit die Datenbank
+// öffnen (Begründung am Guard).
+let MissingWorkPeriodError: typeof import('../utils/workingDays').MissingWorkPeriodError;
 
 // ============================================================================
 // Types
@@ -231,12 +236,38 @@ function validateUser(
   );
 
   // Get time entries
+  //
+  // CR-01 (Code-Review Phase 11, Durchlauf 2): Hier stand `AND deletedAt IS NULL`.
+  // `time_entries` hat diese Spalte NICHT — weder in `schema.ts` (Tabellendefinition
+  // Zeile 164-181: id, userId, date, startTime, endTime, breakMinutes, hours, activity,
+  // project, location, notes, createdAt, updatedAt) noch über eine Migration
+  // (`ALTER TABLE time_entries` kommt im gesamten Repository nicht vor; per
+  // `PRAGMA table_info(time_entries)` gegen `database/development.db` nachgemessen).
+  // Jeder Aufruf mit `--userId=` oder `--all` endete deshalb mit
+  // `SqliteError: no such column: deletedAt` — genau der Befehl, den `.claude/CLAUDE.md`
+  // unter "Validation Tools" und "Overtime Bug Fix (Special Case)" vorschreibt.
+  //
+  // Warum die Bedingung ersatzlos entfällt statt auf eine andere Spalte umgeschrieben zu
+  // werden: Zeiteinträge werden in diesem System HART gelöscht. Beide Löschwege gehen über
+  // `DELETE FROM time_entries WHERE id = ?` (`timeEntryService.ts:756` in
+  // `deleteTimeEntry()` und `:911` in der Abwesenheits-Bereinigung). Es gibt keine
+  // Markierung, die zurückbliebe — eine gelöschte Zeile ist physisch weg und kann von
+  // dieser Abfrage nicht mitgezählt werden. Alle übrigen Leser der Tabelle
+  // (`overtimeService.ts:474`, `unifiedOvertimeService.ts:357`,
+  // `overtimeTransactionRebuildService.ts:299`, `timeEntryService.ts:160`) filtern aus
+  // demselben Grund ebenfalls nicht.
+  //
+  // OFFEN, hier NICHT behoben: `.claude/CLAUDE.md` verbietet unter "Database & Date
+  // Handling" den Hard Delete. `time_entries` verletzt diese Regel — und der Kopfkommentar
+  // von `deleteTimeEntry()` behauptet fälschlich "soft delete". Das ist eine
+  // Schemaänderung samt Anpassung aller Leser und gehört nicht in eine Review-Korrektur
+  // an einem Validierungswerkzeug.
   const timeEntries = db
     .prepare(
       `
     SELECT date, hours
     FROM time_entries
-    WHERE userId = ? AND deletedAt IS NULL
+    WHERE userId = ?
   `
     )
     .all(userId) as Array<{ date: string; hours: number }>;
@@ -244,12 +275,24 @@ function validateUser(
   const workedHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0);
 
   // Get absences
+  //
+  // CR-01 (Fortsetzung): Dieselbe Abfrage hatte ZWEI falsche Spaltennamen, die der Befund
+  // nicht nennt — sie wären erst nach der Korrektur oben sichtbar geworden, weil SQLite
+  // beim `prepare()` der Zeiteintragsabfrage bereits abbrach:
+  //   1. `daysRequired` existiert in `absence_requests` nicht; die Spalte heißt `days`
+  //      (`schema.ts:187`, per PRAGMA bestätigt). Der Alias `days AS daysRequired` behält
+  //      den in `ValidationResult`/`generateTestData.ts` benutzten Namen bei — dasselbe
+  //      Vorgehen wie in `reproduceOvertimeCompDefect.ts:226`.
+  //   2. `deletedAt` existiert in `absence_requests` ebenfalls nicht. Abwesenheiten werden
+  //      nicht gelöscht, sondern über `status` geführt ('pending'/'approved'/'rejected',
+  //      CHECK in `schema.ts:189`); der Filter `status = 'approved'` unten leistet bereits,
+  //      was die gedachte Bedingung leisten sollte.
   const absences = db
     .prepare(
       `
-    SELECT type, startDate, endDate, daysRequired, status
+    SELECT type, startDate, endDate, days AS daysRequired, status
     FROM absence_requests
-    WHERE userId = ? AND status = 'approved' AND deletedAt IS NULL
+    WHERE userId = ? AND status = 'approved'
   `
     )
     .all(userId) as Array<{
@@ -596,6 +639,7 @@ async function main() {
   ]);
   calculateTargetHoursForPeriod = workingDays.calculateTargetHoursForPeriod;
   calculateAbsenceHoursWithWorkSchedule = workingDays.calculateAbsenceHoursWithWorkSchedule;
+  MissingWorkPeriodError = workingDays.MissingWorkPeriodError;
   createWorkPeriodContext = workPeriodContextModule.createWorkPeriodContext;
   stubWorkPeriodContext = workPeriodFixtures.stubWorkPeriodContext;
 
@@ -642,12 +686,48 @@ async function main() {
       .prepare('SELECT id FROM users WHERE deletedAt IS NULL')
       .all() as Array<{ id: number }>;
 
+    // CR-01: Ein Nutzer mit Datendefekt (keine Arbeitszeitperiode, D4) beendete den
+    // GESAMTEN `--all`-Lauf beim ersten Vorkommen — gemessen an `development.db`: 18 von
+    // 19 Nutzern ausgegeben, dann Abbruch bei Nutzer 12877. Für ein Werkzeug, das den
+    // Bestand PRÜFEN soll, ist das die falsche Reaktion; dieselbe Begründung und dieselbe
+    // Behandlung wie in `verifyPeriodNullEffect.ts:399-413` (WR-13). Der Defekt wird
+    // eigene Ergebniskategorie, der Lauf geht weiter, die Zusammenfassung meldet ihn, und
+    // der Exitcode wird 1 — damit ein unvollständiger Lauf in einer Pipeline nicht als
+    // Erfolg durchgeht. Jeder ANDERE Fehler fliegt unverändert weiter.
+    const usersWithoutPeriod: Array<{ userId: number; reason: string }> = [];
+    let validatedCount = 0;
+
     for (const user of users) {
-      const result = validateUser(db, user.id);
-      printResult(result);
+      try {
+        const result = validateUser(db, user.id);
+        printResult(result);
+        validatedCount++;
+      } catch (error) {
+        if (error instanceof MissingWorkPeriodError) {
+          usersWithoutPeriod.push({ userId: user.id, reason: error.message });
+          console.log(
+            `\n⚠️  Nutzer ${user.id} übersprungen — Datendefekt (D4): ${error.message}\n`
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
-    console.log(`\n✅ ${users.length} Benutzer validiert.\n`);
+    console.log(`\n✅ ${validatedCount} von ${users.length} Benutzern validiert.`);
+    if (usersWithoutPeriod.length > 0) {
+      console.log(
+        `\n❌ ${usersWithoutPeriod.length} Nutzer ohne lückenlose Arbeitszeitperiode ` +
+          `(Datendefekt, D4): ${usersWithoutPeriod.map(u => u.userId).join(', ')}`
+      );
+      console.log(
+        '   Diese Nutzer sind NICHT geprüft. Behebung: `npm run check:period-chains` ' +
+          'zeigt die betroffenen Ketten im Detail.\n'
+      );
+      process.exitCode = 1;
+    } else {
+      console.log('');
+    }
   } else if (userId) {
     const result = validateUser(db, userId, expectedOvertime);
     printResult(result);
