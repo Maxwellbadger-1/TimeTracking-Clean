@@ -73,11 +73,15 @@ export function getAllWorkingDaysBetween(
 
 export interface LiveOvertimeTransaction {
   date: string;
-  type: 'time_entry' | 'feiertag' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_deduction' | 'correction';
+  type: 'time_entry' | 'feiertag' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_deduction' | 'correction' | 'model_change';
   hours: number;
   description: string;
-  source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays';
+  source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays' | 'work_period';
   referenceId?: number;
+  // Phase 12 (REQ-29): nur bei type === 'model_change' gesetzt — Grundlage fuer die zweite
+  // Beschreibungszeile im Kontoauszug ("Periode ab ... eingetragen am ... von ...").
+  createdAt?: string;
+  adminName?: string | null;
 }
 
 /**
@@ -407,6 +411,55 @@ export function calculateLiveOvertimeTransactions(
   }
 
   // ========================================
+  // 6b. Add model_change bookings (Phase 12, REQ-29)
+  // ========================================
+  // Die im Kontoauszug sichtbare Journalzeile fuer einen Stundenwechsel
+  // (workPeriodChangeService.applyWorkTimeChange(), D5): ein unveraenderlicher
+  // Ledger-Eintrag in `overtime_transactions`, den diese Live-Ansicht bisher nicht las (sie
+  // rechnet ausschliesslich aus time_entries/absence_requests/overtime_corrections neu).
+  // Rein additiv und rein informationell: veraendert weder die obige Tagesberechnung noch
+  // calculateCurrentOvertimeBalance() (die getrennt ueber unifiedOvertimeService rechnet,
+  // siehe 12-05-SUMMARY.md, "Bestaetigung des Saldo-Lesepfads" — Loeschen dieser einen Zeile
+  // aendert den zurueckgegebenen Saldo nachweislich nicht).
+  const modelChangeQuery = db.prepare(`
+    SELECT ot.id, ot.date, ot.hours, ot.description, ot.createdAt,
+           u.firstName as adminFirstName, u.lastName as adminLastName
+    FROM overtime_transactions ot
+    LEFT JOIN users u ON u.id = ot.createdBy
+    WHERE ot.userId = ?
+      AND ot.type = 'model_change'
+      AND ot.date >= ?
+      AND ot.date <= ?
+    ORDER BY ot.date DESC
+  `);
+
+  const modelChangeRows = modelChangeQuery.all(userId, startDate, endDate) as Array<{
+    id: number;
+    date: string;
+    hours: number;
+    description: string | null;
+    createdAt: string;
+    adminFirstName: string | null;
+    adminLastName: string | null;
+  }>;
+
+  for (const row of modelChangeRows) {
+    const adminName =
+      row.adminFirstName && row.adminLastName ? `${row.adminFirstName} ${row.adminLastName}` : null;
+
+    transactions.push({
+      date: row.date,
+      type: 'model_change',
+      hours: Math.round(row.hours * 100) / 100,
+      description: row.description || '',
+      source: 'work_period',
+      referenceId: row.id,
+      createdAt: row.createdAt,
+      adminName,
+    });
+  }
+
+  // ========================================
   // 7. Check for work on non-working days (holidays, weekends, days off)
   // ========================================
   // If someone worked on a non-working day, we need to add those hours as overtime
@@ -454,6 +507,7 @@ export function calculateLiveOvertimeTransactions(
       special_credit: 2,
       unpaid_adjustment: 2,
       correction: 3,
+      model_change: 4,
     };
     return (typePriority[a.type] || 99) - (typePriority[b.type] || 99);
   });

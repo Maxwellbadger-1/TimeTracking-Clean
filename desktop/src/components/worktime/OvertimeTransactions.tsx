@@ -87,6 +87,7 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
       case 'overtime_comp_credit': return 'Überstundenausgleich';
       case 'special_credit': return 'Sonderurlaub';
       case 'unpaid_adjustment': return 'Unbezahlter Urlaub';
+      case 'model_change': return 'Modellwechsel';
       default: return type;
     }
   };
@@ -113,6 +114,8 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
         return 'Sonderurlaub (gleicht Tagessoll aus, keine Überstunden)';
       case 'unpaid_adjustment':
         return 'Unbezahlter Urlaub (reduziert Tagessoll, keine Gutschrift)';
+      case 'model_change':
+        return 'Saldodifferenz aus einer rückwirkenden Umstellung des Arbeitszeitmodells';
       default:
         return '';
     }
@@ -136,6 +139,8 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
       case 'special_credit':
       case 'unpaid_adjustment':
         return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+      case 'model_change':
+        return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     }
@@ -235,6 +240,16 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
                     <FileText className="w-4 h-4 text-gray-400" />
                     {transaction.description || '-'}
                   </div>
+                  {transaction.type === 'model_change' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Periode ab {new Date(transaction.date + 'T12:00:00').toLocaleDateString('de-DE')}
+                      {transaction.createdAt &&
+                        ` · eingetragen am ${new Date(
+                          transaction.createdAt.slice(0, 10) + 'T12:00:00'
+                        ).toLocaleDateString('de-DE')}`}
+                      {transaction.adminName ? ` von ${transaction.adminName}` : ''}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm text-right">
                   <div className="flex items-center justify-end gap-1">

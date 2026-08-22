@@ -256,11 +256,14 @@ export function useOvertimeTransactions(userId?: number, year?: number, month?: 
       const response = await apiClient.get<{
         transactions: Array<{
           date: string;
-          type: 'earned' | 'feiertag' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment';
+          type: 'earned' | 'feiertag' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment' | 'model_change';
           hours: number;
           description: string;
-          source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays';
+          source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays' | 'work_period';
           referenceId?: number;
+          // Phase 12 (REQ-29): nur bei type === 'model_change' vom Server gesetzt.
+          createdAt?: string;
+          adminName?: string | null;
         }>;
         currentBalance: number;
         userId: number;
