@@ -240,7 +240,7 @@ der Produktionsdatenbank.
 Plans:
 
 - [ ] 11-01-PLAN.md — Ausgangszustand messen: Arbeitskopie, Salden-Snapshot vorher, Aufrufer-Checkliste
-- [ ] 11-02-PLAN.md — `workPeriodContext`: Perioden je Lauf vorladen, durchreichen statt global halten (D1, D2)
+- [x] 11-02-PLAN.md — `workPeriodContext`: Perioden je Lauf vorladen, durchreichen statt global halten (D1, D2)
 - [ ] 11-03-PLAN.md — Lückenlose Periodenkette im Betrieb: Startperiode bei der Nutzeranlage, Spiegelung bei Änderung
 - [ ] 11-04-PLAN.md — Der Eingriff: `getDailyTargetHours` löst über die Periode auf, Pflichtparameter ohne Vorgabewert (D3, D4)
 - [ ] 11-05-PLAN.md — Kanonischer Überstundenweg und Rebuild periodenbewusst
