@@ -80,14 +80,30 @@ export interface DeleteDetailReversalArgs {
   reversedTransactions: Array<{ hours: number }>;
 }
 
-/** Punkt 2 der `details`-Liste: Storno statt Löschung (D2) — der Betrag ist die Summe der
- *  `hours` aus `reversedTransactions`, in Einzahl oder Mehrzahl je nach Listenlänge. */
+/**
+ * Punkt 2 der `details`-Liste: Storno statt Löschung (D2).
+ *
+ * WR-01 (Code-Review Phase 13) — zwei Fälle, die die frühere Fassung falsch beschrieb:
+ *
+ * 1. LEERE LISTE. Eine Periode ohne jede `model_change`-Buchung ist der Regelfall (Stichtag
+ *    in der Zukunft, Anlegen ohne Saldowirkung). Die frühere Fassung fiel in den
+ *    Einzahl-Zweig und behauptete eine Buchung „über ± 0:00h", die es nicht gibt: der
+ *    Server iteriert beim Löschen über eine leere Liste, es entsteht keine Gegenbuchung,
+ *    und es bleiben keine zwei Zeilen sichtbar.
+ * 2. MEHRERE BUCHUNGEN, DIE SICH AUFHEBEN. Bei +5 und −5 lieferte die Summe ebenfalls
+ *    „± 0:00h" — eine Summenangabe, die direkt neben dem echten `balanceDelta` aus Punkt 3
+ *    steht und dort als Saldoaussage missverstanden wird. In der Mehrzahl werden deshalb
+ *    die EINZELBETRÄGE genannt, nicht ihre Summe.
+ */
 export function deleteDetailReversal(args: DeleteDetailReversalArgs): string {
-  const total = args.reversedTransactions.reduce((sum, t) => sum + t.hours, 0);
-  const amount = formatSignedHours(total);
-  if (args.reversedTransactions.length > 1) {
-    return `Die zugehörigen Buchungen über ${amount} werden nicht entfernt. Sie werden durch Gegenbuchungen ausgeglichen. Beide Seiten bleiben im Kontoauszug sichtbar.`;
+  if (args.reversedTransactions.length === 0) {
+    return 'Zu dieser Periode gibt es keine Buchung im Kontoauszug — es wird nichts storniert.';
   }
+  if (args.reversedTransactions.length > 1) {
+    const amounts = args.reversedTransactions.map((t) => formatSignedHours(t.hours)).join(', ');
+    return `Die zugehörigen Buchungen (${amounts}) werden nicht entfernt. Sie werden durch Gegenbuchungen ausgeglichen. Beide Seiten bleiben im Kontoauszug sichtbar.`;
+  }
+  const amount = formatSignedHours(args.reversedTransactions[0].hours);
   return `Die zugehörige Buchung über ${amount} wird nicht entfernt. Sie wird durch eine Gegenbuchung ausgeglichen. Beide Zeilen bleiben im Kontoauszug sichtbar.`;
 }
 

@@ -92,7 +92,17 @@ test('deleteDetailGapClosure: Vorperiode wird selbst offen (newValidTo null)', (
   );
 });
 
-// 4. deleteDetailReversal — Einzahl und Mehrzahl, vollständige Zeichenkette.
+// 4. deleteDetailReversal — leere Liste, Einzahl und Mehrzahl, vollständige Zeichenkette.
+//    WR-01 (Code-Review Phase 13): ohne den Leer-Zweig behauptete die Einzahlform eine
+//    Buchung "über ± 0:00h", die es gar nicht gibt.
+test('deleteDetailReversal: leere Liste behauptet keine Buchung', () => {
+  const text = deleteDetailReversal({ reversedTransactions: [] });
+  assert.equal(
+    text,
+    'Zu dieser Periode gibt es keine Buchung im Kontoauszug — es wird nichts storniert.'
+  );
+});
+
 test('deleteDetailReversal: Einzahl (eine Buchung)', () => {
   const text = deleteDetailReversal({ reversedTransactions: [{ hours: 4.5 }] });
   assert.equal(
@@ -107,11 +117,20 @@ test('deleteDetailReversal: Mehrzahl (mehr als eine Buchung)', () => {
   });
   assert.equal(
     text,
-    'Die zugehörigen Buchungen über -3:30h werden nicht entfernt. Sie werden durch Gegenbuchungen ausgeglichen. Beide Seiten bleiben im Kontoauszug sichtbar.'
+    'Die zugehörigen Buchungen (-2:00h, -1:30h) werden nicht entfernt. Sie werden durch Gegenbuchungen ausgeglichen. Beide Seiten bleiben im Kontoauszug sichtbar.'
   );
 });
 
-test('deleteDetailReversal: Nulldifferenz zeigt "± 0:00h"', () => {
+// WR-01: Zwei Buchungen, die sich aufheben, dürfen sich NICHT zu "± 0:00h" verdichten —
+// diese Angabe stünde direkt neben dem echten balanceDelta aus Punkt 3 und würde dort als
+// Saldoaussage gelesen.
+test('deleteDetailReversal: +5/-5 nennt Einzelbeträge statt einer Summe von "± 0:00h"', () => {
+  const text = deleteDetailReversal({ reversedTransactions: [{ hours: 5 }, { hours: -5 }] });
+  assert.ok(text.includes('(+5:00h, -5:00h)'), text);
+  assert.ok(!text.includes('± 0:00h'), text);
+});
+
+test('deleteDetailReversal: eine einzelne Buchung über 0h zeigt "± 0:00h"', () => {
   const text = deleteDetailReversal({ reversedTransactions: [{ hours: 0 }] });
   assert.equal(
     text,
