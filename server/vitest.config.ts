@@ -4,6 +4,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // WR-14 (Code-Review Phase 11): Produktionsschutz vor JEDER Testdatei. Die Tests
+    // schreiben und löschen echte Zeilen in der Datenbank aus `getDatabasePath()`; ohne
+    // diesen Riegel würde `DATABASE_PATH=<produktion> npm test` genau dort löschen.
+    // Begründung im Kopf von `vitest.setup.ts`.
+    setupFiles: ['./vitest.setup.ts'],
     // Testdateien laufen nacheinander, nicht parallel.
     //
     // `getDatabasePath()` kennt kein `NODE_ENV=test` — alle Tests arbeiten deshalb auf

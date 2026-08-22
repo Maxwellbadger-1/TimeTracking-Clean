@@ -123,7 +123,12 @@ describe('Plan 11-05: Periodenbewusster Rebuild (D1, REQ-24)', () => {
   const createdUserIds: number[] = [];
 
   function createT1105User(suffix: string, weeklyHours: number, hireDate: string): number {
-    const username = `t1105-${suffix}`;
+    // WR-14: Zufallsanteil wie in den übrigen Testdateien (`createT1107User()` in
+    // absencePeriodAwareness.test.ts, `createTestUser()` in workPeriodService.test.ts).
+    // Vorher war der Benutzername FEST — nach einem abgebrochenen Lauf scheiterte der
+    // nächste an der UNIQUE-Bedingung, und der Aufräumnachweis am Dateiende schlug fehl.
+    // Das `t1105-`-Präfix bleibt, damit der Aufräumnachweis (`LIKE 't1105-%'`) weiter greift.
+    const username = `t1105-${suffix}-${Math.random().toString(36).slice(2, 8)}`;
     const result = db.prepare(`
       INSERT INTO users (username, email, firstName, lastName, password, role, weeklyHours, hireDate)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
