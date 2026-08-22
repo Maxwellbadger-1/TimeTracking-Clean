@@ -96,21 +96,39 @@ test.describe('User Edit', () => {
     await page.click('button:has-text("Benutzer erstellen")');
     await page.waitForSelector('text=ChangeToZero User', { timeout: 10000 });
 
-    // Edit to 0 hours
-    let userRow = page.locator('tr:has-text("ChangeToZero User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    // Bearbeiten-Dialog oeffnen (Selektor repariert: kein aria-label auf diesem Button,
+    // siehe UserManagementPage.tsx)
+    const userRow = page.locator('tr:has-text("ChangeToZero User")');
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
-    await page.fill('[name="weeklyHours"]', '0');
-    await page.fill('[name="vacationDays"]', '0');
+    // Seit Plan 12-07 ist das Wochenstundenfeld im Stammdatenformular schreibgeschuetzt (D1) —
+    // die Umstellung auf 0 h laeuft ueber den eigenen Wechsel-Dialog.
+    await page.click('button:has-text("Stundenwechsel ab Datum")');
+    await page.waitForSelector('text=Stundenwechsel:', { timeout: 5000 });
 
-    await page.click('button:has-text("Änderungen speichern")');
+    // Stichtag in der Zukunft waehlen, damit keine Rueckwirkungs-Bestaetigung noetig ist und
+    // der Test deterministisch bleibt. Zeitzonensicher aufgebaut, kein toISOString()-Split.
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 1);
+    const futureDateString = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
 
-    // Verify 0 values are preserved
-    await page.waitForTimeout(2000);
-    userRow = page.locator('tr:has-text("ChangeToZero User")');
-    await expect(userRow).toBeVisible();
-    await expect(userRow).toContainText('0');
+    await page.fill('label:has-text("Stichtag") + input', futureDateString);
+    await page.fill('label:has-text("Neue Wochenstunden") + input', '0');
+    await page.fill(
+      'label:has-text("Begründung") + textarea',
+      'E2E-Test: Umstellung auf 0 Stunden (mindestens 10 Zeichen)'
+    );
+
+    // Der Primaerbutton wird erst freigeschaltet, sobald die Server-Vorschau eingetroffen ist
+    // (previewToken) — der Test wartet auf diesen Zustand, nicht auf eine feste Zeitspanne.
+    const saveButton = page.locator('button:has-text("Stundenwechsel speichern")');
+    await expect(saveButton).toBeEnabled({ timeout: 10000 });
+    await saveButton.click();
+
+    // Der Wechsel-Dialog schliesst sich nach dem Speichern; die Periodenliste im
+    // EditUserModal zeigt danach eine Zeile mit 0 h.
+    await expect(page.locator('table tr:has-text("0 h")')).toBeVisible({ timeout: 10000 });
   });
 
   test('Switch from individual workSchedule to normal hours (critical bug fix test)', async ({ page }) => {
