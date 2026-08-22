@@ -33,8 +33,8 @@ interface WorkTimePeriodActionsProps {
   isDeleting: boolean;
   /** DD-39: eigenes Ref je Zeilenaktion — der Aufrufer gibt den Fokus nach dem Schliessen des
    *  jeweiligen Dialogs an genau den Knopf zurueck, der ihn geoeffnet hat. */
-  correctButtonRef?: RefObject<HTMLButtonElement>;
-  deleteButtonRef?: RefObject<HTMLButtonElement>;
+  correctButtonRef?: RefObject<HTMLButtonElement | null>;
+  deleteButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 export function WorkTimePeriodActions({
