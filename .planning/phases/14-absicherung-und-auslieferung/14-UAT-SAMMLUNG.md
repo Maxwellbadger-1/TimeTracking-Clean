@@ -112,6 +112,60 @@ Format je Punkt: was zu prüfen ist / wo / erwartetes Ergebnis — (Herkunftspla
 38. Die übrigen sieben `button[aria-label="Bearbeiten"]`-Selektoren in `user-edit.spec.ts` (sechs andere Testfälle) sind vorbestehend kaputt und laufen aktuell gegen denselben Fehler wie der hier reparierte — vor einem verlässlichen vollständigen E2E-Lauf in Phase 14 zu beheben (kein Aufräumfeldzug in diesem Plan). — (12-09)
 39. Vollständiger Playwright-Lauf der gesamten `user-edit.spec.ts`-Datei gegen eine sauber konfigurierte lokale Umgebung (eigener Port 3000, kein Fremdprozess) — in dieser Ausführungsumgebung nicht möglich gewesen (siehe „E2E-Ausführung"). — (12-09)
 
+### Zusätzlich aus dem Code-Review und seinen Korrekturen (Punkte 40-51)
+
+Nach Abschluss der neun Pläne lief ein zweiteiliger Code-Review (32 Quelldateien). Er fand
+**11 Critical und 31 Warning**; alle wurden behoben (Server 15, Desktop 16 atomare Commits),
+die 14 Info-Befunde blieben bewusst offen. Die folgenden Punkte stammen aus den beiden
+Fix-Berichten `12-REVIEW-FIXES-SERVER.md` und `12-REVIEW-FIXES-DESKTOP.md` und brauchen
+einen Menschen oder eine Produktionskopie.
+
+40. **Bestandsdaten vor Migration 012 prüfen.** Der alte `referenceType`-CHECK war durch
+    `NULL` in der `IN`-Liste wirkungslos, die Produktion *kann* daher unzulässige Werte
+    enthalten. Migration 012 setzt solche auf NULL und protokolliert sie. Vor dem
+    Produktionslauf einmal
+    `SELECT referenceType, COUNT(*) FROM overtime_transactions GROUP BY referenceType;`
+    ausführen — steht dort etwas außerhalb der fünf erlaubten Werte, gehört die Entscheidung
+    „auf NULL setzen" ausdrücklich bestätigt. Lokal ist die Menge leer. — (Server CR-05)
+41. **Rückwirkungsgrenze „Beginn des Vorjahres" bestätigen.** Der Wert wurde gesetzt, weil das
+    Review eine Obergrenze verlangte. Ob die Stiftung nie weiter zurück umstellen muss, ist
+    eine fachliche Frage. — (Server WR-03)
+42. **Rate-Limit 30/min für `/preview` im Realbetrieb gegenprüfen.** Es zählt pro IP; sitzen
+    mehrere Admins hinter derselben Adresse, ist der Wert einmal zu messen. — (Server WR-03)
+43. **Einmalverbrauch des `previewToken`.** Die Sitzungsbindung ist umgesetzt; ein echter
+    Einmalverbrauch verlangt Serverzustand und widerspricht der entschiedenen
+    Zustandslosigkeit. Architekturentscheidung für Phase 13/14. — (Server WR-09)
+44. **Zukunftsmonate auf einer Produktionskopie.** Ein rückwirkender Wechsel für einen Nutzer
+    mit bereits genehmigtem Urlaub im nächsten Quartal — die Entscheidung „vorhandene
+    `overtime_balance`-Zeilen jenseits von heute mitziehen" ist lokal getestet, aber nicht
+    gegen echten Bestand. — (Server WR-02)
+45. **Begründung wird getrimmt gespeichert.** `12-UI-SPEC.md` Zeile 285 sagt „kein Trimmen";
+    der Fixer hat das als Regel für den Anzeigepfad gelesen, nicht für den Schreibweg. Wenn
+    das anders gemeint war, ist es eine Zeile. — (Server WR-04)
+46. **Fokusverhalten aller 13 `Modal`-Aufrufer.** Der Anfangsfokus liegt jetzt auf dem
+    Schließen-Knopf (erstes fokussierbares Element). Für `EditUserModal`, `TimeEntryForm`
+    und `AbsenceRequestForm` ist zu entscheiden, ob dort besser das erste Eingabefeld den
+    Fokus bekommt — jeder Aufrufer kann das selbst setzen, wie es der Wechsel-Dialog für
+    „Stichtag" tut. — (Desktop CR-02)
+47. **Kontrast der neuen Elemente messen (≥ 4,5:1, beide Modi):** die zweizeilige
+    Stundenspalte der Modellwechsel-Zeile („dokumentierte Differenz" über dem Betrag), die
+    neutrale Saldozeile und die Fußnote unter der Tabelle. — (Desktop WR-02)
+48. **E2E-Suite `user-edit.spec.ts` einmal wirklich laufen lassen.** Playwright ist in diesem
+    Arbeitsbaum nicht installiert; geprüft wurde per Syntaxparse und `grep`. Sieben Tests
+    wurden repariert, darunter der auf den Wechsel-Dialog umgeschriebene 0-Stunden-Test.
+    (Ersetzt und präzisiert die Punkte 37-39.) — (Desktop WR-12/13/14)
+49. **Typ-Spalte des Kontoauszugs für gewöhnliche Tageszeilen ansehen.** Die Typ-Union in
+    `useWorkTimeAccounts.ts` deckt `time_entry` und `unpaid_deduction` nicht ab; nach
+    Lage des Codes steht dort vermutlich der Rohwert statt einer deutschen Bezeichnung.
+    Eigener Befund, in diesem Lauf nicht behoben. — (Desktop, Nebenbefund)
+50. **Text bei verweigerter Abwesenheitsvorschau außerhalb des Feiertagsfensters.** Aktuell
+    erscheint der Bestandstext für einen Ladefehler. Für „Zeitraum liegt mehr als zwei Jahre
+    entfernt" wäre eine eigene Formulierung besser; `12-UI-SPEC.md` kennt dafür keinen
+    Baustein. — (Desktop WR-21)
+51. **Der Grund bei einer Krankmeldung ist jetzt ausdrücklich optional.** Das folgt Label,
+    Codekommentar und Serververhalten. Will die Stiftung fachlich einen Pflichtgrund, ist das
+    eine Neufestlegung für Frontend **und** Server. — (Desktop WR-20)
+
 ### Nachrichtlich: Umgebungsbefunde ohne Handlungsbedarf in Phase 12
 
 - `vitest` ist im Verzeichnis `desktop/` projektweit nicht lauffähig (fehlendes
