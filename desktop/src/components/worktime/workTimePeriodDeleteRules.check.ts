@@ -16,6 +16,7 @@ import {
   deleteDetailGapClosure,
   deleteDetailReversal,
   deleteDetailRebuild,
+  deleteDetailRebuildParts,
   deleteConfirmText,
   deleteCancelText,
   deleteConfirmAriaLabel,
@@ -167,6 +168,55 @@ test('deleteDetailRebuild: Saldoänderung gleich null', () => {
   );
 });
 
+// 5b. M-5 (UI-Review Phase 13): Punkt 3 ist in Kontextsatz und Betragssatz geteilt. Nur der
+//     vorzeichenbehaftete Stundenwert darf `text-lg font-bold` tragen; der Kontextsatz und die
+//     Vorher/Nachher-Angabe stehen neutral daneben.
+test('M-5: deleteDetailRebuildParts trennt Kontextsatz und hervorzuhebenden Betrag', () => {
+  const parts = deleteDetailRebuildParts({
+    rebuildFrom: '2026-03-01',
+    balanceBefore: 10,
+    balanceAfter: 6.5,
+    balanceDelta: -3.5,
+  });
+  assert.equal(parts.context, `Neu gerechnet wird vom ${formatGermanDate('2026-03-01')} bis heute.`);
+  assert.equal(parts.balancePrefix, 'Der Überstundensaldo ändert sich dabei um ');
+  // Der hervorgehobene Teil ist AUSSCHLIESSLICH der vorzeichenbehaftete Stundenwert.
+  assert.equal(parts.balanceValue, '-3:30h');
+  assert.equal(parts.balanceSuffix, ' — von +10:00h auf +6:30h.');
+  // Und er ist kurz: der frühere Anker war rund 150 Zeichen lang.
+  assert.ok(
+    parts.balanceValue !== null && parts.balanceValue.length <= 12,
+    `Der Anker darf nicht wieder zum Absatz werden, ist aber ${parts.balanceValue?.length} Zeichen lang.`
+  );
+  // Der Kontextsatz trägt keinen Stundenwert — sonst stünde die Zahl zweimal da.
+  assert.equal(/h(\b|$)/.test(parts.context.replace('heute.', '')), false);
+});
+
+test('M-5: ohne Saldoänderung gibt es keinen hervorzuhebenden Betrag', () => {
+  const parts = deleteDetailRebuildParts({
+    rebuildFrom: '2026-03-01',
+    balanceBefore: 5,
+    balanceAfter: 5,
+    balanceDelta: 0,
+  });
+  assert.equal(parts.balanceValue, null);
+  assert.equal(parts.balancePrefix, '');
+  assert.equal(parts.balanceSuffix, 'Der Überstundensaldo bleibt dabei unverändert.');
+});
+
+test('M-5: die Aufteilung ändert den Wortlaut des Textbuchs nicht', () => {
+  for (const args of [
+    { rebuildFrom: '2026-03-01', balanceBefore: -4, balanceAfter: 8.5, balanceDelta: 12.5 },
+    { rebuildFrom: '2026-03-01', balanceBefore: 5, balanceAfter: 5, balanceDelta: 0 },
+  ]) {
+    const parts = deleteDetailRebuildParts(args);
+    assert.equal(
+      `${parts.context} ${parts.balancePrefix}${parts.balanceValue ?? ''}${parts.balanceSuffix}`,
+      deleteDetailRebuild(args)
+    );
+  }
+});
+
 // 6. deleteConfirmText / deleteCancelText / deleteConfirmAriaLabel — wörtlich.
 test('deleteConfirmText liefert "Ja, Periode löschen und stornieren"', () => {
   assert.equal(deleteConfirmText(), 'Ja, Periode löschen und stornieren');
@@ -203,5 +253,5 @@ test('isDeleteConfirmDisabled deckt alle acht Kombinationen korrekt ab', () => {
   assert.equal(combinationCount, 8);
 });
 
-assert.ok(testCount >= 14, `Erwartet mindestens 14 Testfälle, gefunden ${testCount}`);
+assert.ok(testCount >= 17, `Erwartet mindestens 17 Testfälle, gefunden ${testCount}`);
 console.log(`\n${testCount} Tests bestanden.`);

@@ -26,7 +26,7 @@ import {
   deleteConfirmMessage,
   deleteDetailGapClosure,
   deleteDetailReversal,
-  deleteDetailRebuild,
+  deleteDetailRebuildParts,
   deleteConfirmText,
   deleteCancelText,
   deleteConfirmAriaLabel,
@@ -549,29 +549,48 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             <p className="text-sm text-gray-700 dark:text-gray-300">
               {deleteDetailReversal({ reversedTransactions: deletionPreview.reversedTransactions })}
             </p>
-            <div className="flex items-center gap-2">
-              {deletionPreview.balanceDelta > 0 ? (
-                <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-              ) : deletionPreview.balanceDelta < 0 ? (
-                <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-              ) : null}
-              <span
-                className={`text-lg font-bold ${
-                  deletionPreview.balanceDelta > 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : deletionPreview.balanceDelta < 0
-                    ? 'text-red-600 dark:text-red-400'
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                {deleteDetailRebuild({
-                  rebuildFrom: deletionPreview.rebuildFrom,
-                  balanceBefore: deletionPreview.balanceBefore,
-                  balanceAfter: deletionPreview.balanceAfter,
-                  balanceDelta: deletionPreview.balanceDelta,
-                })}
-              </span>
-            </div>
+            {/* M-5 (UI-Review Phase 13): Punkt 3 stand als ganzer 150-Zeichen-Absatz in
+                `text-lg font-bold` plus Signalfarbe. Der Vertrag reserviert Gewicht 700
+                „ausschließlich für vorzeichenbehaftete Stundenwerte", und ein fünfzeiliger
+                Anker ist keiner mehr. Der Wortlaut ist unverändert, nur aufgeteilt: der
+                Kontextsatz neutral, hervorgehoben allein der Stundenwert — wie im
+                Nachbardialog aus Phase 12. Bei einer Differenz von 0 gibt es keinen
+                Stundenwert und folglich auch keine Hervorhebung. */}
+            {(() => {
+              const rebuild = deleteDetailRebuildParts({
+                rebuildFrom: deletionPreview.rebuildFrom,
+                balanceBefore: deletionPreview.balanceBefore,
+                balanceAfter: deletionPreview.balanceAfter,
+                balanceDelta: deletionPreview.balanceDelta,
+              });
+              return (
+                <>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{rebuild.context}</p>
+                  <div className="flex items-center gap-2">
+                    {deletionPreview.balanceDelta > 0 ? (
+                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    ) : deletionPreview.balanceDelta < 0 ? (
+                      <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    ) : null}
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {rebuild.balancePrefix}
+                      {rebuild.balanceValue !== null && (
+                        <span
+                          className={`text-lg font-bold ${
+                            deletionPreview.balanceDelta > 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
+                          {rebuild.balanceValue}
+                        </span>
+                      )}
+                      {rebuild.balanceSuffix}
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
 

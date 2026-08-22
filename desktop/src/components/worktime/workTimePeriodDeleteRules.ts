@@ -114,16 +114,61 @@ export interface DeleteDetailRebuildArgs {
   balanceDelta: number;
 }
 
-/** Punkt 3 der `details`-Liste — der visuelle Anker der Löschbestätigung (13-UI-SPEC.md
- *  Abschnitt „Visueller Anker"): aus der Server-Vorschau, NIE selbst gerechnet (DD-38). */
-export function deleteDetailRebuild(args: DeleteDetailRebuildArgs): string {
-  const fromDate = formatGermanDate(args.rebuildFrom);
+export interface DeleteDetailRebuildParts {
+  /** Kontextsatz — `text-sm`, neutral. Trägt keinen Zahlenwert und wird nie hervorgehoben. */
+  context: string;
+  /** Text vor dem hervorgehobenen Betrag. Leer, wenn es keinen Betrag gibt. */
+  balancePrefix: string;
+  /** Der EINZIGE hervorzuhebende Teil: ein vorzeichenbehafteter Stundenwert — oder `null`,
+   *  wenn sich der Saldo nicht ändert und es folglich nichts hervorzuheben gibt. */
+  balanceValue: string | null;
+  /** Text nach dem Betrag — bzw. der vollständige Satz, wenn es keinen Betrag gibt. */
+  balanceSuffix: string;
+}
+
+/**
+ * Punkt 3 der `details`-Liste — der visuelle Anker der Löschbestätigung (13-UI-SPEC.md
+ * Abschnitt „Visueller Anker"): aus der Server-Vorschau, NIE selbst gerechnet (DD-38).
+ *
+ * M-5 (UI-Review Phase 13): Die Komponente legte die VOLLSTÄNDIGE Rückgabe dieser Funktion in
+ * einen `text-lg font-bold`-Span mit Signalfarbe — rund 150 Zeichen, im `max-w-md`-Dialog vier
+ * bis fünf Zeilen durchgehend fett gefärbter Fließtext. Der Vertrag reserviert Gewicht 700
+ * aber „ausschließlich für vorzeichenbehaftete Stundenwerte", und ein Anker, der fünf Zeilen
+ * lang ist, hebt sich von nichts mehr ab: Die eigentliche Zahl ging in der eigenen
+ * Hervorhebung unter. Der Nachbardialog aus Phase 12 hebt an derselben Stelle nur ein kurzes
+ * Label samt Zahl hervor.
+ *
+ * Der Wortlaut aus dem Textbuch bleibt dabei UNVERÄNDERT — er wird nur so zerlegt, dass die
+ * Komponente den Kontextsatz neutral setzen und allein den Stundenwert hervorheben kann.
+ * `deleteDetailRebuild()` setzt die Teile wieder zusammen und hält damit fest, dass sich am
+ * Satz selbst nichts geändert hat.
+ */
+export function deleteDetailRebuildParts(args: DeleteDetailRebuildArgs): DeleteDetailRebuildParts {
+  const context = `Neu gerechnet wird vom ${formatGermanDate(args.rebuildFrom)} bis heute.`;
   if (args.balanceDelta === 0) {
-    return `Neu gerechnet wird vom ${fromDate} bis heute. Der Überstundensaldo bleibt dabei unverändert.`;
+    return {
+      context,
+      balancePrefix: '',
+      balanceValue: null,
+      balanceSuffix: 'Der Überstundensaldo bleibt dabei unverändert.',
+    };
   }
-  return `Neu gerechnet wird vom ${fromDate} bis heute. Der Überstundensaldo ändert sich dabei um ${formatSignedHours(
-    args.balanceDelta
-  )} — von ${formatSignedHours(args.balanceBefore)} auf ${formatSignedHours(args.balanceAfter)}.`;
+  return {
+    context,
+    balancePrefix: 'Der Überstundensaldo ändert sich dabei um ',
+    balanceValue: formatSignedHours(args.balanceDelta),
+    balanceSuffix: ` — von ${formatSignedHours(args.balanceBefore)} auf ${formatSignedHours(
+      args.balanceAfter
+    )}.`,
+  };
+}
+
+/** Punkt 3 als durchgehender Satz — die Zusammensetzung der Teile aus
+ *  `deleteDetailRebuildParts()`. Dient dem Prüfskript als Beleg, dass der Wortlaut des
+ *  Textbuchs durch die Aufteilung (M-5) unangetastet geblieben ist. */
+export function deleteDetailRebuild(args: DeleteDetailRebuildArgs): string {
+  const parts = deleteDetailRebuildParts(args);
+  return `${parts.context} ${parts.balancePrefix}${parts.balanceValue ?? ''}${parts.balanceSuffix}`;
 }
 
 export function deleteConfirmText(): string {
