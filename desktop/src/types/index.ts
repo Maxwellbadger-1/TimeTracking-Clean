@@ -133,3 +133,79 @@ export interface GDPRDataExport {
     lastUpdated: string;
   };
 }
+
+// Stundenwechsel-Vertrag (Milestone v3.0, Phase 12, REQ-26 bis REQ-29) — zeichengleiche
+// Spiegelung von server/src/types/index.ts (Plan 12-01). D2: Vorschau und Speichern teilen
+// sich WorkTimeChangePreview, damit im Client keine eigene Rechnung entsteht.
+
+/** Spiegel von UserWorkPeriod (server/src/types/index.ts). */
+export interface WorkTimePeriod {
+  id: number;
+  userId: number;
+  /** Inklusiv: Erster Geltungstag dieser Periode (YYYY-MM-DD). */
+  validFrom: string;
+  /** Exklusiv: Erster Tag, an dem diese Periode NICHT mehr gilt. NULL = laufende Periode. */
+  validTo: string | null;
+  weeklyHours: number;
+  workSchedule: WorkSchedule | null;
+  note: string | null;
+  createdAt: string;
+  createdBy: number | null;
+}
+
+export interface WorkTimeChangeInput {
+  /** Nutzer, dessen Arbeitszeitmodell ab dem Stichtag geändert wird. */
+  userId: number;
+  /** Inklusiv: erster Geltungstag der neuen Periode (YYYY-MM-DD). Kann in der Vergangenheit
+   *  oder Zukunft liegen (D3). */
+  validFrom: string;
+  /** Neue wöchentliche Sollstundenzahl der Periode ab validFrom. */
+  weeklyHours: number;
+  /** Neuer individueller Tagesplan, oder null für die pauschale Verteilung über weeklyHours. */
+  workSchedule: WorkSchedule | null;
+  /** Pflichtbegründung für die Journalbuchung (D5) — keine stille Änderung ohne Grund. */
+  reason: string;
+}
+
+/** Ergebnis einer Vorschau- oder Speicher-Berechnung (D2: identischer Rückgabetyp für beide
+ *  Pfade). Alle Stundenwerte sind bereits gerundet auf zwei Nachkommastellen. */
+export interface WorkTimeChangePreview {
+  userId: number;
+  validFrom: string;
+  /** true, wenn validFrom in der Vergangenheit liegt und deshalb ein Rebuild bis heute
+   *  ausgelöst wird (D3). */
+  isRetroactive: boolean;
+  rangeStart: string;
+  rangeEnd: string;
+  workingDaysInRange: number;
+  targetHoursBefore: number;
+  targetHoursAfter: number;
+  targetHoursDelta: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  balanceDelta: number;
+  /** Die bislang gültige Periode zum Stichtag, oder null, wenn keine existiert. */
+  currentPeriod: { validFrom: string; weeklyHours: number; workSchedule: WorkSchedule | null } | null;
+  /** true, wenn sich weder Sollstunden noch Tagesplan gegenüber der aktuell gültigen Periode
+   *  ändern — die Oberfläche zeigt dann das Panel "nichts zu tun". */
+  isNoOp: boolean;
+  /** true, wenn der Stichtag nicht auf den Monatsersten fällt. */
+  midMonthEffective: boolean;
+  /** Von rangeStart..rangeEnd betroffene Kalendermonate (YYYY-MM). */
+  affectedMonths: string[];
+}
+
+/** Antwortform der Vorschau-Route: hängt ein signiertes, zeitlich begrenztes Token an die
+ *  Vorschau, damit der nachfolgende Speichern-Aufruf exakt die geprüfte Berechnung bestätigt
+ *  (D2). */
+export type WorkTimeChangePreviewResponse = WorkTimeChangePreview & { previewToken: string };
+
+/** Ergebnis eines tatsächlichen Speicherns (nicht Dry-Run). */
+export interface WorkTimeChangeResult {
+  /** Die neu angelegte Periode. */
+  period: WorkTimePeriod;
+  /** Dieselbe Berechnung, die auch der Vorschau zugrunde lag (D2). */
+  preview: WorkTimeChangePreview;
+  /** ID der erzeugten model_change-Buchung, oder null, wenn balanceDelta 0 ist (D4). */
+  transactionId: number | null;
+}
