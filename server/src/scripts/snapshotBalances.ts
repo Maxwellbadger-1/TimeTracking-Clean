@@ -218,8 +218,11 @@ async function main(): Promise<void> {
     const uwpTableExists = db
       .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_work_periods'`)
       .get();
+    // Phase 13 (DD-5): deletedAt IS NULL — weggenommene Perioden sollen diese Ausgangs-Kennzahl
+    // nicht mehr mitzaehlen, sonst waere sie nach Phase 13 nicht mehr mit fruehren Messungen
+    // vergleichbar.
     const uwpCount = uwpTableExists
-      ? (db.prepare('SELECT COUNT(*) as c FROM user_work_periods').get() as { c: number }).c
+      ? (db.prepare('SELECT COUNT(*) as c FROM user_work_periods WHERE deletedAt IS NULL').get() as { c: number }).c
       : 0;
 
     console.log('=== snapshotBalances: Ausgangslage ===');

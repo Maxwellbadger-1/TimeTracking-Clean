@@ -166,8 +166,12 @@ async function main(): Promise<void> {
     .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_work_periods'`)
     .get();
   if (uwpTableExists) {
+    // Phase 13 (DD-5): deletedAt IS NULL — diese Kennzahl wird NACH runMigrations() erhoben
+    // (Migration 013 hat zu diesem Zeitpunkt bereits die Spalte angelegt); ohne den Filter
+    // zaehlte eine weggenommene Periode faelschlich mit und die Kennzahl waere nicht mehr mit
+    // fruehren Laeufen dieses Werkzeugs vergleichbar.
     userWorkPeriodsRowCount = (
-      db.prepare('SELECT COUNT(*) as c FROM user_work_periods').get() as { c: number }
+      db.prepare('SELECT COUNT(*) as c FROM user_work_periods WHERE deletedAt IS NULL').get() as { c: number }
     ).c;
   }
 

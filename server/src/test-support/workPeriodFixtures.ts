@@ -50,6 +50,8 @@ export function stubWorkPeriodContext(entries: StubWorkPeriodEntry[]): WorkPerio
       note: 'stubWorkPeriodContext-fixture',
       createdAt: '2020-01-01T00:00:00.000Z',
       createdBy: null,
+      deletedAt: null,
+      deletedBy: null,
     };
 
     const list = byUser.get(entry.userId);

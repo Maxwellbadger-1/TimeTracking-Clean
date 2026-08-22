@@ -99,6 +99,8 @@ function makePeriod(
     note: overrides.note ?? null,
     createdAt: overrides.createdAt ?? '2026-01-01T00:00:00.000Z',
     createdBy: overrides.createdBy ?? null,
+    deletedAt: overrides.deletedAt ?? null,
+    deletedBy: overrides.deletedBy ?? null,
   };
 }
 

@@ -125,21 +125,27 @@ function main(): void {
   db.pragma('query_only = ON');
 
   // 1. Nutzer mit mehr als einer Periode.
+  // Phase 13 (DD-5): deletedAt IS NULL — sonst zaehlt eine weggenommene Periode weiterhin
+  // mit und die Kennzahl waere nach Phase 13 nicht mehr mit den Vorher-Messungen aus
+  // Phase 11/12 vergleichbar.
   const multiPeriod = db
     .prepare(
-      `SELECT userId, COUNT(*) c FROM user_work_periods GROUP BY userId HAVING COUNT(*) > 1`
+      `SELECT userId, COUNT(*) c FROM user_work_periods WHERE deletedAt IS NULL GROUP BY userId HAVING COUNT(*) > 1`
     )
     .all() as MultiPeriodRow[];
   print(`1) Nutzer mit >1 Periode: ${multiPeriod.length} ${JSON.stringify(multiPeriod.map((r) => r.userId))}`);
 
   // 2. Drift zwischen users.weeklyHours/workSchedule und der offenen Periode.
   //    WR-11: `AND u.deletedAt IS NULL` — soft-geloeschte Mitarbeiter sind keine Drift.
+  // Phase 13 (DD-5): p.deletedAt IS NULL — eine weggenommene "offene" Periode darf hier nicht
+  // mehr als die aktuelle Periode des Nutzers gelten, sonst vergleicht die Drift-Messung gegen
+  // eine bereits geloeschte Zeile.
   const drift = db
     .prepare(
       `SELECT u.id as userId, u.weeklyHours as usersWeeklyHours, u.workSchedule as usersWorkSchedule,
               p.weeklyHours as periodWeeklyHours, p.workSchedule as periodWorkSchedule
        FROM users u
-       JOIN user_work_periods p ON p.userId = u.id AND p.validTo IS NULL
+       JOIN user_work_periods p ON p.userId = u.id AND p.validTo IS NULL AND p.deletedAt IS NULL
        WHERE u.deletedAt IS NULL`
     )
     .all() as DriftRow[];
@@ -160,11 +166,14 @@ function main(): void {
   //    WR-11: `AND u.deletedAt IS NULL` — ein soft-geloeschter Mitarbeiter hat typischerweise
   //    keine offene Periode mehr und erschien dadurch dauerhaft in dieser Kennzahl. Die Zahl
   //    konnte strukturell nie 0 werden, obwohl die Ergebnisaussage unten genau darauf aufbaut.
+  // Phase 13 (DD-5): p.deletedAt IS NULL — eine weggenommene offene Periode zaehlt hier nicht
+  // mehr als "offene Periode vorhanden", sonst wuerde ein per Soft-Delete geloeschter Nutzer
+  // faelschlich als "hat eine offene Periode" durchgehen.
   const noOpen = db
     .prepare(
       `SELECT u.id FROM users u
        WHERE u.deletedAt IS NULL
-         AND NOT EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = u.id AND p.validTo IS NULL)`
+         AND NOT EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = u.id AND p.validTo IS NULL AND p.deletedAt IS NULL)`
     )
     .all() as NoOpenRow[];
   print(`3) Nutzer ohne offene Periode: ${noOpen.length} ${JSON.stringify(noOpen.map((r) => r.id))}`);
@@ -172,7 +181,12 @@ function main(): void {
   const totalUsers = (
     db.prepare('SELECT COUNT(*) c FROM users WHERE deletedAt IS NULL').get() as { c: number }
   ).c;
-  const totalPeriods = (db.prepare('SELECT COUNT(*) c FROM user_work_periods').get() as { c: number }).c;
+  // Phase 13 (DD-5): deletedAt IS NULL — weggenommene Perioden sollen die Gesamtzahl nicht
+  // mehr mitzaehlen, sonst waere sie nach Phase 13 nicht mehr mit den Vorher-Messungen
+  // vergleichbar.
+  const totalPeriods = (
+    db.prepare('SELECT COUNT(*) c FROM user_work_periods WHERE deletedAt IS NULL').get() as { c: number }
+  ).c;
   print(`Gesamtzahl users (ohne soft-geloeschte): ${totalUsers}`);
   print(`Gesamtzahl user_work_periods: ${totalPeriods}`);
 

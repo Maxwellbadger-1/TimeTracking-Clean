@@ -283,6 +283,12 @@ export interface UserWorkPeriod {
   note: string | null;
   createdAt: string;
   createdBy: number | null;
+  /** Phase 13 (13-CONTEXT.md D2): gesetzt, sobald die Periode per Soft-Delete weggenommen
+   *  wurde (`softDeleteWorkPeriod()`). NULL = aktiv, für jeden Lesepfad sichtbar. */
+  deletedAt: string | null;
+  /** Nutzer, der die Periode weggenommen hat — zwingend gesetzt bei jedem Soft-Delete
+   *  (T-13-08, Nachvollziehbarkeit). NULL, solange die Periode aktiv ist. */
+  deletedBy: number | null;
 }
 
 /** Rohe Datenbankzeile — workSchedule kommt als JSON-TEXT aus SQLite. Die Umwandlung nach
@@ -297,6 +303,8 @@ export interface UserWorkPeriodRow {
   note: string | null;
   createdAt: string;
   createdBy: number | null;
+  deletedAt: string | null;
+  deletedBy: number | null;
 }
 
 // Stundenwechsel-Vertrag (Milestone v3.0, Phase 12, REQ-26 bis REQ-29) —

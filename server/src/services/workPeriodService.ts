@@ -65,6 +65,7 @@
 
 import { db } from '../database/connection.js';
 import { isRealCalendarDate } from '../utils/validation.js';
+import { getTodayString } from '../utils/timezone.js';
 import type { UserWorkPeriod, UserWorkPeriodRow, WorkSchedule, DayName } from '../types/index.js';
 
 const WEEKDAY_KEYS: readonly DayName[] = [
@@ -78,7 +79,7 @@ const WEEKDAY_KEYS: readonly DayName[] = [
 ];
 
 const SELECT_COLUMNS = `
-  id, userId, validFrom, validTo, weeklyHours, workSchedule, note, createdAt, createdBy
+  id, userId, validFrom, validTo, weeklyHours, workSchedule, note, createdAt, createdBy, deletedAt, deletedBy
 `;
 
 /**
@@ -171,6 +172,8 @@ function rowToWorkPeriod(row: UserWorkPeriodRow): UserWorkPeriod {
     note: row.note,
     createdAt: row.createdAt,
     createdBy: row.createdBy,
+    deletedAt: row.deletedAt,
+    deletedBy: row.deletedBy,
   };
 }
 
@@ -193,10 +196,20 @@ function translateWorkPeriodError(err: unknown, context: string): never {
   throw err;
 }
 
-/** Alle Perioden eines Nutzers, aufsteigend nach validFrom. */
+/**
+ * Alle Perioden eines Nutzers, aufsteigend nach validFrom.
+ *
+ * PHASE 13 (13-CONTEXT.md D2/D3): `deletedAt IS NULL` nimmt weggenommene Perioden aus dem
+ * Sammelpfad heraus. Der `BEFORE DELETE`-Trigger aus Migration 008/013 schützt nur gegen ein
+ * echtes `DELETE`-Statement auf dieser Tabelle — er feuert NICHT beim Soft-Delete-Schreibweg
+ * dieser Phase (`softDeleteWorkPeriod()`, ein `UPDATE`) und ist deshalb KEIN Ersatz für diesen Filter.
+ * `createWorkPeriodContext()` (`workPeriodContext.ts`), `resolveWorkPeriodAt()` und
+ * `checkPeriodChain()` laden ausschließlich über diese Funktion — der Filter erreicht damit
+ * die gesamte Sollstunden-Berechnung.
+ */
 export function getWorkPeriods(userId: number): UserWorkPeriod[] {
   const rows = db
-    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE userId = ? ORDER BY validFrom ASC`)
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE userId = ? AND deletedAt IS NULL ORDER BY validFrom ASC`)
     .all(userId) as UserWorkPeriodRow[];
 
   return rows.map(rowToWorkPeriod);
@@ -209,8 +222,11 @@ export function getWorkPeriods(userId: number): UserWorkPeriod[] {
  * geworfen statt eine der beiden Zeilen stillschweigend zu bevorzugen.
  */
 export function getCurrentWorkPeriod(userId: number): UserWorkPeriod | null {
+  // PHASE 13 (13-CONTEXT.md D2/D3): deletedAt IS NULL — der BEFORE-DELETE-Trigger schützt nur
+  // gegen ein echtes DELETE, nicht gegen softDeleteWorkPeriod() (ein UPDATE). Ohne diesen
+  // Filter würde eine weggenommene offene Periode weiterhin als "aktuell" gelten.
   const rows = db
-    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE userId = ? AND validTo IS NULL`)
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE userId = ? AND validTo IS NULL AND deletedAt IS NULL`)
     .all(userId) as UserWorkPeriodRow[];
 
   if (rows.length === 0) return null;
@@ -312,6 +328,7 @@ export function createWorkPeriod(input: CreateWorkPeriodInput): UserWorkPeriod {
         input.createdBy ?? null
       );
 
+    // Kein deletedAt-Filter nötig: liest die soeben eingefügte, noch nicht gelöschte Zeile zurück.
     const row = db
       .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
       .get(result.lastInsertRowid) as UserWorkPeriodRow;
@@ -342,6 +359,7 @@ export function closeWorkPeriod(periodId: number, validTo: string): UserWorkPeri
     translateWorkPeriodError(err, `Periode ${periodId} konnte nicht geschlossen werden`);
   }
 
+  // Kein deletedAt-Filter nötig: liest die gerade geschriebene Zeile zurück.
   const row = db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
     .get(periodId) as UserWorkPeriodRow;
@@ -379,6 +397,7 @@ export function updateWorkPeriodValues(
     translateWorkPeriodError(err, `Werte der Periode ${periodId} konnten nicht geändert werden`);
   }
 
+  // Kein deletedAt-Filter nötig: liest die gerade geschriebene Zeile zurück.
   const row = db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
     .get(periodId) as UserWorkPeriodRow;
@@ -415,6 +434,7 @@ export function setWorkPeriodValidFrom(periodId: number, validFrom: string): Use
     );
   }
 
+  // Kein deletedAt-Filter nötig: liest die gerade geschriebene Zeile zurück.
   const row = db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
     .get(periodId) as UserWorkPeriodRow;
@@ -538,4 +558,167 @@ export function checkAllPeriodChains(): PeriodChainIssue[] {
   }
 
   return issues;
+}
+
+/*
+ * ============================================================================
+ * PHASE 13 — KORRIGIEREN UND RÜCKGÄNGIG MACHEN (13-CONTEXT.md D2/D3, REQ-31)
+ * ============================================================================
+ * Ab hier: der eine Soft-Delete-Schreibweg, der eine Lückenschluss-Schreibweg (der auch
+ * "offen" setzen kann), der aussetzbare Kettenriegel und die um isFirst/isCurrent erweiterte
+ * Periodenliste. Alle vier Lesepfade oben (getWorkPeriods, getCurrentWorkPeriod) filtern
+ * bereits `deletedAt IS NULL` — eine weggenommene Periode erreicht damit keinen
+ * Berechnungspfad mehr, bevor sie hier überhaupt weggenommen werden kann.
+ */
+
+/**
+ * Periodenliste inklusive serverseitig berechneter Flags (DD-6, 13-CONTEXT.md).
+ *
+ * `UserWorkPeriod` bleibt die reine Abbildung der Tabellenzeile — dieser Typ steht bewusst
+ * daneben, nicht als Ersatz.
+ */
+export interface UserWorkPeriodListItem extends UserWorkPeriod {
+  isFirst: boolean;
+  isCurrent: boolean;
+}
+
+/**
+ * Liefert eine einzelne Periode über ihre Id, oder `null`, wenn sie nicht existiert ODER
+ * bereits weggenommen wurde (`deletedAt IS NOT NULL`) — Phase 13 (13-CONTEXT.md D2). Anders
+ * als die reinen Rücklese-Abfragen nach einem Schreibvorgang liefert diese Funktion bewusst
+ * `null` statt zu werfen: Ein Aufrufer (z. B. eine Lösch-Vorschau, die auf eine bereits
+ * gelöschte Periode trifft) muss das als regulären Fall behandeln können, nicht als
+ * Programmierfehler.
+ */
+export function getWorkPeriodById(periodId: number): UserWorkPeriod | null {
+  const row = db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ? AND deletedAt IS NULL`)
+    .get(periodId) as UserWorkPeriodRow | undefined;
+
+  return row ? rowToWorkPeriod(row) : null;
+}
+
+/**
+ * DER EINE LÜCKENSCHLUSS-SCHREIBWEG, der auch "offen" setzen kann (DD-7, 13-CONTEXT.md D3).
+ *
+ * ABGRENZUNG ZU `closeWorkPeriod()`: `closeWorkPeriod()` (Phase 10) bleibt UNVERÄNDERT (NO
+ * REGRESSION) und akzeptiert weiterhin ausschließlich ein konkretes Datum — sie kann
+ * strukturell kein `null` setzen. Wird die offene letzte Periode eines Nutzers gelöscht, muss
+ * die Vorperiode wieder offen werden, damit die Kette D3 (Lückenlosigkeit) einhält. Dafür
+ * existiert diese zweite, eigenständige Funktion, statt `closeWorkPeriod()` nachträglich um
+ * ein optionales Argument zu erweitern und dadurch jeden ihrer bestehenden Aufrufer erneut auf
+ * Nichtregression prüfen zu müssen.
+ */
+export function extendWorkPeriodTo(periodId: number, validTo: string | null): UserWorkPeriod {
+  if (validTo !== null) {
+    assertDateFormat(validTo, 'validTo');
+  }
+
+  try {
+    const result = db
+      .prepare(`UPDATE user_work_periods SET validTo = ? WHERE id = ?`)
+      .run(validTo, periodId);
+
+    if (result.changes === 0) {
+      throw new Error(`extendWorkPeriodTo: Periode ${periodId} existiert nicht.`);
+    }
+  } catch (err) {
+    translateWorkPeriodError(
+      err,
+      `Periode ${periodId} konnte nicht auf ${validTo ?? 'offen'} gesetzt werden`
+    );
+  }
+
+  // Kein deletedAt-Filter nötig: liest die gerade geschriebene Zeile zurück.
+  const row = db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
+    .get(periodId) as UserWorkPeriodRow;
+
+  return rowToWorkPeriod(row);
+}
+
+/**
+ * DER EINE SOFT-DELETE-SCHREIBWEG (13-CONTEXT.md D2). Kein anderer Codepfad im Projekt darf
+ * ein echtes `DELETE`-Statement auf dieser Tabelle ausführen — der Trigger
+ * `trg_user_work_periods_delete_guard` (Migration 008/013) bleibt als Sicherheitsnetz gegen
+ * ein solches echtes `DELETE` bestehen, ist aber KEIN Ersatz für diesen Schreibweg, weil er nur
+ * gegen echtes `DELETE` schützt, nicht gegen ein `UPDATE ... SET deletedAt = ...`.
+ *
+ * Setzt `deletedAt` über den SQLite-Ausdruck `datetime('now')`, nicht über
+ * `new Date().toISOString()` — `.claude/CLAUDE.md` verbietet zeitzonenunsichere
+ * Date-Konvertierungen im Code; hier wird ohnehin ein voller Zeitstempel gebraucht (kein
+ * reines `YYYY-MM-DD`-Kalenderdatum), SQLite bildet ihn selbst. `deletedBy` wird über die
+ * Signatur zwingend mitgeschrieben (T-13-08) — es gibt keinen Aufruf, der nur `deletedAt`
+ * setzt und den Urheber offen lässt.
+ *
+ * Liest die Zeile danach OHNE den `deletedAt IS NULL`-Filter zurück: Sie ist jetzt
+ * weggenommen, `getWorkPeriodById()` würde für dieselbe Id `null` liefern.
+ */
+export function softDeleteWorkPeriod(periodId: number, deletedBy: number | null): UserWorkPeriod {
+  try {
+    const result = db
+      .prepare(
+        `UPDATE user_work_periods SET deletedAt = datetime('now'), deletedBy = ? WHERE id = ? AND deletedAt IS NULL`
+      )
+      .run(deletedBy, periodId);
+
+    if (result.changes === 0) {
+      throw new Error(
+        `softDeleteWorkPeriod: Periode ${periodId} existiert nicht oder wurde bereits gelöscht.`
+      );
+    }
+  } catch (err) {
+    translateWorkPeriodError(err, `Periode ${periodId} konnte nicht gelöscht werden`);
+  }
+
+  const row = db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
+    .get(periodId) as UserWorkPeriodRow;
+
+  return rowToWorkPeriod(row);
+}
+
+/**
+ * Setzt `work_period_chain_guard.suspended` für die Dauer von `fn()` auf 1 und garantiert über
+ * ein `finally` die Rücksetzung auf 0 — auch dann, wenn `fn()` wirft (T-13-07, DD-8,
+ * 13-CONTEXT.md).
+ *
+ * NUTZUNGSBEDINGUNG (verbindlich für jeden Aufrufer, kein Vorschlag): Diese Funktion darf
+ * AUSSCHLIESSLICH innerhalb einer bereits laufenden `db.transaction()`-Klammer aufgerufen
+ * werden — schlägt die umgebende Transaktion fehl, rollt SQLite auch den
+ * `UPDATE work_period_chain_guard`-Aufruf zurück, ohne dass diese Funktion selbst etwas dafür
+ * tun müsste. Der Aufrufer MUSS unmittelbar danach, noch innerhalb derselben
+ * Transaktionsklammer, `checkPeriodChain(userId)` aufrufen und bei einem nicht-leeren
+ * `findings`-Array abbrechen (die Transaktion wirft und rollt damit zurück) — der Riegel prüft
+ * während der Aussetzung nichts, die Kettenintegrität muss deshalb manuell nachgeholt werden.
+ * (Aufrufer: Plan 13-03.)
+ */
+export function withSuspendedChainGuard<T>(fn: () => T): T {
+  db.prepare(`UPDATE work_period_chain_guard SET suspended = 1 WHERE id = 1`).run();
+  try {
+    return fn();
+  } finally {
+    db.prepare(`UPDATE work_period_chain_guard SET suspended = 0 WHERE id = 1`).run();
+  }
+}
+
+/**
+ * Periodenliste inklusive serverseitig berechneter Flags (DD-6, 13-CONTEXT.md): `isFirst` ist
+ * die erste Zeile der aufsteigend nach `validFrom` sortierten, nicht weggenommenen Kette
+ * (Index 0) — bewusst KEIN Vergleich gegen `users.hireDate`, weil die Kette nach Phase 11
+ * immer am Eintrittsdatum beginnt und ein zweiter Vergleich eine zweite Wahrheit erzeugen
+ * würde. `isCurrent` kommt aus `resolveWorkPeriodIn(periods, getTodayString())` — derselben
+ * Auflösungsfunktion, die auch die Sollstunden-Berechnung nutzt, kein zweiter
+ * Intervallvergleich. Das Desktop übernimmt beide Flags unverändert, statt sie clientseitig
+ * nachzurechnen.
+ */
+export function getWorkPeriodsWithFlags(userId: number): UserWorkPeriodListItem[] {
+  const periods = getWorkPeriods(userId);
+  const current = resolveWorkPeriodIn(periods, getTodayString());
+
+  return periods.map((period, index) => ({
+    ...period,
+    isFirst: index === 0,
+    isCurrent: current !== null && current.id === period.id,
+  }));
 }
