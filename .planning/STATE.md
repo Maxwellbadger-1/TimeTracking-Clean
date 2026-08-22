@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 11-09-PLAN.md
-last_updated: "2026-08-22T06:18:47.863Z"
+stopped_at: Completed 11-10-PLAN.md
+last_updated: "2026-08-22T06:33:03.609Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 22
-  completed_plans: 21
-  percent: 29
+  completed_plans: 22
+  percent: 43
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** Plan 11-10 ausführen (Nullwirkungs- und Wirkungsnachweis auf echten Daten, D5/D6, REQ-25), danach Phase 9.1 (Journal-Backfill, noch ohne Pläne, siehe Warnhinweis unten) und Phase 12 (`/gsd:plan-phase 12`).
 - **Last completed:** 11-09-PLAN.md (Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün)
-- **Stopped at:** Completed 11-09-PLAN.md
+- **Stopped at:** Completed 11-10-PLAN.md
 
 ## Phase Progress
 
@@ -169,6 +169,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 11-datumsabh-ngige-berechnung]: 11-11: Alle acht Skripte, die Nutzer per direktem INSERT INTO users anlegen, rufen jetzt ensureInitialWorkPeriod() auf - kein Nutzer im Projekt entsteht mehr ohne Arbeitszeitperiode (REQ-23)
 - [Phase 11-09]: Desktop wird in Phase 11 nicht nachgezogen (Abhängigkeitskonflikt: fehlende Perioden-Lese-API), Wirksamkeitsfenster mit drei Messzahlen (alle 0) belegt statt behauptet
 - [Phase 11-09]: Erschöpfende Nachsuche fand sechs Neufunde (drei tote Funktionen in workingDays.ts, timeEntryService.updateOvertimeBalance, verifyTestData.ts, check_overtime.ts) - alle Produktivpfad=nein, kein blockierender Befund
+- [Phase 11-datumsabh-ngige-berechnung]: verifyPeriodNullEffect.ts als unabhaengiges Pruefwerkzeug: schliesst das Loch bei zwei soft-geloeschten Nutzern, die der kanonische Lesepfad nicht aufloest
+- [Phase 11-datumsabh-ngige-berechnung]: Kontrollnutzer fuer REQ-25-Gegenprobe ist userId 3 (individueller Wochenplan) statt userId 1 (weeklyHours=0) - realistischerer Regelfall
 
 ## Quick Tasks Completed
 
@@ -222,6 +224,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 11-datumsabh-ngige-berechnung P08 | 35min | 3 tasks | 7 files |
 | Phase 11-datumsabh-ngige-berechnung P11 | 105min | 3 tasks | 9 files |
 | Phase 11-datumsabh-ngige-berechnung P09 | 60min | 3 tasks | 6 files |
+| Phase 11-datumsabh-ngige-berechnung P10 | 70m | 3 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -258,7 +261,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 10 of 11
+Plan: 11 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
