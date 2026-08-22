@@ -296,7 +296,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 12-05-PLAN.md — Endpunkte `POST /preview` und `POST /change` plus Nachweis der vier Erfolgskriterien (D6)
+- [x] 12-05-PLAN.md — Endpunkte `POST /preview` und `POST /change` plus Nachweis der vier Erfolgskriterien (D6)
 - [ ] 12-06-PLAN.md — Der Wechsel-Dialog mit Vorschaupanel, Bestätigung und allen 15 Zuständen (REQ-26, REQ-27)
 - [ ] 12-08-PLAN.md — WR-12-Nachzug: Desktop rechnet periodengetreu, Wirksamkeitsfenster erneut gemessen
 

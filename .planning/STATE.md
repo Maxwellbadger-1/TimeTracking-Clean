@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Completed 12-04-PLAN.md
-last_updated: "2026-08-22T13:32:38.490Z"
+last_updated: "2026-08-22T13:58:04.382Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 31
-  completed_plans: 26
+  completed_plans: 27
   percent: 43
 ---
 
@@ -184,6 +184,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-03]: Trockenlauf schreibt und rechnet auch im isNoOp-Fall wie der Speicherpfad, nur der Speicherpfad verweigert — Haelt D2 strikt ein - keine zweite Rechenbahn fuer Randfaelle
 - [Phase ?]: Kein optimistisches Update in useSaveWorkTimeChange (D2) - der Speichern-Button haengt an einem gueltigen previewToken
 - [Phase ?]: useSaveWorkTimeChange nutzt den bestehenden Helper invalidateUserAffectedQueries statt einzelner Ueberstunden-Query-Keys
+- [Phase ?]: reason/previewToken werden im Speicherpfad-Anfragekoerper permissiv gelesen (leere Zeichenkette statt 400 bei fehlendem Typ) - ein fehlendes Token beantwortet verifyPreviewToken() bereits mit 409 PREVIEW_STALE (T-12-24)
+- [Phase ?]: OvertimeTransaction.type/.referenceType additiv um 'model_change'/'work_period' erweitert statt Cast/any im Test zu verwenden - reine Typkorrektur, keine Verhaltensaenderung
 
 ## Quick Tasks Completed
 
@@ -242,6 +244,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P02 | 12min | 3 tasks | 4 files |
 | Phase 12 P03 | 45min | 2 tasks | 3 files |
 | Phase 12-stundenwechsel-bedienen P04 | 35min | 2 tasks | 3 files |
+| Phase 12-stundenwechsel-bedienen P05 | 100min | 2 tasks | 3 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -278,7 +281,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-08-22
 
