@@ -601,11 +601,14 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* 1. Mitarbeiter-Infopanel */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-1">
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+        {/* UI-Review Phase 12 (F-1): Das Panel lag im Akzentblau und machte das Signal
+            "Keine Rückwirkung" im Vorschaupanel ununterscheidbar. Es ist eine reine
+            Kontextangabe und gehoert damit auf die Sekundaerflaeche. */}
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-1">
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             {user.firstName} {user.lastName}
           </p>
-          <p className="text-sm text-blue-900 dark:text-blue-100">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             Eintrittsdatum: {hireDate ? formatGermanDate(hireDate) : 'nicht hinterlegt'}
           </p>
           {periodsQuery.isLoading ? (
@@ -613,12 +616,12 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
               <LoadingSpinner />
             </div>
           ) : periodsQuery.isError ? (
-            <p className="text-sm text-blue-900 dark:text-blue-100">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
               Das aktuell gültige Modell konnte nicht geladen werden. Die Felder sind mit den
               Stammdatenwerten vorbelegt — bitte prüfen.
             </p>
           ) : (
-            <p className="text-sm text-blue-900 dark:text-blue-100">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
               {/* WR-05: ohne Periode UND ohne Eintrittsdatum gibt es kein Datum zu nennen —
                   "Invalid Date" waere schlechter als der Verzicht auf den Zusatz. */}
               {currentPeriod?.validFrom ?? hireDate

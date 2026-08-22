@@ -152,10 +152,15 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = fa
             {(Object.keys(DAY_LABELS) as Array<keyof WorkSchedule>).map((day) => (
               <div
                 key={day}
+                /* UI-Review Phase 12 (F-1): Die Tageskacheln waren blau hinterlegt — bis
+                   zu sieben blaue Flaechen in einem Dialog, in dem Blau laut Vertrag genau
+                   vier reservierte Traeger hat. Sie fuehren jetzt neutral; der Unterschied
+                   zwischen belegtem und leerem Tag bleibt ueber Flaeche und Rahmen
+                   erhalten, nur ohne Akzentfarbe. */
                 className={`flex items-center justify-between p-3 rounded-lg border ${
                   schedule[day] > 0
-                    ? 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20'
-                    : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'
+                    ? 'border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800'
+                    : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900'
                 }`}
               >
                 <label
@@ -183,7 +188,9 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = fa
           </div>
 
           {/* Summary */}
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          {/* F-1: Summenkarte auf die Sekundaerflaeche; die Summenzahl traegt ihre
+              Bedeutung ueber gruen/orange, nicht ueber den blauen Kasten. */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Wochenstunden gesamt:
