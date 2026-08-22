@@ -544,6 +544,53 @@ export function applyWorkTimeChange(
       }
     }
 
+    // 16b. WR-05 — REVISIONSSICHERE PROTOKOLLIERUNG.
+    //      Ein Stundenwechsel ändert rückwirkend das Arbeitszeitkonto eines fremden
+    //      Mitarbeiters und erzeugt eine Saldobuchung. Protokolliert wurde das ausschließlich
+    //      über `logger.info` — also in eine rotierende Datei ohne Aufbewahrungsgarantie. Wer
+    //      wann welchen Wechsel für wen vorgenommen hat, war nach der Logrotation nicht mehr
+    //      rekonstruierbar; die `createdBy`-Spalte der Periode allein trägt weder den
+    //      Zeitpunkt der Aktion noch die Vorwerte.
+    //
+    //      Der Eintrag liegt INNERHALB derselben Transaktionsklammer (D7): ein zurückgerollter
+    //      Wechsel hinterlässt auch keinen Protokolleintrag, und der Trockenlauf schreibt
+    //      keinen. `audit_log.userId` trägt den handelnden Admin (Muster aus
+    //      `overtimeCorrectionsService.deleteOvertimeCorrection()`), der betroffene
+    //      Mitarbeiter steht in `changes`.
+    if (!options.dryRun) {
+      db.prepare(
+        `INSERT INTO audit_log (userId, action, entity, entityId, changes)
+         VALUES (?, 'create', 'work_period_change', ?, ?)`
+      ).run(
+        options.createdBy,
+        newPeriod.id,
+        JSON.stringify({
+          affectedUserId: input.userId,
+          validFrom: input.validFrom,
+          rangeStart,
+          rangeEnd,
+          before: currentPeriod
+            ? {
+                validFrom: currentPeriod.validFrom,
+                weeklyHours: currentPeriod.weeklyHours,
+                workSchedule: currentPeriod.workSchedule,
+              }
+            : null,
+          after: {
+            weeklyHours: input.weeklyHours,
+            workSchedule: input.workSchedule,
+          },
+          targetHoursBefore,
+          targetHoursAfter,
+          balanceBefore,
+          balanceAfter,
+          balanceDelta,
+          reason,
+          transactionId,
+        })
+      );
+    }
+
     // 17. Protokoll — ausschließlich Zahlen und Datumsangaben, keine Namen, keine Begründung.
     logger.info(
       { userId: input.userId, validFrom: input.validFrom, balanceDelta, dryRun: options.dryRun },

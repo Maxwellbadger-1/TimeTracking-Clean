@@ -58,6 +58,10 @@ beforeAll(() => {
 });
 
 afterAll(() => {
+  // WR-05: Jeder gespeicherte Wechsel legt einen audit_log-Eintrag mit userId = adminId an.
+  // audit_log.userId zeigt per FOREIGN KEY auf users(id) OHNE ON DELETE CASCADE — ohne
+  // dieses DELETE scheitert das Loeschen des Testadmins an der Fremdschluesselpruefung.
+  db.prepare('DELETE FROM audit_log WHERE userId = ?').run(adminId);
   // Bewusst NICHT mit dem Praefix 'test-12-05-' benannt: der Aufraeumnachweis am Dateiende
   // prueft ausschliesslich die Mitarbeiter-Testnutzer und laeuft VOR diesem afterAll — der
   // Admin darf zu diesem Zeitpunkt noch existieren.
@@ -483,6 +487,83 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
       expect(getMonthlyTransactionSummary(userId, 12)).toEqual(summaryBefore);
       expect(getOvertimeBalanceAtDate(userId, today)).toBe(balanceAtDateBefore);
     } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
+  it('WR-05: Das Speichern schreibt genau einen audit_log-Eintrag mit Vor- und Nachwerten; der Trockenlauf schreibt keinen', () => {
+    const userId = createEmployee('wr05-auditlog', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+      const validFrom = firstOfMonthOffset(today, -1);
+      insertWeekdayTimeEntries(userId, validFrom, today, 8);
+
+      const countAuditRows = (): number =>
+        (
+          db
+            .prepare(
+              `SELECT COUNT(*) as c FROM audit_log
+               WHERE entity = 'work_period_change'
+                 AND json_extract(changes, '$.affectedUserId') = ?`
+            )
+            .get(userId) as { c: number }
+        ).c;
+
+      expect(countAuditRows()).toBe(0);
+
+      const input: WorkTimeChangeInput = {
+        userId,
+        validFrom,
+        weeklyHours: 20,
+        workSchedule: null,
+        reason: 'Nachweis fuer den revisionssicheren Protokolleintrag (WR-05)',
+      };
+
+      // Trockenlauf: kein Eintrag (die gesamte Klammer rollt zurueck).
+      applyWorkTimeChange(input, { dryRun: true, createdBy: adminId });
+      expect(countAuditRows()).toBe(0);
+
+      const outcome = applyWorkTimeChange(input, { dryRun: false, createdBy: adminId });
+      expect(countAuditRows()).toBe(1);
+
+      const row = db
+        .prepare(
+          `SELECT userId, action, entity, entityId, changes FROM audit_log
+           WHERE entity = 'work_period_change'
+             AND json_extract(changes, '$.affectedUserId') = ?`
+        )
+        .get(userId) as {
+        userId: number;
+        action: string;
+        entity: string;
+        entityId: number;
+        changes: string;
+      };
+
+      expect(row.userId).toBe(adminId);
+      expect(row.action).toBe('create');
+      expect(row.entityId).toBe(outcome.period!.id);
+
+      const changes = JSON.parse(row.changes) as {
+        affectedUserId: number;
+        validFrom: string;
+        before: { weeklyHours: number } | null;
+        after: { weeklyHours: number };
+        balanceDelta: number;
+        transactionId: number | null;
+      };
+      expect(changes.affectedUserId).toBe(userId);
+      expect(changes.validFrom).toBe(validFrom);
+      expect(changes.before!.weeklyHours).toBe(40);
+      expect(changes.after.weeklyHours).toBe(20);
+      expect(changes.balanceDelta).toBe(outcome.preview.balanceDelta);
+      expect(changes.transactionId).toBe(outcome.transactionId);
+    } finally {
+      db.prepare(
+        `DELETE FROM audit_log
+         WHERE entity = 'work_period_change'
+           AND json_extract(changes, '$.affectedUserId') = ?`
+      ).run(userId);
       cleanupEmployee(userId);
     }
   });
