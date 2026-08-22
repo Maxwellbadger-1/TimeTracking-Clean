@@ -8,6 +8,7 @@ import {
 import type { UserPublic, WorkSchedule } from '../types/index.js';
 import { stubWorkPeriodContext, insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
 import type { WorkPeriodContext } from './workPeriodContext.js';
+import { createTransaction } from './overtimeTransactionManager.js';
 
 /**
  * Regressionsnetz gegen den Rückfall in eine eigene Arbeitstags-Entscheidung (REQ-17).
@@ -355,5 +356,185 @@ describe('calculateLiveOvertimeTransactions — D7 Periodenwechsel', () => {
     expect(before?.hours).toBe(-4);
     expect(after?.description).toContain('Soll: 8h');
     expect(after?.hours).toBe(-8);
+  });
+});
+
+/**
+ * Phase 13 (REQ-31, DD-24/DD-25/DD-26/DD-27): Der Kontoauszug muss ein Storno-Paar
+ * (Original-`model_change`-Zeile + Gegenbuchung mit `reversalOf`) vollstaendig, unveraendert
+ * und nicht-summierend liefern — die Grundlage dafuer, dass die Oberflaeche (Plan 13-10)
+ * Zustands-Badges, den Beleg-Chip und die Sprungmarke zur Partnerzeile anbieten kann.
+ */
+describe('calculateLiveOvertimeTransactions — Storno-Paar (Phase 13, REQ-31)', () => {
+  let testUserId: number;
+  let testAdminId: number;
+
+  beforeEach(() => {
+    const userResult = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'test-13-06-user',
+      'test-13-06-user@example.com',
+      'Test',
+      'Storno',
+      'hash',
+      'employee',
+      40,
+      '2026-03-01'
+    );
+    testUserId = userResult.lastInsertRowid as number;
+
+    // D4: ohne eine Periode ab hireDate würde jeder getDailyTargetHours()-Aufruf für diesen
+    // Nutzer MissingWorkPeriodError werfen (wie im Fixture des D7-Blocks oben).
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-03-01', weeklyHours: 40 });
+
+    const adminResult = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'test-13-06-admin',
+      'test-13-06-admin@example.com',
+      'Adminvorname',
+      'Adminnachname',
+      'hash',
+      'admin',
+      40,
+      '2020-01-01'
+    );
+    testAdminId = adminResult.lastInsertRowid as number;
+  });
+
+  afterEach(() => {
+    // user_work_periods wird NICHT explizit gelöscht: der BEFORE-DELETE-Riegel
+    // (trg_user_work_periods_delete_guard, Migration 008/010) verweigert ein echtes DELETE,
+    // das den Nutzer periodenlos zurückließe. `users` trägt ON DELETE CASCADE auf
+    // user_work_periods (schema.ts) — das Löschen des Nutzers räumt seine Periode(n) mit auf,
+    // ohne den Riegel zu verletzen. Gleiches Muster wie in den D7-/CR-01-Blöcken oben.
+    db.prepare('DELETE FROM overtime_transactions WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM users WHERE id = ?').run(testUserId);
+    db.prepare('DELETE FROM users WHERE id = ?').run(testAdminId);
+  });
+
+  it('liefert beide Zeilen des Storno-Paars vollstaendig, mit gemeinsamer Belegnummer, unveraenderter Anzeigesumme und stabiler Nachbarschaft', () => {
+    const date = '2026-03-10';
+
+    // Baseline VOR dem Anlegen des Paares — Nachweis fuer Zusicherung 5 (Anzeigesumme
+    // bleibt durch das Paar unveraendert).
+    const before = calculateLiveOvertimeTransactions(testUserId, '2026-03-01', '2026-03-31');
+    const sumBefore = before.reduce((sum, t) => sum + t.hours, 0);
+
+    const originalId = createTransaction({
+      userId: testUserId,
+      date,
+      type: 'model_change',
+      hours: 5.5,
+      description: 'Stundenwechsel ab 2026-03-10 eingetragen',
+      referenceType: 'work_period',
+      referenceId: 4242,
+      createdBy: null,
+    });
+    expect(originalId).not.toBeNull();
+
+    const reversalId = createTransaction({
+      userId: testUserId,
+      date,
+      type: 'model_change',
+      hours: -5.5,
+      description: 'Stundenwechsel ab 2026-03-10 storniert',
+      referenceType: 'work_period',
+      referenceId: 4242,
+      reversalOf: originalId!,
+      createdBy: testAdminId,
+    });
+    expect(reversalId).not.toBeNull();
+
+    const after = calculateLiveOvertimeTransactions(testUserId, '2026-03-01', '2026-03-31');
+
+    const original = after.find(t => t.id === originalId);
+    const reversal = after.find(t => t.id === reversalId);
+
+    // 1. Beide Zeilen erscheinen in der gelieferten Liste — keine wird herausgefiltert oder
+    // zusammengefasst.
+    expect(original).toBeDefined();
+    expect(reversal).toBeDefined();
+
+    // 2. reversedBy/reversalOf sind in beide Richtungen korrekt gesetzt, reversedAt gesetzt.
+    expect(original!.reversedBy).toBe(reversalId);
+    expect(original!.reversedAt).toBeTruthy();
+    expect(original!.reversalOf).toBeNull();
+    expect(reversal!.reversalOf).toBe(originalId);
+    expect(reversal!.reversedBy).toBeNull();
+
+    // 3. Beide Zeilen tragen dieselbe referenceId — die gemeinsame Belegnummer (DD-24), die
+    // Id der Originalzeile.
+    expect(original!.referenceId).toBe(originalId);
+    expect(reversal!.referenceId).toBe(originalId);
+
+    // 4. hours === 0 fuer beide Zeilen, documentedDelta exakt entgegengesetzt (Summe 0 bis
+    // auf 0,01).
+    expect(original!.hours).toBe(0);
+    expect(reversal!.hours).toBe(0);
+    expect(original!.documentedDelta).toBe(5.5);
+    expect(reversal!.documentedDelta).toBe(-5.5);
+    expect(
+      Math.abs((original!.documentedDelta ?? 0) + (reversal!.documentedDelta ?? 0))
+    ).toBeLessThanOrEqual(0.01);
+
+    // 5. Die Summe der hours ueber ALLE gelieferten Transaktionen ist identisch zu der vor
+    // dem Anlegen des Paares — das Paar verschiebt die Anzeigesumme nicht.
+    const sumAfter = after.reduce((sum, t) => sum + t.hours, 0);
+    expect(sumAfter).toBeCloseTo(sumBefore, 2);
+
+    // 6. Gleiches Datum, Original steht in der gelieferten Liste unmittelbar vor seiner
+    // Gegenbuchung (DD-27).
+    expect(original!.date).toBe(date);
+    expect(reversal!.date).toBe(date);
+    const originalIndex = after.findIndex(t => t.id === originalId);
+    const reversalIndex = after.findIndex(t => t.id === reversalId);
+    expect(reversalIndex).toBe(originalIndex + 1);
+
+    // 7. reversedByName traegt den zusammengesetzten Namen des Admins, der die Gegenbuchung
+    // erzeugt hat.
+    expect(original!.reversedByName).toBe('Adminvorname Adminnachname');
+  });
+
+  it('reversedByName ist null, wenn createdBy der Gegenbuchung null ist', () => {
+    const date = '2026-03-11';
+
+    const originalId = createTransaction({
+      userId: testUserId,
+      date,
+      type: 'model_change',
+      hours: 2,
+      description: 'Stundenwechsel ab 2026-03-11 eingetragen',
+      referenceType: 'work_period',
+      referenceId: 4243,
+      createdBy: null,
+    });
+    expect(originalId).not.toBeNull();
+
+    const reversalId = createTransaction({
+      userId: testUserId,
+      date,
+      type: 'model_change',
+      hours: -2,
+      description: 'Stundenwechsel ab 2026-03-11 storniert',
+      referenceType: 'work_period',
+      referenceId: 4243,
+      reversalOf: originalId!,
+      createdBy: null,
+    });
+    expect(reversalId).not.toBeNull();
+
+    const transactions = calculateLiveOvertimeTransactions(testUserId, '2026-03-01', '2026-03-31');
+    const original = transactions.find(t => t.id === originalId);
+
+    expect(original).toBeDefined();
+    expect(original!.reversedByName).toBeNull();
   });
 });
