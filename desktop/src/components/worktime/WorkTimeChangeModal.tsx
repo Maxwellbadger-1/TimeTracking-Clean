@@ -638,39 +638,35 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
         )}
 
         {/* 3. Stichtag + Neue Wochenstunden */}
+        {/* UI-Review Phase 12 (T-3): Die Hilfstexte waren als eigene <p> neben dem Feld
+            gebaut und damit NICHT mit ihm verknuepft — ein Rueckfall hinter WR-16, das
+            genau diese Verknuepfung eingefuehrt hat. Die Primitive kennt `helperText`,
+            haengt ihn ueber `aria-describedby` an das Feld und blendet ihn aus, sobald
+            eine Fehlermeldung die Beschreibung uebernimmt. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Input
-              ref={validFromRef}
-              label="Stichtag"
-              type="date"
-              value={validFrom}
-              onChange={handleValidFromChange}
-              error={fieldErrors.validFrom}
-              required
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Ab diesem Tag gilt das neue Modell. Ein Datum in der Vergangenheit ist erlaubt —
-              dann wird ab dort neu gerechnet.
-            </p>
-          </div>
-          <div>
-            <Input
-              ref={weeklyHoursRef}
-              label="Neue Wochenstunden"
-              type="number"
-              min="0"
-              max="60"
-              step="0.5"
-              value={weeklyHours}
-              onChange={handleWeeklyHoursChange}
-              error={fieldErrors.weeklyHours}
-              required
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              0 h = Aushilfe (alle erfassten Stunden zählen als Überstunden)
-            </p>
-          </div>
+          <Input
+            ref={validFromRef}
+            label="Stichtag"
+            type="date"
+            value={validFrom}
+            onChange={handleValidFromChange}
+            error={fieldErrors.validFrom}
+            helperText="Ab diesem Tag gilt das neue Modell. Ein Datum in der Vergangenheit ist erlaubt — dann wird ab dort neu gerechnet."
+            required
+          />
+          <Input
+            ref={weeklyHoursRef}
+            label="Neue Wochenstunden"
+            type="number"
+            min="0"
+            max="60"
+            step="0.5"
+            value={weeklyHours}
+            onChange={handleWeeklyHoursChange}
+            error={fieldErrors.weeklyHours}
+            helperText="0 h = Aushilfe (alle erfassten Stunden zählen als Überstunden)"
+            required
+          />
         </div>
 
         {/* 4. Neuer Tagesplan */}
@@ -691,23 +687,19 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
         </div>
 
         {/* 5. Begründung */}
-        <div>
-          <Textarea
-            ref={reasonRef}
-            label="Begründung"
-            value={reason}
-            onChange={handleReasonChange}
-            error={fieldErrors.reason}
-            rows={4}
-            required
-            placeholder="Warum wird umgestellt? Zum Beispiel: Neuer Arbeitsvertrag vom 12.06.2026, Reduzierung auf Teilzeit (mindestens 10 Zeichen)"
-          />
-          {reason.length < 10 && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Noch {10 - reason.length} Zeichen
-            </p>
-          )}
-        </div>
+        {/* T-3: Auch der Zeichenzaehler haengt jetzt ueber `helperText` am Feld. Ab zehn
+            Zeichen verschwindet er wieder — kein "35/10", kein Haekchen (Textbuch). */}
+        <Textarea
+          ref={reasonRef}
+          label="Begründung"
+          value={reason}
+          onChange={handleReasonChange}
+          error={fieldErrors.reason}
+          helperText={reason.length < 10 ? `Noch ${10 - reason.length} Zeichen` : undefined}
+          rows={4}
+          required
+          placeholder="Warum wird umgestellt? Zum Beispiel: Neuer Arbeitsvertrag vom 12.06.2026, Reduzierung auf Teilzeit (mindestens 10 Zeichen)"
+        />
 
         {/* 6. Vorschaupanel (REQ-27) — Zustaende 3-8, 10 */}
         <div

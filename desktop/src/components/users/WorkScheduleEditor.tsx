@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import type { WorkSchedule } from '../../types';
 
 interface WorkScheduleEditorProps {
@@ -53,6 +53,15 @@ const DAY_LABELS: Record<keyof WorkSchedule, string> = {
 };
 
 export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = false }: WorkScheduleEditorProps) {
+  /**
+   * UI-Review Phase 12 (V-4/E-5): Der Toggle war ein nacktes `<button>` mit einem leeren
+   * `<span>` als Knauf — ohne Rolle, ohne Zustand, ohne Namen. Ein Screenreader las
+   * "Schaltfläche". Im Wechsel-Dialog ist dieses Element voll bedienbar und entscheidet
+   * darueber, ob ueberhaupt ein Tagesplan mitgeschickt wird. Die beiden Ids binden die
+   * sichtbare Beschriftung und den Hilfstext an den Knopf.
+   */
+  const toggleLabelId = useId();
+  const toggleHintId = useId();
   const [useIndividualSchedule, setUseIndividualSchedule] = useState(!!value);
   const [schedule, setSchedule] = useState<WorkSchedule>(
     value || DEFAULT_WORK_SCHEDULE
@@ -105,15 +114,21 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = fa
       {/* Toggle */}
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
-          <label className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {/* Kein `<label>`: Ein Label kann keinen `<button>` benennen. Die Verknuepfung
+              laeuft ueber `aria-labelledby` am Knopf. */}
+          <span id={toggleLabelId} className="text-sm font-medium text-gray-900 dark:text-gray-100">
             Individueller Wochenplan
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          </span>
+          <p id={toggleHintId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Für Teilzeit mit ungleicher Stundenverteilung (z.B. Mo 8h, Fr 2h)
           </p>
         </div>
         <button
           type="button"
+          role="switch"
+          aria-checked={useIndividualSchedule}
+          aria-labelledby={toggleLabelId}
+          aria-describedby={toggleHintId}
           onClick={() => handleToggle(!useIndividualSchedule)}
           disabled={readOnly}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:cursor-not-allowed ${
