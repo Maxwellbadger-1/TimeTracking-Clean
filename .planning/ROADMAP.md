@@ -190,7 +190,7 @@ Verhaltensänderung, damit die Migration isoliert verifizierbar bleibt.
 
 **Abhängigkeit:** Phase 9
 
-**Plans:** 5 plans in 3 Wellen (Welle 1: 10-01 · Welle 2: 10-02, 10-03, 10-04 · Welle 3: 10-05)
+**Plans:** 6 plans in 4 Wellen (Welle 1: 10-01 · Welle 2: 10-02, 10-03, 10-04 · Welle 3: 10-05 · Welle 4: 10-06)
 
 Plans:
 
@@ -199,6 +199,7 @@ Plans:
 - [x] 10-03-PLAN.md — Migration 009: Bestandsüberführung ab `hireDate`, idempotent, mit Selbstverifikation
 - [x] 10-04-PLAN.md — `workPeriodService`: Periode lesen, schreiben, zum Datum auflösen (noch ohne Aufrufer)
 - [x] 10-05-PLAN.md — Salden-Snapshot-Werkzeug und Nullwirkungs-Nachweis auf einer Produktionskopie
+- [ ] 10-06-PLAN.md — Lückenschluss nach Code-Review: Migrationsläufer verbucht Fehlschläge nicht mehr als Erfolg (CR-01), DELETE-Riegel gegen leere Periodenkette (WR-01), `any` entfernt (WR-02), Produktionsschutz getestet (WR-03)
 
 ---
 
