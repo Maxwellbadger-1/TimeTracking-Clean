@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Completed 12-09-PLAN.md (Phase 12 vollstaendig, 9/9 Plaene)
-last_updated: "2026-08-22T18:16:19.007Z"
-last_activity: 2026-08-22 -- Phase 13 planning complete
+last_updated: "2026-08-22T18:39:58.601Z"
+last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 31
+  completed_plans: 32
   percent: 57
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 12 — stundenwechsel-bedienen
+**Current focus:** Phase 13 — korrigieren-und-r-ckg-ngig-machen
 
 ## Current Status
 
@@ -295,10 +295,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: Not started
+Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
+Plan: 2 of 11
 Status: Ready to execute
-Last activity: 2026-08-22 -- Phase 13 planning complete
+Last activity: 2026-08-22
 
 ## Operator Next Steps
 

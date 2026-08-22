@@ -340,7 +340,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — Migration 013 (Soft-Delete auf `user_work_periods`, deletedAt-bewusste Riegel) und Migration 014 (`reversalOf`), Parität in `schema.ts` (D2, D3)
+- [x] 13-01-PLAN.md — Migration 013 (Soft-Delete auf `user_work_periods`, deletedAt-bewusste Riegel) und Migration 014 (`reversalOf`), Parität in `schema.ts` (D2, D3)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
