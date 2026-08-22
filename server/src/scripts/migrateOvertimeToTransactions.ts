@@ -11,6 +11,17 @@
  * - Deletes existing 'earned' transactions before recreating
  * - Does NOT touch 'compensation', 'correction', or 'carryover' transactions
  *
+ * ABER: TRANSAKTIONAL IST DER TAG, NICHT DER LAUF (WR-08, Code-Review Phase 11,
+ * Durchlauf 2). Jeder Tag läuft in einer eigenen `db.transaction`, jeder Nutzer ist eine
+ * eigene Schleifenrunde. Bricht der Lauf ab — etwa weil ein `MissingWorkPeriodError` nach
+ * D4 durchgereicht wird (CR-06) —, sind alle VORHER verarbeiteten Tage und Nutzer bereits
+ * festgeschrieben: Der Bestand steht dann zwischen altem und neuem Stand. Das ist bei
+ * diesem Skript verkraftbar, weil vor dem Löschen gerechnet wird und ein erneuter Lauf
+ * dieselben Tage neu erzeugt — es muss aber ausgesprochen sein. Die Formulierung "wirft die
+ * Berechnung, ist zu diesem Zeitpunkt nichts angefasst" gilt für den EINZELNEN TAG, nicht
+ * für den Lauf. Beim Abbruch gibt das Skript aus, wie viele Nutzer und Tage bereits
+ * verarbeitet waren, damit der Bediener weiß, wo er steht.
+ *
  * USAGE:
  *   npm run migrate:overtime
  *
@@ -24,6 +35,7 @@
  */
 
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 import type BetterSqlite3 from 'better-sqlite3';
 import type { UserPublic } from '../types/index.js';
@@ -113,6 +125,9 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
     errors: [],
   };
 
+  // WR-08: Fortschrittszähler für die Abbruchmeldung — siehe `catch` unten.
+  let usersProcessed = 0;
+
   try {
     // Get all active users
     const users = db.prepare(`
@@ -134,6 +149,7 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
 
         stats.totalDates += userStats.totalDates;
         stats.totalTransactions += userStats.totalTransactions;
+        usersProcessed++;
 
         logger.info(
           {
@@ -166,7 +182,25 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
       '🎉🎉🎉 MIGRATION COMPLETED 🎉🎉🎉'
     );
   } catch (error) {
-    logger.error({ err: error }, '❌❌❌ MIGRATION FAILED ❌❌❌');
+    // WR-08: Beim Abbruch den erreichten Stand ausweisen. Der Lauf ist nicht als Ganzes
+    // transaktional (Begründung im Kopfkommentar unter "SAFE TO RUN MULTIPLE TIMES") —
+    // ohne diese Angabe wüsste der Bediener nicht, wie viel bereits festgeschrieben ist.
+    logger.error(
+      {
+        err: error,
+        verarbeiteteNutzer: usersProcessed,
+        gesamtNutzer: stats.totalUsers,
+        verarbeiteteTage: stats.totalDates,
+        geschriebeneBuchungen: stats.totalTransactions,
+      },
+      '❌❌❌ MIGRATION FAILED ❌❌❌'
+    );
+    console.error(
+      `\n⚠️ ABBRUCH — bereits festgeschrieben: ${usersProcessed} von ${stats.totalUsers} Nutzern, ` +
+        `${stats.totalDates} Tage, ${stats.totalTransactions} Buchungen. Der Bestand steht ` +
+        'zwischen altem und neuem Stand; ein erneuter Lauf nach Behebung der Ursache stellt ' +
+        'ihn vollständig her (das Skript rechnet vor dem Löschen).'
+    );
     throw error;
   }
 
@@ -359,8 +393,25 @@ export async function verifyMigration(): Promise<{
 
 /**
  * CLI entry point
+ *
+ * WR-08 (Nebenbefund, bei der Verifikation dieses Fixes gemessen): Die Bedingung lautete
+ * `import.meta.url === \`file://${process.argv[1]}\``. Unter Windows steht in
+ * `process.argv[1]` ein Pfad mit Laufwerksbuchstaben und Rückschrägstrichen
+ * (`C:\...\migrateOvertimeToTransactions.ts`), in `import.meta.url` dagegen
+ * `file:///C:/.../migrateOvertimeToTransactions.ts` — der Vergleich ist dort IMMER falsch
+ * und `npm run migrate:overtime` tat schlicht nichts, ohne Ausgabe und mit Exitcode 0.
+ * Unter Linux traf die Bedingung zu, weshalb es nie auffiel. Ohne diese Korrektur wäre der
+ * eigentliche WR-08-Fix (Exitcode) auf einem Windows-Arbeitsplatz nicht einmal erreichbar.
+ *
+ * `pathToFileURL()` erzeugt aus dem Prozessargument dieselbe URL-Form, in der
+ * `import.meta.url` vorliegt — plattformunabhängig, ohne Verhaltensänderung unter Linux.
+ *
+ * DASSELBE MUSTER STEHT UNKORRIGIERT IN: `src/database/test-indexes.ts`,
+ * `src/scripts/backfillOvertimeBalances.ts`, `src/scripts/syncWorkTimeAccounts.ts`.
+ * Diese drei Dateien sind nicht Gegenstand des Befunds und wurden bewusst nicht angefasst;
+ * der Punkt ist in `11-REVIEW-FIX.md` als offener Nebenbefund festgehalten.
  */
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   migrateOvertimeToTransactions()
     .then(async (stats) => {
       console.log('\n📊 MIGRATION STATS:');
@@ -378,14 +429,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log('\n🔍 Running verification...');
       const verification = await verifyMigration();
 
-      if (verification.success) {
+      // WR-08 (Code-Review Phase 11, Durchlauf 2): `stats.errors` wurde bisher AUSGEGEBEN,
+      // aber nicht AUSGEWERTET. War `verifyMigration()` zufrieden, endete der Lauf mit
+      // "✅✅✅ MIGRATION SUCCESSFUL" und Exitcode 0 — auch wenn zuvor beliebig viele
+      // Nutzer in `stats.errors` gelandet waren. In einer Pipeline war das ein grünes
+      // Häkchen auf einem unvollständigen Lauf. Beide Bedingungen zählen jetzt.
+      const hasUserErrors = stats.errors.length > 0;
+
+      if (verification.success && !hasUserErrors) {
         console.log('\n✅✅✅ MIGRATION SUCCESSFUL ✅✅✅');
         process.exit(0);
-      } else {
-        console.log('\n⚠️⚠️⚠️ MIGRATION COMPLETED WITH ISSUES ⚠️⚠️⚠️');
-        verification.issues.forEach(issue => console.log(`  - ${issue}`));
-        process.exit(1);
       }
+
+      console.log('\n⚠️⚠️⚠️ MIGRATION COMPLETED WITH ISSUES ⚠️⚠️⚠️');
+      if (hasUserErrors) {
+        console.log(
+          `  - ${stats.errors.length} Nutzer konnten nicht migriert werden (siehe ERRORS oben).`
+        );
+      }
+      verification.issues.forEach(issue => console.log(`  - ${issue}`));
+      process.exit(1);
     })
     .catch((error) => {
       console.error('\n❌❌❌ MIGRATION FAILED ❌❌❌');
