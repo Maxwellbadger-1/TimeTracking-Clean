@@ -17,6 +17,12 @@ import { WorkScheduleEditor } from '../users/WorkScheduleEditor';
 import { useCorrectWorkPeriodPreview, useCorrectWorkPeriod } from '../../hooks/useWorkTimeChange';
 import { formatHours } from '../../utils/timeUtils';
 import { getTodayDate } from '../../utils';
+import {
+  isRetroactivePeriod,
+  primaryButtonLabel,
+  isPrimaryDisabled,
+  validateCorrectionForm,
+} from './workTimePeriodEditRules';
 import type {
   User,
   WorkSchedule,
@@ -211,11 +217,11 @@ export function WorkTimePeriodEditModal({
 
   /**
    * "rückwirkend ja/nein" für Panel-/Knopfsteuerung: reiner Zeichenkettenvergleich auf den
-   * aktuell eingegebenen Beginn — die BUSINESS-Zahlen (Arbeitstage, Sollstunden, Saldo) kommen
-   * unverändert aus der Vorschau (DD-34); diese boolesche Weiche ist reine Formularsteuerung
-   * (Task 3 zieht sie nach `workTimePeriodEditRules.ts`, `isRetroactivePeriod()`).
+   * aktuell eingegebenen Beginn (`isRetroactivePeriod()`, `workTimePeriodEditRules.ts`) — die
+   * BUSINESS-Zahlen (Arbeitstage, Sollstunden, Saldo) kommen unverändert aus der Vorschau
+   * (DD-34); diese boolesche Weiche ist reine Formularsteuerung.
    */
-  const isRetroactive = validFrom < todayStr;
+  const isRetroactive = isRetroactivePeriod(validFrom, todayStr);
 
   /** Ruft die Vorschau serverseitig ab — die Antwort wird unverändert in `preview` abgelegt. */
   function requestPreview(vFrom: string, wHours: number, schedule: WorkSchedule | null) {
@@ -298,61 +304,50 @@ export function WorkTimePeriodEditModal({
 
   /**
    * Zustand 9-Äquivalent: Meldungen wörtlich aus `13-UI-SPEC.md` → "Fehlermeldungen
-   * (Validierung)". Prüfreihenfolge bei `validFrom`: Eintrittsdatum -> Vorperiode ->
-   * Nachperiode -> Austrittsdatum. Bei einer Überlappung mit der Nachbarperiode wird
-   * zusätzlich `onConflict(<periodId der Nachbarzeile>)` gerufen (Muster aus Phase 12).
+   * (Validierung)". Die vier Feld-/Formularregeln kommen aus `validateCorrectionForm()`
+   * (`workTimePeriodEditRules.ts`, Plan 13-08 Task 3) — diese Funktion führt sie nicht mehr
+   * inline. Bei einer Überlappung mit der Nachbarperiode liefert `conflictPeriodId` die Id der
+   * Nachbarzeile; `onConflict` hebt sie in der Liste hervor (Muster aus Phase 12).
    */
   function validateForm(): boolean {
-    const errors: FieldErrors = {};
-    let conflictPeriodId: number | null = null;
+    const result = validateCorrectionForm({
+      validFrom,
+      weeklyHoursRaw: weeklyHours,
+      reason,
+      workSchedule,
+      isFirst: period.isFirst,
+      hireDate,
+      endDate: user.endDate || null,
+      previousPeriod: previousPeriod
+        ? { id: previousPeriod.id, validFrom: previousPeriod.validFrom }
+        : null,
+      nextPeriod: nextPeriod ? { id: nextPeriod.id, validFrom: nextPeriod.validFrom } : null,
+      original: {
+        validFrom: period.validFrom,
+        weeklyHours: period.weeklyHours,
+        workSchedule: period.workSchedule,
+      },
+    });
 
-    if (!period.isFirst) {
-      if (hireDate && validFrom < hireDate) {
-        errors.validFrom = `Der Beginn darf nicht vor dem Eintrittsdatum (${formatGermanDate(hireDate)}) liegen.`;
-      } else if (previousPeriod && validFrom <= previousPeriod.validFrom) {
-        errors.validFrom = `Der Beginn muss nach dem ${formatGermanDate(previousPeriod.validFrom)} liegen — dem Beginn der vorherigen Periode.`;
-        conflictPeriodId = previousPeriod.id;
-      } else if (nextPeriod && validFrom >= nextPeriod.validFrom) {
-        errors.validFrom = `Der Beginn muss vor dem ${formatGermanDate(nextPeriod.validFrom)} liegen — dem Beginn der nächsten Periode.`;
-        conflictPeriodId = nextPeriod.id;
-      } else if (user.endDate && validFrom > user.endDate) {
-        errors.validFrom = `Der Beginn liegt nach dem Austrittsdatum (${formatGermanDate(user.endDate)}).`;
-      }
-    }
+    const errors: FieldErrors = {
+      validFrom: result.validFrom,
+      weeklyHours: result.weeklyHours,
+      reason: result.reason,
+    };
 
-    if (weeklyHours === '' || Number.isNaN(Number(weeklyHours))) {
-      errors.weeklyHours = 'Wochenstunden sind erforderlich';
-    } else if (Number(weeklyHours) < 0 || Number(weeklyHours) > 60) {
-      errors.weeklyHours = 'Wochenstunden müssen zwischen 0 und 60 liegen';
-    }
-
-    const invalidDay = findInvalidScheduleDay(workSchedule);
-    if (invalidDay) {
-      errors.weeklyHours =
-        errors.weeklyHours ??
-        `Die Tagesstunden müssen zwischen 0 und ${MAX_DAILY_HOURS} liegen (${DAY_LABELS_DE[invalidDay]}).`;
-    }
-
-    if (!reason.trim()) {
-      errors.reason = 'Begründung ist erforderlich';
-    } else if (reason.trim().length < 10) {
-      errors.reason = 'Begründung muss mindestens 10 Zeichen lang sein';
-    }
-
-    let formLevelError = '';
-    if (!errors.validFrom && !errors.weeklyHours) {
-      const nothingChanged =
-        validFrom === period.validFrom &&
-        Number(weeklyHours) === period.weeklyHours &&
-        JSON.stringify(workSchedule) === JSON.stringify(period.workSchedule);
-      if (nothingChanged) {
-        formLevelError = 'Es wurde nichts geändert. Ändern Sie einen Wert oder brechen Sie ab.';
+    // CR-03-Muster aus Phase 12: Tagesplansumme blockierend prüfen (0-24 je Tag) — kein Teil
+    // der vier reinen Entscheidungen aus workTimePeriodEditRules.ts, weil sie den
+    // Tagesplan-Editor betrifft, nicht die Korrektur-Feldregeln selbst.
+    if (!errors.weeklyHours) {
+      const invalidDay = findInvalidScheduleDay(workSchedule);
+      if (invalidDay) {
+        errors.weeklyHours = `Die Tagesstunden müssen zwischen 0 und ${MAX_DAILY_HOURS} liegen (${DAY_LABELS_DE[invalidDay]}).`;
       }
     }
 
     setFieldErrors(errors);
-    setFormError(formLevelError);
-    onConflict?.(conflictPeriodId);
+    setFormError(result.formError ?? '');
+    onConflict?.(result.conflictPeriodId ?? null);
 
     if (errors.validFrom) {
       validFromRef.current?.focus();
@@ -366,7 +361,7 @@ export function WorkTimePeriodEditModal({
       reasonRef.current?.focus();
       return false;
     }
-    if (formLevelError) {
+    if (result.formError) {
       return false;
     }
 
@@ -520,8 +515,12 @@ export function WorkTimePeriodEditModal({
     return `Die für diesen Zeitraum bereits gebuchten Überstunden werden ersetzt. Alles vor dem ${formatGermanDate(boundary)} bleibt unverändert.`;
   }
 
-  const primaryButtonLabelText = isRetroactive ? 'Korrektur rückwirkend speichern' : 'Korrektur speichern';
-  const primaryButtonDisabled = !preview || isSaving || reason.trim().length < 10;
+  const primaryButtonLabelText = primaryButtonLabel(isRetroactive);
+  const primaryButtonDisabled = isPrimaryDisabled({
+    hasPreviewToken: !!preview,
+    isSaving,
+    trimmedReasonLength: reason.trim().length,
+  });
 
   return (
     <Modal
