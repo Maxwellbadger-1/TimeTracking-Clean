@@ -210,7 +210,51 @@ export function validateUserUpdate(
     }
   }
 
+  // CR-02 (Code-Review Phase 11, Durchlauf 2): hireDate wurde hier bisher gar nicht
+  // geprüft. `PUT /api/users/:id` mit `{"hireDate":"31.12.2026"}` oder `""` lief mit
+  // HTTP 200 durch, schrieb den Müllwert in die Spalte und löschte dabei
+  // `overtime_balance` — ohne dass die Salden je wieder aufgebaut werden konnten.
+  // `userService.updateUser()` wirft seit CR-02 in diesem Fall; diese Prüfung übersetzt
+  // denselben Sachverhalt in eine saubere 400er-Antwort, statt ihn als 500 zu servieren.
+  if (data.hireDate !== undefined) {
+    const hireDateError = describeHireDateProblem(data.hireDate);
+    if (hireDateError) {
+      res.status(400).json({
+        success: false,
+        error: hireDateError,
+      });
+      return;
+    }
+  }
+
   next();
+}
+
+/**
+ * CR-02: Formprüfung für `hireDate`, deckungsgleich mit `assertWellFormedHireDate()` in
+ * `userService.ts` und mit dem GLOB-CHECK von `user_work_periods.validFrom`
+ * (Migration 008). Liefert `null`, wenn der Wert brauchbar ist, sonst die Meldung für die
+ * 400er-Antwort.
+ *
+ * Bewusst hier dupliziert statt aus dem Service importiert: `userService.ts` zieht
+ * `database/connection.js` und damit die Datenbankverbindung; die Validierungsschicht soll
+ * ohne Datenbankzugriff ladbar bleiben. Die Regel selbst — vier Ziffern, Bindestrich, zwei
+ * Ziffern, Bindestrich, zwei Ziffern, und ein echter Kalendertag — steht an beiden Stellen
+ * ausformuliert und ist über die Kommentare aneinander gebunden.
+ */
+function describeHireDateProblem(hireDate: unknown): string | null {
+  if (typeof hireDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(hireDate)) {
+    return 'hireDate must be in format YYYY-MM-DD';
+  }
+
+  const [year, month, day] = hireDate.split('-').map(part => Number.parseInt(part, 10));
+  const asUtc = new Date(Date.UTC(year, month - 1, day));
+  const isRealCalendarDay =
+    asUtc.getUTCFullYear() === year &&
+    asUtc.getUTCMonth() === month - 1 &&
+    asUtc.getUTCDate() === day;
+
+  return isRealCalendarDay ? null : `hireDate is not a valid calendar date: ${hireDate}`;
 }
 
 /**

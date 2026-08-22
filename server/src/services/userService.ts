@@ -28,6 +28,56 @@ interface UserRow extends Omit<UserPublic, 'workSchedule' | 'isActive'> {
 const HIRE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * CR-02 (Code-Review Phase 11, Durchlauf 2): Weist ein nicht wohlgeformtes `hireDate` ab,
+ * BEVOR irgendetwas geschrieben wird.
+ *
+ * WARUM ein `throw` und keine Warnung: Vorher schrieb `updateUser()` den Wert ungeprüft in
+ * die Spalte (weder Routenvalidierung noch CHECK in `users`), `syncStartPeriodToHireDate()`
+ * protokollierte anschließend nur eine Warnung und ließ die Periode stehen, und direkt
+ * danach lief `DELETE FROM overtime_balance` bedingungslos durch. Der versprochene
+ * Wiederaufbau konnte nicht greifen: `ensureOvertimeBalanceEntries()` bildet
+ * `new Date(user.hireDate)`; bei `Invalid Date` liefert `getFullYear()` `NaN` und die
+ * Monatsschleife läuft null mal. Ergebnis war HTTP 200 bei gelöschtem Saldo ohne jede
+ * Möglichkeit, ihn wiederzubekommen — genau der Zustand, den CR-01 aus Durchlauf 1
+ * verhindern sollte.
+ *
+ * Die Prüfung ist bewusst dieselbe Formprüfung wie das GLOB-CHECK von
+ * `user_work_periods.validFrom` (Migration 008): Was die Periodenkette nicht aufnehmen
+ * kann, darf auch nicht in `users.hireDate` stehen.
+ *
+ * Zusätzlich zur Form wird die Gültigkeit geprüft — `2026-02-31` und `2026-13-01` passen
+ * auf das Muster, sind aber keine Kalendertage. `new Date('2026-02-31')` ergibt in
+ * JavaScript den 3. März; die Rückprobe über die normalisierte Zeichenkette fängt das ab.
+ */
+function assertWellFormedHireDate(hireDate: string | null | undefined): void {
+  if (hireDate === undefined) {
+    return; // Feld nicht mitgesendet — keine Änderung, nichts zu prüfen.
+  }
+
+  const value = hireDate ?? '';
+
+  if (!HIRE_DATE_PATTERN.test(value)) {
+    throw new Error(
+      `hireDate muss das Format JJJJ-MM-TT haben, erhalten: ${JSON.stringify(hireDate)}`
+    );
+  }
+
+  // Kalendarische Gültigkeit. `Date.UTC` statt `new Date(str)`, damit die Prüfung nicht von
+  // der Prozess-Zeitzone abhängt (dieselbe Begründung wie bei `dayIndexFromDateString()`
+  // in workingDays.ts).
+  const [year, month, day] = value.split('-').map(part => Number.parseInt(part, 10));
+  const asUtc = new Date(Date.UTC(year, month - 1, day));
+  const isRealCalendarDay =
+    asUtc.getUTCFullYear() === year &&
+    asUtc.getUTCMonth() === month - 1 &&
+    asUtc.getUTCDate() === day;
+
+  if (!isRealCalendarDay) {
+    throw new Error(`hireDate ist kein gültiges Kalenderdatum: ${JSON.stringify(hireDate)}`);
+  }
+}
+
+/**
  * Ersatzdatum-Kette für die Startperiode eines Nutzers (Plan 11-03, Fortschreibung von D5
  * aus Migration 009). Anders als beim Bestandsbackfill gibt es hier KEIN
  * `time_entries`-Zwischenglied: Ein Nutzer, für den diese Funktion eine Periode anlegt, hat
@@ -113,12 +163,20 @@ function syncStartPeriodToHireDate(
   newHireDate: string | null | undefined,
   userForFallback: UserPublic
 ): void {
+  // CR-02: Hier stand vorher `logger.warn(...) + return`. Die Warnung war die Stelle, an der
+  // ein Müllwert lautlos durchrutschte: Die Periode blieb stehen, das `UPDATE users` war
+  // schon durch, und die anschließende Saldolöschung lief trotzdem. Jetzt bricht der
+  // gesamte Vorgang ab — und weil `assertWellFormedHireDate()` in `updateUser()` bereits
+  // VOR dem Bau der SQL-Anweisung prüft, ist dieser Zweig für den Update-Weg unerreichbar.
+  // Er bleibt als Zusicherung für die übrigen Aufrufer stehen (`mirrorUserToWorkPeriod()`,
+  // das `hireDate` aus einer bestehenden `users`-Zeile weiterreicht).
   if (!newHireDate || !HIRE_DATE_PATTERN.test(newHireDate)) {
-    logger.warn(
-      { userId, newHireDate },
-      '⚠️ syncStartPeriodToHireDate: hireDate ist nicht wohlgeformt (JJJJ-MM-TT) — Startperiode unverändert'
+    throw new Error(
+      `syncStartPeriodToHireDate: hireDate von Nutzer ${userId} ist nicht wohlgeformt ` +
+        `(erwartet JJJJ-MM-TT, erhalten: ${JSON.stringify(newHireDate)}). ` +
+        'Die Startperiode kann darauf nicht nachgeführt werden; ein Weiterlaufen würde ' +
+        'einen Nutzer ohne passende Periode hinterlassen (D4).'
     );
-    return;
   }
 
   const periods = getWorkPeriods(userId); // aufsteigend nach validFrom
@@ -408,6 +466,12 @@ export async function updateUser(
     }
 
     logger.debug({ hireDate: existingUser.hireDate, endDate: existingUser.endDate }, 'Existing user dates');
+
+    // CR-02: VOR jedem Schreibvorgang, nicht erst in der Perioden-Nachführung. Analog zur
+    // bereits vorhandenen `weeklyHours`-Prüfung weiter unten — nur dass ein unbrauchbares
+    // `hireDate` schwerer wiegt: Es löscht `overtime_balance` und macht den Wiederaufbau
+    // unmöglich. Begründung vollständig bei `assertWellFormedHireDate()`.
+    assertWellFormedHireDate(data.hireDate);
 
     // Build dynamic UPDATE query
     const updates: string[] = [];
