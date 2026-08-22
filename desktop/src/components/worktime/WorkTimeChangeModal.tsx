@@ -39,6 +39,40 @@ import type { User, WorkSchedule, WorkTimeChangePreviewResponse, WorkTimeChangeR
 
 const PREVIEW_DEBOUNCE_MS = 400;
 
+/**
+ * WR-09 (Code-Review Phase 12): Zwei Verzweigungen dieses Dialogs haengen am WORTLAUT einer
+ * Servermeldung. Das ist ein ungeschriebener Vertrag — wird die Meldung umformuliert, faellt
+ * der Fehler wortlos in den generischen Zweig, der Anwender bekommt "Die Vorschau konnte
+ * nicht berechnet werden" statt des Feldfehlers am Stichtag, und Zustand 10 waere endgueltig
+ * unerreichbar.
+ *
+ * Die saubere Loesung ist ein maschinenlesbarer Code in der Serverantwort
+ * (`{ success: false, code: 'PERIOD_EXISTS' | 'PREVIEW_STALE', error: '…' }`). Sie verlangt
+ * eine Erweiterung von `ApiResponse`, eine Durchreichung durch `apiClient.request()` (das
+ * heute nur `{ success, error }` zurueckgibt) und einen Fehlertyp, der den Code traegt —
+ * also eine Vertragsaenderung ueber vier Dateien plus Server. Sie ist unter
+ * "Offene Punkte" im Fix-Bericht vermerkt.
+ *
+ * Bis dahin steht das Textmuster hier als EINE benannte, greppbare Konstante mit Zeiger auf
+ * die erzeugende Serverstelle — statt als Zeichenkette mitten im Steuerfluss.
+ */
+const SERVER_MESSAGE_PATTERNS = {
+  /** Erzeugt in `server/src/services/workPeriodChangeService.ts`, `validateInput()`:
+   *  `Zum {TT.MM.JJJJ} existiert bereits eine Periode. Wählen Sie ein anderes Datum.` */
+  periodExists: 'existiert bereits eine Periode',
+  /** Erzeugt in `server/src/routes/workPeriods.ts` (POST /change, 409):
+   *  `PREVIEW_STALE: Die Vorschau ist nicht mehr aktuell.` — Praefix mit Vertragscharakter. */
+  previewStalePrefix: 'PREVIEW_STALE',
+} as const;
+
+function isPeriodExistsMessage(message: string): boolean {
+  return message.includes(SERVER_MESSAGE_PATTERNS.periodExists);
+}
+
+function isPreviewStaleMessage(message: string): boolean {
+  return message.startsWith(SERVER_MESSAGE_PATTERNS.previewStalePrefix);
+}
+
 interface WorkTimeChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -143,6 +177,18 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
   const [staleFailureCount, setStaleFailureCount] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  /**
+   * WR-03 (Code-Review Phase 12): laufende Nummer der Vorschauanfragen. `previewM.mutate`
+   * fuehrte sein `onSuccess` bedingungslos aus — aendert der Admin ein Feld, wartet 400 ms
+   * (Anfrage A geht raus) und aendert dann erneut (Anfrage B 400 ms spaeter), dann
+   * ueberschreibt A's Antwort die frischere Antwort B, sobald A langsamer ist als
+   * Latenz(B) + 400 ms. Angezeigt waeren dann Zahlen zu den ALTEN Eingaben, waehrend das
+   * Formular die neuen zeigt — genau die Abweichung zwischen angezeigter und tatsaechlicher
+   * Groesse, die REQ-27 ausschliesst. Gespeichert wuerde nichts Falsches (das previewToken
+   * bindet die alten Werte), der Admin haette aber eine falsche Zahl gelesen.
+   */
+  const previewSeqRef = useRef(0);
+
   const validFromRef = useRef<HTMLInputElement>(null);
   const weeklyHoursRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
@@ -203,18 +249,21 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
   /** Ruft die Vorschau serverseitig ab (D2) — die Antwort wird unveraendert in `preview`
    *  abgelegt, es wird nichts im Client nachgerechnet. */
   function requestPreview(vFrom: string, wHours: number, schedule: WorkSchedule | null) {
+    const seq = ++previewSeqRef.current;
     setPreviewErrorMessage(null);
     previewM.mutate(
       { userId: user.id, validFrom: vFrom, weeklyHours: wHours, workSchedule: schedule },
       {
         onSuccess: (data) => {
-          if (!data) return;
+          // WR-03: veraltete Antwort verwerfen.
+          if (seq !== previewSeqRef.current || !data) return;
           setPreview(data);
           setFormError('');
         },
         onError: (error) => {
+          if (seq !== previewSeqRef.current) return;
           const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
-          if (message.includes('existiert bereits eine Periode')) {
+          if (isPeriodExistsMessage(message)) {
             setFieldErrors((prev) => ({ ...prev, validFrom: message }));
           } else {
             setPreviewErrorMessage(
@@ -244,6 +293,9 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setValidFrom(e.target.value);
     // Verwerfen von Vorschau und Token im selben State-Update wie die Feldaenderung (nicht im
     // entprellten Callback) — sonst bliebe ein Zeitfenster mit veraltetem Token offen.
+    // WR-03: zusaetzlich die laufende Nummer erhoehen, damit eine noch unterwegs befindliche
+    // Antwort zu den ALTEN Werten nicht mehr angenommen wird.
+    previewSeqRef.current += 1;
     setPreview(null);
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
@@ -253,6 +305,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
 
   function handleWeeklyHoursChange(e: ChangeEvent<HTMLInputElement>) {
     setWeeklyHours(e.target.value);
+    previewSeqRef.current += 1; // WR-03
     setPreview(null);
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
@@ -262,6 +315,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
 
   function handleWorkScheduleChange(schedule: WorkSchedule | null) {
     setWorkSchedule(schedule);
+    previewSeqRef.current += 1; // WR-03
     setPreview(null);
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
@@ -368,7 +422,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
       onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
-      if (message.startsWith('PREVIEW_STALE')) {
+      if (isPreviewStaleMessage(message)) {
         const nextFailureCount = staleFailureCount + 1;
         setStaleFailureCount(nextFailureCount);
         if (nextFailureCount >= 2) {
