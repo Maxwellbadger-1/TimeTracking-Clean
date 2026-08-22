@@ -12,6 +12,7 @@ import {
  */
 
 const BASE_BINDING: PreviewTokenBinding = {
+  adminId: 7,
   userId: 42,
   validFrom: '2026-09-01',
   weeklyHours: 30,
@@ -29,12 +30,34 @@ describe('workTimeChangeToken', () => {
     expect(result).toEqual({ valid: true });
   });
 
-  it('2. Verifiziert erfolgreich, auch wenn sich die Begründung geändert hat (nicht gebunden)', () => {
-    // Die Begründung ist gar nicht Teil von PreviewTokenBinding — dieser Test belegt, dass
-    // die Prüfung ausschließlich die vier gebundenen Felder heranzieht.
-    const token = issuePreviewToken(BASE_BINDING);
-    const result = verifyPreviewToken(token, { ...BASE_BINDING });
+  it('2. Verifiziert erfolgreich, auch wenn sich die Begründung zwischen Ausstellung und Prüfung geändert hat', () => {
+    // WR-14 (Code-Review Phase 12): Die vorherige Fassung rief
+    // verifyPreviewToken(token, { ...BASE_BINDING }) auf — also mit einer identischen
+    // Kopie. Es wurde nichts geändert und folglich nichts belegt; der Test konnte gar
+    // nicht fehlschlagen. Jetzt trägt das übergebene Objekt tatsächlich eine ANDERE
+    // Begründung, und das Token bleibt trotzdem gültig — genau die Zusicherung aus
+    // 12-UI-SPEC.md ("das Tippen der Pflichtbegründung entwertet die Vorschau nicht").
+    const bindingWithReason = (reason: string): PreviewTokenBinding => {
+      const carrier = { ...BASE_BINDING, reason };
+      return carrier;
+    };
+
+    const token = issuePreviewToken(bindingWithReason('Ursprüngliche Begründung im Dialog'));
+    const result = verifyPreviewToken(token, bindingWithReason('Vollständig andere Begründung'));
     expect(result).toEqual({ valid: true });
+  });
+
+  it('2b. WR-09: Ein von Admin A ausgestelltes Token ist für Admin B nicht einlösbar', () => {
+    const tokenFromAdminA = issuePreviewToken({ ...BASE_BINDING, adminId: 7 });
+
+    expect(verifyPreviewToken(tokenFromAdminA, { ...BASE_BINDING, adminId: 8 })).toEqual({
+      valid: false,
+      reason: 'mismatch',
+    });
+    // Gegenprobe: für denselben Admin gilt es weiterhin.
+    expect(verifyPreviewToken(tokenFromAdminA, { ...BASE_BINDING, adminId: 7 })).toEqual({
+      valid: true,
+    });
   });
 
   it('3a. Geänderte weeklyHours liefert mismatch', () => {
@@ -138,11 +161,11 @@ describe('workTimeChangeToken', () => {
       valid: false,
       reason: 'malformed',
     });
-    expect(verifyPreviewToken('v2.123456.signatur', BASE_BINDING)).toEqual({
+    expect(verifyPreviewToken('v1.123456.signatur', BASE_BINDING)).toEqual({
       valid: false,
       reason: 'malformed',
     });
-    expect(verifyPreviewToken('v1.keine-zahl.signatur', BASE_BINDING)).toEqual({
+    expect(verifyPreviewToken('v2.keine-zahl.signatur', BASE_BINDING)).toEqual({
       valid: false,
       reason: 'malformed',
     });

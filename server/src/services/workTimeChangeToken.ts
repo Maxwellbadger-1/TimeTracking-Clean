@@ -4,18 +4,19 @@
  * WARUM (D2, REQ-27): Vorschau und Speichern laufen über dieselbe Codebahn
  * (`applyWorkTimeChange`, Plan 12-03 Task 2). Damit der Speichern-Aufruf nachweislich
  * dieselbe geprüfte Berechnung bestätigt, die der Anwender in der Vorschau gesehen hat,
- * bindet dieses Token genau die vier Eingabefelder, aus denen die Berechnung hervorgeht:
- * `userId`, `validFrom`, `weeklyHours`, `workSchedule`. Die Begründung ist AUSDRÜCKLICH
- * NICHT gebunden (12-UI-SPEC.md, Abschnitt "previewToken") — sonst würde das Tippen der
- * Pflichtbegründung nach der Vorschau das Token entwerten.
+ * bindet dieses Token die vier Eingabefelder, aus denen die Berechnung hervorgeht
+ * (`userId`, `validFrom`, `weeklyHours`, `workSchedule`) — UND seit WR-09 die `adminId` des
+ * ausstellenden Admins. Die Begründung ist AUSDRÜCKLICH NICHT gebunden (12-UI-SPEC.md,
+ * Abschnitt "previewToken") — sonst würde das Tippen der Pflichtbegründung nach der Vorschau
+ * das Token entwerten.
  *
  * ZUSTANDSLOS: kein Serverspeicher, keine Tabelle, kein Neustartproblem. Das Token trägt
  * seinen Ausstellungszeitstempel selbst und wird bei jeder Prüfung neu gegen die aktuell
  * eingegebenen vier Felder verifiziert — es gibt keine Map, keine Tabelle, kein modulweites
  * Gedächtnis in dieser Datei.
  *
- * FORMAT: `v1.<issuedAtMs>.<signaturBase64Url>`. Die Signatur ist ein HMAC-SHA256 über die
- * kanonische Zeichenkette `v1|<userId>|<validFrom>|<weeklyHours mit toFixed(2)>|
+ * FORMAT: `v2.<issuedAtMs>.<signaturBase64Url>`. Die Signatur ist ein HMAC-SHA256 über die
+ * kanonische Zeichenkette `v2|<adminId>|<userId>|<validFrom>|<weeklyHours mit toFixed(2)>|
  * <kanonisierter workSchedule>|<issuedAtMs>`, mit `SESSION_SECRET` als Schlüssel — dasselbe
  * Muster, das `server.ts` bereits für den Session-Cookie verwendet (Ersatzwert
  * `'dev-secret-only-for-development'` NUR außerhalb von `NODE_ENV=production`).
@@ -36,8 +37,20 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WorkSchedule } from '../types/index.js';
 
-/** Ausschließlich diese vier Felder sind gebunden — die Begründung bewusst NICHT. */
+/**
+ * Gebunden sind der ausstellende Admin und die vier Berechnungsfelder — die Begründung
+ * bewusst NICHT.
+ *
+ * WR-09 (Code-Review Phase 12): `adminId` ist neu. Vorher band das Token ausschließlich
+ * `userId`, `validFrom`, `weeklyHours` und `workSchedule`. Ein von Admin A ausgestelltes
+ * Token konnte Admin B 14 Minuten später einlösen; die `createdBy`-Spalte der Periode wies
+ * dann B aus, obwohl nur A die geprüfte Vorschau tatsächlich gesehen hat. Mit `adminId` in
+ * der kanonischen Zeichenkette bestätigt der Speichern-Aufruf nachweislich die Vorschau
+ * DESSELBEN Admins.
+ */
 export interface PreviewTokenBinding {
+  /** Der Admin, der die Vorschau abgerufen hat — und der sie einlösen darf. */
+  adminId: number;
   userId: number;
   validFrom: string;
   weeklyHours: number;
@@ -48,7 +61,14 @@ export type PreviewTokenVerification =
   | { valid: true }
   | { valid: false; reason: 'malformed' | 'mismatch' | 'expired' };
 
-const TOKEN_VERSION = 'v1';
+/**
+ * WR-09: von `'v1'` auf `'v2'` angehoben, weil sich die kanonische Zeichenkette geändert hat
+ * (`adminId` ist hinzugekommen). Ein noch nicht abgelaufenes `v1`-Token wird dadurch als
+ * `malformed` abgewiesen statt still gegen eine andere Feldreihenfolge geprüft zu werden —
+ * die Oberfläche berechnet die Vorschau dann neu (T-12-24). Das Zeitfenster dafür ist
+ * höchstens 15 Minuten nach dem Rollout.
+ */
+const TOKEN_VERSION = 'v2';
 const PREVIEW_TOKEN_TTL_MS = 15 * 60 * 1000;
 /** Vorlauf, den ein Uhrenversatz zwischen Prozessen maximal erklären darf. */
 const FUTURE_ISSUE_TOLERANCE_MS = 60 * 1000;
@@ -105,6 +125,7 @@ function canonicalizeWorkSchedule(workSchedule: WorkSchedule | null): string {
 function buildCanonicalString(binding: PreviewTokenBinding, issuedAtMs: number): string {
   return [
     TOKEN_VERSION,
+    String(binding.adminId),
     String(binding.userId),
     binding.validFrom,
     binding.weeklyHours.toFixed(2),

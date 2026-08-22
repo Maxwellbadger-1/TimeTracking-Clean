@@ -185,6 +185,8 @@ router.post(
       );
 
       const previewToken = workTimeChangeTokenModule.issuePreviewToken({
+        // WR-09: Das Token gilt nur für den Admin, der die Vorschau abgerufen hat.
+        adminId: req.session.user!.id,
         userId: parsed.userId,
         validFrom: parsed.validFrom,
         weeklyHours: parsed.weeklyHours,
@@ -229,6 +231,9 @@ router.post(
     }
 
     const verification = workTimeChangeTokenModule.verifyPreviewToken(parsed.previewToken, {
+      // WR-09: Ein von einem anderen Admin ausgestelltes Token liefert hier `mismatch` —
+      // der Speichernde muss die geprüfte Vorschau selbst gesehen haben.
+      adminId: req.session.user!.id,
       userId: parsed.userId,
       validFrom: parsed.validFrom,
       weeklyHours: parsed.weeklyHours,
