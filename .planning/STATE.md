@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 13-01-PLAN.md (Migration 013/014, Soft-Delete/Storno-Fundament)
-last_updated: "2026-08-22T18:41:03.340Z"
+stopped_at: "Completed 13-02-PLAN.md (Datenmodell-Unterbau: Filter, Soft-Delete/Luekenschluss-Schreibwege, Vertraege, Freigabe Phase-12-Bausteine)"
+last_updated: "2026-08-22T18:53:25.735Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 32
+  completed_plans: 33
   percent: 57
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-01-PLAN.md (Migration 013/014, Soft-Delete/Storno-Fundament)
+- **Stopped at:** Completed 13-02-PLAN.md (Datenmodell-Unterbau: Filter, Soft-Delete/Luekenschluss-Schreibwege, Vertraege, Freigabe Phase-12-Bausteine)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -200,6 +200,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13-01]: schemaMigrationParity.test.ts um migration013.up() und Quoting-Normalisierung erweitert, damit der bestehende Paritaetstest durch die Tabellen-Neubau-Technik nicht regressionsrot wird
 - [Phase 13-01]: Neue deletedAt-/reversalOf-abhaengige Indizes einzeln try/catch-abgesichert ausserhalb des kombinierten db.exec()-Indexblocks, da initializeDatabase() vor runMigrations() laeuft und ein Fehlschlag sonst den gesamten Indexblock abgerissen haette
 - [Phase 13-01]: Migration 013/014 direkt gegen server/database/development.db ausgefuehrt (mit Backup), weil alle Tests laut vitest.config.ts gegen dieselbe Arbeitsdatenbank laufen
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-02: UserWorkPeriodListItem zunaechst lokal in workPeriodService.ts, dann nach types/index.ts verschoben (Task 1/Task 2 Reihenfolgekonflikt geloest ohne Nutzerentscheid)
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-02: PreviewRollback generisch gemacht, runWithPreviewRollback() als geteilte Trockenlauf-Huelle fuer Plan 13-03/13-04 freigegeben - applyWorkTimeChange() unveraendert im Verhalten (23/23 Tests gruen)
 
 ## Quick Tasks Completed
 
@@ -264,6 +266,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P07 | ~55min | 3 tasks | 6 files |
 | Phase 12-stundenwechsel-bedienen P09 | 50min | 2 tasks | 1 files |
 | Phase 13 P01 | 55min | 3 tasks | 7 files |
+| Phase 13-korrigieren-und-r-ckg-ngig-machen P02 | 35min | 3 tasks | 8 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -300,7 +303,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
