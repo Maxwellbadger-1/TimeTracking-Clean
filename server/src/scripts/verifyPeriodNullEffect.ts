@@ -43,10 +43,24 @@
  *
  * DATABASE_PATH IST PFLICHT, KEIN STILLER RÜCKFALL — wie in `snapshotBalances.ts` begründet.
  *
- * REIN LESEND: kein INSERT, kein UPDATE, kein DELETE, kein `.run(` in dieser Datei. Der
- * SHA-256-Hash der Datenbankdatei wird vor und nach dem Lauf gebildet und ausgegeben — beide
- * Werte müssen im Aufrufer (11-WIRKUNGSNACHWEIS.md) gleich sein, sonst hat dieses Werkzeug
- * entgegen seinem Zweck geschrieben.
+ * REIN LESEND: kein INSERT, kein UPDATE, kein DELETE, kein `.run(` in dieser Datei.
+ *
+ * UNVERSEHRTHEITSNACHWEIS IN ZWEI PHASEN (WR-07, Code-Review Phase 11, Durchlauf 2):
+ * Der Lauf zerfällt in zwei Abschnitte mit unterschiedlichem Schreibrisiko, und es werden
+ * DREI Hashes gebildet, nicht zwei:
+ *   Phase A — Verbindungsaufbau. `await import('../database/connection.js')` führt
+ *     `initializeDatabase()`, `createIndexes()` und `verifyIndexes()` aus — also
+ *     `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS` und Migrationen. Das ist
+ *     der EINZIGE Abschnitt, in dem dieses Werkzeug überhaupt schreiben kann. Gemessen
+ *     durch `shaAtStart` (vor dem Import) gegen `shaBefore` (nach Import + Checkpoint).
+ *     Nur beurteilbar, wenn beim Start keine gefüllte WAL-Datei vorlag — sonst faltet der
+ *     Checkpoint fremden Inhalt ein und die Aussage wäre falsch; das Werkzeug sagt dann
+ *     ausdrücklich "nicht beurteilbar" statt "in Ordnung".
+ *   Phase B — der eigentliche Messlauf. Gemessen durch `shaBefore` gegen `shaAfter`, beide
+ *     nach einem `wal_checkpoint(TRUNCATE)` (WR-13: sonst prüft der Vergleich eine Datei,
+ *     in die wegen WAL ohnehin nichts geflossen wäre — er konnte gar nicht fehlschlagen).
+ * Beide Phasen werden GETRENNT ausgewiesen. Vor WR-07 deckte der Nachweis genau die
+ * riskante Phase A nicht mehr ab.
  *
  * ZEITZONENFREIHEIT IST STRUKTURELL: Kein `new Date('YYYY-MM-DD')` für die Tagesschleife
  * (parst als UTC-Mitternacht, hat in Phase 9 systemisch den letzten Kalendertag jedes Monats
@@ -316,6 +330,30 @@ async function main(): Promise<void> {
   );
   console.log('');
 
+  // WR-07 (Code-Review Phase 11, Durchlauf 2): ERSTE Messung — VOR dem dynamischen Import.
+  //
+  // WARUM: WR-13 hatte den Ausgangs-Hash bewusst HINTER `await import('../database/
+  // connection.js')` verschoben, damit er WAL-fest ist. Dieser Import führt aber
+  // `initializeDatabase()`, `createIndexes()` und `verifyIndexes()` aus
+  // (`database/connection.ts:30-50`) — also `CREATE TABLE IF NOT EXISTS`,
+  // `CREATE INDEX IF NOT EXISTS` und in der Folge Migrationen. Genau diese Phase ist der
+  // EINZIGE Zeitpunkt, an dem dieses Werkzeug überhaupt schreiben kann; der Rest der Datei
+  // enthält nachweislich kein `.run(`. Der Nachweis war nach WR-13 WAL-fest, prüfte aber
+  // die Phase nicht mehr, die er prüfen sollte — eine andere Blindstelle, nicht keine.
+  //
+  // Jetzt werden BEIDE Phasen getrennt ausgewiesen:
+  //   Phase A (hier bis nach dem Import) — Schemainitialisierung
+  //   Phase B (nach dem Import bis zum Ende) — der eigentliche Messlauf, WAL-fest
+  const fileSizeAtStart = statSync(resolvedPath).size;
+  const shaAtStart = sha256File(resolvedPath);
+  const walAtStart = walSize(resolvedPath);
+  console.log(`Dateigröße (vor Verbindungsaufbau): ${fileSizeAtStart} Bytes`);
+  console.log(`SHA-256 (vor Verbindungsaufbau): ${shaAtStart}`);
+  console.log(
+    `WAL-Größe (vor Verbindungsaufbau): ${walAtStart === null ? '(keine WAL-Datei)' : `${walAtStart} Bytes`}`
+  );
+  console.log('');
+
   // Erst JETZT, NACH dem Guard, werden die datenbankziehenden Module geladen.
   const { db } = await import('../database/connection.js');
   const { getDailyTargetHours, MissingWorkPeriodError } = await import('../utils/workingDays.js');
@@ -334,9 +372,9 @@ async function main(): Promise<void> {
   const fileSizeBefore = statSync(resolvedPath).size;
   const shaBefore = sha256File(resolvedPath);
   const walBefore = walSize(resolvedPath);
-  console.log(`Dateigröße (vor Lauf, nach WAL-Checkpoint): ${fileSizeBefore} Bytes`);
-  console.log(`SHA-256 (vor Lauf, nach WAL-Checkpoint): ${shaBefore}`);
-  console.log(`WAL-Größe (vor Lauf): ${walBefore === null ? '(keine WAL-Datei)' : `${walBefore} Bytes`}`);
+  console.log(`Dateigröße (nach Schemainitialisierung, nach WAL-Checkpoint): ${fileSizeBefore} Bytes`);
+  console.log(`SHA-256 (nach Schemainitialisierung, nach WAL-Checkpoint): ${shaBefore}`);
+  console.log(`WAL-Größe (nach Schemainitialisierung): ${walBefore === null ? '(keine WAL-Datei)' : `${walBefore} Bytes`}`);
   console.log('');
 
   const rawUsers = db
@@ -403,7 +441,12 @@ async function main(): Promise<void> {
         neu = getDailyTargetHours(userForNeu, dateStr, periods);
       } catch (err) {
         if (err instanceof MissingWorkPeriodError) {
-          daysChecked++;
+          // WR-07 (Durchlauf 2): Hier stand zusätzlich `daysChecked++`. An diesem Tag hat
+          // aber KEIN Vergleich stattgefunden — `altDailyTargetHours()` wird nicht einmal
+          // gerufen. Die Zahl "geprüfte Tage" war dadurch überzeichnet, und die Aussage
+          // "0 Abweichungen" galt für eine kleinere Menge als angegeben. Der Tag zählt
+          // jetzt ausschließlich in `daysWithoutPeriod`; die Zusammenfassung weist ihn als
+          // Abzug aus.
           daysWithoutPeriod++;
           if (firstMissingPeriodDates.length < 20) {
             firstMissingPeriodDates.push(dateStr);
@@ -464,14 +507,57 @@ async function main(): Promise<void> {
     (usersWithoutPeriod.length > 0 ? ` — userIds: ${JSON.stringify(usersWithoutPeriod.map((r) => r.userId))}` : '')
   );
 
+  // WR-07: Tagesbilanz — "geprüfte Tage" und "übersprungene Tage" nebeneinander, damit
+  // sichtbar bleibt, auf WELCHE Menge sich "0 Abweichungen" bezieht. Tage mit Datendefekt
+  // sind aus der Abweichungszählung ausgenommen, weil `altDailyTargetHours()` für sie gar
+  // nicht erst gerufen wird.
+  const totalDaysChecked = results.reduce((sum, r) => sum + r.daysChecked, 0);
+  const totalDaysWithoutPeriod = results.reduce((sum, r) => sum + r.daysWithoutPeriod, 0);
+  console.log(
+    `Tage verglichen: ${totalDaysChecked} — davon abweichend: ${results.reduce((s, r) => s + r.daysDeviating, 0)}`
+  );
+  console.log(
+    `Tage NICHT verglichen (keine Periode, Abzug): ${totalDaysWithoutPeriod} ` +
+    `— Summe betrachteter Tage: ${totalDaysChecked + totalDaysWithoutPeriod}`
+  );
+
   db.pragma('wal_checkpoint(TRUNCATE)');
   const fileSizeAfter = statSync(resolvedPath).size;
   const shaAfter = sha256File(resolvedPath);
   const walAfter = walSize(resolvedPath);
+  console.log('');
+  console.log('=== Unversehrtheit, zwei getrennte Phasen (WR-07) ===');
   console.log(`Dateigröße (nach Lauf, nach WAL-Checkpoint): ${fileSizeAfter} Bytes`);
   console.log(`SHA-256 (nach Lauf, nach WAL-Checkpoint): ${shaAfter}`);
   console.log(`WAL-Größe (nach Lauf): ${walAfter === null ? '(keine WAL-Datei)' : `${walAfter} Bytes`}`);
-  console.log(`Unversehrtheit (SHA-256 gleich): ${shaBefore === shaAfter ? 'ja' : 'NEIN — Werkzeug hat geschrieben'}`);
+  console.log('');
+  console.log(
+    `Phase B — Messlauf (nach Schemainitialisierung → Ende): ` +
+    `${shaBefore === shaAfter ? 'unverändert' : 'VERÄNDERT — Werkzeug hat geschrieben'}`
+  );
+
+  // Phase A ist nur dann aussagekräftig, wenn beim Start keine WAL-Datei mit Inhalt
+  // vorlag: Der Checkpoint nach dem Import faltet vorhandenen WAL-Inhalt in die Hauptdatei
+  // und verändert ihren Hash, ohne dass DIESES Werkzeug etwas geschrieben hätte. Statt eine
+  // nicht belegbare Aussage zu treffen, sagt das Werkzeug in diesem Fall ausdrücklich, dass
+  // die Phase nicht beurteilt werden kann.
+  const phaseAConclusive = walAtStart === null || walAtStart === 0;
+  if (!phaseAConclusive) {
+    console.log(
+      `Phase A — Schemainitialisierung (Verbindungsaufbau): NICHT BEURTEILBAR — beim Start ` +
+      `lagen ${walAtStart} Bytes WAL vor, die der Checkpoint in die Hauptdatei gefaltet hat.`
+    );
+  } else {
+    console.log(
+      `Phase A — Schemainitialisierung (Verbindungsaufbau): ` +
+      `${shaAtStart === shaBefore ? 'unverändert' : 'VERÄNDERT — der Verbindungsaufbau hat geschrieben (CREATE TABLE/INDEX, Migrationen)'}`
+    );
+  }
+
+  console.log(
+    `Gesamturteil (nur bei beurteilbarer Phase A): ` +
+    `${phaseAConclusive && shaAtStart === shaBefore && shaBefore === shaAfter ? 'ja — Datei unverändert' : 'siehe Phasen oben'}`
+  );
   console.log('');
 
   if (usersWithoutPeriod.length > 0) {
