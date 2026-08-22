@@ -355,11 +355,21 @@ export function closeWorkPeriod(periodId: number, validTo: string): UserWorkPeri
 
   try {
     const result = db
-      .prepare(`UPDATE user_work_periods SET validTo = ? WHERE id = ?`)
+      // WR-12 (Code-Review Phase 13): `AND deletedAt IS NULL`. Ohne diesen Riegel aendert
+      // ein Aufruf mit der Id einer WEGGENOMMENEN Periode deren Werte — und umgeht dabei
+      // jede Ueberlappungs-/Lueckenpruefung: Migration 013 gibt dem UPDATE-Trigger
+      // `NEW.deletedAt IS NULL` als Bedingung mit, er ueberspringt die Zeile also, und
+      // `checkPeriodChain()` liest sie ohnehin nicht (`getWorkPeriods()` filtert sie
+      // heraus). Die Soft-Delete-Zusage dieses Services stand bisher nur auf den
+      // Lesepfaden; der Schreibpfad hat jetzt sein Gegenstueck (Muster:
+      // `softDeleteWorkPeriod()`, das den Filter seit jeher traegt).
+      .prepare(`UPDATE user_work_periods SET validTo = ? WHERE id = ? AND deletedAt IS NULL`)
       .run(validTo, periodId);
 
     if (result.changes === 0) {
-      throw new Error(`closeWorkPeriod: Periode ${periodId} existiert nicht.`);
+      throw new Error(
+        `closeWorkPeriod: Periode ${periodId} existiert nicht oder wurde bereits gelöscht.`
+      );
     }
   } catch (err) {
     translateWorkPeriodError(err, `Periode ${periodId} konnte nicht geschlossen werden`);
@@ -393,11 +403,23 @@ export function updateWorkPeriodValues(
 ): UserWorkPeriod {
   try {
     const result = db
-      .prepare(`UPDATE user_work_periods SET weeklyHours = ?, workSchedule = ? WHERE id = ?`)
+      // WR-12 (Code-Review Phase 13): `AND deletedAt IS NULL`. Ohne diesen Riegel aendert
+      // ein Aufruf mit der Id einer WEGGENOMMENEN Periode deren Werte — und umgeht dabei
+      // jede Ueberlappungs-/Lueckenpruefung: Migration 013 gibt dem UPDATE-Trigger
+      // `NEW.deletedAt IS NULL` als Bedingung mit, er ueberspringt die Zeile also, und
+      // `checkPeriodChain()` liest sie ohnehin nicht (`getWorkPeriods()` filtert sie
+      // heraus). Die Soft-Delete-Zusage dieses Services stand bisher nur auf den
+      // Lesepfaden; der Schreibpfad hat jetzt sein Gegenstueck (Muster:
+      // `softDeleteWorkPeriod()`, das den Filter seit jeher traegt).
+      .prepare(
+        `UPDATE user_work_periods SET weeklyHours = ?, workSchedule = ? WHERE id = ? AND deletedAt IS NULL`
+      )
       .run(weeklyHours, workSchedule === null ? null : JSON.stringify(workSchedule), periodId);
 
     if (result.changes === 0) {
-      throw new Error(`updateWorkPeriodValues: Periode ${periodId} existiert nicht.`);
+      throw new Error(
+        `updateWorkPeriodValues: Periode ${periodId} existiert nicht oder wurde bereits gelöscht.`
+      );
     }
   } catch (err) {
     translateWorkPeriodError(err, `Werte der Periode ${periodId} konnten nicht geändert werden`);
@@ -427,11 +449,21 @@ export function setWorkPeriodValidFrom(periodId: number, validFrom: string): Use
 
   try {
     const result = db
-      .prepare(`UPDATE user_work_periods SET validFrom = ? WHERE id = ?`)
+      // WR-12 (Code-Review Phase 13): `AND deletedAt IS NULL`. Ohne diesen Riegel aendert
+      // ein Aufruf mit der Id einer WEGGENOMMENEN Periode deren Werte — und umgeht dabei
+      // jede Ueberlappungs-/Lueckenpruefung: Migration 013 gibt dem UPDATE-Trigger
+      // `NEW.deletedAt IS NULL` als Bedingung mit, er ueberspringt die Zeile also, und
+      // `checkPeriodChain()` liest sie ohnehin nicht (`getWorkPeriods()` filtert sie
+      // heraus). Die Soft-Delete-Zusage dieses Services stand bisher nur auf den
+      // Lesepfaden; der Schreibpfad hat jetzt sein Gegenstueck (Muster:
+      // `softDeleteWorkPeriod()`, das den Filter seit jeher traegt).
+      .prepare(`UPDATE user_work_periods SET validFrom = ? WHERE id = ? AND deletedAt IS NULL`)
       .run(validFrom, periodId);
 
     if (result.changes === 0) {
-      throw new Error(`setWorkPeriodValidFrom: Periode ${periodId} existiert nicht.`);
+      throw new Error(
+        `setWorkPeriodValidFrom: Periode ${periodId} existiert nicht oder wurde bereits gelöscht.`
+      );
     }
   } catch (err) {
     translateWorkPeriodError(
@@ -575,6 +607,15 @@ export function checkAllPeriodChains(): PeriodChainIssue[] {
  * Periodenliste. Alle vier Lesepfade oben (getWorkPeriods, getCurrentWorkPeriod) filtern
  * bereits `deletedAt IS NULL` — eine weggenommene Periode erreicht damit keinen
  * Berechnungspfad mehr, bevor sie hier überhaupt weggenommen werden kann.
+ *
+ * WR-12 (Code-Review Phase 13): Die Soft-Delete-Zusage stand ausschliesslich auf den
+ * Lesepfaden. Die vier UPDATE-Schreibwege oben (`closeWorkPeriod`, `updateWorkPeriodValues`,
+ * `setWorkPeriodValidFrom`, `extendWorkPeriodTo`) schrieben mit blossem `WHERE id = ?` — ein
+ * Aufruf mit der Id einer weggenommenen Periode aenderte deren Werte UND umging dabei jede
+ * Ueberlappungs-/Lueckenpruefung (Migration 013 gibt dem UPDATE-Riegel `NEW.deletedAt IS NULL`
+ * mit, er ueberspringt die Zeile also; `checkPeriodChain()` liest sie ohnehin nicht). Alle
+ * vier tragen den Filter jetzt ebenfalls, und ihre `changes === 0`-Meldung deckt den Fall
+ * „bereits geloescht" ausdruecklich mit ab — wortgleich zu `softDeleteWorkPeriod()`.
  */
 
 /**
@@ -611,11 +652,21 @@ export function extendWorkPeriodTo(periodId: number, validTo: string | null): Us
 
   try {
     const result = db
-      .prepare(`UPDATE user_work_periods SET validTo = ? WHERE id = ?`)
+      // WR-12 (Code-Review Phase 13): `AND deletedAt IS NULL`. Ohne diesen Riegel aendert
+      // ein Aufruf mit der Id einer WEGGENOMMENEN Periode deren Werte — und umgeht dabei
+      // jede Ueberlappungs-/Lueckenpruefung: Migration 013 gibt dem UPDATE-Trigger
+      // `NEW.deletedAt IS NULL` als Bedingung mit, er ueberspringt die Zeile also, und
+      // `checkPeriodChain()` liest sie ohnehin nicht (`getWorkPeriods()` filtert sie
+      // heraus). Die Soft-Delete-Zusage dieses Services stand bisher nur auf den
+      // Lesepfaden; der Schreibpfad hat jetzt sein Gegenstueck (Muster:
+      // `softDeleteWorkPeriod()`, das den Filter seit jeher traegt).
+      .prepare(`UPDATE user_work_periods SET validTo = ? WHERE id = ? AND deletedAt IS NULL`)
       .run(validTo, periodId);
 
     if (result.changes === 0) {
-      throw new Error(`extendWorkPeriodTo: Periode ${periodId} existiert nicht.`);
+      throw new Error(
+        `extendWorkPeriodTo: Periode ${periodId} existiert nicht oder wurde bereits gelöscht.`
+      );
     }
   } catch (err) {
     translateWorkPeriodError(

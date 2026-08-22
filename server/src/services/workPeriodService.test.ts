@@ -12,6 +12,8 @@ import {
   WorkPeriodConflictError,
   getWorkPeriodById,
   extendWorkPeriodTo,
+  updateWorkPeriodValues,
+  setWorkPeriodValidFrom,
   softDeleteWorkPeriod,
   getWorkPeriodsWithFlags,
   withSuspendedChainGuard,
@@ -659,6 +661,50 @@ describe('Soft-Delete (Phase 13, D2/D3)', () => {
     ).suspended;
     expect(afterThrow).toBe(0);
   });
+
+  it(
+    'WR-12 (Code-Review Phase 13): keiner der vier UPDATE-Schreibwege fasst eine ' +
+      'weggenommene Periode an — sonst aenderte er ihre Werte UNTER UMGEHUNG jeder ' +
+      'Ueberlappungs-/Lueckenpruefung (der UPDATE-Riegel aus Migration 013 traegt ' +
+      'NEW.deletedAt IS NULL und ueberspringt geloeschte Zeilen, checkPeriodChain() liest ' +
+      'sie ohnehin nicht).',
+    () => {
+      userId = createPhase13TestUser('wr12-schreibriegel');
+      const p1 = createWorkPeriod({
+        userId,
+        validFrom: '2020-01-01',
+        validTo: '2020-06-01',
+        weeklyHours: 40,
+        workSchedule: null,
+        note: TEST_NOTE_MARKER,
+      });
+      createWorkPeriod({
+        userId,
+        validFrom: '2020-06-01',
+        weeklyHours: 20,
+        workSchedule: null,
+        note: TEST_NOTE_MARKER,
+      });
+
+      softDeleteWorkPeriod(p1.id, userId);
+
+      // Alle vier Schreibwege weisen die Id der weggenommenen Periode ab.
+      expect(() => closeWorkPeriod(p1.id, '2020-05-01')).toThrow(/bereits gelöscht/);
+      expect(() => updateWorkPeriodValues(p1.id, 12, null)).toThrow(/bereits gelöscht/);
+      expect(() => setWorkPeriodValidFrom(p1.id, '2019-12-01')).toThrow(/bereits gelöscht/);
+      expect(() => extendWorkPeriodTo(p1.id, null)).toThrow(/bereits gelöscht/);
+
+      // Und die Zeile ist wirklich unveraendert geblieben — kein halber Schreibvorgang.
+      const raw = db
+        .prepare(
+          'SELECT validFrom, validTo, weeklyHours FROM user_work_periods WHERE id = ?'
+        )
+        .get(p1.id) as { validFrom: string; validTo: string | null; weeklyHours: number };
+      expect(raw.validFrom).toBe('2020-01-01');
+      expect(raw.validTo).toBe('2020-06-01');
+      expect(raw.weeklyHours).toBe(40);
+    }
+  );
 });
 
 describe('workPeriodService — Aufräumnachweis', () => {
