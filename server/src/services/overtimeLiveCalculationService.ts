@@ -19,7 +19,9 @@
 
 import { db } from '../database/connection.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
-import type { UserPublic } from '../types/index.js';
+import type { TargetHoursUser } from '../utils/workingDays.js';
+import { isStoredWorkSchedule } from '../utils/workSchedule.js';
+import type { WorkSchedule } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
@@ -48,7 +50,7 @@ import type { WorkPeriodContext } from './workPeriodContext.js';
 export function getAllWorkingDaysBetween(
   startDate: string,
   endDate: string,
-  user: UserPublic,
+  user: TargetHoursUser,
   periods: WorkPeriodContext
 ): string[] {
   const workingDays: string[] = [];
@@ -69,6 +71,42 @@ export function getAllWorkingDaysBetween(
   }
 
   return workingDays;
+}
+
+/**
+ * WR-13: Liest den in `users.workSchedule` gespeicherten JSON-Text OHNE `any`.
+ * `JSON.parse()` kann werfen (kaputter Text) und liefert sonst `any` — beides wird hier
+ * abgefangen: das Ergebnis geht als `unknown` durch `isStoredWorkSchedule()`. Schlägt eine
+ * der beiden Prüfungen fehl, wird das protokolliert und `null` zurückgegeben (Rückfall auf
+ * die Wochenstunden der jeweiligen Periode), statt still mit einem unvollständigen Objekt
+ * weiterzurechnen.
+ */
+function parseStoredWorkSchedule(raw: string | null, userId: number): WorkSchedule | null {
+  if (!raw) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch (error) {
+    logger.warn(
+      { userId, err: error },
+      'users.workSchedule ist kein gültiges JSON — Tagesplan wird als nicht gesetzt behandelt'
+    );
+    return null;
+  }
+
+  if (!isStoredWorkSchedule(parsed)) {
+    logger.warn(
+      { userId },
+      'users.workSchedule trägt nicht für alle sieben Wochentage eine endliche Zahl — ' +
+        'Tagesplan wird als nicht gesetzt behandelt'
+    );
+    return null;
+  }
+
+  return parsed;
 }
 
 export interface LiveOvertimeTransaction {
@@ -134,7 +172,14 @@ export function calculateLiveOvertimeTransactions(
   }
 
   // Parse workSchedule
-  const workSchedule = user.workSchedule ? JSON.parse(user.workSchedule) : null;
+  //
+  // WR-13 (Code-Review Phase 12): `JSON.parse()` liefert `any`. Der Wert wanderte ungeprüft
+  // in `getDailyTargetHours()` und damit in jede Sollstundenrechnung — genau der Fall, den
+  // `.claude/CLAUDE.md` mit "kein `any` — `unknown` + Type Guards" verbietet. Ein kaputter
+  // oder unvollständiger Text darf nicht still weitergerechnet werden: er wird protokolliert
+  // und wie ein fehlender Tagesplan behandelt (`null` → Rückfall auf die Wochenstunden der
+  // jeweiligen Periode).
+  const workSchedule = parseStoredWorkSchedule(user.workSchedule, userId);
 
   // Determine date range (never before hireDate!)
   const startDate = fromDate && fromDate > user.hireDate
@@ -155,12 +200,15 @@ export function calculateLiveOvertimeTransactions(
   // hireDate ergänzt (D4-Ausnahme): ohne ihn würde ein Tag vor dem Eintrittsdatum die
   // Live-Anzeige mit MissingWorkPeriodError abbrechen lassen. Der Wert liegt hier bereits
   // vor (user.hireDate wird oben für die Bereichsgrenze benutzt).
-  const userForCalc: UserPublic = {
+  // WR-13: `TargetHoursUser` statt `as UserPublic` — der Cast unterdrückte, dass dieses
+  // Objekt die meisten Pflichtfelder von `UserPublic` gar nicht trägt. Der schmalere Typ
+  // beschreibt genau das, was hier vorliegt und was die Sollstunden-Auflösung braucht.
+  const userForCalc: TargetHoursUser = {
     id: user.id,
     weeklyHours: user.weeklyHours,
     workSchedule,
     hireDate: user.hireDate,
-  } as UserPublic;
+  };
 
   // ========================================
   // 1. Get approved absences and build Set of absence dates

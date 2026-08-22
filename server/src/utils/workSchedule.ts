@@ -61,6 +61,24 @@ export function isWorkSchedule(value: unknown): value is WorkSchedule {
   });
 }
 
+/**
+ * Typwächter für einen GESPEICHERTEN Tagesplan (JSON-Spalte): alle sieben
+ * Wochentagsschlüssel vorhanden und jeweils eine endliche Zahl — bewusst OHNE
+ * Wertebereichsprüfung.
+ *
+ * WARUM OHNE BEREICH (WR-13): Diese Funktion prüft Bestandsdaten. Eine Zeile mit einem
+ * historisch gewachsenen Wert außerhalb 0..24 darf nicht plötzlich als "kein Tagesplan"
+ * gelesen werden — das würde stillschweigend die Sollstundenrechnung dieses Nutzers
+ * verändern. Für EINGABEN gilt der strengere `isWorkSchedule()` oben.
+ */
+export function isStoredWorkSchedule(value: unknown): value is WorkSchedule {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return WEEKDAY_KEYS.every(
+    (key) => typeof record[key] === 'number' && Number.isFinite(record[key])
+  );
+}
+
 /** Summe der sieben Tageswerte, auf zwei Nachkommastellen gerundet. */
 export function sumWorkScheduleHours(workSchedule: WorkSchedule): number {
   const total = WEEKDAY_KEYS.reduce((sum, key) => sum + workSchedule[key], 0);

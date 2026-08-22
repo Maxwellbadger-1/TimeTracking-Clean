@@ -8,6 +8,25 @@ import logger from './logger.js';
 // Re-export DayName type for use in other modules
 export type { DayName };
 
+/**
+ * Der Ausschnitt aus `UserPublic`, den die Sollstunden-Auflösung tatsächlich braucht.
+ *
+ * WR-13 (Code-Review Phase 12): `overtimeLiveCalculationService` baute sich für diese
+ * Funktion ein Objekt aus vier Feldern zusammen und schob es mit `as UserPublic` durch —
+ * ein Cast, der unterdrückte, dass das Objekt die meisten Pflichtfelder von `UserPublic`
+ * (username, email, role, status, …) gar nicht trägt. Diese Funktion braucht sie auch nicht:
+ * gelesen werden nur `id` und `hireDate` (die Sollstunden kommen seit Phase 11 aus der
+ * Periode, nicht aus dem Stammdatensatz).
+ *
+ * Der Parametertyp ist damit ERWEITERT, nicht eingeengt: jedes vollständige `UserPublic`
+ * erfüllt ihn weiterhin, kein Aufrufer muss geändert werden — aber ein Aufrufer, der nur den
+ * Ausschnitt hat, braucht keinen Cast mehr.
+ */
+export type TargetHoursUser = Pick<
+  UserPublic,
+  'id' | 'hireDate' | 'weeklyHours' | 'workSchedule'
+>;
+
 /** Ausschließlich Zeichenketten im Format YYYY-MM-DD — Grundlage für den D4-Vergleich gegen
  *  `user.hireDate`. Läuft zur Laufzeit auch gegen Werte, die die Signatur schon ausschließt. */
 const HIRE_DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
@@ -38,7 +57,7 @@ export class MissingWorkPeriodError extends Error {
  * KEIN Rückfall auf `user.weeklyHours`/`user.workSchedule`.
  */
 function resolvePeriodForDate(
-  user: UserPublic,
+  user: TargetHoursUser,
   dateStr: string,
   periods: WorkPeriodContext
 ): UserWorkPeriod | null {
@@ -155,7 +174,7 @@ export function getDayName(date: Date | string): DayName {
  * getDailyTargetHours(user, "2025-02-03", periods) // → 8h (40/5)
  */
 export function getDailyTargetHours(
-  user: UserPublic,
+  user: TargetHoursUser,
   date: Date | string,
   periods: WorkPeriodContext
 ): number {
