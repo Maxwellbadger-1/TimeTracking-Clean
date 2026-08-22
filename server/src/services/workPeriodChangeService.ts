@@ -1,0 +1,442 @@
+/**
+ * Work Period Change Service — der zentrale Schreibweg für einen Stundenwechsel
+ *
+ * DER EINE VORGANG (D2, REQ-27): `applyWorkTimeChange()` ist die einzige Rechenbahn für
+ * Vorschau UND Speichern. Es gibt keine im Frontend nachgebaute Vorschau-Rechnung und keine
+ * zweite Server-Funktion, die dieselbe Zahl auf einem anderen Weg ermittelt — genau das
+ * "Dual Calculation System", das `.claude/CLAUDE.md` als Fehlerquelle beschreibt. Der einzige
+ * Unterschied zwischen Vorschau und Speichern ist das `dryRun`-Flag: Beide Pfade schreiben
+ * tatsächlich (Periode schließen/anlegen, Monate neu rechnen, ggf. eine Buchung erzeugen),
+ * messen den entstandenen Saldo, und der Trockenlauf wirft am Ende gezielt, damit
+ * better-sqlite3 die gesamte Transaktion zurückrollt. Rechnen, schreiben, messen,
+ * zurückrollen — nicht rechnen ohne zu schreiben.
+ *
+ * D3 — BEGRENZTER REBUILD: Neu gerechnet wird ausschließlich von `validFrom` der neuen
+ * Periode bis heute, nicht die gesamte Historie. Ein Stichtag in der Zukunft hat einen
+ * leeren bzw. eintägigen Bereich und damit keine Wirkung auf die Vergangenheit.
+ *
+ * D4 — KEINE UMRECHNUNG DES SALDOS: Der bereits angesparte Überstundensaldo wird nicht in
+ * "Tage nach neuem Modell" umgerechnet. Die Differenz, die durch die neue Sollstunden-Basis
+ * im rückwirkenden Zeitraum entsteht, wird gemessen (Saldo vorher/nachher) und als GENAU EINE
+ * Journalbuchung abgelegt — nie als stille Neuberechnung, nie als viele Tagesbuchungen. Bei
+ * einer Differenz von 0 entsteht keine Buchung.
+ *
+ * D7 — EINE TRANSAKTIONSKLAMMER: Periode schließen/anlegen, der begrenzte Rebuild und die
+ * Journalbuchung liegen vollständig innerhalb derselben Transaktionsklammer. Ein halb
+ * eingetragener Wechsel ist damit unmöglich — entweder alles oder nichts.
+ *
+ * PERIODENKONTEXT: Für jeden der beiden Messläufe (vor und nach dem Schreiben) wird der
+ * Perioden-Cache aus `workPeriodContext.ts` genau einmal gebaut und durch die komplette
+ * Tagesschleife durchgereicht (D1 aus Phase 11). Die Einzelabfrage-Variante dieses Moduls
+ * kommt in diesem Service an keiner Stelle vor — sie wäre in einer Tagesschleife über einen
+ * mehrjährigen, rückwirkenden Zeitraum genau die Verschwendung, die Phase 11 beheben sollte.
+ *
+ * WICHTIG — DIESER SERVICE BLEIBT SYNCHRON.
+ * better-sqlite3 ist synchron; kein async/await, keine dynamischen Importe in diesem Modul
+ * (Muster aus `vacationTransactionService.ts:1-29`, `workPeriodService.ts:58-60`).
+ *
+ * Kontext: .planning/phases/12-stundenwechsel-bedienen/12-CONTEXT.md (D2-D5, D7),
+ * .planning/phases/12-stundenwechsel-bedienen/12-UI-SPEC.md (Fehlertexte, Journaltexte),
+ * .planning/phases/12-stundenwechsel-bedienen/12-03-PLAN.md (Task 2).
+ */
+
+import { db } from '../database/connection.js';
+import { getUserById } from './userService.js';
+import {
+  getWorkPeriods,
+  resolveWorkPeriodIn,
+  createWorkPeriod,
+  closeWorkPeriod,
+  checkPeriodChain,
+  WorkPeriodConflictError,
+} from './workPeriodService.js';
+import * as workPeriodContextModule from './workPeriodContext.js';
+import type { WorkPeriodContext } from './workPeriodContext.js';
+import { getDailyTargetHours } from '../utils/workingDays.js';
+import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
+import { getOvertimeBalance } from './overtimeTransactionService.js';
+import { createTransaction } from './overtimeTransactionManager.js';
+import { getTodayString, formatDate } from '../utils/timezone.js';
+import logger from '../utils/logger.js';
+import type {
+  UserPublic,
+  UserWorkPeriod,
+  WorkSchedule,
+  WorkTimeChangeInput,
+  WorkTimeChangeOutcome,
+  WorkTimeChangePreview,
+} from '../types/index.js';
+
+/** Ausschließlich Zeichenketten im Format YYYY-MM-DD — kein Date-Objekt, keine Zeitzone. */
+const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+
+const WEEKDAY_KEYS: readonly (keyof WorkSchedule)[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+/**
+ * Fehlerklasse für alle serverseitigen Validierungsfehler dieses Vorgangs — Muster aus
+ * `WorkPeriodConflictError` (`workPeriodService.ts`). Trägt fertige, deutsche Meldungen aus
+ * dem Textbuch der UI-SPEC; die Route reicht `message` unverändert weiter.
+ */
+export class WorkTimeChangeValidationError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'WorkTimeChangeValidationError';
+  }
+}
+
+/**
+ * Internes Signal für den Trockenlauf: wird ausschließlich innerhalb der Transaktionsklammer
+ * geworfen, damit der Datenbanktreiber die gesamte Klammer zurückrollt. Außerhalb der Klammer
+ * wird genau diese Fehlerklasse gefangen und ihr `outcome` als Ergebnis zurückgegeben — jeder
+ * andere Fehler (Validierung, Konflikt) läuft ungefangen weiter zum Aufrufer.
+ */
+class PreviewRollback extends Error {
+  constructor(readonly outcome: WorkTimeChangeOutcome) {
+    super('Trockenlauf abgeschlossen — die Transaktion wird absichtlich zurückgerollt.');
+    this.name = 'PreviewRollback';
+  }
+}
+
+/** TT.MM.JJJJ aus einer YYYY-MM-DD-Zeichenkette — reine Zeichenkettenumformung, kein Date. */
+function toGermanDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+/** "30,0" statt "30.0" — Komma als Dezimaltrennzeichen für die Journal-Beschreibung. */
+function formatWeeklyHoursDe(hours: number): string {
+  return hours.toFixed(1).replace('.', ',');
+}
+
+/** Typwächter: prüft, dass alle sieben Wochentagsschlüssel vorhanden und endliche Zahlen sind. */
+function isWorkSchedule(value: unknown): value is WorkSchedule {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return WEEKDAY_KEYS.every(
+    (key) => typeof record[key] === 'number' && Number.isFinite(record[key])
+  );
+}
+
+/** Wertvergleich zweier Tagespläne — keine Objektidentität. */
+function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boolean {
+  if (a === null && b === null) return true;
+  if (a === null || b === null) return false;
+  return WEEKDAY_KEYS.every((key) => a[key] === b[key]);
+}
+
+/**
+ * Summiert die Sollstunden über `from`..`to` (beide inklusiv) und zählt jeden Tag mit einem
+ * Sollwert größer 0 als Arbeitstag. Reine Tagesschleife über `getDailyTargetHours()` — der
+ * übergebene Kontext wird ausschließlich als Parameter durchgereicht, niemals selbst gebaut.
+ * Datumsfortschaltung rein lokal über Kalenderfelder, keine ISO-String-Konvertierung über die
+ * Date-Klasse (Muster aus `overtimeTransactionRebuildService.ts:285-286`).
+ */
+function sumTargetHoursInRange(
+  user: UserPublic,
+  from: string,
+  to: string,
+  periods: WorkPeriodContext
+): { targetHours: number; workingDays: number } {
+  const [fromYear, fromMonth, fromDay] = from.split('-').map(Number);
+  const [toYear, toMonth, toDay] = to.split('-').map(Number);
+  const cursor = new Date(fromYear, fromMonth - 1, fromDay);
+  const end = new Date(toYear, toMonth - 1, toDay);
+
+  let targetHours = 0;
+  let workingDays = 0;
+
+  for (; cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+    const dateStr = formatDate(cursor, 'yyyy-MM-dd');
+    const daily = getDailyTargetHours(user, dateStr, periods);
+    targetHours += daily;
+    if (daily > 0) {
+      workingDays += 1;
+    }
+  }
+
+  return {
+    targetHours: Math.round(targetHours * 100) / 100,
+    workingDays,
+  };
+}
+
+/** Die betroffenen Kalendermonate (YYYY-MM) von `from` bis `to`, beide inklusiv. */
+function monthsInRange(from: string, to: string): string[] {
+  const [fromYear, fromMonth] = from.split('-').map(Number);
+  const [toYear, toMonth] = to.split('-').map(Number);
+
+  const months: string[] = [];
+  let year = fromYear;
+  let month = fromMonth;
+
+  while (year < toYear || (year === toYear && month <= toMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+
+  return months;
+}
+
+/**
+ * Prüft die Eingabe serverseitig — nicht nur in der Route (Muster aus Phase 6). Meldungstexte
+ * wörtlich aus `12-UI-SPEC.md`, Abschnitt "Fehlermeldungen (Validierung)". Die Begründung wird
+ * ausschließlich im Speicherpfad geprüft (`dryRun === false`); im Trockenlauf ist sie erlaubt,
+ * damit die Vorschau schon vor dem Eintippen der Begründung berechnet werden kann.
+ */
+function validateInput(input: WorkTimeChangeInput, user: UserPublic, dryRun: boolean): void {
+  if (!input.validFrom || !DATE_FORMAT.test(input.validFrom)) {
+    throw new WorkTimeChangeValidationError('Stichtag ist erforderlich');
+  }
+
+  if (!Number.isFinite(input.weeklyHours)) {
+    throw new WorkTimeChangeValidationError('Wochenstunden sind erforderlich');
+  }
+  if (input.weeklyHours < 0 || input.weeklyHours > 60) {
+    throw new WorkTimeChangeValidationError('Wochenstunden müssen zwischen 0 und 60 liegen');
+  }
+
+  if (input.workSchedule !== null && !isWorkSchedule(input.workSchedule)) {
+    throw new WorkTimeChangeValidationError(
+      'Der Tagesplan muss entweder leer sein oder für alle sieben Wochentage eine endliche Zahl enthalten.'
+    );
+  }
+
+  if (input.validFrom < user.hireDate) {
+    throw new WorkTimeChangeValidationError(
+      `Der Stichtag darf nicht vor dem Eintrittsdatum (${toGermanDate(user.hireDate)}) liegen.`
+    );
+  }
+
+  if (user.endDate && input.validFrom > user.endDate) {
+    throw new WorkTimeChangeValidationError(
+      `Der Stichtag liegt nach dem Austrittsdatum (${toGermanDate(user.endDate)}).`
+    );
+  }
+
+  if (!dryRun) {
+    if (!input.reason || input.reason.trim().length === 0) {
+      throw new WorkTimeChangeValidationError('Begründung ist erforderlich');
+    }
+    if (input.reason.trim().length < 10) {
+      throw new WorkTimeChangeValidationError('Begründung muss mindestens 10 Zeichen lang sein');
+    }
+  }
+}
+
+/**
+ * Berechnet einen Stundenwechsel und wendet ihn wahlweise an (`dryRun: false`) oder verwirft
+ * ihn nach der Messung (`dryRun: true`) — D2, keine zweite Rechenbahn. Wirft
+ * `WorkTimeChangeValidationError` bei jedem Validierungs- oder Kettenproblem; in diesem Fall
+ * wird nichts geschrieben.
+ */
+export function applyWorkTimeChange(
+  input: WorkTimeChangeInput,
+  options: { dryRun: boolean; createdBy: number | null }
+): WorkTimeChangeOutcome {
+  const run = db.transaction((): WorkTimeChangeOutcome => {
+    // 1. Nutzer laden.
+    const user = getUserById(input.userId);
+    if (!user) {
+      throw new WorkTimeChangeValidationError(`Nutzer ${input.userId} existiert nicht.`);
+    }
+
+    // 2. Eingabe serverseitig validieren.
+    validateInput(input, user, options.dryRun);
+
+    // 3. Perioden laden — ein exakt auf validFrom fallender Periodenbeginn ist ein Konflikt.
+    const existingPeriods = getWorkPeriods(input.userId);
+    const exactMatch = existingPeriods.find((p) => p.validFrom === input.validFrom);
+    if (exactMatch) {
+      throw new WorkTimeChangeValidationError(
+        `Zum ${toGermanDate(input.validFrom)} existiert bereits eine Periode. Wählen Sie ein anderes Datum.`
+      );
+    }
+
+    // 4. Zeitraum bestimmen (D3): rückwirkend bis heute, sonst nur der Stichtag selbst.
+    const today = getTodayString();
+    const isRetroactive = input.validFrom < today;
+    const rangeStart = input.validFrom;
+    const rangeEnd = input.validFrom > today ? rangeStart : today;
+
+    // 5. Betroffene Monate.
+    const affectedMonths = monthsInRange(rangeStart, rangeEnd);
+
+    // 6. Ist-Basis herstellen: overtime_balance darf beim Messen nicht veraltet sein, sonst
+    //    enthielte die Differenz zusätzlich den Nachhall einer ausstehenden Selbstheilung.
+    for (const month of affectedMonths) {
+      rebuildOvertimeTransactionsForMonth(input.userId, month);
+    }
+
+    // 7. Sollstunden vor der Änderung — ein frischer Perioden-Cache für genau diesen Messlauf.
+    const periodsBefore: WorkPeriodContext = workPeriodContextModule.createWorkPeriodContext();
+    const { targetHours: targetHoursBefore, workingDays: workingDaysInRange } =
+      sumTargetHoursInRange(user, rangeStart, rangeEnd, periodsBefore);
+
+    // 8. Saldo vor der Änderung.
+    const balanceBefore = getOvertimeBalance(input.userId);
+
+    // 9. Aktuell gültige Periode am Stichtag und "nichts zu tun"-Erkennung.
+    const currentPeriod = resolveWorkPeriodIn(existingPeriods, input.validFrom);
+    const isNoOp =
+      currentPeriod !== null &&
+      currentPeriod.weeklyHours === input.weeklyHours &&
+      workScheduleEquals(currentPeriod.workSchedule, input.workSchedule);
+
+    if (isNoOp && !options.dryRun) {
+      throw new WorkTimeChangeValidationError(
+        'Die eingegebenen Werte entsprechen der aktuell gültigen Periode ab diesem Stichtag — es gibt nichts zu speichern.'
+      );
+    }
+
+    // 10. Schreiben: bestehende Periode aufteilen oder Lücke füllen. Läuft unabhängig von
+    //     dryRun — der Trockenlauf schreibt tatsächlich und rollt am Ende zurück (D2).
+    let newPeriod: UserWorkPeriod;
+    try {
+      if (currentPeriod) {
+        const splitValidTo = currentPeriod.validTo;
+        closeWorkPeriod(currentPeriod.id, input.validFrom);
+        newPeriod = createWorkPeriod({
+          userId: input.userId,
+          validFrom: input.validFrom,
+          validTo: splitValidTo,
+          weeklyHours: input.weeklyHours,
+          workSchedule: input.workSchedule,
+          note: input.reason,
+          createdBy: options.createdBy,
+        });
+      } else {
+        const nextPeriod = existingPeriods
+          .filter((p) => p.validFrom > input.validFrom)
+          .sort((a, b) => (a.validFrom < b.validFrom ? -1 : a.validFrom > b.validFrom ? 1 : 0))[0];
+        newPeriod = createWorkPeriod({
+          userId: input.userId,
+          validFrom: input.validFrom,
+          validTo: nextPeriod ? nextPeriod.validFrom : null,
+          weeklyHours: input.weeklyHours,
+          workSchedule: input.workSchedule,
+          note: input.reason,
+          createdBy: options.createdBy,
+        });
+      }
+    } catch (err) {
+      if (err instanceof WorkPeriodConflictError) {
+        throw new WorkTimeChangeValidationError(err.message, { cause: err });
+      }
+      throw err;
+    }
+
+    // 11. Kettenprüfung — bei Befund rollt die Transaktion zurück (D7). Keine eigene
+    //     Überlappungs-/Lückenlogik nachbauen.
+    const chainResult = checkPeriodChain(input.userId);
+    if (!chainResult.ok) {
+      throw new WorkTimeChangeValidationError(
+        `Die Periodenkette wäre nach diesem Wechsel ungültig: ${chainResult.findings.join(' ')}`
+      );
+    }
+
+    // 12. Nachrechnen: derselbe begrenzte Bereich, jetzt mit der neuen Periode in der Kette.
+    for (const month of affectedMonths) {
+      rebuildOvertimeTransactionsForMonth(input.userId, month);
+    }
+
+    // 13. Sollstunden nach der Änderung — ein zweiter, frischer Perioden-Cache, weil der
+    //     erste Lauf die alten Perioden gecacht hat.
+    const periodsAfter: WorkPeriodContext = workPeriodContextModule.createWorkPeriodContext();
+    const { targetHours: targetHoursAfter } = sumTargetHoursInRange(
+      user,
+      rangeStart,
+      rangeEnd,
+      periodsAfter
+    );
+
+    // 14. Saldo nach der Änderung und die Differenz, die daraus entsteht.
+    const balanceAfter = getOvertimeBalance(input.userId);
+    const balanceDelta = Math.round((balanceAfter - balanceBefore) * 100) / 100;
+
+    // 15. Vorschau zusammensetzen — derselbe Rückgabetyp für Vorschau und Speichern (D2).
+    const preview: WorkTimeChangePreview = {
+      userId: input.userId,
+      validFrom: input.validFrom,
+      isRetroactive,
+      rangeStart,
+      rangeEnd,
+      workingDaysInRange,
+      targetHoursBefore,
+      targetHoursAfter,
+      targetHoursDelta: Math.round((targetHoursAfter - targetHoursBefore) * 100) / 100,
+      balanceBefore,
+      balanceAfter,
+      balanceDelta,
+      currentPeriod: currentPeriod
+        ? {
+            validFrom: currentPeriod.validFrom,
+            weeklyHours: currentPeriod.weeklyHours,
+            workSchedule: currentPeriod.workSchedule,
+          }
+        : null,
+      isNoOp,
+      midMonthEffective: !input.validFrom.endsWith('-01'),
+      affectedMonths,
+    };
+
+    // 16. Die eine Journalbuchung (D4/D5) — nur beim tatsächlichen Speichern und nur, wenn
+    //     überhaupt eine Differenz entstanden ist. Ein Stichtag in der Zukunft erzeugt keine.
+    let transactionId: number | null = null;
+    if (!options.dryRun && balanceDelta !== 0) {
+      const previousWeeklyHours = currentPeriod ? currentPeriod.weeklyHours : user.weeklyHours;
+      const description =
+        `Stundenwechsel ab ${toGermanDate(input.validFrom)}: ` +
+        `${formatWeeklyHoursDe(previousWeeklyHours)} → ${formatWeeklyHoursDe(input.weeklyHours)} h/Woche ` +
+        `(Grund: ${input.reason})`;
+
+      transactionId = createTransaction({
+        userId: input.userId,
+        date: input.validFrom,
+        type: 'model_change',
+        hours: balanceDelta,
+        description,
+        referenceType: 'work_period',
+        referenceId: newPeriod.id,
+        createdBy: options.createdBy,
+        balanceBefore,
+        balanceAfter,
+      });
+    }
+
+    // 17. Protokoll — ausschließlich Zahlen und Datumsangaben, keine Namen, keine Begründung.
+    logger.info(
+      { userId: input.userId, validFrom: input.validFrom, balanceDelta, dryRun: options.dryRun },
+      'Stundenwechsel berechnet'
+    );
+
+    // 18. Trockenlauf: gezielt werfen, damit die gesamte Klammer zurückrollt. Außerhalb wird
+    //     dieses Signal gefangen und sein outcome zurückgegeben — Periode und Buchung
+    //     existieren danach nicht.
+    if (options.dryRun) {
+      throw new PreviewRollback({ preview, period: null, transactionId: null });
+    }
+
+    return { preview, period: newPeriod, transactionId };
+  });
+
+  try {
+    return run();
+  } catch (err) {
+    if (err instanceof PreviewRollback) {
+      return err.outcome;
+    }
+    throw err;
+  }
+}
