@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: verifying
-stopped_at: Completed 10-05-PLAN.md
-last_updated: "2026-08-22T00:21:28.968Z"
+stopped_at: "Completed 10-06-PLAN.md (Luckenschluss: CR-01, WR-01, WR-02, WR-03 aus 10-REVIEW.md geschlossen)"
+last_updated: "2026-08-22T04:57:40.229Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 13
-  completed_plans: 10
+  total_plans: 22
+  completed_plans: 11
   percent: 29
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 10-05-PLAN.md
+- **Stopped at:** Completed 10-06-PLAN.md (Luckenschluss: CR-01, WR-01, WR-02, WR-03 aus 10-REVIEW.md geschlossen)
 
 ## Phase Progress
 
@@ -148,6 +148,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 10-perioden-fundament]: Migration 009 aus Plan 10-03 war beim Migrationslauf bereits zusammengefuehrt (Dev-Server wendet Migrationen automatisch an); user_work_periods zeigte 20 statt 0 Zeilen - dokumentierter Erwartungsfall, kein Fehlschlag
 - [Phase 10-perioden-fundament]: Zusaetzliche synthetische Vor-008-Kopie gebaut, um zu belegen dass migrate:copy tatsaechlich neue Migrationen anwendet, nicht nur eine vollstaendige Datenbank bestaetigt
 - [Phase ?]: [10-05] Der kanonische Überstunden-Lesepfad löst soft-gelöschte Nutzer nicht auf (getUser() filtert deletedAt IS NULL) — snapshotBalances.ts fängt das je Nutzer ab und hält die Fehlermeldung in overtimeError fest, statt abzubrechen.
+- [Phase 10-perioden-fundament]: 10-06: Migration 001 bleibt bewusst async (echtes await auf Feiertags-Netzabruf, laeuft auf jedem Erststart) - applyMigration() bekommt stattdessen zwei getrennte Pfade statt eines pauschalen Abweisens von async up()
+- [Phase 10-perioden-fundament]: 10-06: Migration 010 statt reiner Aenderung an 008 - 008 ist auf development.db und lokalen Kopien bereits verbucht und laeuft dort nie erneut; 010 importiert dieselbe DELETE_GUARD_TRIGGER_SQL-Konstante wie 008 (eine Quelle, keine dritte Kopie)
+- [Phase 10-perioden-fundament]: 10-06: WR-01-Riegel verweigert nur das Leerlaufen auf null Perioden, nicht das Loeschen der ersten von mehreren Perioden - das bleibt laut 13-CONTEXT.md D3 Sache der Ersetzungslogik in Phase 13
 
 ## Quick Tasks Completed
 
@@ -191,6 +194,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 10-perioden-fundament P04 | 25min | 2 tasks | 2 files |
 | Phase 10-perioden-fundament P02 | 55min | 2 tasks | 4 files |
 | Phase 10-perioden-fundament P05 | 50min | - tasks | - files |
+| Phase 10-perioden-fundament P06 | 30min | 4 tasks | 16 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
