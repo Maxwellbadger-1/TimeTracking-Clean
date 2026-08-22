@@ -243,9 +243,9 @@ Plans:
 - [x] 11-02-PLAN.md — `workPeriodContext`: Perioden je Lauf vorladen, durchreichen statt global halten (D1, D2)
 - [x] 11-03-PLAN.md — Lückenlose Periodenkette im Betrieb: Startperiode bei der Nutzeranlage, Spiegelung bei Änderung
 - [x] 11-04-PLAN.md — Der Eingriff: `getDailyTargetHours` löst über die Periode auf, Pflichtparameter ohne Vorgabewert (D3, D4)
-- [ ] 11-05-PLAN.md — Kanonischer Überstundenweg und Rebuild periodenbewusst
-- [ ] 11-06-PLAN.md — Legacy-Pfad und Live-Anzeige, D7-Nachweis
-- [ ] 11-07-PLAN.md — Abwesenheiten, Überstundenausgleich und DATEV-Export
+- [x] 11-05-PLAN.md — Kanonischer Überstundenweg und Rebuild periodenbewusst
+- [x] 11-06-PLAN.md — Legacy-Pfad und Live-Anzeige, D7-Nachweis
+- [x] 11-07-PLAN.md — Abwesenheiten, Überstundenausgleich und DATEV-Export
 - [ ] 11-08-PLAN.md — Validierungs- und Migrationswerkzeuge periodenbewusst (REQ-25)
 - [ ] 11-11-PLAN.md — Nutzeranlegende Skripte legen die Startperiode mit an; `create-admin.ts` gesondert geprüft
 - [ ] 11-09-PLAN.md — Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün (REQ-23, REQ-24)

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 11-04-PLAN.md
-last_updated: "2026-08-22T05:30:29.852Z"
+stopped_at: Completed 11-05-PLAN.md
+last_updated: "2026-08-22T05:47:30.999Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 15
+  completed_plans: 18
   percent: 29
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 11-04-PLAN.md
+- **Stopped at:** Completed 11-05-PLAN.md
 
 ## Phase Progress
 
@@ -158,6 +158,10 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 11-datumsabh-ngige-berechnung]: [11-03] Rule 1: createUser() ohne hireDate verletzte users.hireDate NOT NULL bereits vor Phase 11 (schema.ts:45, DEFAULT wird durch explizit gebundenes NULL nicht ausgeloest) - behoben, hireDate und Perioden-validFrom teilen jetzt denselben resolveInitialValidFrom()-Ersatzwert
 - [Phase 11-datumsabh-ngige-berechnung]: [11-03] UPDATE user_work_periods bewusst direkt in userService.ts statt workPeriodService.ts (Plan 11-02 arbeitete in derselben Welle parallel an dieser Datei) - Phase 12 fuehrt den Schreibzugriff zusammen
 - [Phase 11]: calculateAbsenceHoursWithWorkSchedule bleibt bewusst eine zweite Kopie der Sollstunden-Regel (Wochenende immer uebersprungen); Zusammenfuehrung mit getDailyTargetHours ausdruecklich Phase 14 vorbehalten (D5), belegt durch Ausgangszustand-Kennzahl 0 von 20 Nutzern mit Wochenendstunden
+- [Phase ?]: 11-06: ensureOvertimeBalanceEntries() aendert oeffentliche Signatur nicht - Perioden-Kontext intern erzeugt und an unifiedOvertimeService.calculateMonthlyOvertime() durchgereicht, damit alle ~15 Aufrufer automatisch periodenbewusst rechnen (D7)
+- [Phase ?]: 11-06: getAllWorkingDaysBetween() bekommt echten vierten Pflichtparameter (periods), da exportiert - anders als ensureOvertimeBalanceEntries, wo der Kontext intern gekapselt bleibt
+- [Phase ?]: calculateDailyOvertime behaelt Vorgabewert directWorkPeriodLookup fuer Routen ohne eigenen Berechnungslauf, obwohl getDailyTargetHours selbst (D3) einen Pflichtparameter verlangt — 11-05
+- [Phase ?]: Namensraum-Import fuer createWorkPeriodContext in overtimeTransactionRebuildService.ts, damit grep genau eine Aufrufstelle zeigt — 11-05
 
 ## Quick Tasks Completed
 
@@ -206,6 +210,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 11-datumsabh-ngige-berechnung P01 | 20min | 3 tasks | 4 files |
 | Phase 11-datumsabh-ngige-berechnung P03 | 55min | 3 tasks | 2 files |
 | Phase 11 P04 | 70min | 3 tasks | 3 files |
+| Phase 11-datumsabh-ngige-berechnung P06 | 65min | 3 tasks | 5 files |
+| Phase 11-datumsabh-ngige-berechnung P05 | 25min | 2 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -242,7 +248,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 5 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
