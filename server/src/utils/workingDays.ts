@@ -390,8 +390,20 @@ function getPublicHolidays(year: number, dbInstance?: BetterSqlite3.Database): s
 
     return holidays.map(h => h.date);
   } catch (error) {
-    console.error('❌ Error fetching holidays:', error);
-    return [];
+    // WR-05 (Code-Review Phase 11, Durchlauf 2): Hier stand
+    // `console.error(...); return [];` — zwei Mängel in vier Zeilen.
+    //
+    // 1. STILLER RÜCKFALL: Ein leeres Array ist von "dieses Jahr hat keine Feiertage"
+    //    nicht zu unterscheiden. `countWorkingDaysBetween()` und
+    //    `countWorkingDaysForUser()` zählten danach jeden Feiertag als vollen Arbeitstag
+    //    und hoben die Sollstunden für den gesamten betroffenen Zeitraum an — ohne dass
+    //    irgendwo eine Zahl auffällig geworden wäre. Eine ausbleibende Antwort ist hier
+    //    besser als eine falsche: Der Fehler wird jetzt weitergeworfen.
+    // 2. `console.error` in einem aktiven Servicepfad umgeht Loglevel, Redaktion und
+    //    strukturierte Felder und ist in `.claude/CLAUDE.md` unter "VERBOTE → Code
+    //    Quality" untersagt. Dies war die letzte solche Stelle in dieser Datei.
+    logger.error({ err: error, year }, '❌ Feiertagsabfrage fehlgeschlagen');
+    throw error;
   }
 }
 
