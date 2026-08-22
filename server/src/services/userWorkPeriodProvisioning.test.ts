@@ -4,6 +4,8 @@ import * as workPeriodService from './workPeriodService.js';
 import { getWorkPeriods, getCurrentWorkPeriod, checkPeriodChain } from './workPeriodService.js';
 import { createUser, updateUser, ensureInitialWorkPeriod, usernameExists } from './userService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
+import { getDailyTargetHours } from '../utils/workingDays.js';
+import { createWorkPeriodContext } from './workPeriodContext.js';
 import type { UserCreateInput, WorkSchedule } from '../types/index.js';
 
 /**
@@ -282,6 +284,74 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
     expect(usersRow.weeklyHours).toBe(40);
     const periodAfter = getCurrentWorkPeriod(user.id);
     expect(periodAfter?.weeklyHours).toBe(periodBefore?.weeklyHours);
+  });
+});
+
+describe('updateUser — hireDate-Änderung zieht die Startperiode mit (CR-01)', () => {
+  let createdUserId: number | null = null;
+
+  afterEach(() => {
+    if (createdUserId !== null) {
+      deleteTestUser(createdUserId);
+      createdUserId = null;
+    }
+  });
+
+  it('hireDate vorverlegen verlängert die Startperiode nach vorn — checkPeriodChain bleibt ok, getDailyTargetHours wirft nicht', async () => {
+    const input = baseUserInput('hiredate-earlier', { weeklyHours: 40, hireDate: '2026-03-01' });
+    const user = await createUser(input);
+    createdUserId = user.id;
+
+    const periodBefore = getCurrentWorkPeriod(user.id);
+    expect(periodBefore?.validFrom).toBe('2026-03-01');
+
+    const updated = await updateUser(user.id, { hireDate: '2026-01-01' });
+    expect(updated.hireDate).toBe('2026-01-01');
+
+    const periods = getWorkPeriods(user.id);
+    expect(periods.length).toBe(1);
+    expect(periods[0].id).toBe(periodBefore?.id);
+    expect(periods[0].validFrom).toBe('2026-01-01');
+    expect(checkPeriodChain(user.id)).toEqual({ ok: true, findings: [] });
+
+    // 2026-01-05 liegt im vormals periodenlosen Loch [neues hireDate, altes validFrom).
+    // Vor CR-01 warf getDailyTargetHours hier MissingWorkPeriodError.
+    const periodsContext = createWorkPeriodContext();
+    expect(() => getDailyTargetHours(updated, '2026-01-05', periodsContext)).not.toThrow();
+    expect(getDailyTargetHours(updated, '2026-01-05', createWorkPeriodContext())).toBe(8);
+  });
+
+  it('hireDate nach hinten verlegen lässt die Kette bewusst stehen — kein Loch, kein Wurf', async () => {
+    const input = baseUserInput('hiredate-later', { weeklyHours: 40, hireDate: '2026-01-01' });
+    const user = await createUser(input);
+    createdUserId = user.id;
+
+    const periodBefore = getCurrentWorkPeriod(user.id);
+    expect(periodBefore?.validFrom).toBe('2026-01-01');
+
+    const updated = await updateUser(user.id, { hireDate: '2026-03-01' });
+    expect(updated.hireDate).toBe('2026-03-01');
+
+    const periods = getWorkPeriods(user.id);
+    expect(periods.length).toBe(1);
+    expect(periods[0].validFrom).toBe('2026-01-01');
+    expect(checkPeriodChain(user.id)).toEqual({ ok: true, findings: [] });
+
+    expect(() => getDailyTargetHours(updated, '2026-03-05', createWorkPeriodContext())).not.toThrow();
+  });
+
+  it('hireDate-Änderung bei einem Nutzer ganz ohne Periode legt die Startperiode mit dem NEUEN Datum an', async () => {
+    const userId = createRawTestUser('hiredate-noperiod', 40, '2026-05-01');
+    createdUserId = userId;
+    expect(getWorkPeriods(userId).length).toBe(0);
+
+    await updateUser(userId, { hireDate: '2026-02-01' });
+
+    const periods = getWorkPeriods(userId);
+    expect(periods.length).toBe(1);
+    expect(periods[0].validFrom).toBe('2026-02-01');
+    expect(periods[0].validTo).toBeNull();
+    expect(checkPeriodChain(userId)).toEqual({ ok: true, findings: [] });
   });
 });
 

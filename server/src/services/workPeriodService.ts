@@ -331,6 +331,42 @@ export function closeWorkPeriod(periodId: number, validTo: string): UserWorkPeri
   return rowToWorkPeriod(row);
 }
 
+/**
+ * Setzt `validFrom` einer bestehenden Periode. Einziger Anwendungsfall (CR-01, Phase 11):
+ * Das Eintrittsdatum eines Nutzers wird VORVERLEGT — dann muss die Startperiode nach vorn
+ * mitwachsen, sonst entsteht ein Datum zwischen neuem `hireDate` und `validFrom`, für das
+ * `resolveWorkPeriodIn()` `null` liefert und `getDailyTargetHours()` per D4 hart wirft.
+ *
+ * Bewusst KEIN allgemeines "Periode verschieben": Der Aufrufer muss sicherstellen, dass die
+ * Kette danach lückenlos bleibt. Die Trigger aus Migration 008
+ * (`trg_user_work_periods_update_guard`) weisen Überlappung und Lücke ohnehin ab; dieser
+ * Service übersetzt den Fehler wie überall in einen `WorkPeriodConflictError`.
+ */
+export function setWorkPeriodValidFrom(periodId: number, validFrom: string): UserWorkPeriod {
+  assertDateFormat(validFrom, 'validFrom');
+
+  try {
+    const result = db
+      .prepare(`UPDATE user_work_periods SET validFrom = ? WHERE id = ?`)
+      .run(validFrom, periodId);
+
+    if (result.changes === 0) {
+      throw new Error(`setWorkPeriodValidFrom: Periode ${periodId} existiert nicht.`);
+    }
+  } catch (err) {
+    translateWorkPeriodError(
+      err,
+      `Beginn der Periode ${periodId} konnte nicht auf ${validFrom} gesetzt werden`
+    );
+  }
+
+  const row = db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
+    .get(periodId) as UserWorkPeriodRow;
+
+  return rowToWorkPeriod(row);
+}
+
 export interface PeriodChainCheckResult {
   ok: boolean;
   findings: string[];

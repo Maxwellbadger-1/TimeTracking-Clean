@@ -5,7 +5,7 @@ import { getVacationBalance } from './absenceService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 // UNUSED: import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
-import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod } from './workPeriodService.js';
+import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod, setWorkPeriodValidFrom } from './workPeriodService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
@@ -73,6 +73,59 @@ export function ensureInitialWorkPeriod(
     note: initialPeriodNote(source),
     createdBy,
   });
+}
+
+/**
+ * Zieht die Startperiode eines Nutzers nach, wenn sein `hireDate` geändert wurde (CR-01).
+ *
+ * WARUM: D4 (Phase 11) macht eine fehlende Periode zum harten Laufzeitfehler. Wird das
+ * Eintrittsdatum VORVERLEGT (Korrekturfall: 2025-03-01 -> 2025-01-01), liegt jeder Tag im
+ * Intervall [neues hireDate, validFrom) hinter der D4-Ausnahme "vor hireDate = 0h", findet
+ * aber keine Periode — `getDailyTargetHours()` wirft dann `MissingWorkPeriodError` ab dem
+ * ersten Tag. Da `updateUser()` unmittelbar danach `overtime_balance` löscht, hätte der
+ * Nutzer weder Saldo noch die Möglichkeit, wieder einen zu bekommen.
+ *
+ * Drei Fälle, alle ausdrücklich entschieden (keiner dem Zufall überlassen):
+ * 1. Keine Periode vorhanden (Alt-Fall) -> `ensureInitialWorkPeriod()` mit dem NEUEN
+ *    hireDate legt die Startperiode an.
+ * 2. Neues hireDate < validFrom der ersten Periode -> Kette nach vorn verlängern.
+ * 3. Neues hireDate >= validFrom der ersten Periode -> Kette bewusst STEHEN LASSEN. Die
+ *    Periode deckt dann mehr ab als das Beschäftigungsverhältnis; das ist ungefährlich,
+ *    weil `getDailyTargetHours()` für Daten vor `hireDate` ohnehin 0 liefert (D4-Ausnahme),
+ *    und ein Kürzen würde bei einer mehrgliedrigen Kette eine Lücke erzeugen.
+ *
+ * Läuft innerhalb derselben Transaktion wie das `UPDATE users` — sonst bleibt bei einem
+ * Fehlschlag ein Nutzer ohne passende Periode zurück.
+ */
+function syncStartPeriodToHireDate(
+  userId: number,
+  newHireDate: string | null | undefined,
+  userForFallback: UserPublic
+): void {
+  if (!newHireDate || !HIRE_DATE_PATTERN.test(newHireDate)) {
+    logger.warn(
+      { userId, newHireDate },
+      '⚠️ syncStartPeriodToHireDate: hireDate ist nicht wohlgeformt (JJJJ-MM-TT) — Startperiode unverändert'
+    );
+    return;
+  }
+
+  const periods = getWorkPeriods(userId); // aufsteigend nach validFrom
+  const first = periods[0];
+
+  if (!first) {
+    ensureInitialWorkPeriod({ ...userForFallback, hireDate: newHireDate }, null);
+    return;
+  }
+
+  if (newHireDate < first.validFrom) {
+    logger.info(
+      { userId, periodId: first.id, oldValidFrom: first.validFrom, newValidFrom: newHireDate },
+      '🔄 hireDate vorverlegt — Startperiode wird nach vorn verlängert (CR-01)'
+    );
+    setWorkPeriodValidFrom(first.id, newHireDate);
+  }
+  // newHireDate >= first.validFrom: Fall 3 oben — bewusst keine Änderung.
 }
 
 /**
@@ -345,6 +398,10 @@ export async function updateUser(
       data.workSchedule !== undefined &&
       JSON.stringify(data.workSchedule ?? null) !== JSON.stringify(existingUser.workSchedule ?? null);
     const mustMirrorPeriod = weeklyHoursChanged || workScheduleChanged;
+    // CR-01: Eine hireDate-Änderung muss die Startperiode mitziehen — sonst entsteht ein
+    // Datum ohne Periode und jede Folgeberechnung wirft (D4).
+    const hireDateChanged =
+      data.hireDate !== undefined && data.hireDate !== existingUser.hireDate;
     const mirroredWeeklyHours = data.weeklyHours !== undefined ? data.weeklyHours : existingUser.weeklyHours;
     const mirroredWorkSchedule =
       data.workSchedule !== undefined ? data.workSchedule ?? null : existingUser.workSchedule;
@@ -356,6 +413,12 @@ export async function updateUser(
       const stmt = db.prepare(sqlQuery);
       const result = stmt.run(...values);
       changes = result.changes;
+
+      // CR-01: In DERSELBEN Transaktion wie das UPDATE users — ein halber Zustand
+      // (neues hireDate, alte Periodenkette) ist genau der Datendefekt, den D4 verbietet.
+      if (hireDateChanged) {
+        syncStartPeriodToHireDate(id, data.hireDate, existingUser);
+      }
 
       if (!mustMirrorPeriod) {
         return;
