@@ -5,7 +5,9 @@ import {
   calculateLiveOvertimeTransactions,
   calculateCurrentOvertimeBalance,
 } from './overtimeLiveCalculationService.js';
-import type { UserPublic } from '../types/index.js';
+import type { UserPublic, WorkSchedule } from '../types/index.js';
+import { stubWorkPeriodContext, insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
+import type { WorkPeriodContext } from './workPeriodContext.js';
 
 /**
  * Regressionsnetz gegen den Rückfall in eine eigene Arbeitstags-Entscheidung (REQ-17).
@@ -38,6 +40,21 @@ describe('getAllWorkingDaysBetween', () => {
     } as UserPublic;
   }
 
+  // getDailyTargetHours() liest weeklyHours/workSchedule nicht mehr vom user-Objekt (D3) —
+  // die Werte müssen über einen WorkPeriodContext aufgelöst werden. stubWorkPeriodContext()
+  // baut hier eine einzelne, seit 2020-01-01 laufende Periode mit denselben Werten, die
+  // buildUser() vorher direkt im user-Objekt trug.
+  function buildPeriods(overrides: { weeklyHours?: number; workSchedule?: WorkSchedule | null } = {}): WorkPeriodContext {
+    return stubWorkPeriodContext([
+      {
+        userId: 999,
+        validFrom: '2020-01-01',
+        weeklyHours: overrides.weeklyHours ?? 40,
+        workSchedule: overrides.workSchedule ?? null,
+      },
+    ]);
+  }
+
   it('nimmt den Samstag eines workSchedule-Nutzers in die Rückgabe auf', () => {
     const user = buildUser({
       workSchedule: {
@@ -52,7 +69,9 @@ describe('getAllWorkingDaysBetween', () => {
     });
 
     // Montag 2026-05-04 bis Sonntag 2026-05-10 (holidayfreie Woche)
-    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user);
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user, buildPeriods({
+      workSchedule: user.workSchedule,
+    }));
 
     expect(days).toContain('2026-05-09'); // Samstag
   });
@@ -70,7 +89,9 @@ describe('getAllWorkingDaysBetween', () => {
       },
     });
 
-    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user);
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user, buildPeriods({
+      workSchedule: user.workSchedule,
+    }));
 
     expect(days).not.toContain('2026-05-06'); // Mittwoch
     expect(days).toEqual(['2026-05-04', '2026-05-05', '2026-05-07', '2026-05-08']);
@@ -79,7 +100,10 @@ describe('getAllWorkingDaysBetween', () => {
   it('nimmt ohne workSchedule Montag bis Freitag auf, aber nicht das Wochenende', () => {
     const user = buildUser({ workSchedule: null, weeklyHours: 40 });
 
-    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user);
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user, buildPeriods({
+      workSchedule: null,
+      weeklyHours: 40,
+    }));
 
     expect(days).toEqual([
       '2026-05-04',
@@ -93,7 +117,10 @@ describe('getAllWorkingDaysBetween', () => {
   it('liefert für einen Aushilfsnutzer ohne workSchedule und weeklyHours=0 keinen Tag', () => {
     const user = buildUser({ workSchedule: null, weeklyHours: 0 });
 
-    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user);
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user, buildPeriods({
+      workSchedule: null,
+      weeklyHours: 0,
+    }));
 
     expect(days).toEqual([]);
   });
@@ -114,18 +141,52 @@ describe('getAllWorkingDaysBetween', () => {
     });
     const userWithoutSchedule = buildUser({ workSchedule: null, weeklyHours: 40 });
 
-    expect(getAllWorkingDaysBetween('2026-05-01', '2026-05-01', userWithSchedule)).toEqual([]);
-    expect(getAllWorkingDaysBetween('2026-05-01', '2026-05-01', userWithoutSchedule)).toEqual([]);
+    expect(getAllWorkingDaysBetween(
+      '2026-05-01', '2026-05-01', userWithSchedule,
+      buildPeriods({ workSchedule: userWithSchedule.workSchedule })
+    )).toEqual([]);
+    expect(getAllWorkingDaysBetween(
+      '2026-05-01', '2026-05-01', userWithoutSchedule,
+      buildPeriods({ workSchedule: null, weeklyHours: 40 })
+    )).toEqual([]);
   });
 
   it('liefert den Rückgabewert chronologisch aufsteigend und ohne Duplikate', () => {
     const user = buildUser({ workSchedule: null, weeklyHours: 40 });
 
-    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user);
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-10', user, buildPeriods({
+      workSchedule: null,
+      weeklyHours: 40,
+    }));
 
     const sorted = [...days].sort();
     expect(days).toEqual(sorted);
     expect(new Set(days).size).toBe(days.length);
+  });
+
+  it('D7: Dienstag vor dem Stichtag Arbeitstag, danach nicht (Wochenplanwechsel)', () => {
+    const user = buildUser({});
+    const periods = stubWorkPeriodContext([
+      {
+        userId: 999,
+        validFrom: '2020-01-01',
+        validTo: '2026-05-06',
+        weeklyHours: 40,
+        workSchedule: { monday: 8, tuesday: 8, wednesday: 8, thursday: 8, friday: 8, saturday: 0, sunday: 0 },
+      },
+      {
+        userId: 999,
+        validFrom: '2026-05-06',
+        weeklyHours: 40,
+        workSchedule: { monday: 8, tuesday: 0, wednesday: 8, thursday: 8, friday: 8, saturday: 0, sunday: 0 },
+      },
+    ]);
+
+    // 2026-05-05 (Dienstag, vor dem Stichtag 2026-05-06) bis 2026-05-12 (Dienstag, danach)
+    const days = getAllWorkingDaysBetween('2026-05-04', '2026-05-12', user, periods);
+
+    expect(days).toContain('2026-05-05'); // Dienstag vor dem Stichtag: Arbeitstag
+    expect(days).not.toContain('2026-05-12'); // Dienstag ab dem Stichtag: kein Arbeitstag
   });
 });
 
@@ -156,6 +217,10 @@ describe('calculateLiveOvertimeTransactions — REQ-19/CR-01 overtime_comp', () 
       '2026-01-01'
     );
     testUserId = result.lastInsertRowid as number;
+
+    // D4: ohne eine Periode ab hireDate würde jeder getDailyTargetHours()-Aufruf für diesen
+    // Nutzer MissingWorkPeriodError werfen. Dieselben Werte wie im INSERT INTO users oben.
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-01-01', weeklyHours: 20 });
   });
 
   afterEach(() => {
@@ -241,5 +306,54 @@ describe('calculateLiveOvertimeTransactions — REQ-19/CR-01 overtime_comp', () 
 
     expect(listSum).toBe(balance);
     expect(listSum).toBeLessThan(0); // Saldo sinkt, statt zu steigen
+  });
+});
+
+/**
+ * D7: Die Live-Anzeige muss für Tage vor und nach einem Periodenwechsel die jeweils
+ * gültigen Sollstunden zeigen — nicht die des heutigen Stammdatensatzes.
+ */
+describe('calculateLiveOvertimeTransactions — D7 Periodenwechsel', () => {
+  let stichtagUserId: number;
+
+  afterEach(() => {
+    db.prepare('DELETE FROM users WHERE id = ?').run(stichtagUserId);
+    db.prepare('DELETE FROM time_entries WHERE userId = ?').run(stichtagUserId);
+  });
+
+  it('zeigt für Tage vor und nach dem Stichtag die jeweils gültigen Sollstunden', () => {
+    const result = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_livestichtag',
+      'test@livestichtag.com',
+      'Test',
+      'Stichtag',
+      'hash',
+      'employee',
+      40, // heutiger Stammdatensatz — DARF NICHT gelesen werden (D3)
+      '2026-02-01'
+    );
+    stichtagUserId = result.lastInsertRowid as number;
+
+    // Periode 1: bis 2026-02-10 (exklusiv), 20h/Woche = 4h/Tag
+    insertTestWorkPeriod(stichtagUserId, { validFrom: '2026-02-01', validTo: '2026-02-10', weeklyHours: 20 });
+    // Periode 2: ab 2026-02-10, 40h/Woche = 8h/Tag
+    insertTestWorkPeriod(stichtagUserId, { validFrom: '2026-02-10', weeklyHours: 40 });
+
+    // 2026-02-09 (Montag, vor dem Stichtag) und 2026-02-10 (Dienstag, ab dem Stichtag) —
+    // beide Werktage, kein Feiertag (verifiziert per SQL vor Testerstellung).
+    const transactions = calculateLiveOvertimeTransactions(stichtagUserId, '2026-02-09', '2026-02-10');
+
+    const before = transactions.find(t => t.date === '2026-02-09' && t.type === 'time_entry');
+    const after = transactions.find(t => t.date === '2026-02-10' && t.type === 'time_entry');
+
+    expect(before?.description).toContain('Soll: 4h');
+    expect(before?.hours).toBe(-4);
+    expect(after?.description).toContain('Soll: 8h');
+    expect(after?.hours).toBe(-8);
   });
 });

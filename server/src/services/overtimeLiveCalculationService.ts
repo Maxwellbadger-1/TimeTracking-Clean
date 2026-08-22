@@ -23,6 +23,8 @@ import type { UserPublic } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
+import { createWorkPeriodContext } from './workPeriodContext.js';
+import type { WorkPeriodContext } from './workPeriodContext.js';
 
 /**
  * Get all working days between two dates (inclusive)
@@ -38,12 +40,16 @@ import { unifiedOvertimeService } from './unifiedOvertimeService.js';
  * @param startDate Start date (YYYY-MM-DD)
  * @param endDate End date (YYYY-MM-DD)
  * @param user Vollständiges Nutzerobjekt (workSchedule und weeklyHours stecken bereits darin)
+ * @param periods Perioden-Kontext (D3, PFLICHTPARAMETER OHNE VORGABEWERT): Diese Funktion
+ *   ist exportiert und schleift über Tage — ein Vorgabewert würde hier einen neuen Cache je
+ *   Aufruf erzeugen. Der Aufrufer in dieser Datei reicht seinen eigenen Kontext durch.
  * @returns Array of date strings (YYYY-MM-DD) for all working days
  */
 export function getAllWorkingDaysBetween(
   startDate: string,
   endDate: string,
-  user: UserPublic
+  user: UserPublic,
+  periods: WorkPeriodContext
 ): string[] {
   const workingDays: string[] = [];
   const start = new Date(startDate + 'T12:00:00');
@@ -56,7 +62,7 @@ export function getAllWorkingDaysBetween(
     // getDailyTargetHours() prüft Feiertag, workSchedule und Wochenende in dieser
     // Reihenfolge selbst (workingDays.ts:66-91). Ein Tag ist genau dann ein Arbeitstag,
     // wenn diese eine, kanonische Auflösung Stunden > 0 liefert.
-    const targetHours = getDailyTargetHours(user, dateStr);
+    const targetHours = getDailyTargetHours(user, dateStr, periods);
     if (targetHours > 0) {
       workingDays.push(dateStr);
     }
@@ -122,11 +128,20 @@ export function calculateLiveOvertimeTransactions(
 
   const transactions: LiveOvertimeTransaction[] = [];
 
+  // D1/D2: EIN Perioden-Kontext für diesen gesamten Berechnungslauf, vor der ersten
+  // Schleife gebaut und an alle Fundstellen unten sowie an getAllWorkingDaysBetween()
+  // durchgereicht.
+  const periods = createWorkPeriodContext();
+
   // Build user object for getDailyTargetHours()
+  // hireDate ergänzt (D4-Ausnahme): ohne ihn würde ein Tag vor dem Eintrittsdatum die
+  // Live-Anzeige mit MissingWorkPeriodError abbrechen lassen. Der Wert liegt hier bereits
+  // vor (user.hireDate wird oben für die Bereichsgrenze benutzt).
   const userForCalc: UserPublic = {
     id: user.id,
     weeklyHours: user.weeklyHours,
     workSchedule,
+    hireDate: user.hireDate,
   } as UserPublic;
 
   // ========================================
@@ -176,7 +191,7 @@ export function calculateLiveOvertimeTransactions(
       const isHoliday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
       if (isHoliday) continue;
 
-      const targetHours = getDailyTargetHours(userForCalc, dateStr);
+      const targetHours = getDailyTargetHours(userForCalc, dateStr, periods);
       if (targetHours === 0) continue;
 
       absenceDates.add(dateStr);
@@ -240,7 +255,7 @@ export function calculateLiveOvertimeTransactions(
   // ========================================
   // 4. Calculate "earned" transactions for ALL working days
   // ========================================
-  const allWorkingDays = getAllWorkingDaysBetween(startDate, endDate, userForCalc);
+  const allWorkingDays = getAllWorkingDaysBetween(startDate, endDate, userForCalc, periods);
 
   for (const date of allWorkingDays) {
     // Skip days with absences (they get their own credit transactions below) — AUSSER
@@ -251,7 +266,7 @@ export function calculateLiveOvertimeTransactions(
       continue;
     }
 
-    const targetHours = getDailyTargetHours(userForCalc, date);
+    const targetHours = getDailyTargetHours(userForCalc, date, periods);
     const actualHours = timeEntriesMap.get(date) || 0;
     const overtime = actualHours - targetHours;
 
@@ -302,7 +317,7 @@ export function calculateLiveOvertimeTransactions(
       }
 
       // Get target hours for this day
-      const targetHours = getDailyTargetHours(userForCalc, dateStr);
+      const targetHours = getDailyTargetHours(userForCalc, dateStr, periods);
 
       // Skip days with 0 target hours (days off in workSchedule)
       if (targetHours === 0) {
@@ -404,7 +419,7 @@ export function calculateLiveOvertimeTransactions(
 
     // Any work on non-working days counts as overtime
     if (actualHours > 0) {
-      const targetHours = getDailyTargetHours(userForCalc, date);
+      const targetHours = getDailyTargetHours(userForCalc, date, periods);
       const overtime = actualHours - targetHours; // Usually targetHours = 0 for non-working days
 
       const isHoliday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(date);
