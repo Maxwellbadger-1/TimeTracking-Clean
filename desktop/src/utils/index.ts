@@ -16,6 +16,7 @@ export {
   calculateExpectedHours,
   calculateAbsenceHoursWithWorkSchedule,
   countWorkingDaysForUser,
+  resolveWorkTimePeriodIn,
 } from './timeUtils';
 
 // Validation utilities
