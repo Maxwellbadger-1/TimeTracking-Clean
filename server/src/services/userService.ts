@@ -1,14 +1,79 @@
 import db from '../database/connection.js';
 import { hashPassword, comparePassword, findUserById as findUserByIdWithPassword } from './authService.js';
-import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest } from '../types/index.js';
+import type { User, UserPublic, UserCreateInput, GDPRDataExport, TimeEntry, AbsenceRequest, UserWorkPeriod } from '../types/index.js';
 import { getVacationBalance } from './absenceService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 // UNUSED: import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
+import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod } from './workPeriodService.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
  * User Service - Business Logic for User Management
  */
+
+/** Dieselbe Formprüfung wie das GLOB-CHECK von `user_work_periods.validFrom`
+ *  (Migration 008) und wie `HIRE_DATE_PATTERN` in Migration 009. */
+const HIRE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Ersatzdatum-Kette für die Startperiode eines Nutzers (Plan 11-03, Fortschreibung von D5
+ * aus Migration 009). Anders als beim Bestandsbackfill gibt es hier KEIN
+ * `time_entries`-Zwischenglied: Ein Nutzer, für den diese Funktion eine Periode anlegt, hat
+ * zum Zeitpunkt der Anlage noch keine Zeiteinträge, aus denen sich ein früheres Datum
+ * ableiten ließe (Plan-Interfaces). `hireDate`, sofern wohlgeformt (`JJJJ-MM-TT`), sonst das
+ * heutige Datum (Europe/Berlin, `formatDate`/`getCurrentDate` — kein `toISOString()`).
+ */
+function resolveInitialValidFrom(
+  hireDate: string | null | undefined
+): { validFrom: string; source: 'hireDate' | 'anlagedatum' } {
+  if (hireDate && HIRE_DATE_PATTERN.test(hireDate)) {
+    return { validFrom: hireDate, source: 'hireDate' };
+  }
+  return { validFrom: formatDate(getCurrentDate(), 'yyyy-MM-dd'), source: 'anlagedatum' };
+}
+
+function initialPeriodNote(source: 'hireDate' | 'anlagedatum'): string {
+  return `[ANLAGE-11-03] Startperiode, Quelle: ${source === 'hireDate' ? 'hireDate' : 'Anlagedatum'}`;
+}
+
+/**
+ * Stellt sicher, dass `user` mindestens eine Arbeitszeitperiode hat. D4 (Phase 11) macht
+ * eine fehlende Periode zum harten Fehler bei jeder Sollstunden-Berechnung — Migration 009
+ * hat das für den damaligen Bestand hergestellt, diese Funktion schließt dieselbe Lücke für
+ * jeden Nutzer, der seither entsteht oder aus anderem Grund (Alt-Import, Seed-Skript aus
+ * Plan 11-08) noch keine Periode hat.
+ *
+ * Idempotent: Hat der Nutzer bereits mindestens eine Periode, passiert nichts und die
+ * Funktion liefert `null`. Ausschließlich `createWorkPeriod()` legt an — kein zweiter
+ * Schreibweg.
+ */
+export function ensureInitialWorkPeriod(
+  user: UserPublic,
+  createdBy: number | null = null
+): UserWorkPeriod | null {
+  if (getWorkPeriods(user.id).length > 0) {
+    return null;
+  }
+
+  const { validFrom, source } = resolveInitialValidFrom(user.hireDate);
+  if (source !== 'hireDate') {
+    logger.info(
+      { userId: user.id, validFrom, source },
+      'ℹ️ ensureInitialWorkPeriod: Ersatzdatum verwendet (kein wohlgeformtes hireDate)'
+    );
+  }
+
+  return createWorkPeriod({
+    userId: user.id,
+    validFrom,
+    validTo: null,
+    weeklyHours: user.weeklyHours,
+    workSchedule: user.workSchedule,
+    note: initialPeriodNote(source),
+    createdBy,
+  });
+}
 
 /**
  * Get all users (including deleted for archive view)
@@ -75,34 +140,66 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
     }
 
     // Hash password
+    // better-sqlite3-Transaktionen vertragen kein `await` — das Hashing bleibt deshalb
+    // davor (Muster wie in Plan 06-01).
     const hashedPassword = await hashPassword(data.password);
 
-    // Insert user
-    const stmt = db.prepare(`
-      INSERT INTO users (
-        username, email, password, firstName, lastName, role,
-        department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // D4 (Phase 11) macht eine fehlende Arbeitszeitperiode zum harten Fehler bei jeder
+    // Sollstunden-Berechnung — ohne diese Klammer würde die erste Überstundenberechnung
+    // jedes neu angelegten Mitarbeiters sofort abbrechen. Nutzer- und Periodenanlage laufen
+    // deshalb in EINER Transaktion: Schlägt die Periodenanlage fehl, wird auch der Nutzer
+    // nicht angelegt — kein halber Zustand.
+    const insertUserAndPeriod = db.transaction((): number => {
+      const stmt = db.prepare(`
+        INSERT INTO users (
+          username, email, password, firstName, lastName, role,
+          department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    const result = stmt.run(
-      data.username,
-      data.email && data.email.trim() !== '' ? data.email : null, // Convert empty strings to NULL
-      hashedPassword,
-      data.firstName,
-      data.lastName,
-      data.role,
-      data.department || null,
-      data.position || null,
-      weeklyHours, // Use validated weeklyHours
-      data.workSchedule ? JSON.stringify(data.workSchedule) : null,
-      data.vacationDaysPerYear !== undefined ? data.vacationDaysPerYear : 30, // Allow 0 vacation days
-      data.hireDate || null,
-      data.endDate || null,
-      'active'
-    );
+      const result = stmt.run(
+        data.username,
+        data.email && data.email.trim() !== '' ? data.email : null, // Convert empty strings to NULL
+        hashedPassword,
+        data.firstName,
+        data.lastName,
+        data.role,
+        data.department || null,
+        data.position || null,
+        weeklyHours, // Use validated weeklyHours
+        data.workSchedule ? JSON.stringify(data.workSchedule) : null,
+        data.vacationDaysPerYear !== undefined ? data.vacationDaysPerYear : 30, // Allow 0 vacation days
+        data.hireDate || null,
+        data.endDate || null,
+        'active'
+      );
 
-    const userId = result.lastInsertRowid as number;
+      const userId = result.lastInsertRowid as number;
+
+      // Kein zweiter Schreibweg: die Startperiode entsteht ausschließlich über
+      // createWorkPeriod() (workPeriodService.ts), nie über ein direktes INSERT hier.
+      const { validFrom, source } = resolveInitialValidFrom(data.hireDate ?? null);
+      if (source !== 'hireDate') {
+        logger.info(
+          { userId, validFrom, source },
+          'ℹ️ createUser: Ersatzdatum für Startperiode verwendet (kein wohlgeformtes hireDate)'
+        );
+      }
+
+      createWorkPeriod({
+        userId,
+        validFrom,
+        validTo: null,
+        weeklyHours,
+        workSchedule: data.workSchedule ?? null,
+        note: initialPeriodNote(source),
+        createdBy: null,
+      });
+
+      return userId;
+    });
+
+    const userId = insertUserAndPeriod();
 
     logger.info({ username: data.username, userId }, '✅ User created');
 
