@@ -10,7 +10,56 @@ import {
   countWorkingDaysForUser,
   getDailyTargetHours,
   calculateAbsenceHoursWithWorkSchedule,
+  MissingWorkPeriodError,
 } from './workingDays.js';
+import { stubWorkPeriodContext } from '../test-support/workPeriodFixtures.js';
+import type { WorkPeriodContext } from '../services/workPeriodContext.js';
+import type { UserPublic, WorkSchedule } from '../types/index.js';
+
+/**
+ * Testhilfen (Plan 11-04, D3): `getDailyTargetHours`/`calculateAbsenceHoursWithWorkSchedule`/
+ * `calculateTargetHoursForPeriod` bekommen jetzt einen `WorkPeriodContext` als Pflichtparameter.
+ * `periodsFor()` baut aus einem bestehenden Test-`user`-Objekt (weeklyHours/workSchedule) genau
+ * eine, weit vor jedem Testdatum dieser Datei beginnende Periode — die erwarteten Werte der
+ * bestehenden Tests ändern sich dadurch nicht. Fehlt dem Objekt eine `id`, vergibt die Hilfe
+ * eine eindeutige und schreibt sie auf das Objekt zurück (dieselbe Referenz wird als erstes
+ * Argument der Zielfunktion verwendet).
+ */
+let nextFixtureUserId = 9000;
+function periodsFor(user: {
+  id?: number;
+  weeklyHours: number;
+  workSchedule?: WorkSchedule | null;
+}): WorkPeriodContext {
+  if (user.id === undefined) {
+    (user as { id: number }).id = nextFixtureUserId++;
+  }
+  return stubWorkPeriodContext([
+    {
+      userId: user.id as number,
+      validFrom: '2000-01-01',
+      weeklyHours: user.weeklyHours,
+      workSchedule: user.workSchedule ?? null,
+    },
+  ]);
+}
+
+/**
+ * Testhilfe für die „Absence Scenarios"-Tests, die bisher `workSchedule`/`weeklyHours` direkt
+ * ohne umgebendes `user`-Objekt übergaben — baut dafür einen minimalen Nutzer plus passende
+ * Periode.
+ */
+function absenceFixture(
+  workSchedule: WorkSchedule | null,
+  weeklyHours: number
+): { user: UserPublic; periods: WorkPeriodContext } {
+  const id = nextFixtureUserId++;
+  const user = { id, weeklyHours, workSchedule, hireDate: '2000-01-01' } as UserPublic;
+  const periods = stubWorkPeriodContext([
+    { userId: id, validFrom: '2000-01-01', weeklyHours, workSchedule },
+  ]);
+  return { user, periods };
+}
 
 /**
  * BACKEND WORKING DAYS TESTS
@@ -406,7 +455,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Week: Mon Feb 3 - Fri Feb 7, 2025
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Expected: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
       // Tuesday excluded (0h)!
@@ -484,11 +533,12 @@ describe('Working Days Utilities', () => {
         },
       } as any;
 
-      expect(getDailyTargetHours(user, '2025-02-03')).toBe(8);  // Monday
-      expect(getDailyTargetHours(user, '2025-02-04')).toBe(0);  // Tuesday (0h!)
-      expect(getDailyTargetHours(user, '2025-02-05')).toBe(6);  // Wednesday
-      expect(getDailyTargetHours(user, '2025-02-06')).toBe(8);  // Thursday
-      expect(getDailyTargetHours(user, '2025-02-07')).toBe(8);  // Friday
+      const periods = periodsFor(user);
+      expect(getDailyTargetHours(user, '2025-02-03', periods)).toBe(8);  // Monday
+      expect(getDailyTargetHours(user, '2025-02-04', periods)).toBe(0);  // Tuesday (0h!)
+      expect(getDailyTargetHours(user, '2025-02-05', periods)).toBe(6);  // Wednesday
+      expect(getDailyTargetHours(user, '2025-02-06', periods)).toBe(8);  // Thursday
+      expect(getDailyTargetHours(user, '2025-02-07', periods)).toBe(8);  // Friday
     });
 
     it('should handle calculateAbsenceHoursWithWorkSchedule for 0h days', () => {
@@ -503,11 +553,12 @@ describe('Working Days Utilities', () => {
       };
 
       // Absence: Tuesday only (0h day)
+      const { user, periods } = absenceFixture(workSchedule, 30);
       const absenceHours = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-04',  // Tuesday
         '2025-02-04',
-        workSchedule,
-        30
+        periods
       );
 
       // Expected: 0h (Tuesday = 0h in workSchedule)
@@ -526,11 +577,12 @@ describe('Working Days Utilities', () => {
       };
 
       // Absence: Wed-Fri (3 working days, excluding Tu)
+      const { user, periods } = absenceFixture(workSchedule, 30);
       const absenceHours = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-04',  // Tuesday
         '2025-02-07',  // Friday
-        workSchedule,
-        30
+        periods
       );
 
       // Expected: Tu(0) + We(6) + Th(8) + Fr(8) = 22h
@@ -595,7 +647,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Week: Mon Feb 3 - Fri Feb 7 (today)
-      const target = calculateTargetHoursForPeriod(hans, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(hans, '2025-02-03', '2025-02-07', periodsFor(hans));
 
       // Expected: Mo(8) + Fr(2) = 10h
       expect(target).toBe(10);
@@ -609,7 +661,7 @@ describe('Working Days Utilities', () => {
         hireDate: '2025-02-03',
       } as any;
 
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Mo-Fr = 5 × 8h = 40h
       expect(target).toBe(40);
@@ -623,7 +675,7 @@ describe('Working Days Utilities', () => {
         hireDate: '2025-02-03',
       } as any;
 
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // weeklyHours=0 → 0h target
       expect(target).toBe(0);
@@ -637,7 +689,7 @@ describe('Working Days Utilities', () => {
         hireDate: '2025-02-03',
       } as any;
 
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Mo-Fr = 5 × 6h = 30h
       expect(target).toBe(30);
@@ -655,7 +707,7 @@ describe('Working Days Utilities', () => {
 
       // Sat 1, Sun 2 (weekend, don't count)
       // Mon 3, Tue 4, Wed 5, Thu 6, Fri 7 = 5 working days
-      const target = calculateTargetHoursForPeriod(user, '2025-02-01', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-01', '2025-02-07', periodsFor(user));
 
       expect(target).toBe(40); // 5 × 8h
     });
@@ -676,7 +728,7 @@ describe('Working Days Utilities', () => {
         hireDate: '2025-02-03',
       } as any;
 
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Mo-Fr = 5 × 7.5h = 37.5h
       expect(target).toBe(37.5);
@@ -697,11 +749,12 @@ describe('Working Days Utilities', () => {
     it('should calculate vacation credit for standard user', () => {
       // User: 40h/week
       // Vacation: Mon-Fri (5 days)
+      const { user, periods } = absenceFixture(null, 40); // No workSchedule
       const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-03',
         '2025-02-07',
-        null,  // No workSchedule
-        40
+        periods
       );
 
       // 5 days × 8h = 40h
@@ -720,11 +773,12 @@ describe('Working Days Utilities', () => {
       };
 
       // Sick leave: Whole week Mon-Fri
+      const { user, periods } = absenceFixture(workSchedule, 30);
       const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-03',
         '2025-02-07',
-        workSchedule,
-        30
+        periods
       );
 
       // Mo(8) + Tu(0) + We(6) + Th(8) + Fr(8) = 30h
@@ -743,11 +797,12 @@ describe('Working Days Utilities', () => {
       };
 
       // Sick leave: Tuesday only (0h day)
+      const { user, periods } = absenceFixture(workSchedule, 30);
       const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-04',  // Tuesday
         '2025-02-04',
-        workSchedule,
-        30
+        periods
       );
 
       // Tuesday = 0h in workSchedule → 0h credit
@@ -757,11 +812,12 @@ describe('Working Days Utilities', () => {
     it('should calculate overtime comp credit', () => {
       // User: 40h/week
       // Overtime comp: 1 day (Friday)
+      const { user, periods } = absenceFixture(null, 40);
       const overtimeComp = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-07',  // Friday
         '2025-02-07',
-        null,
-        40
+        periods
       );
 
       // 1 day × 8h = 8h
@@ -771,11 +827,12 @@ describe('Working Days Utilities', () => {
     it('should handle absence spanning weekend correctly', () => {
       // User: 40h/week
       // Absence: Fri-Mon (spans weekend)
+      const { user, periods } = absenceFixture(null, 40);
       const absenceCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-07',  // Friday
         '2025-02-10',  // Monday (next week)
-        null,
-        40
+        periods
       );
 
       // Fri(8) + Sat(0) + Sun(0) + Mon(8) = 16h
@@ -797,7 +854,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Target: Mo-Fr = 5 × 8h = 40h
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
       expect(target).toBe(40);
 
       // Actual: Worked only 32h
@@ -816,7 +873,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Target: 40h
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Actual: Worked 48h
       const actual = 48;
@@ -834,17 +891,17 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Target: 40h (5 days)
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
 
       // Worked: 24h (3 days)
       const worked = 24;
 
       // Vacation: 2 days (Thu-Fri)
       const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-06',
         '2025-02-07',
-        null,
-        40
+        periodsFor(user)
       );
       expect(vacationCredit).toBe(16); // 2 × 8h
 
@@ -874,7 +931,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // Target: Mo(8) + We(6) + Th(8) + Fr(8) = 30h
-      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07');
+      const target = calculateTargetHoursForPeriod(user, '2025-02-03', '2025-02-07', periodsFor(user));
       expect(target).toBe(30);
 
       // Worked: Mo(8) + We(6) = 14h
@@ -882,10 +939,10 @@ describe('Working Days Utilities', () => {
 
       // Sick: Th-Fr
       const sickCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2025-02-06',
         '2025-02-07',
-        workSchedule,
-        30
+        periodsFor(user)
       );
       expect(sickCredit).toBe(16); // Th(8) + Fr(8)
 
@@ -968,7 +1025,7 @@ describe('Working Days Utilities', () => {
       //   Mon: 4, Tue: 4, Wed: 4, Thu: 5, Fri: 5
       // MINUS Holidays: Jan 1 (Neujahr=Thu), Jan 6 (Heilige Drei Könige=Tue)
       // = 20 working days
-      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-31');
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-31', periodsFor(user));
 
       // 20 × 8h = 160h
       expect(target).toBe(160);
@@ -984,7 +1041,7 @@ describe('Working Days Utilities', () => {
       } as any;
 
       // February 2026: 20 working days (not leap year)
-      const target = calculateTargetHoursForPeriod(user, '2026-02-01', '2026-02-28');
+      const target = calculateTargetHoursForPeriod(user, '2026-02-01', '2026-02-28', periodsFor(user));
 
       // 20 × 8h = 160h
       expect(target).toBe(160);
@@ -1026,7 +1083,7 @@ describe('Working Days Utilities', () => {
       // - 14.01 (Tue) = working day → 4h
       // Total: 3 days × 4h = 12h
 
-      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15');
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15', periodsFor(user));
 
       expect(target).toBe(12); // NOT 16h! Holiday reduces target
     });
@@ -1055,10 +1112,10 @@ describe('Working Days Utilities', () => {
       // Credit: 3 × 4h = 12h
 
       const credit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2026-01-01',
         '2026-01-15',
-        user.workSchedule,
-        user.weeklyHours
+        periodsFor(user)
       );
 
       expect(credit).toBe(12); // NOT 16h!
@@ -1087,7 +1144,7 @@ describe('Working Days Utilities', () => {
       // Working days: Mon(06) HOLIDAY, Tue(07), Thu(08) 0h
       // Total: 1 day × 4h = 4h
 
-      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-08');
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-08', periodsFor(user));
 
       expect(target).toBe(4);
     });
@@ -1107,7 +1164,7 @@ describe('Working Days Utilities', () => {
       // Working days: 4 (21-24)
       // Target: 4 × 8h = 32h
 
-      const target = calculateTargetHoursForPeriod(user, '2026-12-21', '2026-12-27');
+      const target = calculateTargetHoursForPeriod(user, '2026-12-21', '2026-12-27', periodsFor(user));
 
       expect(target).toBe(32);
     });
@@ -1134,7 +1191,7 @@ describe('Working Days Utilities', () => {
       // But 06.01 is Heilige Drei Könige (holiday)!
       // Total: 8 + 0 + 6 + 8 + 8 = 30h
 
-      const target = calculateTargetHoursForPeriod(user, '2026-01-05', '2026-01-09');
+      const target = calculateTargetHoursForPeriod(user, '2026-01-05', '2026-01-09', periodsFor(user));
 
       expect(target).toBe(30);
     });
@@ -1162,12 +1219,12 @@ describe('Working Days Utilities', () => {
       // - Vacation: 01.01-25.01 (approved) → Credit: 12h
       // - Expected Overtime: (0 + 12) - 12 = 0h
 
-      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15');
+      const target = calculateTargetHoursForPeriod(user, '2026-01-01', '2026-01-15', periodsFor(user));
       const vacationCredit = calculateAbsenceHoursWithWorkSchedule(
+        user,
         '2026-01-01',
         '2026-01-15',
-        user.workSchedule,
-        user.weeklyHours
+        periodsFor(user)
       );
       const workedHours = 0;
       const overtime = (workedHours + vacationCredit) - target;
@@ -1175,6 +1232,146 @@ describe('Working Days Utilities', () => {
       expect(target).toBe(12);
       expect(vacationCredit).toBe(12);
       expect(overtime).toBe(0);
+    });
+  });
+
+  describe('REQ-23: getDailyTargetHours löst über die Periode auf (Plan 11-04, D3/D4)', () => {
+    it('getDailyTargetHours: nutzt vor dem Stichtag die erste Periode (40h ohne Wochenplan)', () => {
+      const user = { id: 9101, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9101, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        { userId: 9101, validFrom: '2026-07-15', weeklyHours: 20, workSchedule: null },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-07-08', periods)).toBe(8); // Mittwoch, vor Stichtag
+      expect(getDailyTargetHours(user, '2026-07-14', periods)).toBe(8); // Dienstag, vor Stichtag
+    });
+
+    it('getDailyTargetHours: der Stichtag selbst (halboffen) gehört bereits zur zweiten Periode', () => {
+      const user = { id: 9102, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9102, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        { userId: 9102, validFrom: '2026-07-15', weeklyHours: 20, workSchedule: null },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-07-15', periods)).toBe(4); // Mittwoch, 20h/5
+    });
+
+    it('getDailyTargetHours: Fallback-Wochenende liefert weiterhin 0', () => {
+      const user = { id: 9103, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9103, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        { userId: 9103, validFrom: '2026-07-15', weeklyHours: 20, workSchedule: null },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-07-11', periods)).toBe(0); // Samstag
+    });
+
+    it('getDailyTargetHours: nutzt den Wochenplan der zweiten Periode nach dem Stichtag', () => {
+      const user = { id: 9104, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9104, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        {
+          userId: 9104,
+          validFrom: '2026-07-15',
+          weeklyHours: 20,
+          workSchedule: { monday: 8, tuesday: 0, wednesday: 6, thursday: 8, friday: 8, saturday: 0, sunday: 0 },
+        },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-07-21', periods)).toBe(0); // Dienstag nach Stichtag
+      expect(getDailyTargetHours(user, '2026-07-22', periods)).toBe(6); // Mittwoch nach Stichtag
+    });
+
+    it('getDailyTargetHours: Feiertag überschreibt die Periode (Neujahr, unabhängig vom Wochenplan)', () => {
+      const user = { id: 9105, hireDate: '2020-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9105, validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-01-01', periods)).toBe(0); // Neujahr
+    });
+
+    it('getDailyTargetHours: Aushilfe (weeklyHours=0 in der Periode) liefert an jedem Tag 0', () => {
+      const user = { id: 9106, hireDate: '2020-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9106, validFrom: '2020-01-01', weeklyHours: 0, workSchedule: null },
+      ]);
+
+      expect(getDailyTargetHours(user, '2026-07-08', periods)).toBe(0); // Mittwoch
+    });
+
+    it('getDailyTargetHours: D4 — kein Periodentreffer, aber Datum liegt vor hireDate → 0, kein Fehler', () => {
+      const user = { id: 9107, hireDate: '2026-08-01' } as any;
+      const periods = stubWorkPeriodContext([]); // keine Periode für diesen Nutzer
+
+      expect(getDailyTargetHours(user, '2026-07-31', periods)).toBe(0);
+    });
+
+    it('getDailyTargetHours: D4 — kein Periodentreffer ab hireDate wirft MissingWorkPeriodError mit userId und Datum', () => {
+      const user = { id: 9108, hireDate: '2026-08-01' } as any;
+      const periods = stubWorkPeriodContext([]); // keine Periode für diesen Nutzer
+
+      expect(() => getDailyTargetHours(user, '2026-08-01', periods)).toThrow(MissingWorkPeriodError);
+
+      try {
+        getDailyTargetHours(user, '2026-08-01', periods);
+        expect.unreachable('MissingWorkPeriodError hätte geworfen werden müssen');
+      } catch (err) {
+        expect(err).toBeInstanceOf(MissingWorkPeriodError);
+        expect((err as Error).message).toContain('9108');
+        expect((err as Error).message).toContain('2026-08-01');
+      }
+    });
+
+    it('getDailyTargetHours: D4 — fehlendes/unbrauchbares hireDate wirft MissingWorkPeriodError (kein Rückfall auf weeklyHours)', () => {
+      const user = { id: 9109 } as any; // kein hireDate
+      const periods = stubWorkPeriodContext([]); // keine Periode für diesen Nutzer
+
+      expect(() => getDailyTargetHours(user, '2026-08-01', periods)).toThrow(MissingWorkPeriodError);
+    });
+  });
+
+  describe('REQ-23: calculateAbsenceHoursWithWorkSchedule und calculateTargetHoursForPeriod über die Periode (Plan 11-04)', () => {
+    it('calculateAbsenceHoursWithWorkSchedule: Stichtag mitten im Zeitraum (40h vor, 20h ab 15.07.2026)', () => {
+      const user = { id: 9201, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9201, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        { userId: 9201, validFrom: '2026-07-15', weeklyHours: 20, workSchedule: null },
+      ]);
+
+      // Mo 13. + Di 14. mit je 8, Mi 15. bis Fr 17. mit je 4 → 28
+      const hours = calculateAbsenceHoursWithWorkSchedule(user, '2026-07-13', '2026-07-17', periods);
+      expect(hours).toBe(28);
+    });
+
+    it('calculateAbsenceHoursWithWorkSchedule: Feiertag im Zeitraum zählt weiterhin 0', () => {
+      const user = { id: 9202, hireDate: '2020-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9202, validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null },
+      ]);
+
+      // Mo29.12(8)+Di30.12(8)+Mi31.12(8)+Do01.01 Neujahr(0)+Fr02.01(8) = 32
+      const hours = calculateAbsenceHoursWithWorkSchedule(user, '2025-12-29', '2026-01-02', periods);
+      expect(hours).toBe(32);
+    });
+
+    it('calculateTargetHoursForPeriod: entspricht der Summe der Einzeltage über getDailyTargetHours (Stichtag im Zeitraum)', () => {
+      const user = { id: 9203, hireDate: '2026-01-01' } as any;
+      const periods = stubWorkPeriodContext([
+        { userId: 9203, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40, workSchedule: null },
+        { userId: 9203, validFrom: '2026-07-15', weeklyHours: 20, workSchedule: null },
+      ]);
+
+      const days = [
+        '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
+      ];
+      const expectedSum = days.reduce((sum, day) => sum + getDailyTargetHours(user, day, periods), 0);
+
+      const total = calculateTargetHoursForPeriod(user, '2026-07-13', '2026-07-19', periods);
+
+      expect(total).toBe(Math.round(expectedSum * 100) / 100);
+      expect(total).toBe(28); // Mo8+Di8+Mi4+Do4+Fr4+Sa0+So0
     });
   });
 });
