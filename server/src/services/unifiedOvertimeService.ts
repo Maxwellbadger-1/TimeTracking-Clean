@@ -337,7 +337,9 @@ export class UnifiedOvertimeService {
          weeklyHours, workSchedule, hireDate, endDate, position, department
          FROM users WHERE id = ? AND deletedAt IS NULL`
       )
-      .get(userId) as any;
+      // WR-09: `as any` ersetzt. `workSchedule` kommt als rohe JSON-Zeichenkette aus
+      // SQLite und wird direkt darunter geparst — der Zeilentyp bildet genau das ab.
+      .get(userId) as (Omit<UserPublic, 'workSchedule'> & { workSchedule: string | null }) | undefined;
 
     if (!user) return null;
 

@@ -321,9 +321,11 @@ export function generateHistoricalExport(
     const startMonth = startDate.substring(0, 7);
     const endMonth = endDate.substring(0, 7);
 
-    const overtimeBalance = userId
+    // WR-09: Ergebnistyp benannt statt später per `as any[]` durchgereicht — die
+    // Zieltypen stehen bereits in HistoricalExportData.
+    const overtimeBalance = (userId
       ? db.prepare(overtimeQuery).all(userId, startMonth, endMonth)
-      : db.prepare(overtimeQuery).all(startMonth, endMonth);
+      : db.prepare(overtimeQuery).all(startMonth, endMonth)) as HistoricalExportData['overtimeBalance'];
 
     // Get vacation balance
     const startYear = parseInt(startDate.substring(0, 4));
@@ -334,13 +336,13 @@ export function generateHistoricalExport(
       ? `SELECT * FROM vacation_balance WHERE userId = ? AND year IN (${years.join(',')}) ORDER BY year`
       : `SELECT * FROM vacation_balance WHERE year IN (${years.join(',')}) ORDER BY year`;
 
-    const vacationBalance = userId
+    const vacationBalance = (userId
       ? db.prepare(vacationBalanceQuery).all(userId)
-      : db.prepare(vacationBalanceQuery).all();
+      : db.prepare(vacationBalanceQuery).all()) as HistoricalExportData['vacationBalance'];
 
     // Calculate statistics
     const totalWorkingHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0);
-    const totalOvertime = overtimeBalance.reduce((sum: number, entry: any) => sum + entry.overtime, 0);
+    const totalOvertime = overtimeBalance.reduce((sum, entry) => sum + entry.overtime, 0);
 
     const data: HistoricalExportData = {
       metadata: {
@@ -368,8 +370,8 @@ export function generateHistoricalExport(
       })),
       timeEntries,
       absences,
-      overtimeBalance: overtimeBalance as any[],
-      vacationBalance: vacationBalance as any[],
+      overtimeBalance,
+      vacationBalance,
       statistics: {
         totalUsers: users.length,
         totalTimeEntries: timeEntries.length,

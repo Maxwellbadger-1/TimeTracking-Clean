@@ -1,3 +1,4 @@
+import type BetterSqlite3 from 'better-sqlite3';
 import { db } from '../database/connection.js';
 import type { DayName, UserPublic, UserWorkPeriod } from '../types/index.js';
 import { formatDate as formatDateBerlin } from './timezone.js';
@@ -345,9 +346,12 @@ export function calculateMonthlyTargetHours(weeklyHours: number, year: number, m
  * Returns array of holiday dates in 'YYYY-MM-DD' format
  *
  * @param year - Year to fetch holidays for
- * @param dbInstance - Optional database instance (defaults to shared connection)
+ * @param dbInstance - Optional database instance (defaults to shared connection).
+ *   WR-09: vorher `any` — damit war JEDE Übergabe typkorrekt, auch eine falsche
+ *   Verbindung. Genau diese Fehlerklasse steckte hinter CR-03 (zwei Datenbanken in einem
+ *   Prüflauf). `BetterSqlite3.Database` lässt den Compiler das ausschließen.
  */
-function getPublicHolidays(year: number, dbInstance?: any): string[] {
+function getPublicHolidays(year: number, dbInstance?: BetterSqlite3.Database): string[] {
   try {
     const database = dbInstance || db;
 
@@ -389,7 +393,12 @@ function formatDate(date: Date): string {
  * @param dbInstance - Optional database instance (defaults to shared connection)
  * @returns Number of working days
  */
-export function countWorkingDaysBetween(fromDate: string | Date, toDate: string | Date, dbInstance?: any): number {
+// WR-09: `dbInstance?: any` -> konkreter Verbindungstyp, s. getPublicHolidays().
+export function countWorkingDaysBetween(
+  fromDate: string | Date,
+  toDate: string | Date,
+  dbInstance?: BetterSqlite3.Database
+): number {
   const start = typeof fromDate === 'string' ? new Date(fromDate) : fromDate;
   const end = typeof toDate === 'string' ? new Date(toDate) : toDate;
 
@@ -572,7 +581,8 @@ export function countWorkingDaysForUser(
   toDate: string | Date,
   workSchedule: Record<DayName, number> | null | undefined,
   weeklyHours: number,
-  dbInstance?: any
+  // WR-09: `any` -> konkreter Verbindungstyp, s. getPublicHolidays().
+  dbInstance?: BetterSqlite3.Database
 ): number {
   const start = typeof fromDate === 'string' ? new Date(fromDate) : fromDate;
   const end = typeof toDate === 'string' ? new Date(toDate) : toDate;

@@ -23,7 +23,7 @@ import path from 'path';
 import type BetterSqlite3 from 'better-sqlite3';
 import { formatDate } from '../utils/timezone.js';
 import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
-import type { UserPublic } from '../types/index.js';
+import type { UserPublic, WorkSchedule } from '../types/index.js';
 import type { WorkPeriodContext } from '../services/workPeriodContext.js';
 import { createTestScenario, getAllScenarioNames } from '../test/generateTestData';
 
@@ -117,6 +117,29 @@ interface ValidationResult {
 // Validation Logic
 // ============================================================================
 
+/**
+ * WR-09: Zeilenform der `users`-Abfrage in `validateUser()`. Vorher stand dort `as any`.
+ *
+ * Zwei Dinge sind dadurch sichtbar geworden und mitkorrigiert:
+ * 1. `username` wurde weiter unten in `userPublic` gelesen, war in der SELECT-Liste aber
+ *    gar nicht enthalten — mit `as any` blieb das unbemerkt und lieferte `undefined`.
+ *    Die Spalte steht jetzt in der Abfrage.
+ * 2. `workSchedule` kommt roh als JSON-Zeichenkette und wird direkt nach dem Lesen
+ *    IN-PLACE geparst — der Typ bildet beide Zustände ab, statt einen davon zu leugnen.
+ */
+interface ValidationUserRow {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  weeklyHours: number;
+  workSchedule: string | WorkSchedule | null;
+  hireDate: string;
+  role: 'admin' | 'employee';
+  department: string | null;
+}
+
 function validateUser(
   db: BetterSqlite3.Database,
   userId: number,
@@ -131,12 +154,14 @@ function validateUser(
     .prepare(
       `
     SELECT
-      id, firstName, lastName, email, weeklyHours, workSchedule, hireDate, role, department
+      id, username, firstName, lastName, email, weeklyHours, workSchedule, hireDate, role, department
     FROM users
     WHERE id = ? AND deletedAt IS NULL
   `
     )
-    .get(userId) as any;
+    // WR-09: `as any` ersetzt. Genau die oben selektierten Spalten, `workSchedule` als
+    // rohe JSON-Zeichenkette aus SQLite.
+    .get(userId) as ValidationUserRow | undefined;
 
   if (!user) {
     return {
@@ -179,7 +204,9 @@ function validateUser(
     lastName: user.lastName,
     email: user.email,
     weeklyHours: user.weeklyHours,
-    workSchedule: user.workSchedule,
+    // Nach dem In-place-Parsen oben ist das entweder ein WorkSchedule oder null; die
+    // Zeichenketten-Variante ist an dieser Stelle bereits ausgeschlossen.
+    workSchedule: typeof user.workSchedule === 'string' ? null : user.workSchedule,
     hireDate: user.hireDate,
     role: user.role,
     department: user.department,

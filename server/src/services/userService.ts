@@ -9,6 +9,17 @@ import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod, setWorkPeriodVa
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
+ * WR-09: Zeilenform der `users`-Tabelle, wie sie better-sqlite3 liefert — `workSchedule`
+ * ist dort die rohe JSON-Zeichenkette, `isActive` eine 0/1-Zahl. Vorher stand an beiden
+ * Lesestellen `as any`/`as any[]`; damit war jeder Tippfehler in einem Spaltennamen
+ * typkorrekt. Das Projekt hat mit `UserWorkPeriodRow` bereits dasselbe Muster.
+ */
+interface UserRow extends Omit<UserPublic, 'workSchedule' | 'isActive'> {
+  workSchedule: string | null;
+  isActive: number;
+}
+
+/**
  * User Service - Business Logic for User Management
  */
 
@@ -191,12 +202,21 @@ export function getAllUsers(): UserPublic[] {
       ORDER BY createdAt DESC
     `);
 
-    const users = stmt.all() as any[];
+    const users = stmt.all() as UserRow[];
     // Parse workSchedule JSON
     return users.map(user => ({
       ...user,
       workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
-    })) as UserPublic[];
+    // WR-09: Der Zeilentyp `UserRow` ersetzt das frühere `as any` — Tippfehler in einem
+    // Spaltennamen fallen jetzt beim Übersetzen auf. Der Weg über `unknown` bleibt
+    // NÖTIG und ist kein verstecktes `any`: SQLite liefert `isActive` als 0/1-Zahl,
+    // `UserPublic.isActive` ist als `boolean` deklariert. Diese Abweichung besteht seit
+    // jeher und wird hier BEWUSST NICHT geglättet — eine Umstellung auf `true`/`false`
+    // würde die API-Ausgabe ändern und damit den Desktop-Filter
+    // `u.isActive !== false` (AbsenceRequestForm.tsx:234, TimeEntryForm.tsx:150)
+    // kippen: heute filtert er wegen `0 !== false` NICHT, danach würde er filtern. Das
+    // ist eine Verhaltensänderung und gehört nicht in eine Typkorrektur.
+    })) as unknown as UserPublic[];
   } catch (error) {
     logger.error({ err: error }, '❌ Error getting all users');
     throw error;
@@ -216,14 +236,15 @@ export function getUserById(id: number): UserPublic | undefined {
       WHERE id = ? AND deletedAt IS NULL
     `);
 
-    const user = stmt.get(id) as any;
+    const user = stmt.get(id) as UserRow | undefined;
     if (!user) return undefined;
 
     // Parse workSchedule JSON
     return {
       ...user,
       workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
-    } as UserPublic;
+      // WR-09: s. Begründung zum `unknown`-Zwischenschritt in getAllUsers().
+    } as unknown as UserPublic;
   } catch (error) {
     logger.error({ err: error, userId: id }, '❌ Error getting user by ID');
     throw error;
@@ -923,7 +944,10 @@ export function exportUserData(userId: number): GDPRDataExport {
         totalDays: vacationBalance?.entitlement || 0,
         lastUpdated: new Date().toISOString(),
       },
-    } as any; // Use 'as any' to allow additional property
+      // WR-09: `as any` ersetzt durch den tatsächlichen Rückgabetyp. `absences` ist ein
+      // bewusster Alias für `absenceRequests` (Abwärtskompatibilität) und steht deshalb
+      // ausdrücklich in der Typangabe, statt die Prüfung ganz abzuschalten.
+    } as GDPRDataExport & { absences: AbsenceRequest[] };
 
     logger.info({
       timeEntriesCount: timeEntries.length,

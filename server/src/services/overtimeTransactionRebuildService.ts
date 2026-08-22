@@ -26,6 +26,7 @@ import { getUserById } from './userService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import logger from '../utils/logger.js';
 import * as transactionManager from './overtimeTransactionManager.js';
+import type { TransactionParams } from './overtimeTransactionManager.js';
 import type { WorkPeriodContext } from './workPeriodContext.js';
 // Namensraum-Import statt Named Import (Plan 11-05, Task 2 Acceptance Criteria): der Name
 // der Fabrikfunktion aus workPeriodContext.js soll ausschliesslich an ihrer tatsaechlichen
@@ -35,12 +36,29 @@ import type { WorkPeriodContext } from './workPeriodContext.js';
 import * as workPeriodContextModule from './workPeriodContext.js';
 import type { UserPublic } from '../types/index.js';
 
+/**
+ * WR-09: Abwesenheitstypen als Wertliste UND als Typ — eine Quelle, kein `as any`.
+ *
+ * Vorher stand in `calculateDailyOvertimeForMonth()` `absence.type as any`. Damit
+ * schmuggelte JEDER beliebige String aus der Datenbank in die enge Union von
+ * `DayCalculation`: Ein neuer Abwesenheitstyp wäre unerkannt bis in `handleAbsenceDay()`
+ * gerutscht und dort durch alle `case`-Zweige gefallen — stillschweigend falsch gebucht,
+ * ohne Fehlermeldung. Der Typwächter unten macht daraus einen benannten, protokollierten
+ * Zustand.
+ */
+const ABSENCE_TYPES = ['vacation', 'sick', 'overtime_comp', 'special', 'unpaid'] as const;
+type AbsenceDayType = (typeof ABSENCE_TYPES)[number];
+
+function isAbsenceDayType(value: unknown): value is AbsenceDayType {
+  return typeof value === 'string' && (ABSENCE_TYPES as readonly string[]).includes(value);
+}
+
 interface DayCalculation {
   date: string;
   targetHours: number;
   timeEntriesHours: number;
   absence: {
-    type: 'vacation' | 'sick' | 'overtime_comp' | 'special' | 'unpaid' | null;
+    type: AbsenceDayType | null;
     id: number | null;
   };
   corrections: number;
@@ -300,12 +318,23 @@ function collectDailyCalculations(
       WHERE userId = ? AND date = ?
     `).get(userId, dateStr) as { total: number };
 
+    // WR-09: Prüfen statt casten. Ein unbekannter Typ aus der Datenbank wird laut gemeldet
+    // und wie "kein Abwesenheitstag" behandelt, statt unbemerkt durch alle case-Zweige von
+    // handleAbsenceDay() zu fallen.
+    if (absence && !isAbsenceDayType(absence.type)) {
+      logger.error(
+        { userId, date: dateStr, absenceId: absence.id, type: absence.type },
+        '❌ Unbekannter Abwesenheitstyp in absence_requests — Tag wird ohne Abwesenheit gerechnet'
+      );
+    }
+    const absenceType = absence && isAbsenceDayType(absence.type) ? absence.type : null;
+
     calculations.push({
       date: dateStr,
       targetHours,
       timeEntriesHours: timeEntries.total,
-      absence: absence ? {
-        type: absence.type as any,
+      absence: absenceType !== null && absence ? {
+        type: absenceType,
         id: absence.id
       } : {
         type: null,
@@ -435,12 +464,18 @@ function calculateRunningBalanceAfterAbsence(
 /**
  * Get transaction type for absence credit
  */
-function getCreditType(absenceType: string): string {
-  const mapping: Record<string, string> = {
+// WR-09: konkreter Rückgabetyp statt `string` — der Aufrufer reicht ihn direkt an
+// insertTransactionWithBalance() weiter.
+function getCreditType(absenceType: AbsenceDayType): RebuildTransactionType {
+  const mapping: Record<AbsenceDayType, RebuildTransactionType> = {
     'vacation': 'vacation_credit',
     'sick': 'sick_credit',
     'overtime_comp': 'overtime_comp_credit',
-    'special': 'special_credit'
+    'special': 'special_credit',
+    // 'unpaid' erreicht diese Funktion nicht (der Aufrufer schliesst ihn vorher aus); der
+    // Eintrag steht trotzdem hier, damit die Union vollstaendig abgedeckt ist und ein
+    // kuenftiger neuer Typ einen Uebersetzungsfehler statt eines stillen Fallbacks erzeugt.
+    'unpaid': 'unpaid_deduction'
   };
 
   return mapping[absenceType] || 'time_entry';
@@ -464,14 +499,36 @@ function getCreditDescription(absenceType: string): string {
  * Insert transaction with balance tracking
  * REFACTORED: Now uses OvertimeTransactionManager for centralized transaction creation
  */
+/**
+ * WR-09: Die beiden `as any` in dieser Funktion sind ersetzt.
+ *
+ * `type` war `string` und wurde per `as any` in die enge Union von `TransactionParams`
+ * gedrückt. Die Werte, die diese Funktion tatsächlich bekommt, sind abzählbar und stehen
+ * jetzt in `RebuildTransactionType`. Zwei davon — 'time_entry' und 'unpaid_deduction' —
+ * fehlen in `TransactionParams["type"]`, obwohl die CHECK-Bedingung von
+ * `overtime_transactions` (schema.ts:517-522) sie ausdrücklich erlaubt. Diese Lücke im
+ * Typmodell wird hier NICHT einseitig geschlossen (das wäre eine Änderung an der
+ * Schnittstelle eines anderen Moduls); stattdessen steht am Übergabepunkt eine enge,
+ * benannte Zusicherung statt eines `any`, das jeden beliebigen String durchgelassen hätte.
+ */
+type RebuildTransactionType =
+  | 'time_entry'
+  | 'unpaid_deduction'
+  | 'vacation_credit'
+  | 'sick_credit'
+  | 'overtime_comp_credit'
+  | 'special_credit';
+
+type RebuildReferenceType = 'time_entry' | 'absence' | 'manual' | 'system';
+
 function insertTransactionWithBalance(
   userId: number,
   date: string,
-  type: string,
+  type: RebuildTransactionType,
   hours: number,
   balanceBefore: number,
   description: string,
-  referenceType: string | null,
+  referenceType: RebuildReferenceType | null,
   referenceId: number | null
 ): void {
   const balanceAfter = balanceBefore + hours;
@@ -479,10 +536,11 @@ function insertTransactionWithBalance(
   transactionManager.createTransaction({
     userId,
     date,
-    type: type as any, // Type assertion needed due to string type from function signature
+    // Enge, benannte Zusicherung statt `any` — s. Kopfkommentar dieser Funktion.
+    type: type as TransactionParams['type'],
     hours,
     description,
-    referenceType: referenceType as any,
+    referenceType,
     referenceId,
     balanceBefore,
     balanceAfter
