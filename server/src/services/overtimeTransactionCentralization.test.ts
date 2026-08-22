@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../database/connection.js';
 import { ensureCorrectionTransactions } from './overtimeService.js';
+import { insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
 
 /**
  * OVERTIME TRANSACTION CENTRALIZATION TESTS (Phase 3)
@@ -37,6 +38,12 @@ describe('Phase 3: Transaction Centralization', () => {
     );
     testUserId = userResult.lastInsertRowid as number;
 
+    // D4: ohne eine Periode ab hireDate wirft getDailyTargetHours() MissingWorkPeriodError.
+    // Diese Testdatei ruft aktuell nur ensureCorrectionTransactions() auf, die den Legacy-Pfad
+    // nicht über getDailyTargetHours führt — die Periode wird trotzdem angelegt, damit diese
+    // Fixtures auch bei zukünftigen Erweiterungen der Testdatei D4-konform bleiben.
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-01-01', weeklyHours: 40 });
+
     // Create test admin
     const adminResult = db.prepare(`
       INSERT INTO users (
@@ -54,6 +61,7 @@ describe('Phase 3: Transaction Centralization', () => {
       '2026-01-01'
     );
     testAdminId = adminResult.lastInsertRowid as number;
+    insertTestWorkPeriod(testAdminId, { validFrom: '2026-01-01', weeklyHours: 40 });
   });
 
   afterEach(() => {

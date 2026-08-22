@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../database/connection.js';
 import { ensureAbsenceTransactions } from './overtimeService.js';
+import { insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
 
 /**
  * OVERTIME SERVICE TESTS (WR-02, 09-REVIEW.md)
@@ -34,6 +35,10 @@ describe('ensureAbsenceTransactions — REQ-19 Schreibpfad', () => {
       '2026-01-01'
     );
     testUserId = result.lastInsertRowid as number;
+
+    // D4: ohne eine Periode ab hireDate wirft getDailyTargetHours() MissingWorkPeriodError.
+    // Dieselben Werte wie im INSERT INTO users oben.
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-01-01', weeklyHours: 20 });
   });
 
   afterEach(() => {
