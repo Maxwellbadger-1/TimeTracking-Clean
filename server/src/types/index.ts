@@ -298,3 +298,86 @@ export interface UserWorkPeriodRow {
   createdAt: string;
   createdBy: number | null;
 }
+
+// Stundenwechsel-Vertrag (Milestone v3.0, Phase 12, REQ-26 bis REQ-29) —
+// D2: Vorschau und Speichern laufen über exakt dieselbe Codebahn, deshalb ist
+// WorkTimeChangePreview der gemeinsame Rückgabetyp beider Pfade (kein "Dual Calculation
+// System", siehe .claude/CLAUDE.md).
+export interface WorkTimeChangeInput {
+  /** Nutzer, dessen Arbeitszeitmodell ab dem Stichtag geändert wird. */
+  userId: number;
+  /** Inklusiv: erster Geltungstag der neuen Periode (YYYY-MM-DD). Kann in der Vergangenheit
+   *  oder Zukunft liegen (D3). */
+  validFrom: string;
+  /** Neue wöchentliche Sollstundenzahl der Periode ab validFrom. */
+  weeklyHours: number;
+  /** Neuer individueller Tagesplan, oder null für die pauschale Verteilung über weeklyHours. */
+  workSchedule: WorkSchedule | null;
+  /** Pflichtbegründung für die Journalbuchung (D5) — keine stille Änderung ohne Grund. */
+  reason: string;
+}
+
+/** Ergebnis einer Vorschau- oder Speicher-Berechnung (D2: identischer Rückgabetyp für beide
+ *  Pfade). Alle Stundenwerte sind bereits gerundet auf zwei Nachkommastellen. */
+export interface WorkTimeChangePreview {
+  /** Nutzer, für den die Berechnung lief. */
+  userId: number;
+  /** Stichtag der neuen Periode (YYYY-MM-DD, inklusiv), wie im Input übergeben. */
+  validFrom: string;
+  /** true, wenn validFrom in der Vergangenheit liegt und deshalb ein Rebuild bis heute
+   *  ausgelöst wird (D3). */
+  isRetroactive: boolean;
+  /** Erster Tag des neu zu berechnenden Zeitraums (inklusiv, YYYY-MM-DD) — bei
+   *  rückwirkendem Stichtag identisch mit validFrom. */
+  rangeStart: string;
+  /** Letzter Tag des neu zu berechnenden Zeitraums (inklusiv, YYYY-MM-DD) — heute bei
+   *  rückwirkendem Stichtag, sonst validFrom selbst. */
+  rangeEnd: string;
+  /** Anzahl der Arbeitstage innerhalb von rangeStart..rangeEnd nach dem bisherigen Modell. */
+  workingDaysInRange: number;
+  /** Sollstunden im Zeitraum nach dem bisherigen (vor der Änderung geltenden) Modell. */
+  targetHoursBefore: number;
+  /** Sollstunden im Zeitraum nach dem neuen Modell (weeklyHours/workSchedule aus dem Input). */
+  targetHoursAfter: number;
+  /** targetHoursAfter - targetHoursBefore. Negative Werte bedeuten eine Saldogutschrift
+   *  (weniger Soll bei gleichem Ist), positive Werte eine Saldobelastung. */
+  targetHoursDelta: number;
+  /** Überstundensaldo des Nutzers vor der Änderung (Stunden bleiben Stunden, D4 — keine
+   *  Umrechnung des angesparten Saldos). */
+  balanceBefore: number;
+  /** Überstundensaldo des Nutzers nach Anwendung von balanceDelta. */
+  balanceAfter: number;
+  /** Die eine Differenzbuchung, die durch die neue Sollstunden-Basis entsteht (D4). 0 bei
+   *  einem Stichtag in der Zukunft — dort gibt es noch keinen abzurechnenden Zeitraum. */
+  balanceDelta: number;
+  /** Die bislang gültige Periode zum Stichtag, oder null, wenn keine existiert (z. B. erster
+   *  Wechsel eines Nutzers ohne Vorperiode im relevanten Zeitraum). */
+  currentPeriod: { validFrom: string; weeklyHours: number; workSchedule: WorkSchedule | null } | null;
+  /** true, wenn sich weder Sollstunden noch Tagesplan gegenüber der aktuell gültigen Periode
+   *  ändern — die Oberfläche zeigt dann das Panel "nichts zu tun" statt eine Buchung anzubieten. */
+  isNoOp: boolean;
+  /** true, wenn der Stichtag nicht auf den Monatsersten fällt — die Oberfläche weist in
+   *  diesem Fall auf die anteilige erste/letzte Periode hin. */
+  midMonthEffective: boolean;
+  /** Von rangeStart..rangeEnd betroffene Kalendermonate (YYYY-MM), zur Anzeige "neu gerechnet
+   *  wird vom ... bis heute" in der Vorschau. */
+  affectedMonths: string[];
+}
+
+/** Antwortform der Vorschau-Route: hängt ein signiertes, zeitlich begrenztes Token an die
+ *  Vorschau, damit der nachfolgende Speichern-Aufruf exakt die geprüfte Berechnung bestätigt
+ *  (D2). Die Berechnung selbst (WorkTimeChangePreview) kennt kein Token — das Token ist ein
+ *  reines Transportkonzept der Route, nicht der Fachlogik. */
+export type WorkTimeChangePreviewResponse = WorkTimeChangePreview & { previewToken: string };
+
+/** Ergebnis eines tatsächlichen Speicherns (nicht Dry-Run). */
+export interface WorkTimeChangeOutcome {
+  /** Dieselbe Berechnung, die auch der Vorschau zugrunde lag (D2). */
+  preview: WorkTimeChangePreview;
+  /** Die neu angelegte Periode, oder null im Trockenlauf — dort wird die Periode innerhalb
+   *  der Transaktion wieder zurückgerollt und existiert danach nicht. */
+  period: UserWorkPeriod | null;
+  /** ID der erzeugten model_change-Buchung, oder null, wenn balanceDelta 0 ist (D4: ein
+   *  Stichtag in der Zukunft erzeugt keine Buchung). */
+  transactionId: number | null;
+}

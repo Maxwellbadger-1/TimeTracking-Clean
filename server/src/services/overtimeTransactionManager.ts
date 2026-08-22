@@ -29,10 +29,10 @@ import logger from '../utils/logger.js';
 export interface TransactionParams {
   userId: number;
   date: string;
-  type: 'earned' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment';
+  type: 'earned' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment' | 'model_change';
   hours: number;
   description: string;
-  referenceType?: 'time_entry' | 'absence' | 'manual' | 'system' | null;
+  referenceType?: 'time_entry' | 'absence' | 'manual' | 'system' | 'work_period' | null;
   referenceId?: number | null;
   createdBy?: number | null;
   balanceBefore?: number;
