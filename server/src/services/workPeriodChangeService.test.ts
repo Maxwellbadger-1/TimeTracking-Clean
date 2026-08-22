@@ -8,6 +8,7 @@ import {
   getOvertimeHistory,
   getOvertimeBalanceAtDate,
   getMonthlyTransactionSummary,
+  getAggregatedOvertimeStats,
 } from './overtimeTransactionService.js';
 import {
   calculateLiveOvertimeTransactions,
@@ -477,6 +478,10 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
 
       const summaryBefore = getMonthlyTransactionSummary(userId, 12);
       const balanceAtDateBefore = getOvertimeBalanceAtDate(userId, today);
+      // Der vierte Summenpfad aus CR-01. Die Kennzahl ist nutzeruebergreifend; der
+      // Vorher/Nachher-Vergleich ist trotzdem stabil, weil vitest.config.ts
+      // fileParallelism: false setzt (Testdateien laufen nacheinander).
+      const aggregatedBefore = getAggregatedOvertimeStats();
 
       db.prepare(
         `INSERT INTO overtime_transactions
@@ -486,6 +491,7 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
 
       expect(getMonthlyTransactionSummary(userId, 12)).toEqual(summaryBefore);
       expect(getOvertimeBalanceAtDate(userId, today)).toBe(balanceAtDateBefore);
+      expect(getAggregatedOvertimeStats()).toEqual(aggregatedBefore);
     } finally {
       cleanupEmployee(userId);
     }
