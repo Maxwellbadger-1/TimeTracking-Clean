@@ -367,7 +367,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 13-09-PLAN.md — `EditUserModal`: Korrekturblock, Zeilenaktionen, Löschbestätigung mit Server-Vorschau, Erfolgsbanner (D1, D2, D3)
+- [x] 13-09-PLAN.md — `EditUserModal`: Korrekturblock, Zeilenaktionen, Löschbestätigung mit Server-Vorschau, Erfolgsbanner (D1, D2, D3)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
