@@ -198,7 +198,7 @@ Plans:
 - [x] 10-02-PLAN.md — Verhaltensmatrix der Datenbankriegel; CLI `migrate:copy` und Migrationslauf gegen eine Kopie
 - [x] 10-03-PLAN.md — Migration 009: Bestandsüberführung ab `hireDate`, idempotent, mit Selbstverifikation
 - [x] 10-04-PLAN.md — `workPeriodService`: Periode lesen, schreiben, zum Datum auflösen (noch ohne Aufrufer)
-- [ ] 10-05-PLAN.md — Salden-Snapshot-Werkzeug und Nullwirkungs-Nachweis auf einer Produktionskopie
+- [x] 10-05-PLAN.md — Salden-Snapshot-Werkzeug und Nullwirkungs-Nachweis auf einer Produktionskopie
 
 ---
 

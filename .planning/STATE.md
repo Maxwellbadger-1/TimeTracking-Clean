@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-08-22T00:08:41.519Z"
+status: verifying
+stopped_at: Completed 10-05-PLAN.md
+last_updated: "2026-08-22T00:21:28.968Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 10
-  completed_plans: 9
-  percent: 14
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 10
+  percent: 29
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 10-02-PLAN.md
+- **Stopped at:** Completed 10-05-PLAN.md
 
 ## Phase Progress
 
@@ -147,6 +147,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 10-perioden-fundament]: Insert-Trigger-Entfernungsexperiment zweifach durchgefuehrt: dauerhafter automatisierter Test plus einmaliger manueller Versuch an der echten Migrationsdatei, danach per Bearbeitung (nicht git checkout) zurueckgenommen
 - [Phase 10-perioden-fundament]: Migration 009 aus Plan 10-03 war beim Migrationslauf bereits zusammengefuehrt (Dev-Server wendet Migrationen automatisch an); user_work_periods zeigte 20 statt 0 Zeilen - dokumentierter Erwartungsfall, kein Fehlschlag
 - [Phase 10-perioden-fundament]: Zusaetzliche synthetische Vor-008-Kopie gebaut, um zu belegen dass migrate:copy tatsaechlich neue Migrationen anwendet, nicht nur eine vollstaendige Datenbank bestaetigt
+- [Phase ?]: [10-05] Der kanonische Überstunden-Lesepfad löst soft-gelöschte Nutzer nicht auf (getUser() filtert deletedAt IS NULL) — snapshotBalances.ts fängt das je Nutzer ab und hält die Fehlermeldung in overtimeError fest, statt abzubrechen.
 
 ## Quick Tasks Completed
 
@@ -189,6 +190,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 10-perioden-fundament P03 | 35min | 2 tasks | 2 files |
 | Phase 10-perioden-fundament P04 | 25min | 2 tasks | 2 files |
 | Phase 10-perioden-fundament P02 | 55min | 2 tasks | 4 files |
+| Phase 10-perioden-fundament P05 | 50min | - tasks | - files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -226,7 +228,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 Phase: 10 (Perioden-Fundament) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-22
 
 ## Operator Next Steps
