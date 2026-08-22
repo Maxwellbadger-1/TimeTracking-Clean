@@ -883,6 +883,57 @@ describe('applyWorkTimeChange — Validierung (kein Schreibvorgang bei Ablehnung
     }
   });
 
+  it('WR-04: Ueberlange Begruendung und Steuerzeichen werden abgewiesen; gespeichert wird die getrimmte Fassung', () => {
+    const userId = createEmployee('wr04-begruendung', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+      const validFrom = firstOfMonthOffset(today, -1);
+      insertWeekdayTimeEntries(userId, validFrom, today, 8);
+
+      const periodsBefore = countPeriods(userId);
+
+      const zuLang: WorkTimeChangeInput = {
+        userId,
+        validFrom,
+        weeklyHours: 20,
+        workSchedule: null,
+        reason: 'A'.repeat(501),
+      };
+      expect(() => applyWorkTimeChange(zuLang, { dryRun: false, createdBy: adminId })).toThrow(
+        WorkTimeChangeValidationError
+      );
+
+      const mitSteuerzeichen: WorkTimeChangeInput = {
+        ...zuLang,
+        reason: `Begruendung mit Steuerzeichen${String.fromCharCode(0)}im Text`,
+      };
+      expect(() =>
+        applyWorkTimeChange(mitSteuerzeichen, { dryRun: false, createdBy: adminId })
+      ).toThrow(WorkTimeChangeValidationError);
+
+      expect(countPeriods(userId)).toBe(periodsBefore);
+
+      // Gegenprobe: 500 Zeichen sind erlaubt, und umgebende Leerzeichen werden vor dem
+      // Speichern abgeschnitten — weder in der Periode noch im Journaltext.
+      const kern = 'Begruendung mit umgebenden Leerzeichen zu Testzwecken';
+      const outcome = applyWorkTimeChange(
+        { ...zuLang, reason: `   ${kern}   ` },
+        { dryRun: false, createdBy: adminId }
+      );
+
+      expect(outcome.period!.note).toBe(kern);
+      const journalDescription = (
+        db
+          .prepare('SELECT description FROM overtime_transactions WHERE id = ?')
+          .get(outcome.transactionId!) as { description: string }
+      ).description;
+      expect(journalDescription).toContain(`(Grund: ${kern})`);
+      expect(journalDescription).not.toContain('   ');
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('Werte identisch zur aktuell gueltigen Periode (isNoOp) wirft WorkTimeChangeValidationError im Speicherpfad, keine Schreibwirkung', () => {
     const userId = createEmployee('nichts-zu-tun', 40, '2020-01-01');
     try {

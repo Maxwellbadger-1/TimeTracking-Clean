@@ -80,6 +80,24 @@ import type {
   WorkTimeChangePreview,
 } from '../types/index.js';
 
+/** WR-04: Obergrenze für die Pflichtbegründung — sie landet unverändert im Kontoauszug. */
+const MAX_REASON_LENGTH = 500;
+
+/**
+ * WR-04: C0-/C1-Steuerzeichen ohne die drei, die in einem mehrzeiligen Freitextfeld
+ * (`textarea` im Wechsel-Dialog) legitim sind: Tabulator, Zeilenvorschub, Wagenrücklauf.
+ */
+function containsControlCharacters(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    // Tabulator (9), Zeilenvorschub (10) und Wagenrücklauf (13) sind in einem
+    // mehrzeiligen Freitextfeld legitim.
+    if (code === 9 || code === 10 || code === 13) continue;
+    if (code < 32 || (code >= 127 && code <= 159)) return true;
+  }
+  return false;
+}
+
 /**
  * Fehlerklasse für alle serverseitigen Validierungsfehler dieses Vorgangs — Muster aus
  * `WorkPeriodConflictError` (`workPeriodService.ts`). Trägt fertige, deutsche Meldungen aus
@@ -259,8 +277,24 @@ function validateInput(input: WorkTimeChangeInput, user: UserPublic, dryRun: boo
     if (!input.reason || input.reason.trim().length === 0) {
       throw new WorkTimeChangeValidationError('Begründung ist erforderlich');
     }
-    if (input.reason.trim().length < 10) {
+    const trimmedReason = input.reason.trim();
+    if (trimmedReason.length < 10) {
       throw new WorkTimeChangeValidationError('Begründung muss mindestens 10 Zeichen lang sein');
+    }
+    // WR-04: Der Text wird unverändert in `user_work_periods.note` UND wörtlich in
+    // `overtime_transactions.description` gespeichert und von dort in den Kontoauszug jedes
+    // Mitarbeiters übernommen. Ohne Obergrenze ist ein Megabyte-Text ebenso möglich wie
+    // Steuerzeichen; ob aus Markup ein gespeichertes XSS wird, hinge allein am
+    // Desktop-Renderer — darauf darf sich der Server nicht verlassen.
+    if (trimmedReason.length > MAX_REASON_LENGTH) {
+      throw new WorkTimeChangeValidationError(
+        `Begründung darf höchstens ${MAX_REASON_LENGTH} Zeichen lang sein.`
+      );
+    }
+    if (containsControlCharacters(trimmedReason)) {
+      throw new WorkTimeChangeValidationError(
+        'Begründung darf keine Steuerzeichen enthalten.'
+      );
     }
   }
 }
@@ -284,6 +318,16 @@ export function applyWorkTimeChange(
 
     // 2. Eingabe serverseitig validieren.
     validateInput(input, user, options.dryRun);
+
+    // 2b. WR-04: Ab hier wird ausschließlich die GETRIMMTE Begründung geschrieben — sowohl
+    //     in `user_work_periods.note` als auch in `overtime_transactions.description`.
+    //     Bisher landete die Rohfassung in der Datenbank, obwohl die Validierung oben
+    //     ausschließlich `trim()`-Längen prüfte (10 Leerzeichen plus ein Zeichen genügten
+    //     nicht der Prüfung, wurden aber gespeichert, sobald ein anderer Fall sie passieren
+    //     ließ). Die UI-SPEC-Regel "die Begründung wird unverändert durchgereicht" betrifft
+    //     den ANZEIGE-Pfad (`formatDescription()` im Desktop) — kein Umformatieren beim
+    //     Rendern —, nicht das Abschneiden umgebender Leerzeichen beim Schreiben.
+    const reason = input.reason.trim();
 
     // 3. Perioden laden — ein exakt auf validFrom fallender Periodenbeginn ist ein Konflikt.
     const existingPeriods = getWorkPeriods(input.userId);
@@ -372,7 +416,7 @@ export function applyWorkTimeChange(
           validTo: splitValidTo,
           weeklyHours: input.weeklyHours,
           workSchedule: input.workSchedule,
-          note: input.reason,
+          note: reason,
           createdBy: options.createdBy,
         });
       } else {
@@ -385,7 +429,7 @@ export function applyWorkTimeChange(
           validTo: nextPeriod ? nextPeriod.validFrom : null,
           weeklyHours: input.weeklyHours,
           workSchedule: input.workSchedule,
-          note: input.reason,
+          note: reason,
           createdBy: options.createdBy,
         });
       }
@@ -459,7 +503,7 @@ export function applyWorkTimeChange(
       const description =
         `Stundenwechsel ab ${toGermanDate(input.validFrom)}: ` +
         `${formatWeeklyHoursDe(previousWeeklyHours)} → ${formatWeeklyHoursDe(input.weeklyHours)} h/Woche ` +
-        `(Grund: ${input.reason})`;
+        `(Grund: ${reason})`;
 
       // CR-02: balanceBefore/balanceAfter der Journalzeile stehen auf der JOURNAL-Skala
       // (kumulativer Laufsaldo der Kette in overtime_transactions), nicht auf der
