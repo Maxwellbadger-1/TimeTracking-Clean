@@ -1,11 +1,12 @@
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useCreateAbsenceRequest, useRemainingVacationDays, useCurrentOvertimeStats, useUsers } from '../../hooks';
+import { useCreateAbsenceRequest, useRemainingVacationDays, useCurrentOvertimeStats, useUsers, useMultiYearHolidays } from '../../hooks';
+import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
 import { useAuthStore } from '../../store/authStore';
 import {
   getTodayDate,
@@ -47,9 +48,11 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   const [endDateError, setEndDateError] = useState('');
   const [reasonError, setReasonError] = useState('');
 
-  // Calculate required days & hours based on user's work schedule
-  const [requiredDays, setRequiredDays] = useState(1);
-  const [requiredHours, setRequiredHours] = useState(8);
+  // Perioden und Feiertage fuer die periodengetreue Vorschau (WR-12-Nachzug, Plan 12-08).
+  // `null` heisst: noch keine Zahl behauptet (laedt oder fehlgeschlagen) — eine falsche Zahl
+  // waere schlechter als keine.
+  const [requiredDays, setRequiredDays] = useState<number | null>(null);
+  const [requiredHours, setRequiredHours] = useState<number | null>(null);
 
   // Get selected user's data for work schedule
   // Employee: Use current user from auth store (users query is disabled)
@@ -58,31 +61,47 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     ? users?.find(u => u.id === selectedUserId)
     : user;
 
+  const {
+    data: periods,
+    isLoading: loadingPeriods,
+    isError: periodsError,
+  } = useWorkPeriods(selectedUserId > 0 ? selectedUserId : null);
+  const {
+    data: holidays,
+    isLoading: loadingHolidays,
+    isError: holidaysError,
+  } = useMultiYearHolidays();
+  const holidayDateSet = useMemo(
+    () => new Set((holidays || []).map((holiday) => holiday.date)),
+    [holidays]
+  );
+  const previewUnavailable = periodsError || holidaysError;
+  const previewLoading = loadingPeriods || loadingHolidays;
+
   useEffect(() => {
-    if (isValidDate(startDate) && isValidDate(endDate) && isValidDateRange(startDate, endDate) && selectedUser) {
-      // Calculate hours based on individual work schedule
-      const hours = calculateAbsenceHoursWithWorkSchedule(
-        startDate,
-        endDate,
-        selectedUser.workSchedule,
-        selectedUser.weeklyHours
-      );
+    if (
+      isValidDate(startDate) &&
+      isValidDate(endDate) &&
+      isValidDateRange(startDate, endDate) &&
+      selectedUser &&
+      periods &&
+      !previewLoading &&
+      !previewUnavailable
+    ) {
+      // Calculate hours based on the periods valid across the selected range (periodengetreu)
+      const hours = calculateAbsenceHoursWithWorkSchedule(startDate, endDate, periods, holidayDateSet);
       setRequiredHours(hours);
 
       // Calculate days - BEST PRACTICE (Personio, DATEV, SAP):
       // Days with 0 hours do NOT count as working days!
-      const days = countWorkingDaysForUser(
-        startDate,
-        endDate,
-        selectedUser.workSchedule,
-        selectedUser.weeklyHours
-      );
+      const days = countWorkingDaysForUser(startDate, endDate, periods, holidayDateSet);
       setRequiredDays(days);
     } else {
-      setRequiredDays(1);
-      setRequiredHours(8);
+      // Keine Zahl behaupten, solange Perioden/Feiertage nicht sicher geladen sind.
+      setRequiredDays(null);
+      setRequiredHours(null);
     }
-  }, [startDate, endDate, selectedUser]);
+  }, [startDate, endDate, selectedUser, periods, holidayDateSet, previewLoading, previewUnavailable]);
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -112,24 +131,23 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     }
 
     // Validate vacation balance
-    if (type === 'vacation' && requiredDays > vacationDays) {
+    // requiredDays === null: Vorschau noch nicht verfuegbar — keine Zahl, also keine Pruefung
+    // hier (der Server berechnet und prueft ohnehin verbindlich, D2-Muster).
+    if (type === 'vacation' && requiredDays !== null && requiredDays > vacationDays) {
       setEndDateError(`Du hast nur noch ${vacationDays} Urlaubstage verfügbar`);
       isValid = false;
     }
 
     // Validate overtime compensation
-    if (type === 'overtime_comp') {
+    if (type === 'overtime_comp' && requiredHours !== null) {
       if (requiredHours > overtimeHours) {
         setEndDateError(`Du hast nur ${formatOvertimeHours(overtimeHours)} Überstunden verfügbar`);
         isValid = false;
       }
     }
 
-    // Validate reason for sick leave (optional but recommended)
-    if (type === 'sick' && !reason.trim()) {
-      // Just a warning, not blocking
-      console.log('Note: Reason for sick leave is recommended');
-    }
+    // Validate reason for sick leave (optional but recommended) — just a hint, not blocking,
+    // deshalb keine Debugausgabe (CLAUDE.md verbietet Debug-Logs in Production).
 
     return isValid;
   };
@@ -154,9 +172,9 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
       // Reset form and close
       handleClose();
-    } catch (error) {
-      // Error is handled by the hook (toast)
-      console.error('Failed to create absence request:', error);
+    } catch {
+      // Error is handled by the hook (toast) — keine zusaetzliche Debugausgabe
+      // (CLAUDE.md verbietet Debug-Logs in Production).
     }
   };
 
@@ -277,14 +295,24 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
 
         {/* Required Days & Hours Preview */}
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <p className="text-sm text-blue-900 dark:text-blue-200">
-            <strong>Erforderlich:</strong> {requiredDays} {requiredDays === 1 ? 'Tag' : 'Tage'}
-            {type === 'overtime_comp' && ` (${requiredHours}h)`}
-          </p>
-          {selectedUser?.workSchedule && (
-            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              ⚠️ Tage mit 0h zählen nicht als Arbeitstage (Best Practice: Personio, DATEV, SAP)
+          {previewUnavailable ? (
+            <p className="text-sm text-blue-900 dark:text-blue-200">
+              Vorschau kann gerade nicht berechnet werden. Der Antrag kann trotzdem gestellt werden.
             </p>
+          ) : previewLoading || requiredDays === null || requiredHours === null ? (
+            <p className="text-sm text-blue-900 dark:text-blue-200">Vorschau wird berechnet …</p>
+          ) : (
+            <>
+              <p className="text-sm text-blue-900 dark:text-blue-200">
+                <strong>Erforderlich:</strong> {requiredDays} {requiredDays === 1 ? 'Tag' : 'Tage'}
+                {type === 'overtime_comp' && ` (${requiredHours}h)`}
+              </p>
+              {selectedUser?.workSchedule && (
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                  ⚠️ Tage mit 0h zählen nicht als Arbeitstage (Best Practice: Personio, DATEV, SAP)
+                </p>
+              )}
+            </>
           )}
         </div>
 

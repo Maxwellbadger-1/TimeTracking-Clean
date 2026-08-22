@@ -10,6 +10,8 @@
 import { useMemo } from 'react';
 import { Clock, Calendar, Info } from 'lucide-react';
 import type { User, WorkSchedule } from '../../types';
+import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
+import { getTodayDate, resolveWorkTimePeriodIn } from '../../utils';
 
 interface WorkScheduleDisplayProps {
   user: User;
@@ -77,6 +79,20 @@ export function WorkScheduleDisplay({ user, mode, onDetailsClick }: WorkSchedule
       };
     }
   }, [user.workSchedule, user.weeklyHours]);
+
+  // Stichtag der heute gueltigen Periode (WR-12-Nachzug, Plan 12-08): die Berechnung oben
+  // bleibt unveraendert der heutige Stammdatensatz (identisch zur offenen Periode, siehe
+  // userService), diese Zeile nennt nur zusaetzlich, seit wann er gilt. Sind Perioden nicht
+  // geladen oder gibt es keine treffende, entfaellt die Zeile ersatzlos.
+  const { data: periods } = useWorkPeriods(user.id);
+  const currentPeriodValidFrom = useMemo(() => {
+    if (!periods) return null;
+    const current = resolveWorkTimePeriodIn(periods, getTodayDate());
+    return current ? current.validFrom : null;
+  }, [periods]);
+  const currentPeriodValidFromLabel = currentPeriodValidFrom
+    ? new Date(currentPeriodValidFrom + 'T12:00:00').toLocaleDateString('de-DE')
+    : null;
 
   // Compact Mode (Dashboard Widget)
   if (mode === 'compact') {
@@ -245,6 +261,12 @@ export function WorkScheduleDisplay({ user, mode, onDetailsClick }: WorkSchedule
       {scheduleData.type === 'standard' && (
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
           💡 Bei Teilzeit oder ungleicher Stundenverteilung kann ein Administrator einen individuellen Wochenplan einrichten
+        </p>
+      )}
+
+      {currentPeriodValidFromLabel && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          Aktuell gültiges Modell seit {currentPeriodValidFromLabel}
         </p>
       )}
     </div>
