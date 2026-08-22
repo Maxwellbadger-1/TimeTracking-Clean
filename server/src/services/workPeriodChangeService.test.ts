@@ -281,6 +281,71 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
     }
   });
 
+  it('REQ-32: Eine Erhoehung der Wochenstunden mit rueckwirkendem Stichtag senkt den Saldo und laesst jede Buchung vor dem Stichtag unveraendert', () => {
+    const userId = createEmployee('erhoehung-rueckwirkend', 20, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 20, workSchedule: null });
+
+      const validFrom = firstOfMonthOffset(today, -2);
+      const priorMonth = firstOfMonthOffset(today, -3);
+
+      // Vorperiode: eine echte, bereits abgerechnete Buchungszeile, die unveraendert
+      // bleiben muss — bewusst VOR dem Aufruf von applyWorkTimeChange abgerechnet.
+      insertWeekdayTimeEntries(userId, priorMonth, lastOfMonth(priorMonth), 8);
+      rebuildOvertimeTransactionsForMonth(userId, priorMonth.slice(0, 7));
+
+      // Rueckwirkender Zeitraum: dieselben taeglichen Ist-Stunden wie bisher (8h/Werktag) —
+      // applyWorkTimeChange rechnet diesen Bereich selbst neu (D3), kein eigener Rebuild hier.
+      insertWeekdayTimeEntries(userId, validFrom, today, 8);
+
+      const before = db
+        .prepare(
+          `SELECT id, date, type, hours FROM overtime_transactions
+           WHERE userId = ? AND date < ? ORDER BY date, id`
+        )
+        .all(userId, validFrom);
+      expect(before.length).toBeGreaterThan(0);
+
+      const input: WorkTimeChangeInput = {
+        userId,
+        validFrom,
+        weeklyHours: 40,
+        workSchedule: null,
+        reason: 'Erhoehung der Wochenstunden rueckwirkend zum Stichtag',
+      };
+      const outcome = applyWorkTimeChange(input, { dryRun: false, createdBy: adminId });
+
+      const after = db
+        .prepare(
+          `SELECT id, date, type, hours FROM overtime_transactions
+           WHERE userId = ? AND date < ? ORDER BY date, id`
+        )
+        .all(userId, validFrom);
+      expect(after).toEqual(before);
+
+      // Mehr Sollstunden rueckwirkend senken den Saldo — umgekehrtes Vorzeichen zum
+      // Reduzierungsfall oben (REQ-26), der toBeGreaterThan(0) prueft.
+      expect(outcome.preview.balanceDelta).toBeLessThan(0);
+
+      // Das Sollstundenvolumen steigt — die Richtung des Wechsels ohne Saldovorzeichen.
+      expect(outcome.preview.targetHoursDelta).toBeGreaterThan(0);
+
+      const modelChangeRows = db
+        .prepare(
+          `SELECT date, referenceType, referenceId FROM overtime_transactions
+           WHERE userId = ? AND type = 'model_change'`
+        )
+        .all(userId) as Array<{ date: string; referenceType: string; referenceId: number }>;
+
+      expect(modelChangeRows).toHaveLength(1);
+      expect(modelChangeRows[0].date).toBe(validFrom);
+      expect(modelChangeRows[0].referenceType).toBe('work_period');
+      expect(modelChangeRows[0].referenceId).toBe(outcome.period!.id);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('REQ-27: Vorschau und Speichern liefern paarweise exakt dieselben Werte, der gespeicherte Saldo stimmt mit getOvertimeBalance() ueberein', () => {
     const userId = createEmployee('vorschau-gleich-speichern', 40, '2020-01-01');
     try {
