@@ -131,9 +131,32 @@ export interface LiveOvertimeTransaction {
    * `hours`, dann gilt Summe(transactions) = currentBalance + balanceDelta: die angezeigten
    * Zeilen summieren sich nicht mehr auf den daneben angezeigten Saldo (der Saldo kommt aus
    * `calculateCurrentOvertimeBalance()` ueber denselben Zeitraum und kennt `model_change`
-   * nicht). Mit `hours: 0` bleibt die Zeile sichtbar (REQ-29) und die Summe stimmt.
+   * nicht). Mit `hours: 0` bleibt die Zeile sichtbar (REQ-29) und die Summe stimmt. Diese
+   * Regel gilt AUSDRUECKLICH auch fuer Gegenbuchungen (Storno-Paar, DD-26 aus 13-06-PLAN.md):
+   * die Gegenbuchung ist keine Ausnahme und bekommt keinen zweiten Sonderpfad.
    */
   documentedDelta?: number;
+  // Phase 13 (REQ-31, DD-25): die folgenden fuenf Felder sind nur bei
+  // `type === 'model_change'` gesetzt und tragen die Storno-Geschichte des Kontoauszugs.
+  /** Die Id der Buchungszeile selbst — die Sprungmarke, ueber die die Oberflaeche zur
+   *  Partnerzeile eines Storno-Paars springt (Original <-> Gegenbuchung). */
+  id?: number;
+  /** Gesetzt auf der Gegenbuchung: die Id der stornierten Originalzeile. `null` auf einer
+   *  Originalzeile, die (noch) nicht storniert wurde. Stammt direkt aus der Spalte
+   *  `overtime_transactions.reversalOf` (Migration 014). */
+  reversalOf?: number | null;
+  /** Gesetzt auf der stornierten Originalzeile: die Id ihrer Gegenbuchung. `null`, solange
+   *  keine Gegenbuchung existiert. Abgeleitet ueber einen Selbst-Join auf `reversalOf`, keine
+   *  eigene Spalte (DD-25 — redundante Spalten waeren eine zweite Quelle fuer dieselbe
+   *  Aussage, vgl. 13-01-PLAN.md DD-4). */
+  reversedBy?: number | null;
+  /** `createdAt` der Gegenbuchung — wann die Stornierung vorgenommen wurde. `null`, solange
+   *  keine Gegenbuchung existiert. */
+  reversedAt?: string | null;
+  /** Vor- und Nachname des Admins, der die Gegenbuchung erzeugt hat (`createdBy` der
+   *  Gegenbuchung). `null`, solange keine Gegenbuchung existiert ODER `createdBy` der
+   *  Gegenbuchung selbst `null` ist. */
+  reversedByName?: string | null;
 }
 
 /**
@@ -491,16 +514,27 @@ export function calculateLiveOvertimeTransactions(
   // Betrag darin ein zweites Mal enthalten: Summe(transactions) lag um genau diesen Betrag
   // ueber dem daneben angezeigten `currentBalance`. Der Kontoauszug zeigte damit Zeilen, die
   // sich nicht mehr auf den angezeigten Saldo summieren.
+  // Phase 13 (REQ-31, DD-25): reversalOf zusaetzlich gelesen, plus ein Selbst-Join
+  // (LEFT JOIN overtime_transactions r ON r.reversalOf = ot.id) fuer die umgekehrte
+  // Richtung — von der Originalzeile zu ihrer (falls vorhandenen) Gegenbuchung. `ru` ist
+  // der Admin, der die Gegenbuchung angelegt hat (r.createdBy), nicht der Admin des
+  // Originals (u). ORDER BY ... ot.id ASC (DD-27) haelt das Original bei gleichem Datum
+  // stabil vor seiner Gegenbuchung — sonst haenge die Reihenfolge des Paares vom Zufall
+  // der Abfrage ab.
   const modelChangeQuery = db.prepare(`
-    SELECT ot.id, ot.date, ot.hours, ot.description, ot.createdAt,
-           u.firstName as adminFirstName, u.lastName as adminLastName
+    SELECT ot.id, ot.date, ot.hours, ot.description, ot.createdAt, ot.reversalOf,
+           u.firstName as adminFirstName, u.lastName as adminLastName,
+           r.id as reversedBy, r.createdAt as reversedAt,
+           ru.firstName as reversedByFirstName, ru.lastName as reversedByLastName
     FROM overtime_transactions ot
     LEFT JOIN users u ON u.id = ot.createdBy
+    LEFT JOIN overtime_transactions r ON r.reversalOf = ot.id
+    LEFT JOIN users ru ON ru.id = r.createdBy
     WHERE ot.userId = ?
       AND ot.type = 'model_change'
       AND ot.date >= ?
       AND ot.date <= ?
-    ORDER BY ot.date DESC
+    ORDER BY ot.date DESC, ot.id ASC
   `);
 
   const modelChangeRows = modelChangeQuery.all(userId, startDate, endDate) as Array<{
@@ -509,24 +543,43 @@ export function calculateLiveOvertimeTransactions(
     hours: number;
     description: string | null;
     createdAt: string;
+    reversalOf: number | null;
     adminFirstName: string | null;
     adminLastName: string | null;
+    reversedBy: number | null;
+    reversedAt: string | null;
+    reversedByFirstName: string | null;
+    reversedByLastName: string | null;
   }>;
 
   for (const row of modelChangeRows) {
     const adminName =
       row.adminFirstName && row.adminLastName ? `${row.adminFirstName} ${row.adminLastName}` : null;
+    const reversedByName =
+      row.reversedByFirstName && row.reversedByLastName
+        ? `${row.reversedByFirstName} ${row.reversedByLastName}`
+        : null;
 
     transactions.push({
       date: row.date,
       type: 'model_change',
-      hours: 0, // CR-01: siehe Kommentar oben — die Wirkung steckt in den Tageszeilen
+      hours: 0, // CR-01: siehe Kommentar oben — die Wirkung steckt in den Tageszeilen; gilt
+      // unveraendert auch fuer Gegenbuchungen (DD-26)
       documentedDelta: Math.round(row.hours * 100) / 100,
       description: row.description || '',
       source: 'work_period',
-      referenceId: row.id,
+      // DD-24: die gemeinsame Belegnummer beider Paarzeilen ist die Id der Originalbuchung —
+      // auf der Gegenbuchung `row.reversalOf` (zeigt bereits auf das Original), auf der
+      // Originalzeile (noch) ohne Gegenbuchung `row.id` selbst. Der maschinenlesbare Sprung
+      // der Oberflaeche laeuft NICHT ueber referenceId, sondern ueber id/reversalOf/reversedBy.
+      referenceId: row.reversalOf ?? row.id,
       createdAt: row.createdAt,
       adminName,
+      id: row.id,
+      reversalOf: row.reversalOf ?? null,
+      reversedBy: row.reversedBy ?? null,
+      reversedAt: row.reversedAt ?? null,
+      reversedByName,
     });
   }
 
