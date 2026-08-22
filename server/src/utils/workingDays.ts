@@ -81,6 +81,29 @@ const DAY_NAMES: Record<number, DayName> = {
 };
 
 /**
+ * WR-01: EINE Quelle für den Wochentag innerhalb von `getDailyTargetHours()`.
+ *
+ * Vorher gab es in dieser einen Funktion drei Datumsauffassungen nebeneinander:
+ * `dateStr` über `formatDateBerlin()` (Europe/Berlin — Grundlage für Feiertagsabfrage und
+ * Periodenauflösung), der Wochenplan-Zweig über `getDayName(date)` (für Zeichenketten
+ * `getUTCDay()`, für Date-Objekte `getDay()` in der PROZESS-Zeitzone) und die
+ * Wochenendprüfung des Fallback-Zweigs über `new Date(date).getDay()`. Unter
+ * `TZ=Europe/Berlin` fallen alle drei zusammen, deshalb fiel es nicht auf. Weicht die
+ * Prozess-Zeitzone ab — lokale Entwicklung, ein CI-Runner ohne `TZ`, ein PM2-Neustart ohne
+ * Environment — divergieren sie: Ein Nutzer MIT Wochenplan würde nach UTC eingeordnet, ein
+ * Nutzer OHNE Wochenplan nach lokaler Zeit, die Feiertagsabfrage nach Berlin. Derselbe
+ * Kalendertag könnte für zwei Nutzer auf zwei verschiedene Wochentage fallen.
+ *
+ * Diese Funktion leitet den Wochentag ausschließlich aus der bereits gebildeten
+ * `YYYY-MM-DD`-Zeichenkette ab: `Date.UTC()` + `getUTCDay()` ist frei von Zeitzone und
+ * Sommerzeit, weil beide Seiten UTC sind. Kein `toISOString()`, keine Prozess-Zeitzone.
+ */
+function dayIndexFromDateString(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+/**
  * Get day name from date
  * @param date - Date object or YYYY-MM-DD string
  * @returns Day name (monday, tuesday, ...)
@@ -138,6 +161,9 @@ export function getDailyTargetHours(
   // CRITICAL: Check for holidays FIRST! (Feiertag = 0h Soll-Arbeitszeit)
   // FIX: Use formatDateBerlin() instead of toISOString() to respect Europe/Berlin timezone
   const dateStr = typeof date === 'string' ? date : formatDateBerlin(date, 'yyyy-MM-dd');
+  // WR-01: Der Wochentag kommt ab hier ausschließlich aus `dateStr` — derselben
+  // Zeichenkette, die auch Feiertagsabfrage und Periodenauflösung benutzen.
+  const dayIndex = dayIndexFromDateString(dateStr);
   const holiday = db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
 
   if (holiday) {
@@ -153,7 +179,9 @@ export function getDailyTargetHours(
 
   // If period has individual work schedule, use it
   if (period.workSchedule) {
-    const dayName = getDayName(date);
+    // WR-01: dayIndex statt getDayName(date) — getDayName() liest für Date-Objekte die
+    // Prozess-Zeitzone und wich damit von `dateStr` ab, sobald TZ nicht Europe/Berlin ist.
+    const dayName = DAY_NAMES[dayIndex];
     return period.workSchedule[dayName] || 0;
   }
 
@@ -164,9 +192,9 @@ export function getDailyTargetHours(
   }
 
   // CRITICAL: Check for weekends! (Sa/So = 0h for standard 5-day week)
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const dayOfWeek = d.getDay();
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
+  // WR-01: derselbe dayIndex wie im Wochenplan-Zweig oben — vorher stand hier ein
+  // eigenes `new Date(date).getDay()` in der Prozess-Zeitzone.
+  if (dayIndex === 0 || dayIndex === 6) {
     // Sunday or Saturday = no target hours for standard workers
     return 0;
   }
