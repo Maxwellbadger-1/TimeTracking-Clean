@@ -80,6 +80,19 @@ function isFirstPeriodDeletionMessage(message: string): boolean {
   return message === 'Die erste Periode kann nicht gelöscht werden. Korrigieren Sie sie stattdessen.';
 }
 
+/** WR-01-Muster aus Phase 12 („ein interner Code in der Oberfläche einer Personalverwaltung
+ *  steht in keinem Textbuch"): Das Lösch-Token gilt 15 Minuten, die Vorschau wird beim Öffnen
+ *  des Dialogs genau einmal geholt — und der Dialog verlangt danach noch eine Begründung mit
+ *  mindestens 10 Zeichen. Bleibt er lange offen, antwortet `DELETE /api/work-periods/:id` mit
+ *  409 und `'PREVIEW_STALE: …'`. Ohne eigenen Zweig landete dieser interne Code im Fließtext
+ *  für den Anwender (WR-02, Code-Review Phase 13). Gegenstück zu
+ *  `WorkTimePeriodEditModal.isPreviewStaleMessage()`. */
+const PREVIEW_STALE_PREFIX = 'PREVIEW_STALE';
+
+function isPreviewStalePeriodMessage(message: string): boolean {
+  return message.startsWith(PREVIEW_STALE_PREFIX);
+}
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -196,6 +209,11 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
    *  echten Versuch ein serverseitiger 400 ("Begründung ist erforderlich"). */
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionError, setDeletionError] = useState('');
+  /** WR-02 (Code-Review Phase 13): Zähler für aufeinanderfolgende PREVIEW_STALE-Antworten,
+   *  wortgleiches Muster wie `staleFailureCount` im Korrektur-Dialog. Beim ersten Mal wird die
+   *  Vorschau still neu berechnet; ab dem zweiten Mal endet die Schleife mit einer Aufforderung
+   *  an den Anwender, statt endlos weiterzurechnen. */
+  const [deletionStaleFailureCount, setDeletionStaleFailureCount] = useState(0);
   const deletePreviewM = useDeleteWorkPeriodPreview();
   const deleteM = useDeleteWorkPeriod();
 
@@ -302,6 +320,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setDeletionPreviewFailed(false);
     setDeletionReason('');
     setDeletionError('');
+    setDeletionStaleFailureCount(0);
     runDeletionPreview(period.id);
   }
 
@@ -312,6 +331,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setDeletionPreviewFailed(false);
     setDeletionReason('');
     setDeletionError('');
+    setDeletionStaleFailureCount(0);
     rowDeleteButtonRef.current?.focus();
   }
 
@@ -333,6 +353,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       setDeletionPreview(null);
       setDeletionPreviewFailed(false);
       setDeletionReason('');
+      setDeletionStaleFailureCount(0);
       if (outcome) {
         showPeriodBanner(
           `Periode vom ${formatPeriodDate(deletedValidFrom)} gelöscht. Die Periode ab ${formatPeriodDate(
@@ -348,6 +369,26 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         setDeletionError('Ihnen fehlt die Berechtigung für diese Änderung. Es wurde nichts verändert.');
       } else if (isFirstPeriodDeletionMessage(message)) {
         setDeletionError('Die erste Periode kann nicht gelöscht werden. Korrigieren Sie sie stattdessen.');
+      } else if (isPreviewStalePeriodMessage(message)) {
+        // WR-02: derselbe Zweig wie im Korrektur-Dialog — der interne Code PREVIEW_STALE
+        // darf nie im Fließtext für den Anwender landen. Es wurde nichts verändert.
+        const nextFailureCount = deletionStaleFailureCount + 1;
+        setDeletionStaleFailureCount(nextFailureCount);
+        setDeletionPreview(null);
+        if (nextFailureCount >= 2) {
+          setDeletionPreviewFailed(true);
+          setDeletionError(
+            'Die Auswirkung konnte nicht in einen speicherbaren Zustand gebracht werden. Es wurde ' +
+              'nichts verändert — weder die Periode noch der Kontoauszug. Bitte schließen Sie den ' +
+              'Dialog und versuchen Sie es erneut.'
+          );
+        } else {
+          setDeletionError(
+            'Die Auswirkung ist nicht mehr aktuell. Sie wurde neu berechnet — bitte prüfen und ' +
+              'erneut bestätigen. Es wurde nichts verändert — weder die Periode noch der Kontoauszug.'
+          );
+          runDeletionPreview(deletionPeriod.id);
+        }
       } else {
         setDeletionError(
           `Die Periode wurde nicht gelöscht. Es wurde nichts verändert — weder die Periode noch der Kontoauszug. ${message}`
