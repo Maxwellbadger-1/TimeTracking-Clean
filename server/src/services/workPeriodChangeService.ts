@@ -55,7 +55,12 @@ import type { WorkPeriodContext } from './workPeriodContext.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
-import { createTransaction } from './overtimeTransactionManager.js';
+import {
+  createTransaction,
+  // CR-02: derselbe Laufsaldo-Lesepfad, den der Rebuild verwendet — keine zweite,
+  // eigene Abfrage in diesem Service.
+  getBalanceBeforeDate as getJournalBalanceBeforeDate,
+} from './overtimeTransactionManager.js';
 import { getTodayString, formatDate } from '../utils/timezone.js';
 import { isRealCalendarDate } from '../utils/validation.js';
 import {
@@ -408,6 +413,15 @@ export function applyWorkTimeChange(
         `${formatWeeklyHoursDe(previousWeeklyHours)} → ${formatWeeklyHoursDe(input.weeklyHours)} h/Woche ` +
         `(Grund: ${input.reason})`;
 
+      // CR-02: balanceBefore/balanceAfter der Journalzeile stehen auf der JOURNAL-Skala
+      // (kumulativer Laufsaldo der Kette in overtime_transactions), nicht auf der
+      // Aggregatskala von overtime_balance, aus der `balanceBefore`/`balanceAfter` oben
+      // stammen. Beide Felder tragen denselben Wert: die Zeile dokumentiert einen Betrag,
+      // dessen Wirkung bereits in den neu gerechneten Tageszeilen steckt — sie verschiebt
+      // den Laufsaldo der Kette also um 0. Vorher war die Zeile zusätzlich in sich
+      // unstimmig, weil `balanceAfter` den Saldo VOR dem Einfügen der eigenen Zeile trug.
+      const journalBalance = getJournalBalanceBeforeDate(input.userId, input.validFrom);
+
       transactionId = createTransaction({
         userId: input.userId,
         date: input.validFrom,
@@ -417,9 +431,25 @@ export function applyWorkTimeChange(
         referenceType: 'work_period',
         referenceId: newPeriod.id,
         createdBy: options.createdBy,
-        balanceBefore,
-        balanceAfter,
+        balanceBefore: journalBalance,
+        balanceAfter: journalBalance,
       });
+
+      // CR-06: `createTransaction()` ist idempotent und liefert `null`, wenn eine Zeile mit
+      // gleichem userId/date/type/hours (±0,01) und gleicher Referenz bereits existiert.
+      // Der Typvertrag von `WorkTimeChangeOutcome.transactionId` sagt aber etwas anderes:
+      // "null, wenn balanceDelta 0 ist". Ein `null` aus dem Duplikatpfad wäre davon nicht
+      // unterscheidbar — die Route meldete "Wechsel gespeichert", obwohl die von D4/D5
+      // geforderte Journalzeile fehlt, und die einzige Spur wäre ein `logger.debug` im
+      // Manager (in Produktion regelmäßig abgeschaltet). Im Speicherpfad ist das ein
+      // Fehlerzustand: die gesamte Transaktionsklammer rollt zurück (D7).
+      if (transactionId === null) {
+        throw new Error(
+          `Stundenwechsel für Nutzer ${input.userId} ab ${input.validFrom}: die ` +
+          `model_change-Buchung wurde als Duplikat verworfen (balanceDelta ${balanceDelta}) — ` +
+          `D4 verlangt genau eine Buchung.`
+        );
+      }
     }
 
     // 17. Protokoll — ausschließlich Zahlen und Datumsangaben, keine Namen, keine Begründung.

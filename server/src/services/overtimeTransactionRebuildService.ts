@@ -242,6 +242,21 @@ export function rebuildOvertimeTransactionsForMonth(
  * Used as starting point for cumulative balance tracking
  *
  * CRITICAL: Must use overtime_transactions (cumulative balance), NOT overtime_balance (monthly differences)!
+ *
+ * CR-02 (Code-Review Phase 12) — WARUM `type <> 'model_change'`:
+ * Die `model_change`-Journalzeile eines Stundenwechsels wird NACH dem Rebuild eingefuegt und
+ * traegt damit die hoechste `id` ihres Datums. Faellt `validFrom` auf den letzten Tag eines
+ * Monats (oder ist sie der einzige Eintrag vor dem Monatsanfang), gewinnt sie das
+ * `ORDER BY date DESC, id DESC` und liefert dem Rebuild des Folgemonats ihren Startwert.
+ * Sie steht aber auf einer ANDEREN Skala als ihre Nachbarn: ihre
+ * `balanceBefore`/`balanceAfter` stammen aus dem `overtime_balance`-Aggregat, die uebrigen
+ * Zeilen tragen den kumulativen Laufsaldo der Journalkette. Ab dieser Zeile waere die
+ * gesamte `balanceBefore`/`balanceAfter`-Spur — laut Kopfkommentar dieses Service der
+ * Audit-Trail fuer DATEV/Personio-Konformitaet — falsch.
+ *
+ * Die Zeile ist eine reine Journalzeile ohne eigene Saldowirkung (ihr Betrag steckt bereits
+ * in den neu gerechneten Tageszeilen, siehe overtimeTransactionService.ts, CR-01). Sie
+ * gehoert deshalb nicht in die Laufsaldo-Kette.
  */
 function getPreviousMonthBalance(userId: number, month: string): number {
   // Get the first day of current month
@@ -252,6 +267,7 @@ function getPreviousMonthBalance(userId: number, month: string): number {
     SELECT COALESCE(balanceAfter, 0) as balance
     FROM overtime_transactions
     WHERE userId = ? AND date < ?
+      AND type <> 'model_change'
     ORDER BY date DESC, id DESC
     LIMIT 1
   `).get(userId, monthStart) as { balance: number | null };

@@ -3,7 +3,16 @@ import { db } from '../database/connection.js';
 import { getTodayString } from '../utils/timezone.js';
 import { insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
 import { checkAllPeriodChains } from './workPeriodService.js';
-import { getOvertimeBalance, getOvertimeHistory } from './overtimeTransactionService.js';
+import {
+  getOvertimeBalance,
+  getOvertimeHistory,
+  getOvertimeBalanceAtDate,
+  getMonthlyTransactionSummary,
+} from './overtimeTransactionService.js';
+import {
+  calculateLiveOvertimeTransactions,
+  calculateCurrentOvertimeBalance,
+} from './overtimeLiveCalculationService.js';
 import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import { applyWorkTimeChange, WorkTimeChangeValidationError } from './workPeriodChangeService.js';
 import type { WorkTimeChangeInput } from '../types/index.js';
@@ -374,6 +383,105 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
       const balanceWithoutRow = getOvertimeBalance(userId);
 
       expect(balanceWithoutRow).toBe(balanceWithRow);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
+  it('CR-01: Die model_change-Zeile wird in KEINEM transaktionssummierenden Lesepfad mitgezaehlt (Kontoauszug, Monatliche Entwicklung, Saldo zum Stichtag)', () => {
+    const userId = createEmployee('cr01-lesepfade', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+
+      const validFrom = firstOfMonthOffset(today, -1);
+      insertWeekdayTimeEntries(userId, validFrom, today, 8);
+
+      const outcome = applyWorkTimeChange(
+        {
+          userId,
+          validFrom,
+          weeklyHours: 20,
+          workSchedule: null,
+          reason: 'Rueckwirkende Reduzierung — Nachweis der Lesepfade (CR-01)',
+        },
+        { dryRun: false, createdBy: adminId }
+      );
+
+      // Vorbedingung: Es gibt ueberhaupt eine Differenz, sonst waere jeder Vergleich unten
+      // trivial gruen.
+      expect(outcome.transactionId).not.toBeNull();
+      expect(outcome.preview.balanceDelta).not.toBe(0);
+
+      const journalRow = db
+        .prepare(
+          `SELECT hours, balanceBefore, balanceAfter FROM overtime_transactions WHERE id = ?`
+        )
+        .get(outcome.transactionId!) as {
+        hours: number;
+        balanceBefore: number | null;
+        balanceAfter: number | null;
+      };
+      expect(journalRow.hours).toBe(outcome.preview.balanceDelta);
+
+      // CR-02: Die Zeile steht auf der Journal-Skala und verschiebt den Laufsaldo der Kette
+      // um 0 — balanceBefore und balanceAfter sind identisch.
+      expect(journalRow.balanceAfter).toBe(journalRow.balanceBefore);
+
+      // --- Lesepfad 1: Kontoauszug (live, produktiv) ---
+      const liveRows = calculateLiveOvertimeTransactions(userId, validFrom, today);
+      const modelChangeRows = liveRows.filter((r) => r.type === 'model_change');
+      expect(modelChangeRows).toHaveLength(1); // REQ-29: sichtbar bleibt sie
+      expect(modelChangeRows[0].hours).toBe(0);
+      expect(modelChangeRows[0].documentedDelta).toBe(outcome.preview.balanceDelta);
+
+      const liveSum =
+        Math.round(liveRows.reduce((sum, r) => sum + r.hours, 0) * 100) / 100;
+      const liveBalance = calculateCurrentOvertimeBalance(userId, validFrom, today);
+      // Die angezeigten Zeilen summieren sich auf den daneben angezeigten Saldo.
+      expect(Math.abs(liveSum - liveBalance)).toBeLessThan(0.011);
+
+      // --- Lesepfad 2/3: Monatliche Entwicklung und Saldo zum Stichtag ---
+      const summaryWithRow = getMonthlyTransactionSummary(userId, 12);
+      const balanceAtDateWithRow = getOvertimeBalanceAtDate(userId, today);
+
+      // Gegenprobe: Genau diese eine Zeile entfernen und dieselben Lesepfade erneut fragen.
+      // Wuerde einer von ihnen sie mitzaehlen, waeren die Werte danach andere.
+      db.prepare('DELETE FROM overtime_transactions WHERE id = ?').run(outcome.transactionId!);
+
+      expect(getMonthlyTransactionSummary(userId, 12)).toEqual(summaryWithRow);
+      expect(getOvertimeBalanceAtDate(userId, today)).toBe(balanceAtDateWithRow);
+
+      const liveRowsWithout = calculateLiveOvertimeTransactions(userId, validFrom, today);
+      expect(liveRowsWithout.filter((r) => r.type === 'model_change')).toHaveLength(0);
+      expect(Math.round(liveRowsWithout.reduce((sum, r) => sum + r.hours, 0) * 100) / 100).toBe(
+        liveSum
+      );
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
+  it('CR-01: Ein Wechsel VOR dem Fenster der Monatlichen Entwicklung wird nicht in previousBalance eingerechnet', () => {
+    const userId = createEmployee('cr01-previousbalance', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+
+      // Eine model_change-Zeile weit VOR dem 12-Monats-Fenster von
+      // getMonthlyTransactionSummary(): frueher floss sie ueber previousBalance in JEDEN
+      // Monatssaldo ein, obwohl sie innerhalb des Fensters bewusst verworfen wird.
+      const outsideWindow = firstOfMonthOffset(today, -30);
+
+      const summaryBefore = getMonthlyTransactionSummary(userId, 12);
+      const balanceAtDateBefore = getOvertimeBalanceAtDate(userId, today);
+
+      db.prepare(
+        `INSERT INTO overtime_transactions
+           (userId, date, type, hours, description, referenceType, referenceId, balanceBefore, balanceAfter)
+         VALUES (?, ?, 'model_change', ?, ?, 'work_period', NULL, 0, 0)`
+      ).run(userId, outsideWindow, -42.5, 'Alter Stundenwechsel ausserhalb des Fensters');
+
+      expect(getMonthlyTransactionSummary(userId, 12)).toEqual(summaryBefore);
+      expect(getOvertimeBalanceAtDate(userId, today)).toBe(balanceAtDateBefore);
     } finally {
       cleanupEmployee(userId);
     }

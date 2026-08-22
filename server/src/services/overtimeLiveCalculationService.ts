@@ -82,6 +82,20 @@ export interface LiveOvertimeTransaction {
   // Beschreibungszeile im Kontoauszug ("Periode ab ... eingetragen am ... von ...").
   createdAt?: string;
   adminName?: string | null;
+  /**
+   * CR-01 (Code-Review Phase 12): nur bei `type === 'model_change'` gesetzt. Traegt den in
+   * `overtime_transactions.hours` dokumentierten Differenzbetrag des Stundenwechsels,
+   * WAEHREND `hours` bei dieser Zeile bewusst 0 ist.
+   *
+   * Grund: Diese Liste wird vollstaendig aus den Rohdaten neu gerechnet — mit den AKTUELL
+   * gueltigen Perioden. Die Wirkung des Stundenwechsels steckt damit bereits vollstaendig in
+   * den Tageszeilen ab dem Stichtag. Traegt die Journalzeile ihren Betrag zusaetzlich in
+   * `hours`, dann gilt Summe(transactions) = currentBalance + balanceDelta: die angezeigten
+   * Zeilen summieren sich nicht mehr auf den daneben angezeigten Saldo (der Saldo kommt aus
+   * `calculateCurrentOvertimeBalance()` ueber denselben Zeitraum und kennt `model_change`
+   * nicht). Mit `hours: 0` bleibt die Zeile sichtbar (REQ-29) und die Summe stimmt.
+   */
+  documentedDelta?: number;
 }
 
 /**
@@ -421,6 +435,14 @@ export function calculateLiveOvertimeTransactions(
   // calculateCurrentOvertimeBalance() (die getrennt ueber unifiedOvertimeService rechnet,
   // siehe 12-05-SUMMARY.md, "Bestaetigung des Saldo-Lesepfads" — Loeschen dieser einen Zeile
   // aendert den zurueckgegebenen Saldo nachweislich nicht).
+  //
+  // CR-01 (Code-Review Phase 12): "rein informationell" gilt seit dieser Korrektur auch
+  // fuer `hours`. Die Zeile wird mit `hours: 0` angehaengt, ihr dokumentierter Betrag steht
+  // in `documentedDelta`. Vorher trug sie `overtime_transactions.hours` — und weil die
+  // Tageszeilen dieser Liste bereits mit dem NEUEN Tagessoll gerechnet werden, war der
+  // Betrag darin ein zweites Mal enthalten: Summe(transactions) lag um genau diesen Betrag
+  // ueber dem daneben angezeigten `currentBalance`. Der Kontoauszug zeigte damit Zeilen, die
+  // sich nicht mehr auf den angezeigten Saldo summieren.
   const modelChangeQuery = db.prepare(`
     SELECT ot.id, ot.date, ot.hours, ot.description, ot.createdAt,
            u.firstName as adminFirstName, u.lastName as adminLastName
@@ -450,7 +472,8 @@ export function calculateLiveOvertimeTransactions(
     transactions.push({
       date: row.date,
       type: 'model_change',
-      hours: Math.round(row.hours * 100) / 100,
+      hours: 0, // CR-01: siehe Kommentar oben — die Wirkung steckt in den Tageszeilen
+      documentedDelta: Math.round(row.hours * 100) / 100,
       description: row.description || '',
       source: 'work_period',
       referenceId: row.id,

@@ -17,6 +17,36 @@
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
 
+/**
+ * CR-01 (Code-Review Phase 12) — WARUM `model_change` AUS JEDEM SUMMENPFAD FLIEGT:
+ *
+ * Ein Stundenwechsel (`workPeriodChangeService.applyWorkTimeChange()`) rechnet die
+ * betroffenen Monate mit `rebuildOvertimeTransactionsForMonth()` vollständig neu. Dabei
+ * entstehen neue `time_entry`-Tageszeilen mit dem NEUEN Tagessoll, und `overtime_balance`
+ * wird neu geschrieben. Die Saldoänderung ist damit bereits vollständig eingetreten, BEVOR
+ * anschließend die eine `model_change`-Zeile (D4/D5, REQ-29) in `overtime_transactions`
+ * eingefügt wird.
+ *
+ * Diese Zeile ist deshalb eine reine JOURNALZEILE: Sie dokumentiert den Betrag, den die
+ * Umstellung bewirkt hat, und macht ihn im Kontoauszug sichtbar — sie ist aber KEINE
+ * zusätzliche Rechengröße. Jede Abfrage, die `SUM(hours)` über `overtime_transactions`
+ * bildet, würde den Betrag ein zweites Mal zählen (die Tageszeilen tragen ihn schon).
+ *
+ * Konsequenz, an ALLEN Summenpfaden gleich umgesetzt und mit dieser Konstante markiert:
+ *   - `getOvertimeBalanceAtDate()`
+ *   - `getAggregatedOvertimeStats()`
+ *   - `getMonthlyTransactionSummary()` (previousBalance UND Fensterinhalt)
+ *   - `getBalanceBeforeDate()` (hier und in `overtimeTransactionManager.ts`)
+ *   - `getPreviousMonthBalance()` in `overtimeTransactionRebuildService.ts` (CR-02)
+ *
+ * `getOvertimeBalance()` ist NICHT betroffen: die Funktion liest `overtime_balance`, nicht
+ * `overtime_transactions`.
+ *
+ * Nicht betroffen sind außerdem die reinen ANZEIGE-Abfragen (`getOvertimeHistory()`,
+ * `getOvertimeHistoryByDateRange()`) — dort MUSS die Zeile erscheinen, genau dafür ist sie da.
+ */
+const EXCLUDE_JOURNAL_ONLY_TYPES = `type <> 'model_change'`;
+
 export interface OvertimeTransaction {
   id: number;
   userId: number;
@@ -54,6 +84,7 @@ function getBalanceBeforeDate(userId: number, date: string): number {
     SELECT balanceAfter
     FROM overtime_transactions
     WHERE userId = ? AND date < ?
+      AND ${EXCLUDE_JOURNAL_ONLY_TYPES}
     ORDER BY date DESC, createdAt DESC
     LIMIT 1
   `).get(userId, date) as { balanceAfter: number | null } | undefined;
@@ -514,6 +545,7 @@ export function getOvertimeBalanceAtDate(
     FROM overtime_transactions
     WHERE userId = ?
       AND date <= ?
+      AND ${EXCLUDE_JOURNAL_ONLY_TYPES}
   `).get(userId, date) as { balance: number };
 
   return Math.round(result.balance * 100) / 100;
@@ -567,12 +599,13 @@ export function getAggregatedOvertimeStats(year?: number): {
         userId,
         SUM(hours) as hours
       FROM overtime_transactions
+      WHERE ${EXCLUDE_JOURNAL_ONLY_TYPES}
   `;
 
   const params: (number | string)[] = [];
 
   if (year) {
-    query += ` WHERE date LIKE ?`;
+    query += ` AND date LIKE ?`;
     params.push(`${year}-%`);
   }
 
@@ -666,6 +699,7 @@ export function getMonthlyTransactionSummary(
     WHERE userId = ?
       AND date >= ?
       AND date <= ?
+      AND ${EXCLUDE_JOURNAL_ONLY_TYPES}
     GROUP BY month, type
     ORDER BY month ASC
   `).all(userId, `${startMonth}-01`, `${currentMonth}-31`) as Array<{
@@ -675,11 +709,20 @@ export function getMonthlyTransactionSummary(
   }>;
 
   // Get balance before start month (for cumulative calculation)
+  //
+  // CR-01: `AND type <> 'model_change'` ist hier NICHT kosmetisch. Vor der Korrektur bildete
+  // diese Abfrage die Summe ueber ALLE Typen vor dem Fensterbeginn — inklusive
+  // `model_change` —, waehrend `model_change` innerhalb des Fensters (siehe Abfrage oben und
+  // die Vier-Typen-Zuordnung unten) verworfen wurde. Ein Wechsel aelter als das Fenster
+  // (Standard 12 Monate) wurde dadurch doppelt gezaehlt, ein Wechsel innerhalb des Fensters
+  // verschwand stillschweigend. Beide Varianten waren falsch; jetzt gilt an beiden Stellen
+  // dieselbe Regel.
   const previousBalance = db.prepare(`
     SELECT COALESCE(SUM(hours), 0) as balance
     FROM overtime_transactions
     WHERE userId = ?
       AND date < ?
+      AND ${EXCLUDE_JOURNAL_ONLY_TYPES}
   `).get(userId, `${startMonth}-01`) as { balance: number };
 
   // Group by month

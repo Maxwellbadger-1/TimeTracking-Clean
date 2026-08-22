@@ -225,15 +225,27 @@ export function transactionExists(
 /**
  * Get balance before a specific date (for transaction tracking)
  *
+ * CR-02 (Code-Review Phase 12): `type <> 'model_change'` — dieselbe Begründung wie in
+ * `overtimeTransactionRebuildService.getPreviousMonthBalance()`. Die `model_change`-Zeile
+ * ist eine reine Journalzeile ohne eigene Saldowirkung; ihre
+ * `balanceBefore`/`balanceAfter`-Werte gehören nicht in die Laufsaldo-Kette der übrigen
+ * Buchungen, und sie darf deshalb auch nicht der Startwert für die nächste Buchung sein.
+ *
+ * EXPORTIERT (CR-02): `workPeriodChangeService` braucht denselben Wert, um die
+ * `model_change`-Zeile auf der Journal-Skala statt auf der `overtime_balance`-Aggregatskala
+ * abzulegen. Ein zweiter, eigener Abfrageaufbau dort wäre genau die Art Doppelrechnung, die
+ * `.claude/CLAUDE.md` unter "Dual Calculation System" verbietet.
+ *
  * @param userId User ID
  * @param date Date (YYYY-MM-DD) - get balance before this date
  * @returns Balance before the given date
  */
-function getBalanceBeforeDate(userId: number, date: string): number {
+export function getBalanceBeforeDate(userId: number, date: string): number {
   const result = db.prepare(`
     SELECT balanceAfter
     FROM overtime_transactions
     WHERE userId = ? AND date < ?
+      AND type <> 'model_change'
     ORDER BY date DESC, createdAt DESC
     LIMIT 1
   `).get(userId, date) as { balanceAfter: number | null } | undefined;
