@@ -650,14 +650,21 @@ export function initializeDatabase(db: Database.Database): void {
     );
   }
 
-  // idx_overtime_transactions_reversal_of (Migration 014, DD-4) — dieselbe Begründung wie
+  // idx_overtime_transactions_reversal_of (Migration 014, DD-4; EINDEUTIG seit Migration 015,
+  // WR-11): Der Kontoauszug verbindet Original und Gegenbuchung über einen Selbst-Join
+  // (LEFT JOIN overtime_transactions r ON r.reversalOf = ot.id). Der Join ist 1:n — ohne
+  // Eindeutigkeit zeigte eine zweite Gegenbuchung auf dieselbe Originalzeile diese doppelt an,
+  // jeweils mit anderem reversedBy. Die Invariante gehört in die Datenbank, nicht in die
+  // Aufrufreihenfolge. MUSS mit Migration 014/015 identisch bleiben.
+  //
+  // Ansonsten dieselbe Begründung wie
   // oben bei den deletedAt-Indizes: auf einer Bestandsdatenbank ohne die Spalte reversalOf
   // wuerde ein ungeschuetzter Fehlschlag hier den kombinierten Indexblock oben nicht
   // beruehren (er steht bewusst danach), aber trotzdem den Serverstart abbrechen, bevor
   // runMigrations() die Spalte per ALTER TABLE nachruesten kann.
   try {
     db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_overtime_transactions_reversal_of ON overtime_transactions(reversalOf) WHERE reversalOf IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_overtime_transactions_reversal_of ON overtime_transactions(reversalOf) WHERE reversalOf IS NOT NULL;
     `);
   } catch (error) {
     logger.warn(

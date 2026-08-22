@@ -59,8 +59,15 @@ export default {
       ALTER TABLE overtime_transactions ADD COLUMN reversalOf INTEGER REFERENCES overtime_transactions(id)
     `).run();
 
+    // EINDEUTIG (WR-11, Code-Review Phase 13): Höchstens eine Gegenbuchung je Originalzeile.
+    // Der Lesepfad verbindet beide über einen Selbst-Join
+    // (LEFT JOIN overtime_transactions r ON r.reversalOf = ot.id), der 1:n ist — eine zweite
+    // Gegenbuchung zeigte die Originalzeile doppelt an, jeweils mit anderem reversedBy. Die
+    // Invariante gehört in die Datenbank, nicht in die Aufrufreihenfolge der Anwendung.
+    // Datenbanken, auf denen 014 bereits mit dem nicht eindeutigen Index gelaufen ist, holt
+    // Migration 015 nach (DROP + CREATE UNIQUE; IF NOT EXISTS prüft nur den Namen).
     db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_overtime_transactions_reversal_of
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_overtime_transactions_reversal_of
       ON overtime_transactions(reversalOf) WHERE reversalOf IS NOT NULL
     `).run();
 
