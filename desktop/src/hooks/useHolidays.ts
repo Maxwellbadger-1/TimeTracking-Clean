@@ -4,6 +4,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+// WR-21: EINE Stelle fuer das geladene Jahresfenster — der Ladecode unten und die Pruefung
+// in `AbsenceRequestForm` duerfen nicht auseinanderlaufen.
+import { getHolidayWindowYears } from './holidayWindow';
+
+export { HOLIDAY_WINDOW_RADIUS_YEARS, getHolidayWindowYears, isYearInHolidayWindow } from './holidayWindow';
 
 export interface Holiday {
   id: number;
@@ -65,14 +70,9 @@ export function useMultiYearHolidays() {
   return useQuery({
     queryKey: ['holidays', 'multi-year', currentYear],
     queryFn: async () => {
-      // Load: -2, -1, current, +1, +2 years (5 years total)
-      const years = [
-        currentYear - 2,
-        currentYear - 1,
-        currentYear,
-        currentYear + 1,
-        currentYear + 2
-      ];
+      // Load: -2, -1, current, +1, +2 years (5 years total) — EINE Stelle, damit
+      // `isYearInHolidayWindow()` und dieser Ladecode nicht auseinanderlaufen (WR-21).
+      const years = getHolidayWindowYears();
       const allHolidays: Holiday[] = [];
 
       // Fetch holidays for all 5 years

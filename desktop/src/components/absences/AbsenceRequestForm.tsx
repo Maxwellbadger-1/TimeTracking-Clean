@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useCreateAbsenceRequest, useRemainingVacationDays, useCurrentOvertimeStats, useUsers, useMultiYearHolidays } from '../../hooks';
+import { useCreateAbsenceRequest, useRemainingVacationDays, useCurrentOvertimeStats, useUsers, useMultiYearHolidays, isYearInHolidayWindow } from '../../hooks';
 import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
 import { useAuthStore } from '../../store/authStore';
 import {
@@ -46,7 +46,9 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
   // Error state
   const [startDateError, setStartDateError] = useState('');
   const [endDateError, setEndDateError] = useState('');
-  const [reasonError, setReasonError] = useState('');
+  // WR-20 (Code-Review Phase 12): `reasonError` ist entfallen. Der Zustand wurde deklariert,
+  // zweimal zurueckgesetzt und an das Textarea durchgereicht — aber an keiner Stelle jemals
+  // auf einen Text gesetzt. Siehe Kommentar an der Textarea unten.
 
   // Perioden und Feiertage fuer die periodengetreue Vorschau (WR-12-Nachzug, Plan 12-08).
   // `null` heisst: noch keine Zahl behauptet (laedt oder fehlgeschlagen) — eine falsche Zahl
@@ -75,7 +77,28 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     () => new Set((holidays || []).map((holiday) => holiday.date)),
     [holidays]
   );
-  const previewUnavailable = periodsError || holidaysError;
+  /**
+   * WR-21 (Code-Review Phase 12): `useMultiYearHolidays()` laedt nur +/- 2 Jahre um "heute".
+   * Ein Antrag ausserhalb dieses Fensters — Langzeitplanung oder Nacherfassung — fand keinen
+   * einzigen Feiertag, und die Vorschau zaehlte sie als Arbeitstage. Ein Fehlerzustand
+   * entstand nicht: die zu hohe Zahl wurde ohne Vorbehalt angezeigt und ueber die Pruefung
+   * unten auch zur Blockade herangezogen. Liegt der gewaehlte Zeitraum ausserhalb, wird die
+   * Vorschau jetzt ausdruecklich verweigert — eine ehrliche Enthaltung statt einer falschen
+   * Zahl. Der Antrag bleibt moeglich; der Server rechnet ohnehin verbindlich.
+   *
+   * `slice(0, 4)` ist hier unbedenklich: `startDate`/`endDate` sind bereits lokale
+   * YYYY-MM-DD-Formularwerte, kein UTC-Zeitstempel — es ist ein Zeichenkettenpraefix, nicht
+   * das von `.claude/CLAUDE.md` verbotene UTC-Abschneiden eines Moments.
+   */
+  const rangeOutsideHolidayWindow = useMemo(() => {
+    if (!isValidDate(startDate) || !isValidDate(endDate)) return false;
+    return (
+      !isYearInHolidayWindow(Number(startDate.slice(0, 4))) ||
+      !isYearInHolidayWindow(Number(endDate.slice(0, 4)))
+    );
+  }, [startDate, endDate]);
+
+  const previewUnavailable = periodsError || holidaysError || rangeOutsideHolidayWindow;
   const previewLoading = loadingPeriods || loadingHolidays;
 
   useEffect(() => {
@@ -109,7 +132,6 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     // Reset errors
     setStartDateError('');
     setEndDateError('');
-    setReasonError('');
 
     // Validate dates
     if (!isValidDate(startDate)) {
@@ -187,7 +209,6 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
     setReason('');
     setStartDateError('');
     setEndDateError('');
-    setReasonError('');
     onClose();
   };
 
@@ -320,18 +341,30 @@ export function AbsenceRequestForm({ isOpen, onClose }: AbsenceRequestFormProps)
         {getBalanceInfo()}
 
         {/* Reason */}
+        {/*
+          WR-20 (Code-Review Phase 12): Das Feld markierte sich bei einer Krankmeldung als
+          `required`, waehrend `validateForm()` den Grund ueberhaupt nicht prueft und der
+          Kommentar im Code ihn ausdruecklich "optional but recommended … just a hint, not
+          blocking" nennt. Die Durchsetzung haette allein an der Browser-Standardvalidierung
+          gehangen, deren Meldung weder lokalisiert noch an das Fehlerdesign der App
+          angeglichen ist.
+
+          Aufgeloest zugunsten von "optional": Das Label sagt selbst "Grund (empfohlen)", der
+          Platzhalter der uebrigen Arten sagt "Optional", und der Server nimmt `reason` als
+          optionales Feld entgegen (`absenceService`: `reason?: string`, gespeichert wird
+          `data.reason || null`). `required` war damit die einzige Stelle, die etwas anderes
+          behauptete. Mit dem Attribut entfaellt auch der tote `reasonError`-Zustand.
+        */}
         <Textarea
           label={type === 'sick' ? 'Grund (empfohlen)' : 'Grund'}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          error={reasonError}
           rows={3}
           placeholder={
             type === 'sick'
               ? 'z.B. Erkältung, Grippe, ...'
               : 'Optional: Begründung für den Antrag'
           }
-          required={type === 'sick'}
         />
 
         {/* Auto-Approval Note for Sick Leave */}

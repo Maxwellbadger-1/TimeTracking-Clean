@@ -84,6 +84,9 @@ export {
   useHolidays,
   useCurrentYearHolidays,
   useMultiYearHolidays,
+  isYearInHolidayWindow,
+  getHolidayWindowYears,
+  HOLIDAY_WINDOW_RADIUS_YEARS,
 } from './useHolidays';
 
 // Keyboard Shortcuts
