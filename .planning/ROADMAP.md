@@ -334,6 +334,45 @@ Plans:
 
 **Abhängigkeit:** Phase 12
 
+**Plans:** 11 Pläne in 8 Wellen (Welle 1: 13-01 · Welle 2: 13-02, 13-06 · Welle 3: 13-03, 13-04 · Welle 4: 13-05 · Welle 5: 13-07 · Welle 6: 13-08, 13-10 · Welle 7: 13-09 · Welle 8: 13-11)
+
+Plans:
+
+**Wave 1**
+
+- [ ] 13-01-PLAN.md — Migration 013 (Soft-Delete auf `user_work_periods`, deletedAt-bewusste Riegel) und Migration 014 (`reversalOf`), Parität in `schema.ts` (D2, D3)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 13-02-PLAN.md — Lesepfade filtern, Soft-Delete- und Lückenschluss-Schreibweg, Verträge, Freigabe der Phase-12-Rechenbausteine (D2, D3)
+- [ ] 13-06-PLAN.md — Kontoauszug-Lesepfad: Storno-Felder, gemeinsame Belegnummer, nicht summierende Gegenbuchung (D2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 13-03-PLAN.md — `correctWorkPeriod()`: rückwirkende Korrektur einer bestehenden Periode, eine Rechenbahn für Vorschau und Speichern (D1, D4, D6, D7 — REQ-30)
+- [ ] 13-04-PLAN.md — `deleteWorkPeriod()`: Soft-Delete, Lückenschluss, Rebuild und Gegenbuchung, plus der Doppelzählungs-Nachweis (D2, D3, D4, D6, D7 — REQ-31)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 13-05-PLAN.md — Vier Endpunkte, getrennte Vorschau-Token, HTTP-Autorisierungstest mit 403 für fremde Perioden (D1, D5, D6, D7)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 13-07-PLAN.md — Desktop-Datenschicht: gespiegelte Verträge, vier Hooks, fünf additive Eigenschaften am `ConfirmDialog` (D5, D7)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 13-08-PLAN.md — Korrektur-Dialog `WorkTimePeriodEditModal`, Zustand „Kein Zugriff" und Fußnote in der Periodenliste (D1, D3, D7)
+- [ ] 13-10-PLAN.md — Storno-Paar im Kontoauszug: Zustands-Badges, Beleg-Chip, Sprungmarke; Debugausgaben aus `api/client.ts` entfernt (D2)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 13-09-PLAN.md — `EditUserModal`: Korrekturblock, Zeilenaktionen, Löschbestätigung mit Server-Vorschau, Erfolgsbanner (D1, D2, D3)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 13-11-PLAN.md — Pflicht-Gates, Entscheidungsabgleich D1 bis D7, gebündelte UAT-Liste für Phase 14
+
 ---
 
 ### Phase 14: Absicherung und Auslieferung
@@ -405,7 +444,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 10. Perioden-Fundament | v3.0 | 0/? | Nicht begonnen | — |
 | 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
-| 13. Korrigieren und rückgängig machen | v3.0 | 0/? | Nicht begonnen | — |
+| 13. Korrigieren und rückgängig machen | v3.0 | 0/11 | Geplant — 11 Pläne in 8 Wellen | — |
 | 14. Absicherung und Auslieferung | v3.0 | 0/? | Nicht begonnen | — |
 
 ---
