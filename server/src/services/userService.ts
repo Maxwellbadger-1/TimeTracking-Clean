@@ -149,6 +149,17 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
     // jedes neu angelegten Mitarbeiters sofort abbrechen. Nutzer- und Periodenanlage laufen
     // deshalb in EINER Transaktion: Schlägt die Periodenanlage fehl, wird auch der Nutzer
     // nicht angelegt — kein halber Zustand.
+    // Rule 1 (Bugfix, im Zuge dieses Tasks gefunden): `users.hireDate` ist `NOT NULL
+    // DEFAULT (date('now'))` (schema.ts:45) — ein explizit gebundenes `NULL` (vorher:
+    // `data.hireDate || null`) verletzt diese Spalte und ließ `createUser()` ohne hireDate
+    // schon vor diesem Plan mit einem SqliteError abbrechen, sobald der Aufrufer (die Route
+    // validiert hireDate nicht) keins mitgab. Derselbe Ersatzwert, den die Startperiode
+    // unten ohnehin braucht, schließt die Lücke: kein zweiter Rundungsweg für „kein
+    // hireDate", eine Quelle für beide Spalten.
+    const { validFrom: resolvedHireDate, source: hireDateSource } = resolveInitialValidFrom(
+      data.hireDate ?? null
+    );
+
     const insertUserAndPeriod = db.transaction((): number => {
       const stmt = db.prepare(`
         INSERT INTO users (
@@ -169,7 +180,7 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
         weeklyHours, // Use validated weeklyHours
         data.workSchedule ? JSON.stringify(data.workSchedule) : null,
         data.vacationDaysPerYear !== undefined ? data.vacationDaysPerYear : 30, // Allow 0 vacation days
-        data.hireDate || null,
+        resolvedHireDate,
         data.endDate || null,
         'active'
       );
@@ -178,7 +189,8 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
 
       // Kein zweiter Schreibweg: die Startperiode entsteht ausschließlich über
       // createWorkPeriod() (workPeriodService.ts), nie über ein direktes INSERT hier.
-      const { validFrom, source } = resolveInitialValidFrom(data.hireDate ?? null);
+      const validFrom = resolvedHireDate;
+      const source = hireDateSource;
       if (source !== 'hireDate') {
         logger.info(
           { userId, validFrom, source },
