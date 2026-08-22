@@ -58,6 +58,10 @@ let getUserById: (id: number) => UserPublic | undefined;
 let createWorkPeriodContext: () => WorkPeriodContext;
 let recordOvertimeEarned: typeof import('../services/overtimeTransactionService.js').recordOvertimeEarned;
 let deleteEarnedTransactionsForDate: typeof import('../services/overtimeTransactionService.js').deleteEarnedTransactionsForDate;
+// CR-06: Die Fehlerklasse muss hier bekannt sein, damit der Tagesschleifen-catch sie von
+// einem gewöhnlichen Fehler unterscheiden kann. Sie kommt aus demselben dynamischen
+// Import wie getDailyTargetHours — kein zusätzlicher statischer Import vor dem Guard.
+let MissingWorkPeriodError: typeof import('../utils/workingDays.js').MissingWorkPeriodError;
 let dependenciesLoaded = false;
 
 async function ensureDependencies(): Promise<void> {
@@ -65,7 +69,7 @@ async function ensureDependencies(): Promise<void> {
   const [
     { db: sharedDb },
     { default: sharedLogger },
-    { getDailyTargetHours: sharedGetDailyTargetHours },
+    { getDailyTargetHours: sharedGetDailyTargetHours, MissingWorkPeriodError: sharedMissingWorkPeriodError },
     { getUserById: sharedGetUserById },
     { createWorkPeriodContext: sharedCreateWorkPeriodContext },
     { recordOvertimeEarned: sharedRecordOvertimeEarned, deleteEarnedTransactionsForDate: sharedDeleteEarnedTransactionsForDate },
@@ -80,6 +84,7 @@ async function ensureDependencies(): Promise<void> {
   db = sharedDb;
   logger = sharedLogger;
   getDailyTargetHours = sharedGetDailyTargetHours;
+  MissingWorkPeriodError = sharedMissingWorkPeriodError;
   getUserById = sharedGetUserById;
   createWorkPeriodContext = sharedCreateWorkPeriodContext;
   recordOvertimeEarned = sharedRecordOvertimeEarned;
@@ -139,6 +144,12 @@ export async function migrateOvertimeToTransactions(): Promise<MigrationStats> {
           `✅ User ${user.id}: ${userStats.totalTransactions} transactions from ${userStats.totalDates} dates`
         );
       } catch (error) {
+        // CR-06: Der Datendefekt aus der Tagesschleife darf hier nicht erneut zu einer
+        // Zeile in stats.errors werden — sonst liefe die Migration über die restlichen
+        // Nutzer weiter und meldete am Ende trotzdem einen Abschluss.
+        if (error instanceof MissingWorkPeriodError) {
+          throw error;
+        }
         const errorMsg = `User ${user.id}: ${error instanceof Error ? error.message : String(error)}`;
         stats.errors.push(errorMsg);
         logger.error({ error, userId: user.id }, `❌ Failed to migrate user ${user.id}`);
@@ -196,10 +207,17 @@ async function migrateUserOvertimeTransactions(
   // Process each date
   for (const { date } of dates) {
     try {
-      // Delete existing earned transactions for this date (safe to re-run)
-      deleteEarnedTransactionsForDate(userId, date);
-
-      // Calculate target hours (respects holidays and workSchedule!)
+      // CR-06: ERST RECHNEN, DANN LÖSCHEN.
+      //
+      // Vorher stand `deleteEarnedTransactionsForDate()` VOR `getDailyTargetHours()`. Seit D4
+      // kann die Sollstundenberechnung `MissingWorkPeriodError` werfen; der catch unten
+      // schluckte den Fehler und machte mit dem nächsten Datum weiter — die Löschung war da
+      // aber schon geschehen und wurde nicht zurückgenommen. Das Skript hinterließ für jeden
+      // betroffenen Tag KEINE `earned`-Buchung, wo vorher eine stand, und meldete trotzdem
+      // "MIGRATION COMPLETED".
+      //
+      // Jetzt: alle Werte ermitteln, bevor irgendetwas gelöscht wird. Wirft die Berechnung,
+      // ist noch nichts angefasst.
       const targetHours = getDailyTargetHours(user, date, periods);
 
       // Calculate actual hours
@@ -212,9 +230,21 @@ async function migrateUserOvertimeTransactions(
       // Calculate overtime
       const overtime = actualHours.total - targetHours;
 
-      // Record transaction (if not 0)
-      if (overtime !== 0) {
-        recordOvertimeEarned(userId, date, overtime, `Migration: Differenz Soll/Ist ${date}`);
+      // Löschen und Neuschreiben in EINER Transaktion: entweder beides oder keins. Ohne die
+      // Klammer könnte ein Fehler beim Schreiben eine leere Stelle hinterlassen.
+      const applyDate = db.transaction(() => {
+        // Delete existing earned transactions for this date (safe to re-run)
+        deleteEarnedTransactionsForDate(userId, date);
+
+        // Record transaction (if not 0)
+        if (overtime !== 0) {
+          recordOvertimeEarned(userId, date, overtime, `Migration: Differenz Soll/Ist ${date}`);
+          return true;
+        }
+        return false;
+      });
+
+      if (applyDate()) {
         transactionsCreated++;
       }
 
@@ -226,6 +256,16 @@ async function migrateUserOvertimeTransactions(
         overtime,
       }, `Processed date ${date}: ${overtime > 0 ? '+' : ''}${overtime}h`);
     } catch (error) {
+      // CR-06: Ein `MissingWorkPeriodError` ist per D4 ausdrücklich ein DATENDEFEKT und kein
+      // Zustand, über den man hinweggehen darf. Ihn zu einer Warnzeile zu degradieren wäre
+      // genau der stille Rückfall, den D4 verbietet — der Lauf bricht ab.
+      if (error instanceof MissingWorkPeriodError) {
+        logger.error(
+          { error, userId, date },
+          `❌ Datendefekt: keine Arbeitszeitperiode für Nutzer ${userId} am ${date} — Migration abgebrochen (D4)`
+        );
+        throw error;
+      }
       logger.warn({ error, userId, date }, `⚠️ Failed to process date ${date}`);
       // Continue with next date
     }
