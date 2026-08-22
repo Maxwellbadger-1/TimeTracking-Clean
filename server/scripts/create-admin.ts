@@ -28,6 +28,40 @@ function question(query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
 }
 
+/**
+ * WR-06: Passworteingabe OHNE Echo.
+ *
+ * `rl.question()` schreibt jedes getippte Zeichen zurück auf das Terminal — das Passwort
+ * stand also bereits beim Tippen sichtbar auf dem Schirm und landete im Scrollback, in
+ * `script`/`tee`-Mitschnitten und in jedem CI-/Deployment-Protokoll, in dem das Skript
+ * läuft. `.claude/CLAUDE.md` verbietet Klartext-Passwörter ausdrücklich.
+ *
+ * Umsetzung ohne zusätzliche Abhängigkeit: Der Prompt wird selbst geschrieben, danach die
+ * `_writeToOutput`-Rückrufmethode der readline-Schnittstelle so lange überschrieben, dass
+ * sie nichts mehr ausgibt. Nach der Eingabe wird das ursprüngliche Verhalten
+ * wiederhergestellt — auch dann, wenn `rl.question()` mit einem Fehler endet.
+ */
+function questionHidden(query: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(query);
+
+    // `_writeToOutput` ist nicht Teil der öffentlichen Typen von readline — der Zugriff
+    // läuft deshalb über einen engen, ausdrücklich benannten Strukturtyp statt über `any`
+    // (Strict-Mode-Regel aus .claude/CLAUDE.md).
+    const mutable = rl as unknown as { _writeToOutput?: (text: string) => void };
+    const originalWrite = mutable._writeToOutput;
+    mutable._writeToOutput = () => {
+      /* absichtlich keine Ausgabe: das Passwort darf nicht auf dem Terminal erscheinen */
+    };
+
+    rl.question('', (answer) => {
+      mutable._writeToOutput = originalWrite;
+      process.stdout.write('\n');
+      resolve(answer);
+    });
+  });
+}
+
 async function createAdmin() {
   console.log('=================================');
   console.log('TimeTracker - Admin User Setup');
@@ -36,7 +70,8 @@ async function createAdmin() {
   // Get admin details
   const username = await question('Admin Username: ');
   const email = await question('Admin Email: ');
-  const password = await question('Admin Password (min. 8 Zeichen): ');
+  // WR-06: ohne Echo — s. questionHidden().
+  const password = await questionHidden('Admin Password (min. 8 Zeichen): ');
   const firstName = await question('Vorname: ');
   const lastName = await question('Nachname: ');
 
@@ -157,7 +192,10 @@ async function createAdmin() {
     console.log('\n📋 Login-Daten:');
     console.log(`   Username: ${username}`);
     console.log(`   Email:    ${email}`);
-    console.log(`   Passwort: ${password}`);
+    // WR-06: Das Passwort wird NICHT ausgegeben. Der Operator hat es gerade selbst
+    // eingegeben; eine Wiederholung auf dem Terminal bringt keinen Nutzen, landet aber im
+    // Scrollback, in Mitschnitten und in Deployment-Protokollen.
+    console.log('   Passwort: (wie eingegeben — wird aus Sicherheitsgründen nicht angezeigt)');
     console.log('\n⚠️  Bitte Passwort sicher aufbewahren!\n');
 
     db.close();
