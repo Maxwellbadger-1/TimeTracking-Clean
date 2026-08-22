@@ -24,8 +24,8 @@ Kontrolle: 42 + 13 = 55 — stimmt mit „Zeilen gesamt" überein. (Maschinell n
 Prüfbefehl aus `11-09-PLAN.md` Task 1/2, s. Abschnitte „Vollständigkeitsbeleg" am Dateiende.)
 
 Zwischenstand nach Task 1 (vor der Desktop-Disposition in Task 2): 42 `[x]`, 9 `[n/a]`
-(Sondergruppen 3 + Neufunde 6), 4 `offen` (Desktop) — 42+9+4=55. Task 2 setzt die vier
-Desktop-Zeilen auf `[n/a]` (9→13) und macht den Prüfbefehl damit auch ohne Desktop-Ausnahme
+(Sondergruppen 3 + Neufunde 6), 4 `offen` (Desktop) — 42+9+4=55. Task 2 hat die vier
+Desktop-Zeilen auf `[n/a]` gesetzt (9→13) — der Prüfbefehl ist jetzt auch ohne Desktop-Ausnahme
 exit-0-grün (s. Abschnitt „Vollständigkeitsbeleg Task 2" am Dateiende).
 
 ---
@@ -160,10 +160,10 @@ das reduziert die Zeilenzahl von fünf auf vier, deckungsgleich mit den vier in
 
 | Fundstelle | Funktion/Kontext | Produktivpfad | Zuständiger Plan | Disposition | ✓ |
 |---|---|---|---|---|---|
-| `desktop/src/utils/timeUtils.ts:213` (+ Re-Export `desktop/src/utils/index.ts:17`) | `export function calculateAbsenceHoursWithWorkSchedule(...)` — eigenständige Client-Kopie | nein im Sinne dieses Plans (Express-Route), aktiv genutzter Desktop-Client-Code | 11-09 (Task 2) | Disposition folgt in Task 2 dieses Plans, siehe `11-DESKTOP-DISPOSITION.md` | offen |
-| `desktop/src/components/absences/AbsenceRequestForm.tsx:15,64` | Import/Aufruf zur Live-Vorschau der Antragsstunden | nein im Sinne dieses Plans | 11-09 (Task 2) | Disposition folgt in Task 2 dieses Plans, siehe `11-DESKTOP-DISPOSITION.md` | offen |
-| `desktop/src/components/worktime/WorkScheduleDisplay.tsx:60` | `const dailyHours = user.weeklyHours / 5;` — Anzeige | nein im Sinne dieses Plans | 11-09 (Task 2) | Disposition folgt in Task 2 dieses Plans, siehe `11-DESKTOP-DISPOSITION.md` | offen |
-| `desktop/src/components/users/WorkScheduleEditor.tsx:44,186` | Formular-Vorschlagswert und Hilfetext | nein im Sinne dieses Plans | 11-09 (Task 2) | Disposition folgt in Task 2 dieses Plans, siehe `11-DESKTOP-DISPOSITION.md` | offen |
+| `desktop/src/utils/timeUtils.ts:213` (+ Re-Export `desktop/src/utils/index.ts:17`) | `export function calculateAbsenceHoursWithWorkSchedule(...)` — eigenständige Client-Kopie | nein im Sinne dieses Plans (Express-Route), aktiv genutzter Desktop-Client-Code | 11-09 (Task 2) | **Nicht nachgezogen, zugeordnet an Phase 12** — Abhängigkeitskonflikt + Wirksamkeitsfenster (drei Messzahlen = 0) belegt in `11-DESKTOP-DISPOSITION.md` | [n/a] |
+| `desktop/src/components/absences/AbsenceRequestForm.tsx:15,64` | Import/Aufruf zur Live-Vorschau der Antragsstunden | nein im Sinne dieses Plans | 11-09 (Task 2) | **Nicht nachgezogen, zugeordnet an Phase 12** — siehe `11-DESKTOP-DISPOSITION.md` (Wert ist reine UI-Vorschau, Server rechnet beim Speichern neu, kein Persistenzrisiko) | [n/a] |
+| `desktop/src/components/worktime/WorkScheduleDisplay.tsx:60` | `const dailyHours = user.weeklyHours / 5;` — Anzeige | nein im Sinne dieses Plans | 11-09 (Task 2) | **Nicht nachgezogen, zugeordnet an Phase 12** — siehe `11-DESKTOP-DISPOSITION.md` (zeigt nur den heutigen Stand, kein historischer Bezug) | [n/a] |
+| `desktop/src/components/users/WorkScheduleEditor.tsx:44,186` | Formular-Vorschlagswert und Hilfetext | nein im Sinne dieses Plans | 11-09 (Task 2) | **Nicht nachgezogen, zugeordnet an Phase 12** — siehe `11-DESKTOP-DISPOSITION.md` (Eingabe eines neuen Modells, kein historischer Bezug) | [n/a] |
 
 ---
 
@@ -352,3 +352,23 @@ Datenzeilen: 55 davon Desktop (Disposition folgt in Task 2): 4 ohne Haken/Dispos
 ```
 Exit 0. Die vier Desktop-Zeilen sind exakt wie im Plan erwartet ausgenommen; keine sonstige
 Zeile ist offen.
+
+---
+
+## Vollständigkeitsbeleg Task 2 — derselbe Prüfbefehl, jetzt OHNE Desktop-Ausnahme
+
+Nach Abschluss der Desktop-Disposition (`11-DESKTOP-DISPOSITION.md`) sind die vier
+Desktop-Zeilen oben auf `[n/a]` gesetzt. Derselbe Prüfbefehl wie in Task 1, aber ohne die
+Desktop-Ausnahme:
+
+```
+$ node -e "const fs=require('fs');const t=fs.readFileSync('.planning/phases/11-datumsabh-ngige-berechnung/11-AUFRUFER-CHECKLISTE.md','utf8');const rows=t.split('\n').filter(l=>l.trim().startsWith('|')&&!/^\|\s*[-: ]+\|/.test(l)&&!/Datei:Zeile|Fundstelle|Disposition\s*\|/i.test(l));const offen=rows.filter(l=>!/\[x\]|\[n\/a\]/i.test(l));console.log('Datenzeilen:',rows.length,'ohne Haken/Disposition (KEINE Ausnahme):',offen.length);process.exit(offen.length===0?0:1)"
+```
+
+**Wörtliche Ausgabe:**
+```
+Datenzeilen: 55 ohne Haken/Disposition (KEINE Ausnahme): 0
+```
+
+Exit 0. Keine Datenzeile ist mehr offen — das abschließende Vollständigkeitskriterium dieses
+Plans ist erfüllt.

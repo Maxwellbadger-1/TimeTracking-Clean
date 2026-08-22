@@ -264,6 +264,10 @@ Plans:
 - Der bestehende Überstundensaldo wird nicht umgerechnet — Stunden bleiben Stunden
 - Entstehende Differenz als eigene Buchung im Überstunden-Journal, mit Bezug auf die Periode
 - Einbindung in die Stammdaten-Oberfläche (`EditUserModal.tsx`, `WorkScheduleEditor.tsx`)
+- Desktop-Nachzug der periodengetreuen Sollstunden-Berechnung (bewusst aus Phase 11
+  ausgelassen, s. `.planning/phases/11-datumsabh-ngige-berechnung/11-DESKTOP-DISPOSITION.md`):
+  `desktop/src/utils/timeUtils.ts`, `desktop/src/components/absences/AbsenceRequestForm.tsx`,
+  `desktop/src/components/worktime/WorkScheduleDisplay.tsx`
 
 **Erfolgskriterien**
 
