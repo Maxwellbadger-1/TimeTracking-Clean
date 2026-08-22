@@ -354,7 +354,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 13-05-PLAN.md — Vier Endpunkte, getrennte Vorschau-Token, HTTP-Autorisierungstest mit 403 für fremde Perioden (D1, D5, D6, D7)
+- [x] 13-05-PLAN.md — Vier Endpunkte, getrennte Vorschau-Token, HTTP-Autorisierungstest mit 403 für fremde Perioden (D1, D5, D6, D7)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 

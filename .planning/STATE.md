@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 13-04-PLAN.md
-last_updated: "2026-08-22T19:32:47.348Z"
+stopped_at: Completed 13-05-PLAN.md
+last_updated: "2026-08-22T19:48:24.486Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 36
+  completed_plans: 37
   percent: 57
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-04-PLAN.md
+- **Stopped at:** Completed 13-05-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -209,6 +209,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: Rule-1-Fix: veralteter INSERT-Guard-Trigger-Text in workPeriodService.test.ts und workPeriodChangeService.test.ts (Vor-Migration-013-Fassung) beschaedigte die geteilte development.db bei jedem Testlauf -- auf Migration-013-Fassung korrigiert, live-Trigger repariert
 - [Phase ?]: 13-04: isFirst-Pruefung (DD-17) laeuft unbedingt, auch im Trockenlauf - eine Vorschau auf eine nicht loeschbare erste Periode waere sonst irrefuehrend
 - [Phase ?]: 13-04: Gegenbuchung mit hours=-original.hours und journal-neutralem balanceBefore/balanceAfter - die tatsaechliche Saldo-Ruecknahme kommt ausschliesslich aus dem Rebuild ab validFrom (DD-14), nicht aus der Gegenbuchung
+- [Phase ?]: [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-05: signCanonical()/verifyCanonical() als gemeinsame private Hilfsfunktionen fuer alle drei Token-Arten (Stundenwechsel/Korrektur/Loeschung) — die bestehende Stundenwechsel-Bahn blieb wortgleich unveraendert, DD-20-Zweckfeld macht die drei Token-Arten gegenseitig nicht einloesbar
+- [Phase ?]: [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-05: GET /api/work-periods liefert jetzt getWorkPeriodsWithFlags() statt getWorkPeriods() (DD-23) — isFirst/isCurrent kommen serverseitig, additive Erweiterung, keine bestehenden Felder entfernt
+- [Phase ?]: [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-05: HTTP-Autorisierungstest (workPeriods.authorization.test.ts) nach dem Muster von vacationTransactionRoutes.test.ts — echte express-App mit app.listen(0) + fetch, weil ein Test der die Service-Funktion direkt aufruft die Rollenpruefung in der Route nicht erfasst
 
 ## Quick Tasks Completed
 
@@ -277,6 +280,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13 P06 | 35min | 2 tasks | 2 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P03 | 45min | 2 tasks | 4 files |
 | Phase 13 P04 | 50min | 2 tasks | 2 files |
+| Phase 13-korrigieren-und-r-ckg-ngig-machen P05 | 50min | 3 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -313,7 +317,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 6 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
