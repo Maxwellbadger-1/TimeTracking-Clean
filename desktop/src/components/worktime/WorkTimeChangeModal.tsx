@@ -20,6 +20,7 @@ import {
   useSaveWorkTimeChange,
 } from '../../hooks/useWorkTimeChange';
 import { formatHours } from '../../utils/timeUtils';
+import { getTodayDate, resolveWorkTimePeriodIn } from '../../utils';
 import type { User, WorkSchedule, WorkTimeChangePreviewResponse, WorkTimeChangeResult } from '../../types';
 
 /**
@@ -121,12 +122,6 @@ function findInvalidScheduleDay(schedule: WorkSchedule | null): keyof WorkSchedu
 
 type PreviewPanelState = 'placeholder' | 'loading' | 'error' | 'noop' | 'future' | 'past';
 
-/** Zeitzonensicheres YYYY-MM-DD von "heute" — kein UTC-Split-Verfahren auf einem
- *  ISO-String (`.claude/CLAUDE.md`), Muster aus `WorkTimePeriodList.tsx`. */
-function formatDateLocal(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 /** Anzeige eines ISO-Datums im deutschen Format — niemals über ein UTC-Split-Verfahren. */
 function formatGermanDate(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE');
@@ -194,21 +189,33 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const prefillAppliedRef = useRef(false);
 
-  const todayStr = useMemo(() => formatDateLocal(new Date()), []);
+  /**
+   * WR-19 (Code-Review Phase 12): Frueher `useMemo(() => formatDateLocal(new Date()), [])`.
+   * Die Abhaengigkeitsliste `[]` fror das Tagesdatum fuer die gesamte Lebensdauer der
+   * Komponente ein — und die Tauri-Anwendung bleibt ueblicherweise ueber Nacht offen. Nach
+   * Mitternacht bestimmte der Dialog die "aktuell gueltige" Periode gegen den Vortag und
+   * belegte die Felder mit der Vorperiode vor. `getTodayDate()` ist billig; bei jedem Render
+   * neu zu bestimmen ist hier richtig (IN-01 faellt damit nebenbei mit weg).
+   */
+  const todayStr = getTodayDate();
 
   /** WR-05: leeres/fehlendes Eintrittsdatum ausdruecklich als `null` fuehren, statt sich auf
    *  die Typzusage `string` zu verlassen — sonst rendert `formatGermanDate('')`
    *  "Invalid Date" und `validFrom < ''` hebt die Stichtagspruefung stillschweigend auf. */
   const hireDate = user.hireDate || null;
 
+  /**
+   * WR-06 (Code-Review Phase 12): Hier stand die Intervallbedingung ein zweites Mal
+   * nachgebaut. `timeUtils.ts` erklaert sich ausdruecklich zur EINEN Aufloesungsstelle im
+   * Desktop, zeichengleich zu `resolveWorkPeriodIn()` im Server — jede Abweichung waere ein
+   * Dual-Calculation-Fehler. Heute waren beide zeichengleich; aendert sich die Auslegung
+   * (z. B. `validTo` inklusiv), muesste sie an drei Stellen nachgezogen werden, und die
+   * Kommentare in `timeUtils.ts` wuerden zur Falle.
+   */
   const currentPeriod = useMemo(() => {
     const periods = periodsQuery.data;
     if (!periods) return null;
-    return (
-      periods.find(
-        (p) => p.validFrom <= todayStr && (p.validTo === null || p.validTo > todayStr)
-      ) ?? null
-    );
+    return resolveWorkTimePeriodIn(periods, todayStr);
   }, [periodsQuery.data, todayStr]);
 
   // Reset + Vorbelegung mit den Stammdatenwerten beim Oeffnen. `user.id` statt `user` als

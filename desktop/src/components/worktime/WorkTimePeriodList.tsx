@@ -3,6 +3,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
+import { getTodayDate, resolveWorkTimePeriodIn } from '../../utils';
 import type { WorkTimePeriod, DayName } from '../../types';
 
 interface WorkTimePeriodListProps {
@@ -24,12 +25,6 @@ const DAY_SHORT_LABELS: Record<DayName, string> = {
 };
 
 const DAY_ORDER: DayName[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-/** Zeitzonensicheres YYYY-MM-DD von "heute" — kein `toISOString().split('T')[0]`
- *  (`.claude/CLAUDE.md`), Muster aus `desktop/src/hooks/useTimeEntries.ts:80-81`. */
-function formatDateLocal(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function formatIsoDate(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE');
@@ -58,7 +53,25 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
     return [...data].sort((a, b) => (a.validFrom < b.validFrom ? 1 : a.validFrom > b.validFrom ? -1 : 0));
   }, [data]);
 
-  const today = useMemo(() => formatDateLocal(new Date()), []);
+  /**
+   * WR-19 (Code-Review Phase 12): Frueher `useMemo(..., [])`. Die leere Abhaengigkeitsliste
+   * fror das Tagesdatum fuer die Lebensdauer der Komponente ein; die Tauri-Anwendung bleibt
+   * ueblicherweise ueber Nacht offen, und nach Mitternacht wurden die Badges "Aktuell" und
+   * "Geplant" gegen den Vortag bestimmt. `getTodayDate()` ist billig.
+   */
+  const today = getTodayDate();
+
+  /**
+   * WR-06 (Code-Review Phase 12): Die Intervallbedingung war hier je Zeile nachgebaut.
+   * `resolveWorkTimePeriodIn()` ist DIE EINE Aufloesungsstelle im Desktop, zeichengleich zu
+   * `resolveWorkPeriodIn()` im Server — jede zweite Fassung ist ein Dual-Calculation-Fehler.
+   * Die heute gueltige Periode wird deshalb einmal bestimmt und je Zeile nur noch ueber die
+   * Id verglichen.
+   */
+  const currentPeriodId = useMemo(
+    () => resolveWorkTimePeriodIn(sortedPeriods, today)?.id ?? null,
+    [sortedPeriods, today]
+  );
 
   if (isLoading) {
     return (
@@ -125,7 +138,7 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
           {sortedPeriods.map((period) => {
-            const isCurrent = period.validFrom <= today && (period.validTo === null || period.validTo > today);
+            const isCurrent = period.id === currentPeriodId;
             const isPlanned = period.validFrom > today;
             const isHighlighted = highlightPeriodId != null && period.id === highlightPeriodId;
 
