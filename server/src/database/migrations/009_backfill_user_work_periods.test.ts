@@ -100,7 +100,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
           date TEXT NOT NULL
         )
       `).run();
-      await migration008.up(db);
+      migration008.up(db);
 
       // (a) aktiv mit workSchedule
       userA = insertUser({
@@ -131,7 +131,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
         status: 'inactive',
       });
 
-      await migration009.up(db);
+      migration009.up(db);
     });
 
     afterEach(() => {
@@ -204,7 +204,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
       ).c;
       expect(countBefore).toBe(6);
 
-      await expect(migration009.up(db)).resolves.not.toThrow();
+      expect(() => migration009.up(db)).not.toThrow();
 
       const countAfter = (
         db.prepare(`SELECT COUNT(*) as c FROM user_work_periods`).get() as { c: number }
@@ -237,7 +237,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
           date TEXT NOT NULL
         )
       `).run();
-      await migration008.up(db);
+      migration008.up(db);
     });
 
     afterEach(() => {
@@ -262,7 +262,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
         VALUES (?, ?, NULL, ?, ?, ?, datetime('now'), NULL)
       `).run(userId, '2020-01-01', 25, null, '[TEST] manuell eingefügte Periode vor Migrationslauf');
 
-      await migration009.up(db);
+      migration009.up(db);
 
       const periods = db
         .prepare(`SELECT * FROM user_work_periods WHERE userId = ?`)
@@ -301,7 +301,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
           date TEXT NOT NULL
         )
       `).run();
-      await migration008.up(db);
+      migration008.up(db);
     });
 
     afterEach(() => {
@@ -317,7 +317,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
         .run('2026-01-01', null, null, 'active');
       const userId = userResult.lastInsertRowid as number;
 
-      await expect(migration009.up(db)).rejects.toThrow(new RegExp(`userId ${userId}`));
+      expect(() => migration009.up(db)).toThrow(new RegExp(`userId ${userId}`));
     });
   });
 
@@ -345,7 +345,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
           date TEXT NOT NULL
         )
       `).run();
-      await migration008.up(db);
+      migration008.up(db);
     });
 
     afterEach(() => {
@@ -365,7 +365,7 @@ describe('Migration 009: Backfill user_work_periods', () => {
       db.prepare(`INSERT INTO time_entries (userId, date) VALUES (?, ?)`).run(userId, '2025-07-01');
       db.prepare(`INSERT INTO time_entries (userId, date) VALUES (?, ?)`).run(userId, '2025-08-01');
 
-      await migration009.up(db);
+      migration009.up(db);
 
       const period = db
         .prepare(`SELECT * FROM user_work_periods WHERE userId = ?`)

@@ -9,7 +9,11 @@ const __dirname = path.dirname(__filename);
 
 export interface Migration {
   name: string;
-  up: (db: Database.Database) => void;
+  // Ehrlicher Vertrag (CR-01, 10-06-PLAN.md): Migration 001 gibt eine Promise zurück
+  // (ensureDailyOvertimeTransactions lädt Feiertage per Netzabruf nach, siehe
+  // 001_backfill_overtime_transactions.ts:77). Der vorherige Typ `=> void` behauptete das
+  // Gegenteil — genau diese Lücke hat den in CR-01 beschriebenen Fehler verdeckt.
+  up: (db: Database.Database) => void | Promise<void>;
 }
 
 /**
@@ -73,13 +77,50 @@ export async function runMigrations(db: Database.Database): Promise<void> {
 }
 
 /**
- * Führt Schritt 5 des Migrationslaufs für genau eine Migration aus (reine Extraktion aus
- * der vorherigen Schleife in `runMigrations`, verhaltensgleich — noch OHNE den CR-01-Fix aus
- * 10-06-PLAN.md). Exportiert, damit `migrationRunner.failure.test.ts` den Fehlerpfad direkt
- * gegen diesen Läufer nachweisen kann, ohne Dateisystem-Migrationen zu benötigen.
+ * Führt Schritt 5 des Migrationslaufs für genau eine Migration aus (CR-01-Fix,
+ * 10-06-PLAN.md, Task 1).
+ *
+ * Zwei ausdrücklich getrennte Pfade, unterschieden per `migration.up.constructor.name ===
+ * 'AsyncFunction'`. In beiden Pfaden ist die Reihenfolge „erst up(), dann recordMigration()"
+ * der Kern der Zusicherung aus 008/009 („Migration wird NICHT als angewendet markiert") — ein
+ * Wurf erreicht recordMigration nie.
+ *
+ * SYNCHRONER PFAD (Regelfall, 002/003/006/007/008/009/010): unverändert
+ * `db.transaction(() => { up(db); recordMigration(...); })()`. Weil `up` jetzt wirklich
+ * synchron ist (kein `async` mehr ohne `await` im Rumpf), propagiert ein Wurf synchron und
+ * die Transaktion rollt zurück.
+ *
+ * ASYNC-PFAD (nur 001_backfill_overtime_transactions): `db.transaction()` von
+ * better-sqlite3 nimmt keine async-Callbacks entgegen. Der naheliegende Ersatz — manuelles
+ * BEGIN/COMMIT/ROLLBACK um ein `await` herum — hielte für Migration 001 eine Schreibsperre
+ * über einen Netzabruf (Feiertags-API in ensureDailyOvertimeTransactions) offen, über
+ * beliebig viele Ereignisschleifen-Durchläufe. Migration 001 läuft heute vollständig
+ * außerhalb jeder Transaktion; sie in eine offene Transaktion zu ziehen wäre eine
+ * Verhaltensänderung auf dem Erststart-Pfad (npm run db:reset, neues Dev-Setup, per `pkg`
+ * gebauter Desktop-Server) ohne Auftrag dieses Plans. Der async-Pfad bekommt deshalb
+ * korrekte Fehlerpropagierung (ein Wurf verhindert `recordMigration`, die Migration läuft
+ * beim nächsten Start erneut — 001 ist laut Kopfkommentar idempotent), aber ausdrücklich
+ * KEINE Atomaritätszusage: bereits geschriebene Zeilen vor dem Wurf bleiben stehen.
+ * `logger.warn` macht das beim Lauf sichtbar.
  */
 export async function applyMigration(db: Database.Database, migration: Migration): Promise<void> {
+  const isAsync = migration.up.constructor.name === 'AsyncFunction';
+
+  if (isAsync) {
+    logger.warn(
+      `⚠️  Migration ${migration.name} läuft asynchron außerhalb einer Transaktion — ` +
+        'keine Atomaritätszusage. Bei einem Fehler bleiben bereits geschriebene Zeilen stehen, ' +
+        'aber die Migration wird nicht als angewendet verbucht und läuft erneut.'
+    );
+    await migration.up(db);
+    recordMigration(db, migration.name);
+    return;
+  }
+
   const runMigration = db.transaction(() => {
+    // migration.up ist hier nachweislich synchron (isAsync === false); der Rückgabewert
+    // (void) wird bewusst nicht awaitet, damit ein Wurf synchron aus der Transaktion
+    // propagiert statt in einer nie beobachteten Promise zu verschwinden.
     migration.up(db);
     recordMigration(db, migration.name);
   });

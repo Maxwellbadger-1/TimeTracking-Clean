@@ -98,7 +98,7 @@ interface UserRow {
 }
 
 export default {
-  async up(db: Database.Database) {
+  up(db: Database.Database): void {
     logger.info('🚀 Migration 009: Backfilling user_work_periods (Bestandsüberführung)...');
 
     // Step 0: Zieltabelle muss existieren (Migration 008 muss vorher gelaufen sein).

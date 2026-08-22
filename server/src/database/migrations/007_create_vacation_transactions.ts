@@ -47,7 +47,7 @@ const EXPECTED_COLUMNS = [
 ];
 
 export default {
-  async up(db: Database.Database) {
+  up(db: Database.Database): void {
     logger.info('🚀 Migration 007: Creating vacation_transactions (Urlaubs-Journal)...');
 
     // Step 1: Journal-Tabelle anlegen

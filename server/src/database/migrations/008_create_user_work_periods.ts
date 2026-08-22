@@ -61,7 +61,7 @@ const EXPECTED_TRIGGERS = [
 ];
 
 export default {
-  async up(db: Database.Database) {
+  up(db: Database.Database): void {
     logger.info('🚀 Migration 008: Creating user_work_periods (Arbeitszeit-Perioden)...');
 
     // Step 1: Tabelle anlegen

@@ -18,7 +18,7 @@ import Database from 'better-sqlite3';
 import logger from '../../utils/logger.js';
 
 export default {
-  async up(db: Database.Database) {
+  up(db: Database.Database): void {
     logger.info('🚀 Migration 003: Adding pending vacation tracking...');
 
     // Step 1: Create new table with pending column

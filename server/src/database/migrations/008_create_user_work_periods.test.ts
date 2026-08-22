@@ -28,7 +28,7 @@ describe('Migration 008: user_work_periods', () => {
   });
 
   it('legt alle neun Spalten an', async () => {
-    await migration.up(db);
+    migration.up(db);
 
     const columns = db
       .prepare(`PRAGMA table_info(user_work_periods)`)
@@ -52,7 +52,7 @@ describe('Migration 008: user_work_periods', () => {
   });
 
   it('legt beide Indizes an', async () => {
-    await migration.up(db);
+    migration.up(db);
 
     const indexes = db
       .prepare(`PRAGMA index_list(user_work_periods)`)
@@ -64,7 +64,7 @@ describe('Migration 008: user_work_periods', () => {
   });
 
   it('legt alle drei Trigger an', async () => {
-    await migration.up(db);
+    migration.up(db);
 
     const triggers = db
       .prepare(`SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='user_work_periods'`)
@@ -77,8 +77,8 @@ describe('Migration 008: user_work_periods', () => {
   });
 
   it('läuft bei zweitem Lauf idempotent durch (D7)', async () => {
-    await migration.up(db);
-    await expect(migration.up(db)).resolves.not.toThrow();
+    migration.up(db);
+    expect(() => migration.up(db)).not.toThrow();
 
     const columns = db.prepare(`PRAGMA table_info(user_work_periods)`).all() as Array<{ name: string }>;
     const indexes = db.prepare(`PRAGMA index_list(user_work_periods)`).all() as Array<{ name: string }>;
@@ -97,7 +97,7 @@ describe('Migration 008: user_work_periods', () => {
   });
 
   it('schreibt keine Zeile (Migration ist reines DDL)', async () => {
-    await migration.up(db);
+    migration.up(db);
 
     const rowCount = (db
       .prepare(`SELECT COUNT(*) as count FROM user_work_periods`)
@@ -110,7 +110,7 @@ describe('Migration 008: user_work_periods', () => {
     let userId: number;
 
     beforeEach(async () => {
-      await migration.up(db);
+      migration.up(db);
       const user = db.prepare(`INSERT INTO users (username) VALUES (?)`).run('trigger-test-user');
       userId = user.lastInsertRowid as number;
     });

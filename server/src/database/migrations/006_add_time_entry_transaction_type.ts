@@ -22,7 +22,7 @@ import Database from 'better-sqlite3';
 import logger from '../../utils/logger.js';
 
 export default {
-  async up(db: Database.Database) {
+  up(db: Database.Database): void {
     logger.info('🚀 Migration 006: Adding time_entry and modern transaction types...');
 
     // Step 1: Check current transaction count
