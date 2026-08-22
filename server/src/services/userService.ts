@@ -315,8 +315,68 @@ export async function updateUser(
 
     logger.debug({ sqlQuery, values, updates }, '📝 SQL details');
 
-    const stmt = db.prepare(sqlQuery);
-    const result = stmt.run(...values);
+    // Spiegelt eine Stammdaten-Wochenstunden-/Tagesplan-Änderung in die offene Periode.
+    //
+    // 1. Das ist eine ÜBERGANGSMASSNAHME für das Fenster zwischen Phase 11 und Phase 12.
+    // 2. Sie hält das heutige Verhalten exakt aufrecht: Wer die Stammdaten-Wochenstunden
+    //    ändert, ändert damit die Berechnung ab Beginn der offenen Periode — genau wie vor
+    //    diesem Umbau. Ohne sie würde eine Stundenänderung wirkungslos, ohne dass jemand es
+    //    merkt.
+    // 3. Phase 12 ersetzt diesen Weg durch den Stichtagswechsel (`closeWorkPeriod` +
+    //    `createWorkPeriod`), Phase 13 durch die ausdrückliche Aktion „Stammdaten
+    //    korrigieren" mit Pflichtbegründung.
+    // 4. Diese Stelle legt deshalb bewusst KEINE zweite Periode an und verschiebt kein
+    //    Datum.
+    const weeklyHoursChanged =
+      data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours;
+    const workScheduleChanged =
+      data.workSchedule !== undefined &&
+      JSON.stringify(data.workSchedule ?? null) !== JSON.stringify(existingUser.workSchedule ?? null);
+    const mustMirrorPeriod = weeklyHoursChanged || workScheduleChanged;
+    const mirroredWeeklyHours = data.weeklyHours !== undefined ? data.weeklyHours : existingUser.weeklyHours;
+    const mirroredWorkSchedule =
+      data.workSchedule !== undefined ? data.workSchedule ?? null : existingUser.workSchedule;
+
+    let changes = 0;
+    // Nutzer-Update und Perioden-Spiegelung sind atomar (T-11-09): Schlägt einer der beiden
+    // Schritte fehl, bleibt keiner stehen.
+    const applyUpdate = db.transaction((): void => {
+      const stmt = db.prepare(sqlQuery);
+      const result = stmt.run(...values);
+      changes = result.changes;
+
+      if (!mustMirrorPeriod) {
+        return;
+      }
+
+      let currentPeriod = getCurrentWorkPeriod(id);
+      if (!currentPeriod) {
+        // Nutzer ohne Periode sollte nach Task 1 dieses Plans nicht mehr vorkommen —
+        // Sicherheitsnetz für Alt-Fälle, exakt wie im Behavior-Abschnitt gefordert.
+        ensureInitialWorkPeriod(existingUser, null);
+        currentPeriod = getCurrentWorkPeriod(id);
+      }
+
+      if (!currentPeriod) {
+        throw new Error(
+          `updateUser: Nutzer ${id} hat auch nach ensureInitialWorkPeriod keine offene Periode.`
+        );
+      }
+
+      // Ausnahme (Plan 11-03, Task 2): Diese Welle darf workPeriodService.ts nicht anfassen
+      // (Plan 11-02 arbeitet dort parallel). Ein Funktion zum Ändern von Werten einer
+      // bestehenden Periode gibt es dort noch nicht — deshalb hier direkt, ausschließlich
+      // für das Ändern von weeklyHours/workSchedule, NIE für das Anlegen einer Periode.
+      // Phase 12 führt diesen Schreibzugriff in workPeriodService.ts zusammen.
+      db.prepare(`UPDATE user_work_periods SET weeklyHours = ?, workSchedule = ? WHERE id = ?`).run(
+        mirroredWeeklyHours,
+        mirroredWorkSchedule ? JSON.stringify(mirroredWorkSchedule) : null,
+        currentPeriod.id
+      );
+    });
+
+    applyUpdate();
+    const result = { changes };
 
     logger.info({ userId: id, changes: result.changes }, '✅ User updated');
 
