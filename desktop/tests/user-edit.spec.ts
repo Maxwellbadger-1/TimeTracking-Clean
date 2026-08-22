@@ -36,7 +36,7 @@ test.describe('User Edit', () => {
 
     // Now try to EDIT this user (this was crashing before!)
     const userRow = page.locator('tr:has-text("Edit NoEmail")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
 
     // Wait for modal to open
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
@@ -68,7 +68,7 @@ test.describe('User Edit', () => {
 
     // Edit and remove email
     const userRow = page.locator('tr:has-text("RemoveEmail User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     // Clear email field
@@ -96,8 +96,11 @@ test.describe('User Edit', () => {
     await page.click('button:has-text("Benutzer erstellen")');
     await page.waitForSelector('text=ChangeToZero User', { timeout: 10000 });
 
-    // Bearbeiten-Dialog oeffnen (Selektor repariert: kein aria-label auf diesem Button,
-    // siehe UserManagementPage.tsx)
+    // Bearbeiten-Dialog oeffnen. WR-12 (Code-Review Phase 12): Alle acht Vorkommen dieser
+    // Datei suchten urspruenglich `button[aria-label="Bearbeiten"]` — ein Attribut, das der
+    // Zeilenbutton nie trug. Sie liefen damit in den Locator-Timeout; die Datei war zum
+    // ueberwiegenden Teil rot und gab keine Regressionssicherheit fuer den in Phase 12
+    // geaenderten Bearbeiten-Dialog. Jetzt einheitlich ueber den sichtbaren Text.
     const userRow = page.locator('tr:has-text("ChangeToZero User")');
     await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
@@ -128,7 +131,14 @@ test.describe('User Edit', () => {
 
     // Der Wechsel-Dialog schliesst sich nach dem Speichern; die Periodenliste im
     // EditUserModal zeigt danach eine Zeile mit 0 h.
-    await expect(page.locator('table tr:has-text("0 h")')).toBeVisible({ timeout: 10000 });
+    //
+    // WR-14 (Code-Review Phase 12): Hier stand `table tr:has-text("0 h")`. `has-text` prueft
+    // auf TEILzeichenketten — die Zeile der Ausgangsperiode zeigt "40 h" und enthaelt damit
+    // ebenfalls "0 h". Der Locator traf nach dem Speichern mindestens zwei Zeilen (Strict
+    // Mode: "resolved to 2 elements"), oder er war, falls die alte Periode zuerst gerendert
+    // wird, schon VOR dem Stundenwechsel gruen. In beiden Faellen prueften er nicht, was er
+    // zu pruefen behauptet. Jetzt auf die Zelle abgestellt und exakt verglichen.
+    await expect(page.locator('table td', { hasText: /^0 h$/ })).toBeVisible({ timeout: 10000 });
   });
 
   test('Switch from individual workSchedule to normal hours (critical bug fix test)', async ({ page }) => {
@@ -158,7 +168,7 @@ test.describe('User Edit', () => {
 
     // Now edit and switch back to normal hours
     const userRow = page.locator('tr:has-text("SwitchSchedule User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     // If workSchedule toggle exists, disable it
@@ -194,7 +204,7 @@ test.describe('User Edit', () => {
 
     // Deactivate
     let userRow = page.locator('tr:has-text("Deactivate User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     // Uncheck "Benutzer ist aktiv"
@@ -206,7 +216,7 @@ test.describe('User Edit', () => {
 
     // Reactivate
     userRow = page.locator('tr:has-text("Deactivate User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     await activeCheckbox.check();
@@ -233,13 +243,20 @@ test.describe('User Edit', () => {
 
     // Edit and set end date
     const userRow = page.locator('tr:has-text("EndDate User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     // Set end date to 1 month in future
-    const futureDate = new Date();
-    futureDate.setMonth(futureDate.getMonth() + 1);
-    const endDateString = futureDate.toISOString().split('T')[0];
+    // WR-13 (Code-Review Phase 12): Hier stand `futureDate.toISOString().split('T')[0]` —
+    // das von `.claude/CLAUDE.md` ausdruecklich verbotene Muster, 130 Zeilen unter der
+    // gegenteiligen Zusicherung im selben Test ("Zeitzonensicher aufgebaut, kein
+    // toISOString()-Split"). In der Sommerzeit (UTC+2) liefert es zwischen 00:00 und 02:00
+    // Ortszeit den Vortag. Zusaetzlich lief `setMonth(getMonth() + 1)` an Monatsenden ueber
+    // (am 31. Januar ergab es den 2./3. Maerz) und machte den Test vom Ausfuehrungsdatum
+    // abhaengig — deshalb der 1. des Folgemonats, zeitzonensicher aus lokalen Feldern.
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const endDateString = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-01`;
     await page.fill('[name="endDate"]', endDateString);
 
     await page.click('button:has-text("Änderungen speichern")');
@@ -267,7 +284,7 @@ test.describe('User Edit', () => {
 
     // Edit and change role to admin
     const userRow = page.locator('tr:has-text("RoleChange User")');
-    await userRow.locator('button[aria-label="Bearbeiten"]').click();
+    await userRow.locator('button:has-text("Bearbeiten")').click();
     await page.waitForSelector('text=Benutzer bearbeiten:', { timeout: 5000 });
 
     await page.selectOption('select[name="role"]', 'admin');

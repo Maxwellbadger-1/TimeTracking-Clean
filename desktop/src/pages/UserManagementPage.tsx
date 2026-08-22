@@ -461,9 +461,14 @@ export function UserManagementPage() {
                             ) : (
                               // Active user - show edit/reset password/delete buttons
                               <>
+                                {/* WR-12: Der Button trug bisher gar keinen zugaenglichen
+                                    Namen ausser "Bearbeiten" — in einer Tabelle mit einer
+                                    Zeile je Mitarbeiter liest ein Screenreader damit
+                                    n-mal denselben Namen, ohne Bezug zur Zeile. */}
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  aria-label={`Bearbeiten: ${user.firstName} ${user.lastName}`}
                                   onClick={() => setEditingUserId(user.id)}
                                 >
                                   Bearbeiten
