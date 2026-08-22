@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type RefObject } from 'react';
+import { type RefObject } from 'react';
 import { Info, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -55,28 +55,6 @@ export function WorkTimePeriodActions({
   correctButtonRef,
   deleteButtonRef,
 }: WorkTimePeriodActionsProps) {
-  // Keine ausgegraute Loeschschaltflaeche (13-UI-SPEC.md, "Der Grund steht deshalb zweifach in
-  // der Oberflaeche: als fokussierbarer Chip in der Zeile und als dauerhaft sichtbare Fussnote
-  // unter der Liste"). Das Bestandsmuster aus OvertimeTransactions.tsx ist hover-only (WCAG 2.2,
-  // 1.4.13 verlangt zusaetzlich focus-within UND eine ESC-Ausblendbarkeit ohne Fokusverlust) —
-  // dieser lokale Zustand traegt genau die ESC-Ausblendbarkeit, `group-focus-within` uebernimmt
-  // den Tastaturfokus-Fall.
-  const [tooltipDismissed, setTooltipDismissed] = useState(false);
-
-  function handleChipKeyDown(e: KeyboardEvent<HTMLSpanElement>) {
-    if (e.key === 'Escape') {
-      // Modal-Stack (Phase 12) regelt nur die Rangfolge zwischen Modalen, nicht zwischen
-      // Tooltip und Modal — ohne stopPropagation() wuerde ESC zusaetzlich EditUserModal
-      // schliessen (13-UI-SPEC.md Abschnitt 3).
-      setTooltipDismissed(true);
-      e.stopPropagation();
-    }
-  }
-
-  function resetTooltipDismissed() {
-    setTooltipDismissed(false);
-  }
-
   const ariaLabelFirst = `Dies ist die erste Periode seit dem Eintritt am ${formatGermanDate(
     hireDate
   )}. Sie kann nicht gelöscht werden, weil sonst eine Lücke ab dem Eintrittsdatum entstünde. Wenn die Werte von jeher falsch waren, korrigieren Sie sie.`;
@@ -99,25 +77,49 @@ export function WorkTimePeriodActions({
       </Button>
 
       {period.isFirst ? (
+        /**
+         * M-2 (UI-Review Phase 13): Hier stand ein selbstgebautes Tooltip
+         * (`absolute right-0 top-6 w-72`). Es wurde vom umgebenden
+         * `overflow-x-auto`-Container in `WorkTimePeriodList.tsx` beschnitten — dieselbe
+         * Falle, die dieselbe Datei fuer den Phase-12-Befund V-2 bereits dokumentiert
+         * (`WorkTimePeriodList.tsx`, Kommentar bei `highlightCellClass`).
+         *
+         * Am 23.08.2026 in headless Edge (dieselbe Blink/WebView2-Engine wie Tauri unter
+         * Windows) mit nachgestelltem Markup gemessen, Sichtbarkeit ueber
+         * `document.elementFromPoint()` (beschnittene Flaechen sind nicht treffbar):
+         *
+         *   - `overflow-x: auto` laesst `overflow-y` rechnerisch zu `auto` werden
+         *     (gemessen: computed overflow-y === 'auto'). Der Container beschneidet also
+         *     auch senkrecht.
+         *   - `top-6`, eine Zeile:  Tooltip ragt 54 px unter den Container, untere Haelfte
+         *     nicht treffbar. Drei Zeilen: identisch 54 px.
+         *   - `bottom-full mb-1` (Variante 1 des Reviews) traegt NUR ab drei Zeilen. Bei
+         *     EINER Zeile ragt es 56 px ueber den Container hinaus und die obere Haelfte ist
+         *     nicht treffbar — und genau dieser Fall ist der haeufigste: die erste Periode
+         *     ist wegen der DESC-Sortierung immer die letzte Zeile, und ein Nutzer mit nur
+         *     einer Periode hat genau eine Zeile, die zugleich `isFirst` ist.
+         *
+         * Gewaehlt ist deshalb Variante 2 des Reviews: kein eigenes Tooltip mehr. Traeger der
+         * Aussage sind, wie im Designvertrag festgelegt, das `aria-label` des Chips und die
+         * dauerhaft sichtbare Fussnote unter der Liste ("Faellt das Tooltip aus, fehlt keine
+         * Aussage"). Fuer den sehenden Mausnutzer tritt `title` an seine Stelle: Das
+         * Browser-Tooltip wird vom User Agent gezeichnet und kann von keinem
+         * overflow-Container beschnitten werden. Dasselbe Paar aus `aria-label` und `title`
+         * tragen die beiden Schaltflaechen dieser Datei bereits.
+         *
+         * WCAG 2.2, 1.4.13 ("Content on Hover or Focus") greift damit nicht mehr: Das
+         * Kriterium gilt ausdruecklich nicht fuer Einblendungen des User Agents. Der
+         * ESC-Ausblendpfad samt `stopPropagation()` entfaellt deshalb ersatzlos.
+         */
         <span
           tabIndex={0}
           role="note"
           aria-label={ariaLabelFirst}
-          onKeyDown={handleChipKeyDown}
-          onBlur={resetTooltipDismissed}
-          onMouseLeave={resetTooltipDismissed}
-          className="group relative inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          title={ariaLabelFirst}
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <Info className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Nicht löschbar</span>
-          {!tooltipDismissed && (
-            <div
-              role="tooltip"
-              className="absolute right-0 top-6 w-72 p-3 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-10"
-            >
-              {ariaLabelFirst}
-            </div>
-          )}
         </span>
       ) : isDeleting ? (
         <LoadingSpinner size="sm" />
