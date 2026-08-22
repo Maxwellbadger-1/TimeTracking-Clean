@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Phase 11 verifiziert (10/10), Phase 12 geplant
-last_updated: "2026-08-22T12:13:26.558Z"
-last_activity: 2026-08-22 -- Phase 11 Code-Review (2 Iterationen, 33 Fixes) und Verifikation abgeschlossen
+stopped_at: Plan 12-01 abgeschlossen (Migration 011, Vertragstypen, GET /api/work-periods)
+last_updated: "2026-08-22T13:01:27.160Z"
+last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 3
   total_plans: 31
-  completed_plans: 22
-  percent: 57
+  completed_plans: 23
+  percent: 43
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 12 — Stundenwechsel bedienen
+**Current focus:** Phase 12 — stundenwechsel-bedienen
 
 ## Current Status
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Phase 11 verifiziert, Phase 12 geplant
+- **Stopped at:** Plan 12-01 abgeschlossen (Migration 011, Vertragstypen, GET /api/work-periods)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -175,6 +175,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 11-09]: Erschöpfende Nachsuche fand sechs Neufunde (drei tote Funktionen in workingDays.ts, timeEntryService.updateOvertimeBalance, verifyTestData.ts, check_overtime.ts) - alle Produktivpfad=nein, kein blockierender Befund
 - [Phase 11-datumsabh-ngige-berechnung]: verifyPeriodNullEffect.ts als unabhaengiges Pruefwerkzeug: schliesst das Loch bei zwei soft-geloeschten Nutzern, die der kanonische Lesepfad nicht aufloest
 - [Phase 11-datumsabh-ngige-berechnung]: Kontrollnutzer fuer REQ-25-Gegenprobe ist userId 3 (individueller Wochenplan) statt userId 1 (weeklyHours=0) - realistischerer Regelfall
+- [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 Migration 011 wortgleich nach Migration 006 gebaut (Tabellen-Neubau-Muster), referenceType-CHECK traegt explizites NULL wie 006, schema.ts bleibt bei seiner bestehenden Form ohne NULL - funktional identisch, keine Formatvereinheitlichung vorgenommen
+- [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 GET /api/work-periods legt in Plan 12-05 zwei weitere Endpunkte (POST /preview, POST /change) auf denselben Router - Kopfkommentar haelt fest, dass diese zusaetzlich requireAdmin brauchen (T-12-05)
+- [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 requirements.mark-complete fuer REQ-26/REQ-29 nicht anwendbar - REQUIREMENTS.md dieses Milestones nutzt kein Checkbox-/Pending-Complete-Format, nur eine Phasenzuordnungstabelle (wie bereits bei Phase 10 REQ-20/22 dokumentiert); Abdeckung bleibt ueber die Phase-12-Plaene dokumentiert
 
 ## Quick Tasks Completed
 
@@ -229,6 +232,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 11-datumsabh-ngige-berechnung P11 | 105min | 3 tasks | 9 files |
 | Phase 11-datumsabh-ngige-berechnung P09 | 60min | 3 tasks | 6 files |
 | Phase 11-datumsabh-ngige-berechnung P10 | 70m | 3 tasks | 5 files |
+| Phase 12-stundenwechsel-bedienen P01 | 50min | 3 tasks | 6 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -264,10 +268,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 11 of 11
+Phase: 12 (stundenwechsel-bedienen) — EXECUTING
+Plan: 2 of 9
 Status: Ready to execute
-Last activity: 2026-08-22 -- Phase 12 planning complete
+Last activity: 2026-08-22
 
 ## Operator Next Steps
 
