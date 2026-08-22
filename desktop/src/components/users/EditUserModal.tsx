@@ -253,6 +253,16 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
    *  steht deshalb im `details`-Panel der Löschbestätigung — sonst wäre "Löschen" bei jedem
    *  echten Versuch ein serverseitiger 400 ("Begründung ist erforderlich"). */
   const [deletionReason, setDeletionReason] = useState('');
+  /**
+   * M-3 (UI-Review Phase 13): Feldfehler der Pflichtbegründung. Vorher sperrte eine zu kurze
+   * Begründung den Bestätigungsknopf STUMM (`… || deletionReason.trim().length < 10`) — der
+   * Admin sah einen grauen Knopf, der zugleich auch dann grau ist, wenn die Vorschau lädt oder
+   * gescheitert ist: drei Ursachen, ein wortloser Knopf. Die Begründung wird deshalb jetzt im
+   * Absendepfad geprüft, mit den beiden Sätzen aus dem Textbuch — dasselbe Muster wie im
+   * Korrektur-Dialog (Zustand 11 des Designvertrags).
+   */
+  const [deletionReasonError, setDeletionReasonError] = useState('');
+  const deletionReasonRef = useRef<HTMLTextAreaElement>(null);
   const [deletionError, setDeletionError] = useState('');
   /** WR-02 (Code-Review Phase 13): Zähler für aufeinanderfolgende PREVIEW_STALE-Antworten,
    *  wortgleiches Muster wie `staleFailureCount` im Korrektur-Dialog. Beim ersten Mal wird die
@@ -370,6 +380,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setDeletionPreview(null);
     setDeletionPreviewFailed(false);
     setDeletionReason('');
+    setDeletionReasonError('');
     setDeletionError('');
     setDeletionStaleFailureCount(0);
     runDeletionPreview(period.id);
@@ -382,6 +393,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setDeletionPreview(null);
     setDeletionPreviewFailed(false);
     setDeletionReason('');
+    setDeletionReasonError('');
     setDeletionError('');
     setDeletionStaleFailureCount(0);
     // WR-13: der Loeschknopf GENAU DIESER Zeile, nicht der der zuletzt gerenderten.
@@ -390,6 +402,22 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
   async function handleConfirmDeletion() {
     if (!deletionPeriod || !deletionPreview) return;
+
+    // M-3: Pflichtbegründung im ABSENDEPFAD statt als stumme Sperre. Beide Sätze wörtlich aus
+    // dem Textbuch (13-UI-SPEC.md, "Fehlermeldungen (Validierung)"), getrimmt geprüft — dieselbe
+    // Zählweise wie der Zeichenzähler unter dem Feld und wie der Server
+    // (`workPeriodDeletionService.validateDeletionInput()`). Kein Serveraufruf in diesem Fall.
+    const trimmedDeletionReason = deletionReason.trim();
+    if (trimmedDeletionReason.length < 10) {
+      setDeletionReasonError(
+        trimmedDeletionReason.length === 0
+          ? 'Begründung ist erforderlich'
+          : 'Begründung muss mindestens 10 Zeichen lang sein'
+      );
+      deletionReasonRef.current?.focus();
+      return;
+    }
+
     setDeletionError('');
     const deletedValidFrom = deletionPeriod.validFrom;
     try {
@@ -398,7 +426,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         userId: deletionPeriod.userId,
         input: {
           periodId: deletionPeriod.id,
-          reason: deletionReason.trim(),
+          reason: trimmedDeletionReason,
           previewToken: deletionPreview.previewToken,
         },
       });
@@ -406,6 +434,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       setDeletionPreview(null);
       setDeletionPreviewFailed(false);
       setDeletionReason('');
+      setDeletionReasonError('');
       setDeletionStaleFailureCount(0);
       if (outcome) {
         showPeriodBanner(
@@ -530,11 +559,18 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
         <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
           <Textarea
+            ref={deletionReasonRef}
             label="Begründung (Pflicht)"
             value={deletionReason}
-            onChange={(e) => setDeletionReason(e.target.value)}
+            onChange={(e) => {
+              setDeletionReason(e.target.value);
+              setDeletionReasonError('');
+            }}
             rows={3}
-            helperText={`${deletionReason.length}/10 Zeichen (Minimum)`}
+            error={deletionReasonError || undefined}
+            // M-3: getrimmt gezählt — dieselbe Zählweise, die über das Löschen entscheidet.
+            // Vorher zeigten zehn Leerzeichen "10/10 Zeichen (Minimum)" bei gesperrtem Knopf.
+            helperText={`${deletionReason.trim().length}/10 Zeichen (Minimum)`}
             required
           />
         </div>
@@ -1072,13 +1108,16 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         confirmAriaLabel={deletionPeriod ? deleteConfirmAriaLabel(deletionPeriod.validFrom) : undefined}
         variant="danger"
         zIndexClass="z-[60]"
-        confirmDisabled={
-          isDeleteConfirmDisabled({
-            previewReady: deletionPreviewState === 'ready',
-            previewFailed: deletionPreviewState === 'error',
-            isDeleting: deleteM.isPending,
-          }) || deletionReason.trim().length < 10
-        }
+        // M-3: Die Pflichtbegründung sperrt den Knopf NICHT mehr — sie wird in
+        // `handleConfirmDeletion()` geprüft und meldet sich als Feldfehler an der Textarea.
+        // Die drei verbliebenen Sperrgründe erklären sich im `details`-Panel selbst
+        // („Auswirkung wird berechnet …", der Fehlertext mit „Erneut berechnen", der Spinner
+        // im Knopf).
+        confirmDisabled={isDeleteConfirmDisabled({
+          previewReady: deletionPreviewState === 'ready',
+          previewFailed: deletionPreviewState === 'error',
+          isDeleting: deleteM.isPending,
+        })}
         confirmLoading={deleteM.isPending}
         cancelDisabled={deleteM.isPending}
         closeOnConfirm={false}

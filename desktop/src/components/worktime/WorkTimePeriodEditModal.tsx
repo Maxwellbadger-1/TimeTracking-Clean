@@ -525,10 +525,11 @@ export function WorkTimePeriodEditModal({
   }
 
   const primaryButtonLabelText = primaryButtonLabel(isRetroactive);
+  // M-3: Die Pflichtbegründung sperrt den Knopf NICHT mehr stumm — sie wird im Absendepfad
+  // geprüft (`validateForm()` → Feldfehler + Fokus, Zustand 11 des Designvertrags).
   const primaryButtonDisabled = isPrimaryDisabled({
     hasPreviewToken: !!preview,
     isSaving,
-    trimmedReasonLength: reason.trim().length,
   });
 
   return (
@@ -657,7 +658,11 @@ export function WorkTimePeriodEditModal({
           value={reason}
           onChange={handleReasonChange}
           error={fieldErrors.reason}
-          helperText={`${reason.length}/10 Zeichen (Minimum)`}
+          // M-3: Der Zähler zählt GETRIMMT — dieselbe Zählweise, die über das Speichern
+          // entscheidet (`validateCorrectionForm()` und der Server prüfen beide getrimmt).
+          // Vorher zeigten zehn Leerzeichen "10/10 Zeichen (Minimum)" bei einer Begründung,
+          // die nirgends als ausreichend galt.
+          helperText={`${reason.trim().length}/10 Zeichen (Minimum)`}
           rows={4}
           required
           placeholder="Warum war der bisherige Wert falsch? Zum Beispiel: Vertrag von Anfang an mit 30 h geschlossen, bei der Anlage 40 h eingetragen (mindestens 10 Zeichen)"

@@ -118,14 +118,25 @@ export function primaryButtonLabel(isRetroactive: boolean): string {
   return isRetroactive ? 'Korrektur rückwirkend speichern' : 'Korrektur speichern';
 }
 
-/** Der Primaerknopf ist gesperrt, solange kein previewToken vorliegt, waehrend gespeichert
- *  wird, oder solange die (getrimmte) Begruendung kuerzer als 10 Zeichen ist. */
-export function isPrimaryDisabled(args: {
-  hasPreviewToken: boolean;
-  isSaving: boolean;
-  trimmedReasonLength: number;
-}): boolean {
-  return !args.hasPreviewToken || args.isSaving || args.trimmedReasonLength < 10;
+/**
+ * Der Primaerknopf ist gesperrt, solange kein previewToken vorliegt oder waehrend gespeichert
+ * wird.
+ *
+ * M-3 (UI-Review Phase 13): Die Bedingung `trimmedReasonLength < 10` ist hier ENTFALLEN. Sie
+ * sperrte den Knopf stumm — es erschien nie eine Meldung, und weil `handleSubmit()` bei
+ * gesperrtem Knopf gar nicht feuert, war Zustand 11 des Designvertrags ("Feldfehler an der
+ * Textarea; Fokus springt auf das Feld") im laufenden Betrieb nicht erreichbar. Die beiden
+ * dafuer vorgesehenen Saetze aus `validateCorrectionForm()` ("Begruendung ist erforderlich",
+ * "Begruendung muss mindestens 10 Zeichen lang sein") waren toter Code.
+ *
+ * Die Pflichtbegruendung wird deshalb jetzt im ABSENDEPFAD geprueft — dasselbe Muster wie im
+ * Nachbardialog aus Phase 12 (`WorkTimeChangeModal.handleSubmit()` → `validateForm()`), und
+ * dasselbe, was der Server tut. Die verbleibenden zwei Sperrgruende erklaeren sich in der
+ * Oberflaeche von selbst: ohne Vorschau steht der Wartetext im Vorschaupanel, waehrend des
+ * Speicherns steht der Spinner im Knopf.
+ */
+export function isPrimaryDisabled(args: { hasPreviewToken: boolean; isSaving: boolean }): boolean {
+  return !args.hasPreviewToken || args.isSaving;
 }
 
 export interface CorrectionFormErrors {

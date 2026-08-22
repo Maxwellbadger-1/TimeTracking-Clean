@@ -54,25 +54,22 @@ test('primaryButtonLabel(false) liefert den nicht-rückwirkenden Text', () => {
   assert.equal(primaryButtonLabel(false), 'Korrektur speichern');
 });
 
-// 3. isPrimaryDisabled für alle acht Kombinationen der drei Eingaben.
-test('isPrimaryDisabled deckt alle acht Kombinationen korrekt ab', () => {
+// 3. isPrimaryDisabled für alle vier Kombinationen der zwei verbliebenen Eingaben.
+test('isPrimaryDisabled deckt alle vier Kombinationen korrekt ab', () => {
   const boolValues = [true, false];
-  const reasonLengths = [5, 10];
   let combinationCount = 0;
   for (const hasPreviewToken of boolValues) {
     for (const isSaving of boolValues) {
-      for (const trimmedReasonLength of reasonLengths) {
-        combinationCount++;
-        const expected = !hasPreviewToken || isSaving || trimmedReasonLength < 10;
-        assert.equal(
-          isPrimaryDisabled({ hasPreviewToken, isSaving, trimmedReasonLength }),
-          expected,
-          `hasPreviewToken=${hasPreviewToken} isSaving=${isSaving} trimmedReasonLength=${trimmedReasonLength}`
-        );
-      }
+      combinationCount++;
+      const expected = !hasPreviewToken || isSaving;
+      assert.equal(
+        isPrimaryDisabled({ hasPreviewToken, isSaving }),
+        expected,
+        `hasPreviewToken=${hasPreviewToken} isSaving=${isSaving}`
+      );
     }
   }
-  assert.equal(combinationCount, 8);
+  assert.equal(combinationCount, 4);
 });
 
 // 4. validateCorrectionForm — neun Fehlerlagen, jeweils die VOLLSTÄNDIGE Zeichenkette (kein
@@ -255,7 +252,27 @@ test('validateCorrectionForm: Tagesplansumme über 60 h wird clientseitig abgewi
   );
 });
 
-// 7. M-1 (UI-Review Phase 13, BLOCKER, REQ-30) — die Serverantwort schlägt die Clientrechnung.
+// 7. M-3 (UI-Review Phase 13): Die Begründung sperrt den Primärknopf NICHT mehr — sonst feuert
+//    `handleSubmit()` nie, und Zustand 11 („Feldfehler an der Textarea; Fokus springt auf das
+//    Feld") bliebe unerreichbar. Der Riegel steht stattdessen im Absendepfad, mit denselben
+//    zwei Sätzen aus dem Textbuch, und er zählt getrimmt — genau wie der Zeichenzähler unter
+//    dem Feld seit diesem Fix.
+test('M-3: eine zu kurze Begründung sperrt den Primärknopf nicht mehr stumm', () => {
+  assert.equal(isPrimaryDisabled({ hasPreviewToken: true, isSaving: false }), false);
+  // Der Absendepfad hält sie trotzdem auf — mit einem Satz, den der Anwender lesen kann.
+  assert.equal(
+    validateCorrectionForm({ ...baseArgs, reason: '          ' }).reason,
+    'Begründung ist erforderlich'
+  );
+  assert.equal(
+    validateCorrectionForm({ ...baseArgs, reason: '  zu kurz  ' }).reason,
+    'Begründung muss mindestens 10 Zeichen lang sein'
+  );
+  // Zehn Leerzeichen sind keine Begründung — der Zähler zeigt dafür seit M-3 "0/10".
+  assert.equal('          '.trim().length, 0);
+});
+
+// 8. M-1 (UI-Review Phase 13, BLOCKER, REQ-30) — die Serverantwort schlägt die Clientrechnung.
 //
 //    Der Fall aus dem Review, nicht konstruiert: Periode ab 01.01.2026, offenes Ende, heute ist
 //    der 23.08.2026. Der Admin stellt fest, dass die Umstellung erst im Oktober galt, und setzt
@@ -380,5 +397,5 @@ test('M-1: Vorab-Weiche ohne Vorschau — Beginn vorgezogen, Gleichstand, leeres
   );
 });
 
-assert.ok(testCount >= 21, `Erwartet mindestens 21 Testfälle, gefunden ${testCount}`);
+assert.ok(testCount >= 22, `Erwartet mindestens 22 Testfälle, gefunden ${testCount}`);
 console.log(`\n${testCount} Tests bestanden.`);
