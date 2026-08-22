@@ -110,27 +110,41 @@ async function createAdmin() {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `);
 
-    const result = stmt.run(
-      username,
-      email,
-      hashedPassword,
-      firstName,
-      lastName,
-      'admin',
-      'active',
-      40,
-      30
-    );
+    // WR-04: Nutzeranlage UND Startperiode in EINER Transaktion.
+    //
+    // Vorher waren `INSERT INTO users` und `ensureInitialWorkPeriod()` zwei getrennte
+    // Schreibvorgänge. Scheiterte der zweite — Trigger aus Migration 008, gesperrte Datei,
+    // `getUserById()` liefert undefined — blieb ein Admin OHNE Periode zurück: genau der
+    // Zustand, den der Kommentar darüber verhindern will, und beim allerersten Nutzer eines
+    // Systems fällt er sofort auf die Füße (D4: jede Sollstundenberechnung wirft dann).
+    // `createUser()` in userService.ts macht es bereits richtig; hier dieselbe Klammer.
+    const createAdminAndPeriod = db.transaction((): number => {
+      const result = stmt.run(
+        username,
+        email,
+        hashedPassword,
+        firstName,
+        lastName,
+        'admin',
+        'active',
+        40,
+        30
+      );
 
-    const newAdminId = result.lastInsertRowid as number;
+      const adminId = result.lastInsertRowid as number;
 
-    // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses
-    // ersten Nutzers mit einem harten Fehler ab (MissingWorkPeriodError).
-    const createdAdmin = getUserById(newAdminId);
-    if (!createdAdmin) {
-      throw new Error(`create-admin: Nutzer ${newAdminId} nach Anlage nicht gefunden`);
-    }
-    ensureInitialWorkPeriod(createdAdmin, null);
+      // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses
+      // ersten Nutzers mit einem harten Fehler ab (MissingWorkPeriodError).
+      const createdAdmin = getUserById(adminId);
+      if (!createdAdmin) {
+        throw new Error(`create-admin: Nutzer ${adminId} nach Anlage nicht gefunden`);
+      }
+      ensureInitialWorkPeriod(createdAdmin, null);
+
+      return adminId;
+    });
+
+    createAdminAndPeriod();
 
     console.log('\n✅ Admin-User erfolgreich erstellt!');
     console.log('\n📋 Login-Daten:');
