@@ -257,13 +257,17 @@ describe('UnifiedOvertimeService', () => {
         '2026-02-01'
       );
       const febUserId = febUserResult.lastInsertRowid as number;
-      insertTestWorkPeriod(febUserId, {
-        validFrom: '2026-02-01',
-        weeklyHours: 10,
-        workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 },
-      });
 
       try {
+        // Plan 11-05: Periode innerhalb des try-Blocks anlegen, damit ein Fehlschlag
+        // hier ebenfalls das finally-Aufräumen auslöst (sonst bleibt der Testnutzer bei
+        // einem Fehler in der Fixture in der gemeinsam genutzten Arbeitsdatenbank liegen).
+        insertTestWorkPeriod(febUserId, {
+          validFrom: '2026-02-01',
+          weeklyHours: 10,
+          workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2, saturday: 0, sunday: 0 },
+        });
+
         // Calculate January (before hire date)
         const janResult = unifiedOvertimeService.calculateMonthlyOvertime(febUserId, '2026-01');
 
@@ -304,13 +308,15 @@ describe('UnifiedOvertimeService', () => {
         '2026-02-01'
       );
       const febFirstUserId = febFirstUserResult.lastInsertRowid as number;
-      insertTestWorkPeriod(febFirstUserId, {
-        validFrom: '2026-02-01',
-        weeklyHours: 10,
-        workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 },
-      });
 
       try {
+        // Plan 11-05: Periode innerhalb des try-Blocks anlegen (Begründung s. o.).
+        insertTestWorkPeriod(febFirstUserId, {
+          validFrom: '2026-02-01',
+          weeklyHours: 10,
+          workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2, saturday: 0, sunday: 0 },
+        });
+
         // Add 4h correction for Feb 5th (within calculation period Feb 1-6)
         db.prepare(`
           INSERT INTO overtime_corrections (userId, date, hours, reason, correctionType, createdBy)

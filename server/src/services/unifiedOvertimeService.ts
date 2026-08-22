@@ -20,6 +20,8 @@ import { getDailyTargetHours } from '../utils/workingDays.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import type { UserPublic } from '../types/index.js';
 import logger from '../utils/logger.js';
+import type { WorkPeriodContext } from './workPeriodContext.js';
+import { createWorkPeriodContext, directWorkPeriodLookup } from './workPeriodContext.js';
 
 /**
  * Daily overtime calculation result
@@ -104,15 +106,28 @@ export class UnifiedOvertimeService {
    *
    * @param userId - User ID
    * @param date - Date in YYYY-MM-DD format
+   * @param periods - Perioden-Kontext (Plan 11-05). Vorgabewert `directWorkPeriodLookup`:
+   *   Diese Dienstmethode wird auch von Routen aufgerufen, die keinen eigenen
+   *   Berechnungslauf kennen und daher keinen Kontext übergeben (D3 verlangt für
+   *   `getDailyTargetHours` selbst einen Pflichtparameter, damit der Compiler jede
+   *   Aufrufstelle im Projekt erzwingt — dieser Vorgabewert hier hält stattdessen die
+   *   Signatur der Routen-Aufrufer stabil und liefert nach D2 dieselbe Semantik: kein
+   *   prozessweiter Cache, nur ohne Vorladen). `calculateMonthlyOvertime`/
+   *   `calculatePeriodOvertime` reichen ihren eigenen, einmal je Lauf gebauten Kontext
+   *   durch, statt sich auf diesen Vorgabewert zu verlassen.
    * @returns Daily overtime result
    */
-  calculateDailyOvertime(userId: number, date: string): DailyOvertimeResult {
+  calculateDailyOvertime(
+    userId: number,
+    date: string,
+    periods: WorkPeriodContext = directWorkPeriodLookup
+  ): DailyOvertimeResult {
     const user = this.getUser(userId);
     if (!user) {
       throw new Error(`User ${userId} not found`);
     }
 
-    const rawTargetHours = getDailyTargetHours(user, date);
+    const rawTargetHours = getDailyTargetHours(user, date, periods);
 
     // Unbezahlter Urlaub: Soll auf 0 reduzieren, keine Ist-Gutschrift
     const unpaidReduction = this.getUnpaidReduction(userId, date, rawTargetHours);
@@ -144,9 +159,18 @@ export class UnifiedOvertimeService {
    *
    * @param userId - User ID
    * @param month - Month in YYYY-MM format
+   * @param periods - Perioden-Kontext (Plan 11-05, D1). Vorgabewert baut einen neuen
+   *   `createWorkPeriodContext()` bei JEDEM Aufruf (Parameter-Default, kein
+   *   Modul-Konstanten-Objekt) — dadurch lädt ein Monatslauf die Perioden des Nutzers
+   *   genau einmal, nicht einmal je Tag, ohne einen in D2 verbotenen prozessweiten Cache
+   *   zu erzeugen.
    * @returns Monthly overtime result
    */
-  calculateMonthlyOvertime(userId: number, month: string): MonthlyOvertimeResult {
+  calculateMonthlyOvertime(
+    userId: number,
+    month: string,
+    periods: WorkPeriodContext = createWorkPeriodContext()
+  ): MonthlyOvertimeResult {
     const user = this.getUser(userId);
     if (!user) {
       throw new Error(`User ${userId} not found`);
@@ -187,7 +211,7 @@ export class UnifiedOvertimeService {
     const dailyResults: DailyOvertimeResult[] = [];
     for (let d = new Date(effectiveStartDate); d <= effectiveEndDate; d.setDate(d.getDate() + 1)) {
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const dailyResult = this.calculateDailyOvertime(userId, dateStr);
+      const dailyResult = this.calculateDailyOvertime(userId, dateStr, periods);
       dailyResults.push(dailyResult);
     }
 
@@ -234,12 +258,15 @@ export class UnifiedOvertimeService {
    * @param userId - User ID
    * @param startDate - Start date in YYYY-MM-DD format
    * @param endDate - End date in YYYY-MM-DD format
+   * @param periods - Perioden-Kontext (Plan 11-05, D1) — wie bei `calculateMonthlyOvertime`
+   *   ein frischer `createWorkPeriodContext()` je Aufruf.
    * @returns Period overtime result
    */
   calculatePeriodOvertime(
     userId: number,
     startDate: string,
-    endDate: string
+    endDate: string,
+    periods: WorkPeriodContext = createWorkPeriodContext()
   ): PeriodOvertimeResult {
     const user = this.getUser(userId);
     if (!user) {
@@ -257,7 +284,7 @@ export class UnifiedOvertimeService {
     const dailyResults: DailyOvertimeResult[] = [];
     for (let d = new Date(effectiveStartDate); d <= requestedEnd; d.setDate(d.getDate() + 1)) {
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      const dailyResult = this.calculateDailyOvertime(userId, dateStr);
+      const dailyResult = this.calculateDailyOvertime(userId, dateStr, periods);
       dailyResults.push(dailyResult);
     }
 
