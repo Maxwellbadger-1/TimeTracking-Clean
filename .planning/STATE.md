@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 11-10-PLAN.md
+stopped_at: Phase 11 verifiziert (10/10), Phase 12 geplant
 last_updated: "2026-08-22T12:13:26.558Z"
-last_activity: 2026-08-22 -- Phase 12 planning complete
+last_activity: 2026-08-22 -- Phase 11 Code-Review (2 Iterationen, 33 Fixes) und Verifikation abgeschlossen
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 31
   completed_plans: 22
-  percent: 43
+  percent: 57
 ---
 
 # Project State
@@ -21,16 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 11 — Datumsabhängige Berechnung
+**Current focus:** Phase 12 — Stundenwechsel bedienen
 
 ## Current Status
 
-- **Phase:** 11 von 14 — 10 von 11 Plänen abgeschlossen, nur 11-10 offen
+- **Phase:** 12 von 14 — 9 Pläne in 5 Wellen, Ausführung startet
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 11-10 ausführen (Nullwirkungs- und Wirkungsnachweis auf echten Daten, D5/D6, REQ-25), danach Phase 9.1 (Journal-Backfill, noch ohne Pläne, siehe Warnhinweis unten) und Phase 12 (`/gsd:plan-phase 12`).
-- **Last completed:** 11-09-PLAN.md (Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün)
-- **Stopped at:** Completed 11-10-PLAN.md
+- **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
+- **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
+- **Stopped at:** Phase 11 verifiziert, Phase 12 geplant
+
+**Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
+UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
+aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Phase Progress
 
@@ -41,8 +45,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | 9 | Ein Maßstab, ein Weg | Complete (5/5 Pläne), verifiziert 11/11 — REQ-17 bis REQ-19 |
 | 9.1 | Journal-Backfill und Betriebs-Härtung | Noch keine Pläne (verankert, NICHT erledigt) — läuft mit dem Produktionslauf der Phase 14 |
 | 10 | Perioden-Fundament | Complete (6/6 Pläne), verifiziert 4/4 — REQ-20 bis REQ-22 |
-| 11 | Datumsabhängige Berechnung | 10 von 11 Plänen abgeschlossen (11-10 offen) — REQ-23 bis REQ-25 |
-| 12 | Stundenwechsel bedienen | Nicht begonnen — UI-SPEC abgenommen, Planung offen — REQ-26 bis REQ-29 |
+| 11 | Datumsabhängige Berechnung | Complete (11/11 Pläne), Review 2 Iterationen / 33 Fixes, verifiziert 10/10 — REQ-23 bis REQ-25 |
+| 12 | Stundenwechsel bedienen | Geplant (9 Pläne, 5 Wellen), plan-checker PASSED — REQ-26 bis REQ-29 |
 | 13 | Korrigieren und rückgängig machen | Nicht begonnen — UI-SPEC abgenommen, Planung offen — REQ-30 bis REQ-31 |
 | 14 | Absicherung und Auslieferung | Nicht begonnen — Kontext gesetzt — REQ-32 bis REQ-33 |
 
