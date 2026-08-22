@@ -7,11 +7,17 @@
  * `[validFrom, validTo)` (D1): `validFrom` inklusiv, `validTo` exklusiv, `validTo = NULL`
  * heißt laufende Periode.
  *
- * DIE EINE AUFLÖSUNGSSTELLE: `resolveWorkPeriodAt()` ist im gesamten Projekt die einzige
- * Stelle, an der eine Periode zu einem Datum aufgelöst wird. Die Lehre aus Phase 9
- * (`09-INVENTAR-KREDITIERUNG.md`) war, dass dieselbe fachliche Regel in zwölf Kopien
+ * DIE EINE AUFLÖSUNGSSTELLE: `resolveWorkPeriodIn()` ist im gesamten Projekt die einzige
+ * Stelle, an der eine Periode zu einem Datum aufgelöst wird — eine reine, datenbankfreie
+ * Funktion auf einer bereits geladenen Periodenliste. `resolveWorkPeriodAt()` ist ihr
+ * Datenbank-Vorspann: lädt die Perioden eines Nutzers und delegiert sofort an
+ * `resolveWorkPeriodIn()`. Seit Plan 11-02 gibt es damit auch keine SQL-Kopie der
+ * Intervallbedingung mehr — vorher stand `validFrom <= ? AND (validTo IS NULL OR validTo > ?)`
+ * sowohl hier als auch (nach D1, Phase 11) im vorladenden Kontext-Cache. Die Lehre aus
+ * Phase 9 (`09-INVENTAR-KREDITIERUNG.md`) war, dass dieselbe fachliche Regel in zwölf Kopien
  * existierte, vier davon aktiv und untereinander abweichend. Kein Skript, kein Test und
- * kein späterer Aufrufer (Phase 11) baut eine zweite Auflösung — jeder ruft diese Funktion.
+ * kein späterer Aufrufer (Phase 11) baut eine zweite Auflösung — jeder ruft `resolveWorkPeriodIn`
+ * (direkt oder über `resolveWorkPeriodAt`/`workPeriodContext.ts`, Plan 11-02).
  *
  * ZEITZONENFREIHEIT IST STRUKTURELL, NICHT DISZIPLIN: Das Konstruieren eines Date-Objekts
  * aus der Zeichenkette '2026-08-01' liest als UTC-Mitternacht, also 02:00 Berliner
@@ -203,27 +209,44 @@ export function getCurrentWorkPeriod(userId: number): UserWorkPeriod | null {
 }
 
 /**
- * DIE EINE Auflösungsstelle: löst die zu `date` gültige Periode eines Nutzers auf.
+ * DIE EINE Auflösungsstelle: löst die zu `date` gültige Periode innerhalb einer bereits
+ * geladenen Periodenliste auf. Reine Funktion — kein Datenbankzugriff, keine Reihenfolge-
+ * Annahme über `periods` hinaus (die Trigger aus Migration 008 garantieren höchstens eine
+ * treffende Periode je Datum).
  *
  * Nimmt ausschließlich eine Zeichenkette im Format YYYY-MM-DD entgegen — kein Date-Objekt.
- * Die Abfrage bildet exakt das halboffene Intervall aus D1:
- * `validFrom <= date AND (validTo IS NULL OR validTo > date)`. Kein `new Date`, kein
- * `date()`/`strftime()`-SQL-Aufruf: ISO-Datum (`YYYY-MM-DD`) sortiert als Zeichenkette
- * lexikografisch identisch zur chronologischen Ordnung, ein reiner TEXT-Vergleich ist daher
- * exakt und zeitzonenfrei. Jeder Aufrufer muss sein Datum bereits als `YYYY-MM-DD` bilden,
- * wie es `formatDateBerlin(date, 'yyyy-MM-dd')` im Projekt tut.
+ * Bildet exakt das halboffene Intervall aus D1: `validFrom <= date AND (validTo IS NULL OR
+ * validTo > date)`. Kein `new Date`, kein `date()`/`strftime()`-Aufruf: ISO-Datum
+ * (`YYYY-MM-DD`) sortiert als Zeichenkette lexikografisch identisch zur chronologischen
+ * Ordnung, ein reiner Zeichenkettenvergleich ist daher exakt und zeitzonenfrei. Jeder
+ * Aufrufer muss sein Datum bereits als `YYYY-MM-DD` bilden, wie es
+ * `formatDateBerlin(date, 'yyyy-MM-dd')` im Projekt tut.
+ *
+ * Wird von `resolveWorkPeriodAt()` (Datenbank-Vorspann) und ab Plan 11-02 von
+ * `workPeriodContext.ts` (vorladender Cache, D1/D2) aufgerufen — beide Aufrufer bauen die
+ * Intervall-Bedingung nicht selbst nach.
+ */
+export function resolveWorkPeriodIn(periods: UserWorkPeriod[], date: string): UserWorkPeriod | null {
+  assertDateFormat(date, 'date');
+
+  for (const period of periods) {
+    if (period.validFrom <= date && (period.validTo === null || period.validTo > date)) {
+      return period;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Datenbank-Vorspann zu `resolveWorkPeriodIn()`: lädt die Perioden eines Nutzers und löst
+ * sofort im Speicher auf. Enthält selbst keine Intervall-Logik mehr (Plan 11-02) — die
+ * Auswahl passiert ausschließlich in `resolveWorkPeriodIn`.
  */
 export function resolveWorkPeriodAt(userId: number, date: string): UserWorkPeriod | null {
   assertDateFormat(date, 'date');
 
-  const row = db
-    .prepare(
-      `SELECT ${SELECT_COLUMNS} FROM user_work_periods
-       WHERE userId = ? AND validFrom <= ? AND (validTo IS NULL OR validTo > ?)`
-    )
-    .get(userId, date, date) as UserWorkPeriodRow | undefined;
-
-  return row ? rowToWorkPeriod(row) : null;
+  return resolveWorkPeriodIn(getWorkPeriods(userId), date);
 }
 
 export interface CreateWorkPeriodInput {
