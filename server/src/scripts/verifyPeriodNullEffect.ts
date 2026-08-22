@@ -258,10 +258,30 @@ interface UserResult {
   daysChecked: number;
   daysDeviating: number;
   firstDeviations: DeviationEntry[];
+  /** WR-13: Tage, an denen `getDailyTargetHours()` MissingWorkPeriodError geworfen hat.
+   *  Eigene Ergebniskategorie statt Abbruch beim ersten betroffenen Nutzer. */
+  daysWithoutPeriod: number;
+  /** Die ersten betroffenen Datumsangaben, damit der Befund nachvollziehbar ist. */
+  firstMissingPeriodDates: string[];
 }
 
 function sha256File(filePath: string): string {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+/**
+ * WR-13: Größe der WAL-Datei neben der Hauptdatei, oder `null`, wenn keine existiert.
+ *
+ * Der SHA-256-Vergleich lief bisher ausschließlich über die HAUPTDATEI, und der Hash
+ * wurde gebildet, BEVOR die geteilte Verbindung überhaupt geöffnet war. Die Verbindung
+ * schaltet `journal_mode = WAL`: Schreibvorgänge landen dann zunächst in `<datei>-wal`,
+ * die Hauptdatei bleibt bis zum Checkpoint byteweise identisch. Der Lauf konnte also
+ * "Unversehrtheit: ja" melden, obwohl geschrieben wurde — der Nachweis war schwächer, als
+ * er behauptete. Die WAL-Größe wird deshalb mitgeführt und mitgemeldet.
+ */
+function walSize(dbPath: string): number | null {
+  const walPath = `${dbPath}-wal`;
+  return existsSync(walPath) ? statSync(walPath).size : null;
 }
 
 async function main(): Promise<void> {
@@ -288,13 +308,8 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const fileSizeBefore = statSync(resolvedPath).size;
-  const shaBefore = sha256File(resolvedPath);
-
   console.log('=== verifyPeriodNullEffect: Ausgangslage ===');
   console.log(`Aufgelöster Datenbankpfad: ${resolvedPath}`);
-  console.log(`Dateigröße (vor Lauf): ${fileSizeBefore} Bytes`);
-  console.log(`SHA-256 (vor Lauf): ${shaBefore}`);
   console.log(`asOf: ${asOf}`);
   console.log(
     `Erwartete abweichende userIds: ${erwarteAbweichung.length > 0 ? JSON.stringify(erwarteAbweichung) : '(keine — Nullwirkung erwartet)'}`
@@ -303,9 +318,26 @@ async function main(): Promise<void> {
 
   // Erst JETZT, NACH dem Guard, werden die datenbankziehenden Module geladen.
   const { db } = await import('../database/connection.js');
-  const { getDailyTargetHours } = await import('../utils/workingDays.js');
+  const { getDailyTargetHours, MissingWorkPeriodError } = await import('../utils/workingDays.js');
   const { createWorkPeriodContext } = await import('../services/workPeriodContext.js');
   const { formatDate } = await import('../utils/timezone.js');
+
+  // WR-13: Der Ausgangs-Hash wird ERST HIER gebildet — nach dem Öffnen der Verbindung
+  // (die beim Import `initializeDatabase()`/`createIndexes()` ausführt) und nach einem
+  // vollständigen WAL-Checkpoint. Damit steht die gesamte Datenbank zum Messzeitpunkt in
+  // der Hauptdatei, und `-wal` ist leer. Derselbe Checkpoint läuft am Ende noch einmal:
+  // Hat dieses Werkzeug zwischendurch nichts geschrieben, bewegt der zweite Checkpoint
+  // nichts und beide Hashes sind gleich. Vorher verglich der Lauf zwei Hashes einer
+  // Datei, in die wegen WAL ohnehin nichts geflossen wäre — der Nachweis konnte gar
+  // nicht fehlschlagen.
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  const fileSizeBefore = statSync(resolvedPath).size;
+  const shaBefore = sha256File(resolvedPath);
+  const walBefore = walSize(resolvedPath);
+  console.log(`Dateigröße (vor Lauf, nach WAL-Checkpoint): ${fileSizeBefore} Bytes`);
+  console.log(`SHA-256 (vor Lauf, nach WAL-Checkpoint): ${shaBefore}`);
+  console.log(`WAL-Größe (vor Lauf): ${walBefore === null ? '(keine WAL-Datei)' : `${walBefore} Bytes`}`);
+  console.log('');
 
   const rawUsers = db
     .prepare('SELECT id, hireDate, weeklyHours, workSchedule FROM users ORDER BY id ASC')
@@ -320,7 +352,15 @@ async function main(): Promise<void> {
   for (const row of rawUsers) {
     if (!row.hireDate) {
       console.log(`userId=${row.id}: kein hireDate — Prüfung übersprungen (0 Tage).`);
-      results.push({ userId: row.id, hireDateMissing: true, daysChecked: 0, daysDeviating: 0, firstDeviations: [] });
+      results.push({
+        userId: row.id,
+        hireDateMissing: true,
+        daysChecked: 0,
+        daysDeviating: 0,
+        firstDeviations: [],
+        daysWithoutPeriod: 0,
+        firstMissingPeriodDates: [],
+      });
       continue;
     }
 
@@ -348,10 +388,30 @@ async function main(): Promise<void> {
 
     let daysChecked = 0;
     let daysDeviating = 0;
+    let daysWithoutPeriod = 0;
     const firstDeviations: DeviationEntry[] = [];
+    const firstMissingPeriodDates: string[] = [];
 
     for (const dateStr of dateRange(row.hireDate, asOf, formatDate)) {
-      const neu = getDailyTargetHours(userForNeu, dateStr, periods);
+      // WR-13: `getDailyTargetHours()` kann seit D4 `MissingWorkPeriodError` werfen. Vorher
+      // lief der Fehler ungefangen bis in `main().catch()` und beendete den GESAMTEN Lauf
+      // mit "FATAL" — für ein Werkzeug, das den Bestand PRÜFEN soll, die falsche Reaktion:
+      // Statt einer Liste der betroffenen Nutzer bekam man einen Abbruch beim ersten.
+      // Jetzt eigene Ergebniskategorie, der Lauf geht weiter, die Zusammenfassung meldet es.
+      let neu: number;
+      try {
+        neu = getDailyTargetHours(userForNeu, dateStr, periods);
+      } catch (err) {
+        if (err instanceof MissingWorkPeriodError) {
+          daysChecked++;
+          daysWithoutPeriod++;
+          if (firstMissingPeriodDates.length < 20) {
+            firstMissingPeriodDates.push(dateStr);
+          }
+          continue;
+        }
+        throw err;
+      }
       const alt = altDailyTargetHours(db, row, dateStr);
       daysChecked++;
       if (neu !== alt) {
@@ -362,12 +422,26 @@ async function main(): Promise<void> {
       }
     }
 
-    console.log(`userId=${row.id}: geprüfte Tage=${daysChecked}, abweichende Tage=${daysDeviating}`);
+    console.log(
+      `userId=${row.id}: geprüfte Tage=${daysChecked}, abweichende Tage=${daysDeviating}, ` +
+      `Tage ohne Periode=${daysWithoutPeriod}`
+    );
     for (const dev of firstDeviations) {
       console.log(`  Abweichung ${dev.date}: ALT=${dev.alt} NEU=${dev.neu}`);
     }
+    for (const d of firstMissingPeriodDates) {
+      console.log(`  Periode fehlt ${d} (Datendefekt, D4)`);
+    }
 
-    results.push({ userId: row.id, hireDateMissing: false, daysChecked, daysDeviating, firstDeviations });
+    results.push({
+      userId: row.id,
+      hireDateMissing: false,
+      daysChecked,
+      daysDeviating,
+      firstDeviations,
+      daysWithoutPeriod,
+      firstMissingPeriodDates,
+    });
   }
 
   const deviatingUserIds = results.filter((r) => r.daysDeviating > 0).map((r) => r.userId).sort((a, b) => a - b);
@@ -383,12 +457,27 @@ async function main(): Promise<void> {
   console.log(`Erwartete abweichende userIds: ${JSON.stringify(expectedSorted)}`);
   console.log(`Übereinstimmung: ${matches ? 'ja' : 'nein'}`);
 
+  // WR-13: eigene Ergebniskategorie statt Abbruch beim ersten Nutzer.
+  const usersWithoutPeriod = results.filter((r) => r.daysWithoutPeriod > 0);
+  console.log(
+    `Nutzer mit fehlender Arbeitszeitperiode (Datendefekt, D4): ${usersWithoutPeriod.length}` +
+    (usersWithoutPeriod.length > 0 ? ` — userIds: ${JSON.stringify(usersWithoutPeriod.map((r) => r.userId))}` : '')
+  );
+
+  db.pragma('wal_checkpoint(TRUNCATE)');
   const fileSizeAfter = statSync(resolvedPath).size;
   const shaAfter = sha256File(resolvedPath);
-  console.log(`Dateigröße (nach Lauf): ${fileSizeAfter} Bytes`);
-  console.log(`SHA-256 (nach Lauf): ${shaAfter}`);
+  const walAfter = walSize(resolvedPath);
+  console.log(`Dateigröße (nach Lauf, nach WAL-Checkpoint): ${fileSizeAfter} Bytes`);
+  console.log(`SHA-256 (nach Lauf, nach WAL-Checkpoint): ${shaAfter}`);
+  console.log(`WAL-Größe (nach Lauf): ${walAfter === null ? '(keine WAL-Datei)' : `${walAfter} Bytes`}`);
   console.log(`Unversehrtheit (SHA-256 gleich): ${shaBefore === shaAfter ? 'ja' : 'NEIN — Werkzeug hat geschrieben'}`);
   console.log('');
+
+  if (usersWithoutPeriod.length > 0) {
+    console.log('ERGEBNIS: Datendefekt — Nutzer ohne Arbeitszeitperiode gefunden (Exit 1).');
+    process.exit(1);
+  }
 
   if (!matches) {
     console.log('ERGEBNIS: Abweichung von der Erwartung (Exit 1).');
