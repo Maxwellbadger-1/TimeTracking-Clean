@@ -3,6 +3,11 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Receipt, TrendingUp, TrendingDown, AlertCircle, FileText, Info } from 'lucide-react';
 import { formatHours } from '../../utils/timeUtils';
 import { useOvertimeTransactions } from '../../hooks/useWorkTimeAccounts';
+import {
+  documentedDeltaToneClass,
+  formatCreatedAtDe,
+  formatDocumentedDelta,
+} from './overtimeTransactionFormat';
 
 interface OvertimeTransactionsProps {
   userId?: number;
@@ -10,6 +15,7 @@ interface OvertimeTransactionsProps {
   month?: number;  // Filter by specific month (1-12)
   limit?: number;
 }
+
 
 /**
  * Overtime Transactions Component
@@ -150,6 +156,10 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
     return ['feiertag', 'vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_adjustment'].includes(type);
   };
 
+  // Die Fussnote zur nicht summierenden Modellwechsel-Zeile erscheint nur, wenn eine solche
+  // Zeile im angezeigten Zeitraum ueberhaupt vorkommt.
+  const hasModelChange = data.transactions.some((t) => t.type === 'model_change');
+
   return (
     <Card className="p-6">
       {/* Header */}
@@ -211,7 +221,7 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {data.transactions.map((transaction: any, index: number) => (
+            {data.transactions.map((transaction, index) => (
               <tr
                 key={`${transaction.date}-${transaction.type}-${index}`}
                 className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -243,17 +253,39 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
                   {transaction.type === 'model_change' && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Periode ab {new Date(transaction.date + 'T12:00:00').toLocaleDateString('de-DE')}
-                      {transaction.createdAt &&
-                        ` · eingetragen am ${new Date(
-                          transaction.createdAt.slice(0, 10) + 'T12:00:00'
-                        ).toLocaleDateString('de-DE')}`}
+                      {transaction.createdAt && formatCreatedAtDe(transaction.createdAt) &&
+                        ` · eingetragen am ${formatCreatedAtDe(transaction.createdAt)}`}
                       {transaction.adminName ? ` von ${transaction.adminName}` : ''}
                     </p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {isAbsenceType(transaction.type) ? (
+                    {transaction.type === 'model_change' ? (
+                      /*
+                       * Server-CR-01: Die Journalzeile ist eine reine Dokumentationszeile.
+                       * Ihr `hours` ist bewusst 0, weil die Wirkung der Umstellung bereits
+                       * in den neu gerechneten Tageszeilen steckt — wuerde sie zusaetzlich
+                       * summieren, laege die Summe der angezeigten Zeilen um genau diesen
+                       * Betrag ueber dem daneben angezeigten Saldo.
+                       *
+                       * "0,0 h" waere fuer den Leser aber falsch: die Umstellung HAT einen
+                       * Betrag bewirkt, er steht nur nicht in dieser Zeile. Deshalb zeigt
+                       * die Spalte den dokumentierten Betrag aus `documentedDelta` unter
+                       * einer ausdruecklichen Beschriftung, und die Fussnote unter der
+                       * Tabelle sagt, dass er nicht mitsummiert. Kein Trendpfeil — der ist
+                       * den summierenden Zeilen vorbehalten; Vorzeichen und Farbe tragen
+                       * die Richtung (Farbe ist nie alleiniger Traeger).
+                       */
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          dokumentierte Differenz
+                        </span>
+                        <span className={`font-bold ${documentedDeltaToneClass(transaction.documentedDelta)}`}>
+                          {formatDocumentedDelta(transaction.documentedDelta)}
+                        </span>
+                      </div>
+                    ) : isAbsenceType(transaction.type) ? (
                       // Absence types: neutral display (no icon, no hours shown)
                       <span className="text-gray-500 dark:text-gray-400 italic">
                         —
@@ -296,6 +328,13 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
           {year && !month && ` (${year})`}
           {limit && data.transactions.length >= limit && ` • Maximal ${limit} angezeigt`}
         </p>
+        {hasModelChange && (
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Zeilen vom Typ „Modellwechsel" dokumentieren die Differenz, die eine Umstellung des
+            Arbeitszeitmodells bewirkt hat. Der Betrag zählt <strong>nicht</strong> zusätzlich zum
+            Saldo — er steckt bereits in den neu gerechneten Tageszeilen ab dem Stichtag.
+          </p>
+        )}
       </div>
     </Card>
   );

@@ -216,6 +216,52 @@ export function useUpdateWorkTimeAccountSettings() {
  * @param month Optional month filter (1-12, requires year)
  * @param limit Optional limit (default: 50)
  */
+/**
+ * Eine Zeile des Ueberstunden-Kontoauszugs, so wie sie der Server auf
+ * `GET /overtime/transactions/live` liefert.
+ *
+ * WR-07 (Code-Review Phase 12): Der Typ war hier bereits vollstaendig deklariert, wurde im
+ * Renderpfad von `OvertimeTransactions.tsx` aber ueber `(transaction: any)` wieder verworfen
+ * — genau neben dem in dieser Phase eingefuegten `model_change`-Block. Deshalb steht er
+ * jetzt als exportierter Typ hier und wird dort verwendet; `.claude/CLAUDE.md` verbietet
+ * `any` ausdruecklich.
+ */
+export interface OvertimeTransactionRow {
+  date: string;
+  type:
+    | 'earned'
+    | 'feiertag'
+    | 'compensation'
+    | 'correction'
+    | 'carryover'
+    | 'vacation_credit'
+    | 'sick_credit'
+    | 'overtime_comp_credit'
+    | 'special_credit'
+    | 'unpaid_adjustment'
+    | 'model_change';
+  hours: number;
+  description: string;
+  source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays' | 'work_period';
+  referenceId?: number;
+  // Phase 12 (REQ-29): nur bei type === 'model_change' vom Server gesetzt.
+  createdAt?: string;
+  adminName?: string | null;
+  /**
+   * Phase 12, Server-CR-01: nur bei `type === 'model_change'` gesetzt. Traegt den in der
+   * Journalzeile dokumentierten Differenzbetrag, WAEHREND `hours` bei dieser Zeile bewusst
+   * 0 ist — die Wirkung der Umstellung steckt bereits in den neu gerechneten Tageszeilen.
+   * Dieses Feld darf deshalb NIEMALS in eine Summe eingehen, nur angezeigt werden.
+   */
+  documentedDelta?: number;
+}
+
+export interface OvertimeTransactionsResponse {
+  transactions: OvertimeTransactionRow[];
+  currentBalance: number;
+  userId: number;
+}
+
 export function useOvertimeTransactions(userId?: number, year?: number, month?: number, limit?: number) {
   return useQuery({
     queryKey: ['overtime-transactions', 'live', userId, year, month, limit],
@@ -253,21 +299,7 @@ export function useOvertimeTransactions(userId?: number, year?: number, month?: 
 
       // NEW: Use /live endpoint for real-time calculation
       const endpoint = `/overtime/transactions/live${params.toString() ? '?' + params.toString() : ''}`;
-      const response = await apiClient.get<{
-        transactions: Array<{
-          date: string;
-          type: 'earned' | 'feiertag' | 'compensation' | 'correction' | 'carryover' | 'vacation_credit' | 'sick_credit' | 'overtime_comp_credit' | 'special_credit' | 'unpaid_adjustment' | 'model_change';
-          hours: number;
-          description: string;
-          source: 'time_entries' | 'absence_requests' | 'overtime_corrections' | 'holidays' | 'work_period';
-          referenceId?: number;
-          // Phase 12 (REQ-29): nur bei type === 'model_change' vom Server gesetzt.
-          createdAt?: string;
-          adminName?: string | null;
-        }>;
-        currentBalance: number;
-        userId: number;
-      }>(endpoint);
+      const response = await apiClient.get<OvertimeTransactionsResponse>(endpoint);
       if (!response.success) throw new Error(response.error);
       return response.data;
     },
