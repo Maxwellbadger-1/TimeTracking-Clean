@@ -24,6 +24,7 @@ import {
 } from './overtimeTransactionService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
+import { createWorkPeriodContext, directWorkPeriodLookup } from './workPeriodContext.js';
 
 /**
  * Professional 3-Level Overtime Service
@@ -46,12 +47,14 @@ import { unifiedOvertimeService } from './unifiedOvertimeService.js';
  * @param endDate - End date for calculation (Date object, typically today or month end)
  * @returns Total absence credit hours for the month
  */
+// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
 function _calculateAbsenceCreditsForMonth(
   userId: number,
   month: string,
   hireDate: string,
   endDate: Date
 ): number {
+  const periods = createWorkPeriodContext();
   const monthStart = new Date(month + '-01');
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
@@ -106,7 +109,7 @@ function _calculateAbsenceCreditsForMonth(
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
       // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      absenceHours += getDailyTargetHours(user, dateStr);
+      absenceHours += getDailyTargetHours(user, dateStr, periods);
     }
 
     totalCreditHours += absenceHours;
@@ -141,12 +144,14 @@ function _calculateAbsenceCreditsForMonth(
  * @param endDate - End date for calculation
  * @returns Total unpaid leave hours to subtract from target
  */
+// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
 function _calculateUnpaidLeaveForMonth(
   userId: number,
   month: string,
   hireDate: string,
   endDate: Date
 ): number {
+  const periods = createWorkPeriodContext();
   const monthStart = new Date(month + '-01');
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
@@ -190,7 +195,7 @@ function _calculateUnpaidLeaveForMonth(
     for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
       // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
       const dateStr = formatDate(d, 'yyyy-MM-dd');
-      totalUnpaidHours += getDailyTargetHours(user, dateStr);
+      totalUnpaidHours += getDailyTargetHours(user, dateStr, periods);
     }
   }
 
@@ -221,8 +226,10 @@ interface WeeklyOvertime {
  *
  * Professional systems (SAP SuccessFactors, Personio, DATEV) require transparent transaction history.
  */
+// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
 function ensureAbsenceTransactionsForMonth(userId: number, month: string): void {
   console.log(`\n  🔧 ensureAbsenceTransactionsForMonth(userId=${userId}, month=${month})`);
+  const periods = createWorkPeriodContext();
 
   // WR (Plan 09-05 Task 4, dieselbe Ursache wie overtimeTransactionRebuildService.ts und
   // ensureAbsenceTransactions() oben): new Date(month + '-01') parst als UTC-Mitternacht
@@ -326,7 +333,7 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
       const dateStr = formatDate(d, 'yyyy-MM-dd');
 
       // Get target hours for this day (workSchedule-aware!)
-      const targetHours = getDailyTargetHours(user, dateStr);
+      const targetHours = getDailyTargetHours(user, dateStr, periods);
       if (targetHours === 0) continue; // Skip non-working days
 
       // Check if time entries exist for this day
@@ -367,7 +374,7 @@ function ensureAbsenceTransactionsForMonth(userId: number, month: string): void 
       const dateStr = formatDate(d, 'yyyy-MM-dd');
 
       // Calculate daily target hours (workSchedule-aware)
-      const dailyHours = getDailyTargetHours(user, dateStr);
+      const dailyHours = getDailyTargetHours(user, dateStr, periods);
 
       if (dailyHours === 0) {
         continue; // Skip days where user doesn't work (per workSchedule)
@@ -551,6 +558,7 @@ export function updateAllOvertimeLevels(userId: number, date: string): void {
  * @param userId User ID
  * @param date Date (YYYY-MM-DD)
  */
+// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
 // @deprecated Not currently used - kept for reference
 export function _updateOvertimeTransactionsForDate(userId: number, date: string): void {
   // Get user for workSchedule-aware calculation
@@ -567,7 +575,7 @@ export function _updateOvertimeTransactionsForDate(userId: number, date: string)
   }
 
   // Calculate target hours (respects holidays and workSchedule!)
-  const targetHours = getDailyTargetHours(user, date);
+  const targetHours = getDailyTargetHours(user, date, directWorkPeriodLookup);
 
   // Calculate actual hours
   const actualHours = db.prepare(`
@@ -697,6 +705,11 @@ export async function ensureOvertimeBalanceEntries(userId: number, upToMonth: st
     throw new Error(`User not found: ${userId}`);
   }
 
+  // D1/D2: ein Perioden-Kontext je Sicherstellungslauf, einmal am Funktionsanfang. Wird an
+  // calculateMonthlyOvertime() durchgereicht, damit nicht jeder Monat seinen eigenen Cache
+  // aufbaut und der Vorteil aus D1 verpufft.
+  const periods = createWorkPeriodContext();
+
   const hireDate = new Date(user.hireDate);
   const targetDate = new Date(upToMonth + '-01');
 
@@ -748,7 +761,7 @@ export async function ensureOvertimeBalanceEntries(userId: number, upToMonth: st
     // MIGRATION TO UNIFIED SERVICE: Use single source of truth for calculations
     // This ensures corrections are ALWAYS included (fixes User 6 & 7 bug)
     logger.debug({ month }, `🔄 Delegating to UnifiedOvertimeService for month ${month}`);
-    const monthlyResult = unifiedOvertimeService.calculateMonthlyOvertime(userId, month);
+    const monthlyResult = unifiedOvertimeService.calculateMonthlyOvertime(userId, month, periods);
 
     // Log the breakdown for debugging
     logger.debug({
@@ -811,6 +824,9 @@ export async function ensureDailyOvertimeTransactions(
     throw new Error(`User not found: ${userId}`);
   }
 
+  // D1/D2: ein Perioden-Kontext je Sicherstellungslauf, einmal am Funktionsanfang.
+  const periods = createWorkPeriodContext();
+
   // Parse month range
   const [startYear, startMonthNum] = startMonth.split('-').map(Number);
   const [endYear, endMonthNum] = endMonth.split('-').map(Number);
@@ -850,7 +866,7 @@ export async function ensureDailyOvertimeTransactions(
     }
 
     // Calculate overtime for this day
-    const targetHours = getDailyTargetHours(user, dateStr);
+    const targetHours = getDailyTargetHours(user, dateStr, periods);
     const actualHours = db.prepare(`
       SELECT COALESCE(SUM(hours), 0) as total
       FROM time_entries WHERE userId = ? AND date = ?
@@ -1266,6 +1282,9 @@ export async function ensureAbsenceTransactions(
     throw new Error(`User not found: ${userId}`);
   }
 
+  // D1/D2: ein Perioden-Kontext je Sicherstellungslauf, einmal am Funktionsanfang.
+  const periods = createWorkPeriodContext();
+
   // Parse month range
   const [startYear, startMonthNum] = startMonth.split('-').map(Number);
   const [endYear, endMonthNum] = endMonth.split('-').map(Number);
@@ -1350,7 +1369,7 @@ export async function ensureAbsenceTransactions(
       const dateStr = formatDate(d, 'yyyy-MM-dd');
 
       // Get target hours for this day (workSchedule-aware!)
-      const targetHours = getDailyTargetHours(user, dateStr);
+      const targetHours = getDailyTargetHours(user, dateStr, periods);
       if (targetHours === 0) continue; // Skip non-working days
 
       // Check if transaction already exists
