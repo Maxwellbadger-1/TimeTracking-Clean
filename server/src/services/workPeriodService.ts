@@ -160,7 +160,7 @@ function rowToWorkPeriod(row: UserWorkPeriodRow): UserWorkPeriod {
 function translateWorkPeriodError(err: unknown, context: string): never {
   if (err instanceof Error && err.message.includes('user_work_periods:')) {
     const detail = err.message.includes('Überlappung')
-      ? 'Die Periode überlappt mit einer bestehenden Periode desselben Nutzers.'
+      ? 'Überlappung mit einer bestehenden Periode desselben Nutzers.'
       : err.message.includes('Lücke')
       ? 'Die Periode würde eine Lücke zur bestehenden Periodenkette hinterlassen.'
       : `Die Datenbank hat die Änderung abgelehnt: ${err.message}`;
