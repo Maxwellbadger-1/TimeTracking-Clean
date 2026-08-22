@@ -320,7 +320,12 @@ function seedTestUsers(): void {
     department: 'IT',
     position: 'Project Manager',
     weeklyHours: 8, // WIRD IGNORIERT wegen workSchedule!
-    workSchedule: { monday: 4, tuesday: 4 }, // Nur Mo+Di Arbeitstage!
+    // Rule 1 (Bugfix, Plan 11-11, Task 3): workPeriodService.ts:parseWorkSchedule verlangt
+    // seit Phase 10 alle sieben Wochentagsschlüssel (Selbstverifikation beim Lesen einer
+    // Periode) - ein partielles Objekt wie vorher (nur monday/tuesday) ließ
+    // ensureInitialWorkPeriod() beim ersten Anlegen/Aktualisieren dieses Nutzers mit einem
+    // Fehler abbrechen. Fachlich unverändert: Mo+Di 4h, alle anderen Tage 0h.
+    workSchedule: { monday: 4, tuesday: 4, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 }, // Nur Mo+Di Arbeitstage!
     vacationDaysPerYear: 15,
     hireDate: '2025-01-01',
     status: 'active',
@@ -503,7 +508,9 @@ function seedTestUsers(): void {
     role: 'employee',
     department: 'IT',
     weeklyHours: 40, // WIRD IGNORIERT wegen workSchedule!
-    workSchedule: { monday: 10, tuesday: 10, wednesday: 10, thursday: 10 }, // Mo-Do 10h
+    // Rule 1 (Bugfix, Plan 11-11, Task 3): siehe Kommentar bei Christine (Zeile ~323) -
+    // dieselbe Ursache, fachlich unverändert: Mo-Do 10h, alle anderen Tage 0h.
+    workSchedule: { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 0, saturday: 0, sunday: 0 }, // Mo-Do 10h
     vacationDaysPerYear: 30,
     hireDate: '2025-01-01',
     status: 'active',
@@ -652,7 +659,9 @@ function seedTestUsers(): void {
     role: 'employee',
     department: 'Retail',
     weeklyHours: 16, // WIRD IGNORIERT wegen workSchedule!
-    workSchedule: { saturday: 8, sunday: 8 }, // Nur Sa+So Arbeitstage!
+    // Rule 1 (Bugfix, Plan 11-11, Task 3): siehe Kommentar bei Christine (Zeile ~323) -
+    // dieselbe Ursache, fachlich unverändert: Sa+So 8h, alle anderen Tage 0h.
+    workSchedule: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 8, sunday: 8 }, // Nur Sa+So Arbeitstage!
     vacationDaysPerYear: 15,
     hireDate: '2025-01-01',
     status: 'active',
@@ -746,7 +755,11 @@ async function main(): Promise<void> {
 
     process.exit(0);
   } catch (error) {
-    logger.error({ error }, '❌ Test user seeding failed! (ROLLBACK executed)');
+    // Rule 1 (Bugfix, Plan 11-11, Task 3): `{ error }` statt `{ err: error }` serialisiert
+    // mit dem Standard-Logger zu `{}` - pinos Default-Serializer greift nur beim Schlüssel
+    // `err` (Konvention wie in userService.ts). Ohne den Fix verschluckte jeder Fehlschlag
+    // dieses Skripts seine eigene Fehlermeldung.
+    logger.error({ err: error }, '❌ Test user seeding failed! (ROLLBACK executed)');
     process.exit(1);
   }
 }
