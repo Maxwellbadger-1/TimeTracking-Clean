@@ -6,8 +6,18 @@
  */
 
 import bcrypt from 'bcrypt';
-import Database from 'better-sqlite3';
 import * as readline from 'readline';
+// Rule 3 (Plan 11-11): Vorher `new Database('server/database.db')` fest verdrahtet -
+// ignorierte DATABASE_PATH vollständig. Blockierend für den geforderten Probelauf gegen
+// eine Wegwerfkopie (11-werkzeugprobe.db) und schrieb bei jedem Lauf in die tote Altlast
+// `server/database.db` statt in die konfigurierte Datenbank. Vorbild für den Weg über die
+// geteilte Verbindung aus der kompilierten Ausgabe: fix-overtime.ts. `db` respektiert
+// DATABASE_PATH über databaseConfig.path (server/src/config/database.ts:22).
+import { db } from '../dist/database/connection.js';
+// D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung des ersten
+// Nutzers des Systems mit einem harten Fehler ab. Einziger Schreibweg: ensureInitialWorkPeriod()
+// (aus der kompilierten userService.js, Plan 11-03) - kein zweiter, selbst gebauter Weg.
+import { ensureInitialWorkPeriod, getUserById } from '../dist/services/userService.js';
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -53,9 +63,6 @@ async function createAdmin() {
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Connect to database
-  const db = new Database('server/database.db');
 
   try {
     // Check if admin already exists
@@ -114,6 +121,16 @@ async function createAdmin() {
       40,
       30
     );
+
+    const newAdminId = result.lastInsertRowid as number;
+
+    // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses
+    // ersten Nutzers mit einem harten Fehler ab (MissingWorkPeriodError).
+    const createdAdmin = getUserById(newAdminId);
+    if (!createdAdmin) {
+      throw new Error(`create-admin: Nutzer ${newAdminId} nach Anlage nicht gefunden`);
+    }
+    ensureInitialWorkPeriod(createdAdmin, null);
 
     console.log('\n✅ Admin-User erfolgreich erstellt!');
     console.log('\n📋 Login-Daten:');
