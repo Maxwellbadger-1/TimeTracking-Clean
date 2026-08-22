@@ -303,12 +303,18 @@ export function useOvertimeTransactions(userId?: number, year?: number, month?: 
           toDate = `${year}-12-31`;
         }
 
-        // Ensure toDate is not in the future (max = today)
-        const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        if (toDate > today) {
-          toDate = today;
-        }
+        // WR-10 (Code-Review Phase 13): `toDate` wird NICHT mehr auf heute gedeckelt.
+        //
+        // Die Deckelung stammte aus der Tagesberechnung, die für Zukunftstage keine Ist-Daten
+        // hat — sie traf aber auch die reinen LEDGER-Zeilen: eine Korrekturbuchung mit
+        // `date = validFrom` in der Zukunft (Korrektur einer geplanten Periode) und ihre
+        // Gegenbuchung erschienen dadurch in KEINEM Zeitraum des Kontoauszugs. REQ-31 („die
+        // Storno-Geschichte bleibt im Auszug sichtbar") galt für diese Zeilen faktisch nicht.
+        //
+        // Die Deckelung steht jetzt serverseitig und ausschliesslich dort, wo sie hingehört:
+        // `overtimeLiveCalculationService.calculateLiveOvertimeTransactions()` deckelt das
+        // Ende der TAGESBERECHNUNG auf heute und liest die `model_change`-Zeilen bis zum
+        // angefragten Ende.
 
         params.append('fromDate', fromDate);
         params.append('toDate', toDate);

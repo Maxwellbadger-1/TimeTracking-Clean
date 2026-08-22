@@ -537,4 +537,79 @@ describe('calculateLiveOvertimeTransactions — Storno-Paar (Phase 13, REQ-31)',
     expect(original).toBeDefined();
     expect(original!.reversedByName).toBeNull();
   });
+
+  it(
+    'WR-10 (Code-Review Phase 13): ein Storno-Paar mit Datum in der ZUKUNFT ist im ' +
+      'Kontoauszug sichtbar — die Deckelung auf heute gilt nur fuer die Tageszeilen, nicht ' +
+      'fuer die Journalzeilen (REQ-31: die Storno-Geschichte bleibt im Auszug sichtbar).',
+    () => {
+      // Datum drei Monate in der Zukunft, aus dem heutigen Datum abgeleitet (kein
+      // hartkodiertes Jahr — der Test darf nicht mit dem Kalender veralten).
+      const now = new Date();
+      const futureAnchor = new Date(now.getFullYear(), now.getMonth() + 3, 10);
+      const y = futureAnchor.getFullYear();
+      const m = String(futureAnchor.getMonth() + 1).padStart(2, '0');
+      const futureDate = `${y}-${m}-10`;
+      const futureMonthStart = `${y}-${m}-01`;
+      const lastDay = new Date(y, futureAnchor.getMonth() + 1, 0).getDate();
+      const futureMonthEnd = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate()
+      ).padStart(2, '0')}`;
+      expect(futureDate > today).toBe(true);
+
+      const originalId = createTransaction({
+        userId: testUserId,
+        date: futureDate,
+        type: 'model_change',
+        hours: 3,
+        description: 'Korrektur einer geplanten Periode',
+        referenceType: 'work_period',
+        referenceId: 4244,
+        createdBy: testAdminId,
+      });
+      expect(originalId).not.toBeNull();
+
+      const reversalId = createTransaction({
+        userId: testUserId,
+        date: futureDate,
+        type: 'model_change',
+        hours: -3,
+        description: 'Storno der Korrektur einer geplanten Periode',
+        referenceType: 'work_period',
+        referenceId: 4244,
+        reversalOf: originalId!,
+        createdBy: testAdminId,
+      });
+      expect(reversalId).not.toBeNull();
+
+      const transactions = calculateLiveOvertimeTransactions(
+        testUserId,
+        futureMonthStart,
+        futureMonthEnd
+      );
+
+      // Beide Zeilen des Paares sind da. Vor dem Fix deckelte der Client toDate auf heute
+      // und der Server las model_change nur bis dorthin — das Paar erschien in KEINEM
+      // Zeitraum des Auszugs.
+      const original = transactions.find((t) => t.id === originalId);
+      const reversal = transactions.find((t) => t.id === reversalId);
+      expect(original).toBeDefined();
+      expect(reversal).toBeDefined();
+      expect(original!.reversedBy).toBe(reversalId);
+      expect(reversal!.reversalOf).toBe(originalId);
+
+      // KRITISCHER FALLSTRICK: beide bleiben rechenneutral (hours 0, Betrag nur in
+      // documentedDelta) — die Sichtbarkeit darf keine Summenwirkung mitbringen.
+      expect(original!.hours).toBe(0);
+      expect(reversal!.hours).toBe(0);
+
+      // Die Tagesberechnung bleibt bei heute gedeckelt: kein Nicht-Journal-Eintrag traegt
+      // ein Datum in der Zukunft (fuer Zukunftstage gibt es keine Ist-Daten).
+      const futureNonJournalRows = transactions.filter(
+        (t) => t.type !== 'model_change' && t.date > today
+      );
+      expect(futureNonJournalRows).toEqual([]);
+    }
+  );
 });

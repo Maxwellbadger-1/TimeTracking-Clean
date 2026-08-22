@@ -208,9 +208,28 @@ export function calculateLiveOvertimeTransactions(
   const startDate = fromDate && fromDate > user.hireDate
     ? fromDate
     : user.hireDate;
-  const endDate = toDate || formatDate(getCurrentDate(), 'yyyy-MM-dd'); // Today
+  // WR-10 (Code-Review Phase 13) — ZWEI VERSCHIEDENE BEREICHSENDEN:
+  //
+  // `journalEndDate` ist das ANGEFRAGTE Ende (z. B. der letzte Tag des gewählten Monats,
+  // auch wenn er in der Zukunft liegt). `endDate` ist das Ende der TAGESBERECHNUNG und wird
+  // hart auf heute gedeckelt — für Zukunftstage gibt es keine Ist-Daten, eine Tageszeile
+  // dort trüge ein volles Tagessoll ohne Ist.
+  //
+  // WARUM DIE TRENNUNG: Die Deckelung lag bisher im Client (`useWorkTimeAccounts.ts` setzte
+  // `toDate = heute`). Damit fielen auch die reinen LEDGER-Zeilen aus dem Fenster: eine
+  // Korrekturbuchung mit `date = validFrom` in der Zukunft (Korrektur einer geplanten
+  // Periode) und ihre Gegenbuchung erschienen in KEINEM Zeitraum des Kontoauszugs. REQ-31
+  // („die Storno-Geschichte bleibt im Auszug sichtbar") galt für diese Zeilen faktisch nicht.
+  // Der Client deckelt deshalb nicht mehr; die Deckelung steht jetzt hier, wo sie hingehört
+  // — und gilt nur für die Tageszeilen, nicht für das Journal.
+  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
+  const journalEndDate = toDate || today;
+  const endDate = journalEndDate > today ? today : journalEndDate;
 
-  logger.debug({ userId, startDate, endDate }, '📊 Calculating live overtime transactions');
+  logger.debug(
+    { userId, startDate, endDate, journalEndDate },
+    '📊 Calculating live overtime transactions'
+  );
 
   const transactions: LiveOvertimeTransaction[] = [];
 
@@ -537,7 +556,10 @@ export function calculateLiveOvertimeTransactions(
     ORDER BY ot.date DESC, ot.id ASC
   `);
 
-  const modelChangeRows = modelChangeQuery.all(userId, startDate, endDate) as Array<{
+  // WR-10: `journalEndDate` statt `endDate` — Journalzeilen mit einem Datum in der Zukunft
+  // (Korrektur/Storno einer geplanten Periode) bleiben sichtbar. Sie tragen ohnehin
+  // `hours: 0` und gehen in keine Summe ein.
+  const modelChangeRows = modelChangeQuery.all(userId, startDate, journalEndDate) as Array<{
     id: number;
     date: string;
     hours: number;
