@@ -12,6 +12,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { useAuthStore } from '../store/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -132,10 +133,14 @@ export function UserManagementPage() {
     );
   }
 
+  // WR-18 (Code-Review Phase 12): Der Guard schrieb nur in die Konsole und kehrte zurueck —
+  // sichtbar passierte nichts. Der TODO-Kommentar daneben bezog sich auf ein `alert()`, das
+  // es laengst nicht mehr gibt (und das in Tauri ohnehin wirkungslos waere). Der Zweig ist
+  // heute schwer erreichbar, weil der Loeschbutton fuer den eigenen Nutzer gar nicht
+  // gerendert wird — aber genau dafuer existiert ein Guard.
   const handleDeleteClick = (userId: number, userName: string) => {
     if (userId === currentUser.id) {
-      console.warn('⚠️ Cannot delete yourself!');
-      // TODO: Show error dialog instead of alert
+      toast.error('Sie können Ihr eigenes Konto nicht löschen.');
       return;
     }
 
@@ -150,8 +155,10 @@ export function UserManagementPage() {
     try {
       await deleteUser.mutateAsync(userId);
     } catch (error) {
-      console.error('💥 Delete mutation failed with error:');
-      console.error(error);
+      // WR-18: Hier standen zwei console.error mit Debug-Emojis ("💥 Delete mutation failed
+      // with error:") — der Fehlerfall des Loeschens blieb in der Oberflaeche unsichtbar.
+      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      toast.error('Der Benutzer konnte nicht gelöscht werden.', { description: message });
     }
   };
 
