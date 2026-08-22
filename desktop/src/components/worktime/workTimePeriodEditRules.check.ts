@@ -14,8 +14,12 @@ import {
   primaryButtonLabel,
   isPrimaryDisabled,
   validateCorrectionForm,
+  workScheduleEquals,
+  sumWorkScheduleHours,
+  MAX_WEEKLY_HOURS,
   type ValidateCorrectionFormArgs,
 } from './workTimePeriodEditRules';
+import type { WorkSchedule } from '../../types';
 
 let testCount = 0;
 
@@ -167,5 +171,87 @@ test('validateCorrectionForm: gültige, geänderte Eingabe liefert keine Fehler'
   assert.deepEqual(errors, {});
 });
 
-assert.ok(testCount >= 13, `Erwartet mindestens 13 Testfälle, gefunden ${testCount}`);
+
+// 6. WR-09 (Code-Review Phase 13) — der Tagesplan-Vergleich ist feldweise, nicht über
+//    JSON.stringify, und die Wochensumme wird clientseitig geprüft.
+test('workScheduleEquals: gleiche Werte, andere Schlüsselreihenfolge gelten als gleich', () => {
+  const a: WorkSchedule = {
+    monday: 8,
+    tuesday: 8,
+    wednesday: 8,
+    thursday: 8,
+    friday: 8,
+    saturday: 0,
+    sunday: 0,
+  };
+  // Dasselbe Objekt, in umgekehrter Schlüsselreihenfolge aufgebaut — genau das, was ein
+  // neu zusammengesetzter WorkScheduleEditor-Zustand liefern kann.
+  const b: WorkSchedule = {
+    sunday: 0,
+    saturday: 0,
+    friday: 8,
+    thursday: 8,
+    wednesday: 8,
+    tuesday: 8,
+    monday: 8,
+  };
+  assert.notEqual(JSON.stringify(a), JSON.stringify(b));
+  assert.equal(workScheduleEquals(a, b), true);
+  assert.equal(workScheduleEquals(null, null), true);
+  assert.equal(workScheduleEquals(a, null), false);
+  assert.equal(workScheduleEquals(a, { ...a, friday: 7 }), false);
+});
+
+test('validateCorrectionForm: andere Schlüsselreihenfolge ist KEINE Änderung (WR-09)', () => {
+  const original: WorkSchedule = {
+    monday: 8,
+    tuesday: 8,
+    wednesday: 8,
+    thursday: 8,
+    friday: 8,
+    saturday: 0,
+    sunday: 0,
+  };
+  const reordered: WorkSchedule = {
+    sunday: 0,
+    saturday: 0,
+    friday: 8,
+    thursday: 8,
+    wednesday: 8,
+    tuesday: 8,
+    monday: 8,
+  };
+  const errors = validateCorrectionForm({
+    ...baseArgs,
+    validFrom: '2026-03-01',
+    weeklyHoursRaw: '40',
+    workSchedule: reordered,
+    original: { validFrom: '2026-03-01', weeklyHours: 40, workSchedule: original },
+  });
+  // Vor dem Fix: kein formError, das Formular liess das Speichern zu — und der Server
+  // antwortete mit 400 "Es wurde nichts geändert."
+  assert.equal(
+    errors.formError,
+    'Es wurde nichts geändert. Ändern Sie einen Wert oder brechen Sie ab.'
+  );
+});
+
+test('validateCorrectionForm: Tagesplansumme über 60 h wird clientseitig abgewiesen (WR-09)', () => {
+  const tooMuch: WorkSchedule = {
+    monday: 13,
+    tuesday: 13,
+    wednesday: 13,
+    thursday: 13,
+    friday: 13,
+    saturday: 0,
+    sunday: 0,
+  };
+  assert.equal(sumWorkScheduleHours(tooMuch), 65);
+  const errors = validateCorrectionForm({ ...baseArgs, workSchedule: tooMuch });
+  assert.equal(
+    errors.weeklyHours,
+    `Die Summe des Tagesplans (65,0 h) darf ${MAX_WEEKLY_HOURS} Stunden pro Woche nicht überschreiten.`
+  );
+});
+assert.ok(testCount >= 16, `Erwartet mindestens 16 Testfälle, gefunden ${testCount}`);
 console.log(`\n${testCount} Tests bestanden.`);

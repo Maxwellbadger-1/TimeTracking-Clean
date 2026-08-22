@@ -1,4 +1,4 @@
-import type { WorkSchedule } from '../../types';
+import type { DayName, WorkSchedule } from '../../types';
 
 /**
  * Reine Entscheidungen des Korrektur-Dialogs (`WorkTimePeriodEditModal.tsx`, Plan 13-08), aus
@@ -13,6 +13,46 @@ import type { WorkSchedule } from '../../types';
  * Panel-/Knopfsteuerung) — laut DD-34 ausdruecklich als Bequemlichkeit erlaubt; der eigentliche
  * Riegel steht im Service (Plan 13-03).
  */
+
+/** Die sieben Tagesschluessel in fester Reihenfolge — Gegenstueck zu `WEEKDAY_KEYS` im Server
+ *  (`workPeriodChangeService.workScheduleEquals()`). */
+const WEEKDAY_KEYS: DayName[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+/** Obergrenze der Wochensumme eines Tagesplans — Spiegel von `MAX_WEEKLY_HOURS` im Server
+ *  (`server/src/utils/workSchedule.ts`). */
+export const MAX_WEEKLY_HOURS = 60;
+
+/**
+ * WERTVERGLEICH zweier Tagesplaene — feldweise ueber die sieben Tagesschluessel, KEIN
+ * `JSON.stringify`.
+ *
+ * WR-09 (Code-Review Phase 13): Hier stand vorher
+ * `JSON.stringify(a) === JSON.stringify(b)`. Das ist schluesselreihenfolgeabhaengig. Der
+ * Server verwendet an derselben Stelle `workScheduleEquals()`, das feldweise ueber
+ * `WEEKDAY_KEYS` vergleicht. Zwei inhaltsgleiche Tagesplaene mit anderer Schluesselreihenfolge
+ * — etwa, wenn der `WorkScheduleEditor` ein Objekt neu aufbaut — galten clientseitig als
+ * geaendert, serverseitig als No-Op: Das Formular liess das Speichern zu, der Server
+ * antwortete mit 400 „Es wurde nichts geaendert." Zwei Wahrheiten fuer dieselbe Regel, genau
+ * das, was `.claude/CLAUDE.md` unter „Dual Calculation System" verbietet.
+ */
+export function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boolean {
+  if (a === null && b === null) return true;
+  if (a === null || b === null) return false;
+  return WEEKDAY_KEYS.every((key) => a[key] === b[key]);
+}
+
+/** Wochensumme eines Tagesplans — Gegenstueck zu `sumWorkScheduleHours()` im Server. */
+export function sumWorkScheduleHours(schedule: WorkSchedule): number {
+  return WEEKDAY_KEYS.reduce((sum, key) => sum + schedule[key], 0);
+}
 
 /** `validFrom < today`, reiner Zeichenkettenvergleich auf YYYY-MM-DD, kein `Date`. Gleichstand
  *  (Beginn == heute) gilt NICHT als rueckwirkend. */
@@ -73,6 +113,12 @@ function formatGermanDate(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE');
 }
 
+/** Wochenstunden in der Schreibweise der Servermeldungen (`formatWeeklyHoursDe()` in
+ *  `workPeriodChangeService.ts`): eine Nachkommastelle, deutsches Dezimalkomma. */
+function formatWeeklyHoursDe(hours: number): string {
+  return hours.toFixed(1).replace('.', ',');
+}
+
 /**
  * Liefert die Feldfehler-Zuordnung für das Korrekturformular. Prüfreihenfolge bei `validFrom`:
  * Eintrittsdatum -> Vorperiode -> Nachperiode -> Austrittsdatum (13-UI-SPEC.md, Tabelle
@@ -101,6 +147,18 @@ export function validateCorrectionForm(args: ValidateCorrectionFormArgs): Correc
     errors.weeklyHours = 'Wochenstunden sind erforderlich';
   } else if (weeklyHoursNum < 0 || weeklyHoursNum > 60) {
     errors.weeklyHours = 'Wochenstunden müssen zwischen 0 und 60 liegen';
+  } else if (
+    args.workSchedule !== null &&
+    sumWorkScheduleHours(args.workSchedule) > MAX_WEEKLY_HOURS
+  ) {
+    // WR-09 (Code-Review Phase 13): Der Tagesplan gewinnt gegen weeklyHours — ohne diese
+    // Prüfung ist die 0-bis-60-Grenze darüber umgehbar. Der Server weist den Fall bereits ab
+    // (`workPeriodCorrectionService.validateCorrectionInput()`); hier fehlte das Gegenstück,
+    // sodass das Formular das Speichern zuliess und der Server mit 400 antwortete. Wortgleich
+    // zur Servermeldung, damit derselbe Satz erscheint, egal wer ihn erzeugt.
+    errors.weeklyHours =
+      `Die Summe des Tagesplans (${formatWeeklyHoursDe(sumWorkScheduleHours(args.workSchedule))} h) darf ` +
+      `${MAX_WEEKLY_HOURS} Stunden pro Woche nicht überschreiten.`;
   }
 
   const trimmedReason = args.reason.trim();
@@ -114,7 +172,8 @@ export function validateCorrectionForm(args: ValidateCorrectionFormArgs): Correc
     const nothingChanged =
       args.validFrom === args.original.validFrom &&
       weeklyHoursNum === args.original.weeklyHours &&
-      JSON.stringify(args.workSchedule) === JSON.stringify(args.original.workSchedule);
+      // WR-09: feldweiser Wertvergleich wie im Server, nicht JSON.stringify.
+      workScheduleEquals(args.workSchedule, args.original.workSchedule);
     if (nothingChanged) {
       errors.formError = 'Es wurde nichts geändert. Ändern Sie einen Wert oder brechen Sie ab.';
     }
