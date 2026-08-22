@@ -32,6 +32,16 @@
  *
  * Kontext: .planning/phases/12-stundenwechsel-bedienen/12-UI-SPEC.md ("previewToken —
  * vollständig spezifiziert"), .planning/phases/12-stundenwechsel-bedienen/12-03-PLAN.md.
+ *
+ * ERWEITERUNG PLAN 13-05 (DD-20): Zwei weitere, gegenseitig NICHT einlösbare Token-Arten für
+ * „Stammdaten korrigieren" (`CorrectionPreviewTokenBinding`/`issueCorrectionPreviewToken`/
+ * `verifyCorrectionPreviewToken`) und „Periode löschen"
+ * (`DeletionPreviewTokenBinding`/`issueDeletionPreviewToken`/`verifyDeletionPreviewToken`). Die
+ * kanonische Zeichenkette der Stundenwechsel-Bahn oben bleibt WORTGLEICH unverändert. Beide
+ * neuen Bahnen tragen an zweiter Stelle ein Zweckfeld (`'correct'`/`'delete'`), das niemals eine
+ * Zahl sein kann — deshalb ist keine der drei Zeichenketten in eine andere umdeutbar. Die
+ * gemeinsame Signatur-/Prüf-Mechanik steckt in den beiden privaten Hilfsfunktionen
+ * `signCanonical()`/`verifyCanonical()`, die alle drei Bahnen aufrufen.
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -112,25 +122,30 @@ function sign(canonical: string, secret: string): string {
 }
 
 /**
- * Stellt ein neues Token für genau diese vier Felder aus. Zustandslos — der Aufrufer muss
- * nichts speichern außer dem zurückgegebenen String.
+ * DD-20 (Plan 13-05): gemeinsame Ausstellungs-Mechanik für alle drei Token-Arten. Signiert die
+ * vom Aufrufer gelieferte kanonische Zeichenkette (die den frisch gezogenen `issuedAtMs`
+ * einschließt) und verpackt sie im bestehenden Format `${TOKEN_VERSION}.${issuedAtMs}.
+ * ${signature}`. `resolveSecret()` läuft ungefangen — ein fehlendes `SESSION_SECRET` in
+ * Produktion soll die Ausstellung wie bisher mit einer sprechenden Meldung abbrechen.
  */
-export function issuePreviewToken(binding: PreviewTokenBinding): string {
+function signCanonical(buildCanonical: (issuedAtMs: number) => string): string {
   const secret = resolveSecret();
   const issuedAtMs = Date.now();
-  const canonical = buildCanonicalString(binding, issuedAtMs);
+  const canonical = buildCanonical(issuedAtMs);
   const signature = sign(canonical, secret);
   return `${TOKEN_VERSION}.${issuedAtMs}.${signature}`;
 }
 
 /**
- * Prüft ein Token gegen die aktuell eingegebenen vier Felder. Reihenfolge: Format → Signatur
- * → Ablauf (siehe Kopfkommentar). Liefert niemals `valid: true` für ein manipuliertes,
- * abgelaufenes oder falsch formatiertes Token.
+ * DD-20 (Plan 13-05): gemeinsame Prüf-Mechanik für alle drei Token-Arten. Reihenfolge: Format →
+ * Signatur → Ablauf (siehe Kopfkommentar). `buildCanonical` bekommt den aus dem Token gelesenen
+ * `issuedAtMs` und liefert die für die jeweilige Token-Art zuständige kanonische Zeichenkette —
+ * die drei Zeichenketten selbst bleiben durch das Zweckfeld (`'correct'`/`'delete'`) bzw. die
+ * Feldreihenfolge der Stundenwechsel-Bahn gegenseitig nicht ineinander umdeutbar.
  */
-export function verifyPreviewToken(
+function verifyCanonical(
   token: string,
-  binding: PreviewTokenBinding
+  buildCanonical: (issuedAtMs: number) => string
 ): PreviewTokenVerification {
   // --- Format ---
   const parts = token.split('.');
@@ -164,7 +179,7 @@ export function verifyPreviewToken(
   }
 
   // --- Signatur ---
-  const canonical = buildCanonicalString(binding, issuedAtMs);
+  const canonical = buildCanonical(issuedAtMs);
   const expectedSignature = sign(canonical, secret);
 
   const actualBuf = Buffer.from(signature);
@@ -186,4 +201,114 @@ export function verifyPreviewToken(
   }
 
   return { valid: true };
+}
+
+/**
+ * Stellt ein neues Token für genau diese vier Felder aus. Zustandslos — der Aufrufer muss
+ * nichts speichern außer dem zurückgegebenen String.
+ */
+export function issuePreviewToken(binding: PreviewTokenBinding): string {
+  return signCanonical((issuedAtMs) => buildCanonicalString(binding, issuedAtMs));
+}
+
+/**
+ * Prüft ein Token gegen die aktuell eingegebenen vier Felder. Reihenfolge: Format → Signatur
+ * → Ablauf (siehe Kopfkommentar). Liefert niemals `valid: true` für ein manipuliertes,
+ * abgelaufenes oder falsch formatiertes Token.
+ */
+export function verifyPreviewToken(
+  token: string,
+  binding: PreviewTokenBinding
+): PreviewTokenVerification {
+  return verifyCanonical(token, (issuedAtMs) => buildCanonicalString(binding, issuedAtMs));
+}
+
+/**
+ * DD-20 (Plan 13-05): Bindungstyp für die Korrektur-Vorschau — dieselben vier Rechenfelder wie
+ * der Stundenwechsel (`validFrom`, `weeklyHours`, `workSchedule`), aber `periodId` statt
+ * `userId`, weil „Stammdaten korrigieren" eine BESTEHENDE Periode ändert (kein neuer Nutzer-
+ * bezogener Split).
+ */
+export interface CorrectionPreviewTokenBinding {
+  /** Der Admin, der die Vorschau abgerufen hat — und der sie einlösen darf. */
+  adminId: number;
+  periodId: number;
+  validFrom: string;
+  weeklyHours: number;
+  workSchedule: WorkSchedule | null;
+}
+
+/**
+ * DD-20: kanonische Zeichenkette der Korrektur-Vorschau mit dem Zweckfeld `'correct'` an
+ * zweiter Stelle — dadurch niemals als Stundenwechsel- oder Lösch-Token misszudeuten (beide
+ * verwenden dort eine Zahl bzw. `'delete'`).
+ */
+function buildCorrectionCanonicalString(
+  binding: CorrectionPreviewTokenBinding,
+  issuedAtMs: number
+): string {
+  return [
+    TOKEN_VERSION,
+    'correct',
+    String(binding.adminId),
+    String(binding.periodId),
+    binding.validFrom,
+    binding.weeklyHours.toFixed(2),
+    canonicalizeWorkSchedule(binding.workSchedule),
+    String(issuedAtMs),
+  ].join('|');
+}
+
+/** Stellt ein neues Korrektur-Vorschau-Token aus (DD-20). */
+export function issueCorrectionPreviewToken(binding: CorrectionPreviewTokenBinding): string {
+  return signCanonical((issuedAtMs) => buildCorrectionCanonicalString(binding, issuedAtMs));
+}
+
+/** Prüft ein Korrektur-Vorschau-Token gegen die aktuell eingegebenen Felder (DD-20). */
+export function verifyCorrectionPreviewToken(
+  token: string,
+  binding: CorrectionPreviewTokenBinding
+): PreviewTokenVerification {
+  return verifyCanonical(token, (issuedAtMs) => buildCorrectionCanonicalString(binding, issuedAtMs));
+}
+
+/**
+ * DD-20 (Plan 13-05): reiner Bindungstyp für die Lösch-Vorschau — `adminId` und `periodId`,
+ * keine weiteren Felder. Beim Löschen gibt es keine Eingabewerte, die zu binden wären;
+ * ungenutzte Pflichtfelder wären eine Einladung, sie irgendwann mit Platzhaltern zu füllen.
+ */
+export interface DeletionPreviewTokenBinding {
+  /** Der Admin, der die Vorschau abgerufen hat — und der sie einlösen darf. */
+  adminId: number;
+  periodId: number;
+}
+
+/**
+ * DD-20: kanonische Zeichenkette der Lösch-Vorschau mit dem Zweckfeld `'delete'` an zweiter
+ * Stelle.
+ */
+function buildDeletionCanonicalString(
+  binding: DeletionPreviewTokenBinding,
+  issuedAtMs: number
+): string {
+  return [
+    TOKEN_VERSION,
+    'delete',
+    String(binding.adminId),
+    String(binding.periodId),
+    String(issuedAtMs),
+  ].join('|');
+}
+
+/** Stellt ein neues Lösch-Vorschau-Token aus (DD-20). */
+export function issueDeletionPreviewToken(binding: DeletionPreviewTokenBinding): string {
+  return signCanonical((issuedAtMs) => buildDeletionCanonicalString(binding, issuedAtMs));
+}
+
+/** Prüft ein Lösch-Vorschau-Token gegen die aktuell eingegebenen Felder (DD-20). */
+export function verifyDeletionPreviewToken(
+  token: string,
+  binding: DeletionPreviewTokenBinding
+): PreviewTokenVerification {
+  return verifyCanonical(token, (issuedAtMs) => buildDeletionCanonicalString(binding, issuedAtMs));
 }

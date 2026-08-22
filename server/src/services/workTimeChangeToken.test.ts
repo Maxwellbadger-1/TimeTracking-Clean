@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   issuePreviewToken,
   verifyPreviewToken,
+  issueCorrectionPreviewToken,
+  verifyCorrectionPreviewToken,
+  issueDeletionPreviewToken,
+  verifyDeletionPreviewToken,
   type PreviewTokenBinding,
+  type CorrectionPreviewTokenBinding,
+  type DeletionPreviewTokenBinding,
 } from './workTimeChangeToken.js';
 
 /**
@@ -186,5 +192,128 @@ describe('workTimeChangeToken', () => {
 
     const result = verifyPreviewToken(token, BASE_BINDING);
     expect(result.valid).toBe(false);
+  });
+});
+
+/**
+ * PLAN 13-05, TASK 1 — die drei Token-Arten (Stundenwechsel, Korrektur, Löschung) sind
+ * gegenseitig NICHT einlösbar (DD-20).
+ */
+describe('workTimeChangeToken — Korrektur-/Lösch-Vorschau (DD-20)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const CORRECTION_BINDING: CorrectionPreviewTokenBinding = {
+    adminId: 7,
+    periodId: 101,
+    validFrom: '2026-09-01',
+    weeklyHours: 30,
+    workSchedule: { monday: 8, tuesday: 8, wednesday: 8, thursday: 6, friday: 0, saturday: 0, sunday: 0 },
+  };
+
+  const DELETION_BINDING: DeletionPreviewTokenBinding = {
+    adminId: 7,
+    periodId: 101,
+  };
+
+  it('1a. Ein Korrektur-Token verifiziert erfolgreich gegen dieselbe Bindung', () => {
+    const token = issueCorrectionPreviewToken(CORRECTION_BINDING);
+    expect(verifyCorrectionPreviewToken(token, CORRECTION_BINDING)).toEqual({ valid: true });
+  });
+
+  it('1b. Ein Lösch-Token verifiziert erfolgreich gegen dieselbe Bindung', () => {
+    const token = issueDeletionPreviewToken(DELETION_BINDING);
+    expect(verifyDeletionPreviewToken(token, DELETION_BINDING)).toEqual({ valid: true });
+  });
+
+  it('1c. Ein Korrektur-Token wird von verifyPreviewToken (Stundenwechsel) abgelehnt', () => {
+    const token = issueCorrectionPreviewToken(CORRECTION_BINDING);
+    const asStundenwechselBinding: PreviewTokenBinding = {
+      adminId: CORRECTION_BINDING.adminId,
+      userId: CORRECTION_BINDING.periodId,
+      validFrom: CORRECTION_BINDING.validFrom,
+      weeklyHours: CORRECTION_BINDING.weeklyHours,
+      workSchedule: CORRECTION_BINDING.workSchedule,
+    };
+    const result = verifyPreviewToken(token, asStundenwechselBinding);
+    expect(result.valid).toBe(false);
+  });
+
+  it('1d. Ein Stundenwechsel-Token wird von verifyCorrectionPreviewToken abgelehnt', () => {
+    const stundenwechselBinding: PreviewTokenBinding = {
+      adminId: 7,
+      userId: 101,
+      validFrom: '2026-09-01',
+      weeklyHours: 30,
+      workSchedule: CORRECTION_BINDING.workSchedule,
+    };
+    const token = issuePreviewToken(stundenwechselBinding);
+    const asCorrectionBinding: CorrectionPreviewTokenBinding = {
+      adminId: stundenwechselBinding.adminId,
+      periodId: stundenwechselBinding.userId,
+      validFrom: stundenwechselBinding.validFrom,
+      weeklyHours: stundenwechselBinding.weeklyHours,
+      workSchedule: stundenwechselBinding.workSchedule,
+    };
+    const result = verifyCorrectionPreviewToken(token, asCorrectionBinding);
+    expect(result.valid).toBe(false);
+  });
+
+  it('1e. Ein Korrektur-Token wird von verifyDeletionPreviewToken abgelehnt, und umgekehrt', () => {
+    const correctionToken = issueCorrectionPreviewToken(CORRECTION_BINDING);
+    expect(
+      verifyDeletionPreviewToken(correctionToken, {
+        adminId: CORRECTION_BINDING.adminId,
+        periodId: CORRECTION_BINDING.periodId,
+      }).valid
+    ).toBe(false);
+
+    const deletionToken = issueDeletionPreviewToken(DELETION_BINDING);
+    expect(
+      verifyCorrectionPreviewToken(deletionToken, CORRECTION_BINDING).valid
+    ).toBe(false);
+  });
+
+  it('2. Ein Lösch-Token für Periode A validiert nicht gegen Periode B (mismatch)', () => {
+    const token = issueDeletionPreviewToken({ adminId: 7, periodId: 101 });
+    const result = verifyDeletionPreviewToken(token, { adminId: 7, periodId: 202 });
+    expect(result).toEqual({ valid: false, reason: 'mismatch' });
+  });
+
+  it('3. Ein Korrektur-Token für einen anderen adminId validiert nicht (mismatch)', () => {
+    const token = issueCorrectionPreviewToken(CORRECTION_BINDING);
+    const result = verifyCorrectionPreviewToken(token, { ...CORRECTION_BINDING, adminId: 8 });
+    expect(result).toEqual({ valid: false, reason: 'mismatch' });
+  });
+
+  it('4. Ein Korrektur-Token, dessen weeklyHours sich geändert hat, validiert nicht (mismatch)', () => {
+    const token = issueCorrectionPreviewToken(CORRECTION_BINDING);
+    const result = verifyCorrectionPreviewToken(token, { ...CORRECTION_BINDING, weeklyHours: 35 });
+    expect(result).toEqual({ valid: false, reason: 'mismatch' });
+  });
+
+  it('5a. Ein Korrektur-Token älter als 15 Minuten liefert expired', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-22T10:00:00Z'));
+
+    const token = issueCorrectionPreviewToken(CORRECTION_BINDING);
+
+    vi.setSystemTime(new Date('2026-08-22T10:15:01Z'));
+
+    const result = verifyCorrectionPreviewToken(token, CORRECTION_BINDING);
+    expect(result).toEqual({ valid: false, reason: 'expired' });
+  });
+
+  it('5b. Ein Lösch-Token älter als 15 Minuten liefert expired', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-22T10:00:00Z'));
+
+    const token = issueDeletionPreviewToken(DELETION_BINDING);
+
+    vi.setSystemTime(new Date('2026-08-22T10:15:01Z'));
+
+    const result = verifyDeletionPreviewToken(token, DELETION_BINDING);
+    expect(result).toEqual({ valid: false, reason: 'expired' });
   });
 });
