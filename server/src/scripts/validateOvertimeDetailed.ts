@@ -34,11 +34,19 @@
  * 9. Detailed Calculation Breakdown (visual boxes)
  * 10. Three-Way Comparison (Calculated vs DB vs Transactions)
  * 11. Frontend API Validation (component-level comparison)
+ *
+ * REQ-25 (Plan 11-08): Ab dieser Phase misst das Werkzeug gegen den periodengültigen
+ * Maßstab — jeder Vergleichsweg innerhalb eines Nutzer-/Monatslaufs benutzt denselben
+ * `WorkPeriodContext` (siehe `validateOvertimeForUser`). Eine gemeldete Abweichung bei
+ * einem Nutzer mit Modellwechsel (mehrere Perioden mit unterschiedlichem weeklyHours/
+ * workSchedule) ist ab jetzt ein echter Befund und kein Artefakt des Werkzeugs, das mit
+ * dem falschen (aktuellen statt periodengültigen) Maßstab gemessen hätte.
  */
 
 import path from 'path';
 import type BetterSqlite3 from 'better-sqlite3';
-import type { UserPublic } from '../types/index.js';
+import type { UserPublic, UserWorkPeriod } from '../types/index.js';
+import type { WorkPeriodContext } from '../services/workPeriodContext.js';
 import { getCurrentDate } from '../utils/timezone.js';
 import { getDatabasePath, getProductionDatabasePath } from '../config/database.js';
 // @ts-expect-error - node-fetch doesn't have types in this project
@@ -99,7 +107,9 @@ assertNotProduction();
 // getUserById-Import, unabhängig von dieser Änderung.
 let db: BetterSqlite3.Database;
 let getUserById: (id: number) => UserPublic | undefined;
-let getDailyTargetHours: (user: UserPublic, date: Date | string) => number;
+let getDailyTargetHours: (user: UserPublic, date: Date | string, periods: WorkPeriodContext) => number;
+let createWorkPeriodContext: () => WorkPeriodContext;
+let getWorkPeriods: (userId: number) => UserWorkPeriod[];
 
 // API Base URL for frontend validation
 const API_BASE = 'http://localhost:3000/api';
@@ -400,6 +410,22 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
     console.log('Work Schedule: Standard (Mo-Fr, weeklyHours / 5)');
   }
 
+  // REQ-25 (Plan 11-08): EIN Kontext für den gesamten Prüflauf dieses Nutzers/Monats —
+  // alle Vergleichswege unten benutzen denselben Kontext, sonst könnten sie verschiedene
+  // Periodenstände sehen. Periodenausgabe VOR dem Vergleich, sonst lässt sich ein Befund
+  // bei einem Nutzer mit Modellwechsel nicht deuten.
+  const periods = createWorkPeriodContext();
+  const userPeriods = getWorkPeriods(userId);
+  console.log('\n📐 GÜLTIGE PERIODEN (REQ-25 — periodengültiger Maßstab)');
+  console.log('─'.repeat(80));
+  if (userPeriods.length === 0) {
+    console.log('  (Keine Periode gefunden)');
+  } else {
+    userPeriods.forEach((p) => {
+      console.log(`  ${p.validFrom} bis ${p.validTo ?? '(laufend)'} — ${p.weeklyHours}h/Woche`);
+    });
+  }
+
   // 2. Determine period
   // FIX: Use getCurrentDate() from timezone.ts to get Date in Berlin timezone
   const today = getCurrentDate();
@@ -470,7 +496,7 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
 
     // CRITICAL FIX: Pass dateStr (string) instead of d (Date object)
     // The loop mutates d, causing timezone issues
-    const dailyTarget = getDailyTargetHours(user, dateStr);
+    const dailyTarget = getDailyTargetHours(user, dateStr, periods);
 
     totalTargetHours += dailyTarget;
 
@@ -631,7 +657,7 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
           continue;
         }
 
-        const dailyHours = getDailyTargetHours(user, dateStr);
+        const dailyHours = getDailyTargetHours(user, dateStr, periods);
 
         if (dailyHours > 0) {
           absenceDays++;
@@ -679,7 +705,7 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
           continue;
         }
 
-        const dailyHours = getDailyTargetHours(user, dateStr);
+        const dailyHours = getDailyTargetHours(user, dateStr, periods);
 
         if (dailyHours > 0) {
           absenceDays++;
@@ -1077,16 +1103,27 @@ async function validateOvertimeForUser(userId: number, referenceMonth?: string):
 // Main execution
 async function main() {
   // Dynamische Imports NACH dem Produktionsschutz oben (siehe Begründung am Guard):
-  // Diese drei Module ziehen transitiv die geteilte DB-Verbindung.
-  const [{ db: sharedDb }, { getUserById: sharedGetUserById }, { getDailyTargetHours: sharedGetDailyTargetHours }] =
-    await Promise.all([
-      import('../database/connection.js'),
-      import('../services/userService.js'),
-      import('../utils/workingDays.js'),
-    ]);
+  // Diese Module ziehen transitiv die geteilte DB-Verbindung. `workPeriodContext.js` zieht
+  // über `workPeriodService.js` dieselbe Verbindung und gehört deshalb in denselben Block
+  // (REQ-25, Plan 11-08).
+  const [
+    { db: sharedDb },
+    { getUserById: sharedGetUserById },
+    { getDailyTargetHours: sharedGetDailyTargetHours },
+    { createWorkPeriodContext: sharedCreateWorkPeriodContext },
+    { getWorkPeriods: sharedGetWorkPeriods },
+  ] = await Promise.all([
+    import('../database/connection.js'),
+    import('../services/userService.js'),
+    import('../utils/workingDays.js'),
+    import('../services/workPeriodContext.js'),
+    import('../services/workPeriodService.js'),
+  ]);
   db = sharedDb;
   getUserById = sharedGetUserById;
   getDailyTargetHours = sharedGetDailyTargetHours;
+  createWorkPeriodContext = sharedCreateWorkPeriodContext;
+  getWorkPeriods = sharedGetWorkPeriods;
 
   const options = parseArgs();
 
