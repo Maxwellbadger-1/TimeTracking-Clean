@@ -56,6 +56,10 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   // Phase 12 (D1): Einstieg in den Stundenwechsel-Dialog
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const changeButtonRef = useRef<HTMLButtonElement>(null);
+  /** WR-11: Zustand 10 — Id der Periode, deren Stichtag mit der Eingabe im Wechsel-Dialog
+   *  kollidiert. Wird von dort ueber `onConflict` gemeldet und an die Periodenliste
+   *  weitergereicht. */
+  const [conflictPeriodId, setConflictPeriodId] = useState<number | null>(null);
   const [successBanner, setSuccessBanner] = useState<{ validFrom: string; weeklyHours: number } | null>(null);
 
   /**
@@ -376,7 +380,10 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
               Arbeitszeitmodell — Perioden
             </h3>
-            <WorkTimePeriodList userId={user.id} />
+            {/* WR-11: Zustand 10 — die vom Wechsel-Dialog gemeldete Kollisionsperiode wird
+                hier hervorgehoben (`ring-2 ring-red-400`). Ohne diese Verdrahtung war der
+                Hervorhebungspfad in `WorkTimePeriodList` toter Code. */}
+            <WorkTimePeriodList userId={user.id} highlightPeriodId={conflictPeriodId} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -449,11 +456,14 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         isOpen={isChangeModalOpen}
         onClose={() => {
           setIsChangeModalOpen(false);
+          setConflictPeriodId(null);
           changeButtonRef.current?.focus();
         }}
         user={user}
+        onConflict={setConflictPeriodId}
         onSaved={(result: WorkTimeChangeResult) => {
           setIsChangeModalOpen(false);
+          setConflictPeriodId(null);
           setSuccessBanner({
             validFrom: result.period.validFrom,
             weeklyHours: result.period.weeklyHours,

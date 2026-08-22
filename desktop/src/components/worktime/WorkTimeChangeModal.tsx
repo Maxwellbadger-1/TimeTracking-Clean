@@ -79,6 +79,15 @@ interface WorkTimeChangeModalProps {
   onClose: () => void;
   user: User;
   onSaved?: (result: WorkTimeChangeResult) => void;
+  /**
+   * WR-11 (Code-Review Phase 12): Zustand 10 des UI-Vertrags verlangt neben dem Feldfehler
+   * am Stichtag, dass die kollidierende Zeile der Periodenliste mit `ring-2 ring-red-400`
+   * hervorgehoben wird. Die Liste steht im `EditUserModal`, nicht in diesem Dialog — die
+   * betroffene Periode muss also nach oben gemeldet werden. `WorkTimePeriodList` wertet
+   * `highlightPeriodId` bereits aus; ohne diesen Rueckruf war der Hervorhebungspfad toter
+   * Code. `null` hebt die Markierung wieder auf.
+   */
+  onConflict?: (periodId: number | null) => void;
 }
 
 interface FieldErrors {
@@ -155,7 +164,7 @@ function formatSignedHours(value: number): string {
   return `${value > 0 ? '+' : ''}${formatHours(value)}`;
 }
 
-export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTimeChangeModalProps) {
+export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict }: WorkTimeChangeModalProps) {
   const periodsQuery = useWorkPeriods(isOpen ? user.id : null);
   const previewM = usePreviewWorkTimeChange();
   const saveM = useSaveWorkTimeChange();
@@ -277,6 +286,9 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
           const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
           if (isPeriodExistsMessage(message)) {
             setFieldErrors((prev) => ({ ...prev, validFrom: message }));
+            // WR-11: Zustand 10 — dieselbe Hervorhebung auch, wenn erst der Server die
+            // Kollision meldet (der Dialog kennt sie ueber die Periodenliste ohnehin).
+            onConflict?.(findCollidingPeriod(vFrom)?.id ?? null);
           } else {
             setPreviewErrorMessage(
               'Die Vorschau konnte nicht berechnet werden. Ohne Vorschau lässt sich der Wechsel nicht speichern.'
@@ -313,6 +325,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setStaleFailureCount(0);
     setFormError('');
     setFieldErrors((prev) => ({ ...prev, validFrom: undefined }));
+    onConflict?.(null); // WR-11: Hervorhebung der Kollisionszeile aufheben
   }
 
   /**
@@ -357,6 +370,13 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setFieldErrors((prev) => ({ ...prev, reason: undefined }));
   }
 
+  /** WR-11: die Periode, deren Stichtag mit dem eingegebenen zusammenfaellt — oder `null`.
+   *  Ist die Liste in Zustand 2 (Ladefehler), gibt es nichts hervorzuheben; der Feldfehler
+   *  traegt die Information dann allein, wie der UI-Vertrag es vorsieht. */
+  function findCollidingPeriod(candidate: string) {
+    return periodsQuery.data?.find((p) => p.validFrom === candidate) ?? null;
+  }
+
   /** Zustand 9: Meldungen woertlich aus `12-UI-SPEC.md` → "Fehlermeldungen (Validierung)". */
   function validateForm(): boolean {
     const errors: FieldErrors = {};
@@ -372,8 +392,13 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
       errors.validFrom = `Der Stichtag darf nicht vor dem Eintrittsdatum (${formatGermanDate(hireDate)}) liegen.`;
     } else if (user.endDate && validFrom > user.endDate) {
       errors.validFrom = `Der Stichtag liegt nach dem Austrittsdatum (${formatGermanDate(user.endDate)}).`;
-    } else if (periodsQuery.data?.some((p) => p.validFrom === validFrom)) {
-      errors.validFrom = `Zum ${formatGermanDate(validFrom)} existiert bereits eine Periode. Wählen Sie ein anderes Datum.`;
+    } else {
+      // WR-11: Zustand 10 — Feldfehler UND Hervorhebung der kollidierenden Zeile.
+      const collision = findCollidingPeriod(validFrom);
+      if (collision) {
+        errors.validFrom = `Zum ${formatGermanDate(validFrom)} existiert bereits eine Periode. Wählen Sie ein anderes Datum.`;
+        onConflict?.(collision.id);
+      }
     }
 
     if (weeklyHours === '' || Number.isNaN(Number(weeklyHours))) {
@@ -426,6 +451,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
     setShowConfirm(false);
+    onConflict?.(null); // WR-11
   }
 
   function handleClose() {
