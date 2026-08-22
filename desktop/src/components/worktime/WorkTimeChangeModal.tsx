@@ -50,6 +50,39 @@ interface FieldErrors {
   validFrom?: string;
   weeklyHours?: string;
   reason?: string;
+  /** CR-03: blockierender Fehler am Tagesplan (Tagesstunden ausserhalb 0-24). */
+  workSchedule?: string;
+}
+
+/** Gegenstueck zu `MAX_DAILY_HOURS` in `server/src/utils/workSchedule.ts`. */
+const MAX_DAILY_HOURS = 24;
+
+const DAY_LABELS_DE: Record<keyof WorkSchedule, string> = {
+  monday: 'Montag',
+  tuesday: 'Dienstag',
+  wednesday: 'Mittwoch',
+  thursday: 'Donnerstag',
+  friday: 'Freitag',
+  saturday: 'Samstag',
+  sunday: 'Sonntag',
+};
+
+/**
+ * CR-03 (Code-Review Phase 12): Der Tagesplan wurde bisher in `validateForm()` ueberhaupt
+ * nicht geprueft — die Summenwarnung im `WorkScheduleEditor` blockiert ausdruecklich nicht.
+ * Ein Tagesplan mit einem Wert ausserhalb 0-24 (eingefuegt, per Skript gesetzt oder aus
+ * einer Bestandsperiode vorbelegt) waere damit gespeichert worden und direkt in die
+ * Sollstundenberechnung eingegangen. Liefert den fehlerhaften Tag oder `null`.
+ */
+function findInvalidScheduleDay(schedule: WorkSchedule | null): keyof WorkSchedule | null {
+  if (!schedule) return null;
+  const keys = Object.keys(schedule) as Array<keyof WorkSchedule>;
+  return (
+    keys.find((day) => {
+      const value = schedule[day];
+      return !Number.isFinite(value) || value < 0 || value > MAX_DAILY_HOURS;
+    }) ?? null
+  );
 }
 
 type PreviewPanelState = 'placeholder' | 'loading' | 'error' | 'noop' | 'future' | 'past';
@@ -233,6 +266,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
     setFormError('');
+    setFieldErrors((prev) => ({ ...prev, workSchedule: undefined }));
   }
 
   function handleReasonChange(e: ChangeEvent<HTMLTextAreaElement>) {
@@ -260,6 +294,12 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
       errors.weeklyHours = 'Wochenstunden müssen zwischen 0 und 60 liegen';
     }
 
+    // CR-03: Tagesplan blockierend pruefen — dieselbe Grenze wie serverseitig (0-24).
+    const invalidDay = findInvalidScheduleDay(workSchedule);
+    if (invalidDay) {
+      errors.workSchedule = `Die Tagesstunden müssen zwischen 0 und ${MAX_DAILY_HOURS} liegen (${DAY_LABELS_DE[invalidDay]}).`;
+    }
+
     if (!reason.trim()) {
       errors.reason = 'Begründung ist erforderlich';
     } else if (reason.trim().length < 10) {
@@ -274,6 +314,9 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     }
     if (errors.weeklyHours) {
       weeklyHoursRef.current?.focus();
+      return false;
+    }
+    if (errors.workSchedule) {
       return false;
     }
     if (errors.reason) {
@@ -504,6 +547,11 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
             weeklyHours={weeklyHoursNum ?? 0}
             onChange={handleWorkScheduleChange}
           />
+          {fieldErrors.workSchedule && (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              {fieldErrors.workSchedule}
+            </p>
+          )}
         </div>
 
         {/* 5. Begründung */}

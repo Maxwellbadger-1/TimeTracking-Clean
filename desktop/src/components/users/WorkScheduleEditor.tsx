@@ -22,6 +22,26 @@ const DEFAULT_WORK_SCHEDULE: WorkSchedule = {
   sunday: 0,
 };
 
+/** Ein Kalendertag hat 24 Stunden. Gegenstueck zu `MAX_DAILY_HOURS` in
+ *  `server/src/utils/workSchedule.ts` — beide Seiten pruefen (`.claude/CLAUDE.md`:
+ *  "Input Validation (BE + FE)"). */
+export const MAX_DAILY_HOURS = 24;
+
+/**
+ * CR-03 (Code-Review Phase 12): `min`/`max` am `<input type="number">` sind reine Hinweise,
+ * solange kein `form.checkValidity()` laeuft — der Wechsel-Dialog validiert von Hand. Der
+ * bisherige `parseFloat(e.target.value) || 0` uebernahm deshalb jeden getippten Wert: `-5`
+ * und `88` landeten unveraendert im Tagesplan und gingen direkt in die
+ * Sollstundenberechnung ein. Ein Tippfehler ("88" statt "8") war damit eine
+ * geschaeftskritisch falsche Ueberstundenbilanz weit, die rueckwirkend ueber den
+ * Rebuild-Zeitraum gebucht wird.
+ */
+function clampDayHours(raw: string): number {
+  const parsed = parseFloat(raw);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.min(MAX_DAILY_HOURS, Math.max(0, parsed));
+}
+
 const DAY_LABELS: Record<keyof WorkSchedule, string> = {
   monday: 'Montag',
   tuesday: 'Dienstag',
@@ -137,9 +157,7 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = fa
                     max="24"
                     step="0.5"
                     value={schedule[day]}
-                    onChange={(e) =>
-                      handleDayChange(day, parseFloat(e.target.value) || 0)
-                    }
+                    onChange={(e) => handleDayChange(day, clampDayHours(e.target.value))}
                     disabled={readOnly}
                     className="w-20 px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:text-gray-600 dark:disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
