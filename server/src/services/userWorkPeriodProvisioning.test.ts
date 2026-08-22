@@ -2,19 +2,24 @@ import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
 import { db } from '../database/connection.js';
 import * as workPeriodService from './workPeriodService.js';
 import { getWorkPeriods, getCurrentWorkPeriod, checkPeriodChain } from './workPeriodService.js';
-import { createUser, updateUser, ensureInitialWorkPeriod, usernameExists } from './userService.js';
+import { createUser, updateUser, ensureInitialWorkPeriod, usernameExists, WorkPeriodBypassError } from './userService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
 import type { UserCreateInput, WorkSchedule } from '../types/index.js';
 
 /**
- * USER WORK PERIOD PROVISIONING TESTS — Plan 11-03
+ * USER WORK PERIOD PROVISIONING TESTS — Plan 11-03, umgestellt in Plan 14-02 (WR-07)
  *
  * Nachweis, dass die Periodenkette lückenlos bleibt, nicht nur für den Bestand aus
- * Migration 009, sondern für jeden Nutzer, der seither über `createUser()` entsteht, und
- * dass eine Stammdatenänderung (`updateUser()`) weiterhin in die offene Periode spiegelt
- * (D4/Plan-Objective 11-03).
+ * Migration 009, sondern für jeden Nutzer, der seither über `createUser()` entsteht.
+ *
+ * WR-07 (Plan 14-02): `updateUser()` spiegelt eine geänderte `weeklyHours`/`workSchedule`
+ * NICHT MEHR in die offene Periode — sie wird mit `WorkPeriodBypassError` abgewiesen, bevor
+ * irgendetwas geschrieben wird. Die Tests dieser Datei bilden das umgekehrte Verhalten ab:
+ * eine tatsächliche Wertänderung wirft, ein unveränderter Wert (der Weg, den
+ * `EditUserModal.handleSubmit` geht) läuft weiterhin durch. Siehe
+ * `.planning/phases/14-absicherung-und-auslieferung/14-WR07-ENTSCHEIDUNG.md`.
  *
  * Diese Tests laufen — wie `workPeriodService.test.ts` und `workPeriodContext.test.ts` —
  * gegen die geteilte Verbindung aus `connection.js` und damit gegen
@@ -157,7 +162,7 @@ describe('createUser — Startperiode (Task 1)', () => {
   });
 });
 
-describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
+describe('updateUser — WR-07: Abweisung statt Spiegelung (Plan 14-02)', () => {
   let createdUserId: number | null = null;
 
   afterEach(() => {
@@ -167,25 +172,38 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
     }
   });
 
-  it('weeklyHours-Änderung spiegelt in users UND in die offene Periode, validFrom bleibt', async () => {
+  function countTransactions(userId: number): number {
+    return (
+      db.prepare('SELECT COUNT(*) as c FROM overtime_transactions WHERE userId = ?').get(userId) as {
+        c: number;
+      }
+    ).c;
+  }
+
+  it('WR-07: eine weeklyHours-Aenderung ueber updateUser wird abgewiesen, Periode und Saldo bleiben unangetastet', async () => {
     const input = baseUserInput('mirror-hours', { weeklyHours: 40, hireDate: '2026-01-01' });
     const user = await createUser(input);
     createdUserId = user.id;
 
     const periodBefore = getCurrentWorkPeriod(user.id);
     expect(periodBefore?.weeklyHours).toBe(40);
+    const transactionsBefore = countTransactions(user.id);
 
-    const updated = await updateUser(user.id, { weeklyHours: 20 });
-    expect(updated.weeklyHours).toBe(20);
+    await expect(updateUser(user.id, { weeklyHours: 20 })).rejects.toThrow(WorkPeriodBypassError);
+
+    const usersRow = db.prepare('SELECT weeklyHours FROM users WHERE id = ?').get(user.id) as {
+      weeklyHours: number;
+    };
+    expect(usersRow.weeklyHours).toBe(40);
 
     const periodAfter = getCurrentWorkPeriod(user.id);
-    expect(periodAfter?.weeklyHours).toBe(20);
-    expect(periodAfter?.validFrom).toBe(periodBefore?.validFrom);
+    expect(periodAfter?.weeklyHours).toBe(40);
     expect(periodAfter?.id).toBe(periodBefore?.id);
     expect(getWorkPeriods(user.id).length).toBe(1);
+    expect(countTransactions(user.id)).toBe(transactionsBefore);
   });
 
-  it('workSchedule-Änderung spiegelt genauso in die offene Periode', async () => {
+  it('WR-07: eine workSchedule-Aenderung ueber updateUser wird abgewiesen, Periode und Saldo bleiben unangetastet', async () => {
     const input = baseUserInput('mirror-schedule', { weeklyHours: 40, hireDate: '2026-01-01' });
     const user = await createUser(input);
     createdUserId = user.id;
@@ -199,15 +217,19 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
       saturday: 0,
       sunday: 0,
     };
+    const transactionsBefore = countTransactions(user.id);
 
-    await updateUser(user.id, { workSchedule: newSchedule });
+    await expect(updateUser(user.id, { workSchedule: newSchedule })).rejects.toThrow(
+      WorkPeriodBypassError
+    );
 
     const periodAfter = getCurrentWorkPeriod(user.id);
-    expect(periodAfter?.workSchedule).toEqual(newSchedule);
+    expect(periodAfter?.workSchedule).toBeNull();
     expect(getWorkPeriods(user.id).length).toBe(1);
+    expect(countTransactions(user.id)).toBe(transactionsBefore);
   });
 
-  it('ein Update ohne weeklyHours/workSchedule rührt die Periode nicht an', async () => {
+  it('Gegenprobe: ein Update ohne weeklyHours/workSchedule wirft NICHT und ruehrt die Periode nicht an', async () => {
     const input = baseUserInput('mirror-untouched', { weeklyHours: 40, hireDate: '2026-01-01' });
     const user = await createUser(input);
     createdUserId = user.id;
@@ -215,7 +237,9 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
     const spy = vi.spyOn(workPeriodService, 'getCurrentWorkPeriod');
     spy.mockClear();
 
-    await updateUser(user.id, { firstName: 'Geändert' });
+    await expect(updateUser(user.id, { firstName: 'Geändert' })).resolves.toMatchObject({
+      firstName: 'Geändert',
+    });
 
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
@@ -224,7 +248,7 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
     expect(periodAfter?.weeklyHours).toBe(40);
   });
 
-  it('ein Update, das den bisherigen Wert wiederholt, schreibt nicht (kein leerer Vorgang)', async () => {
+  it('Gegenprobe: ein Update, das den bisherigen weeklyHours-Wert wiederholt, wirft NICHT (das ist der Weg von EditUserModal.handleSubmit)', async () => {
     const input = baseUserInput('mirror-noop', { weeklyHours: 40, hireDate: '2026-01-01' });
     const user = await createUser(input);
     createdUserId = user.id;
@@ -232,58 +256,85 @@ describe('updateUser — Spiegelung in die offene Periode (Task 2)', () => {
     const spy = vi.spyOn(workPeriodService, 'getCurrentWorkPeriod');
     spy.mockClear();
 
-    await updateUser(user.id, { weeklyHours: 40 });
+    await expect(updateUser(user.id, { weeklyHours: 40 })).resolves.toMatchObject({
+      weeklyHours: 40,
+    });
 
-    // mustMirrorPeriod bleibt false, weil der Wert unverändert ist — der Mirror-Zweig ruft
-    // getCurrentWorkPeriod() gar nicht erst auf.
+    // Kein Wertwechsel -> keine Abweisung, und der (ohnehin entfallene) Mirror-Zweig hätte
+    // getCurrentWorkPeriod() auch vorher nicht aufgerufen.
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 
-  it('hat der Nutzer keine Periode, wird über ensureInitialWorkPeriod erst eine angelegt und danach gespiegelt', async () => {
-    // Alt-Nutzer-Fall: direktes INSERT statt createUser(), damit gar keine Periode existiert
-    // (das Sicherheitsnetz aus Task 2 soll genau diesen Fall abfangen).
+  it('WR-07: ein Nutzer ohne Periode bekommt bei einer weeklyHours-Aenderung ebenfalls WorkPeriodBypassError, es entsteht KEINE Periode', async () => {
+    // Alt-Nutzer-Fall: direktes INSERT statt createUser(), damit gar keine Periode existiert.
+    // Vor WR-07 legte der Mirror-Zweig hier per ensureInitialWorkPeriod() eine Periode an —
+    // dieser Sicherheitsnetz-Pfad ist mit dem gesamten Mirror-Zweig entfallen.
     const userId = createRawTestUser('mirror-noperiod', 40, '2026-01-01');
     createdUserId = userId;
     expect(getWorkPeriods(userId).length).toBe(0);
 
-    const updated = await updateUser(userId, { weeklyHours: 25 });
-    expect(updated.weeklyHours).toBe(25);
+    await expect(updateUser(userId, { weeklyHours: 25 })).rejects.toThrow(WorkPeriodBypassError);
 
-    const periods = getWorkPeriods(userId);
-    expect(periods.length).toBe(1);
-    expect(periods[0].weeklyHours).toBe(25);
-    expect(periods[0].validTo).toBeNull();
-    expect(checkPeriodChain(userId).ok).toBe(true);
+    const usersRow = db.prepare('SELECT weeklyHours FROM users WHERE id = ?').get(userId) as {
+      weeklyHours: number;
+    };
+    expect(usersRow.weeklyHours).toBe(40);
+    expect(getWorkPeriods(userId).length).toBe(0);
   });
 
-  it('Nutzer-Update und Periodenspiegelung sind atomar', async () => {
+  it('WR-07: die Abweisung greift VOR jedem Perioden-Zugriff — getCurrentWorkPeriod() wird bei einer geaenderten weeklyHours gar nicht mehr aufgerufen', async () => {
     const input = baseUserInput('mirror-atomic', { weeklyHours: 40, hireDate: '2026-01-01' });
     const user = await createUser(input);
     createdUserId = user.id;
 
     const periodBefore = getCurrentWorkPeriod(user.id);
 
+    // Vor WR-07 bewies dieser Mock die Transaktionsatomaritaet (ein Fehler beim Spiegeln
+    // rollte auch das users-UPDATE zurueck). Nach WR-07 wirft updateUser() bereits VOR dem
+    // Aufbau des SQL-UPDATE ab — dieser Mock wird fuer eine geaenderte weeklyHours gar nicht
+    // mehr erreicht. Das ist die Antwort auf "welcher Fehler greift zuerst": WorkPeriodBypassError,
+    // nicht der injizierte Periodenfehler.
     const spy = vi
       .spyOn(workPeriodService, 'getCurrentWorkPeriod')
       .mockImplementation(() => {
-        throw new Error('injizierter Fehler für den Atomaritätsnachweis (Task 2)');
+        throw new Error('sollte fuer eine geaenderte weeklyHours nicht mehr aufgerufen werden (WR-07)');
       });
+    spy.mockClear();
 
-    await expect(updateUser(user.id, { weeklyHours: 55 })).rejects.toThrow(
-      'injizierter Fehler für den Atomaritätsnachweis (Task 2)'
-    );
+    await expect(updateUser(user.id, { weeklyHours: 55 })).rejects.toThrow(WorkPeriodBypassError);
 
+    expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
 
-    // Weder users.weeklyHours noch die Periode wurden geändert — die Transaktion hat
-    // beides zurückgerollt.
+    // Weder users.weeklyHours noch die Periode wurden geändert.
     const usersRow = db.prepare('SELECT weeklyHours FROM users WHERE id = ?').get(user.id) as {
       weeklyHours: number;
     };
     expect(usersRow.weeklyHours).toBe(40);
     const periodAfter = getCurrentWorkPeriod(user.id);
     expect(periodAfter?.weeklyHours).toBe(periodBefore?.weeklyHours);
+  });
+
+  it('WR-07: die Fehlermeldung nennt beide Ersatzwege woertlich', async () => {
+    const input = baseUserInput('mirror-message', { weeklyHours: 40, hireDate: '2026-01-01' });
+    const user = await createUser(input);
+    createdUserId = user.id;
+
+    await expect(updateUser(user.id, { weeklyHours: 41 })).rejects.toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining('POST /api/work-periods/change'),
+      })
+    );
+
+    try {
+      await updateUser(user.id, { weeklyHours: 41 });
+      throw new Error('updateUser haette werfen muessen');
+    } catch (error) {
+      expect(error).toBeInstanceOf(WorkPeriodBypassError);
+      expect((error as Error).message).toContain('POST /api/work-periods/change');
+      expect((error as Error).message).toContain('PUT /api/work-periods/:id');
+    }
   });
 });
 
@@ -373,12 +424,12 @@ describe('Vollständige Kette nach Anlage und Änderung (Task 3, zusätzliche F�
     expect(checkPeriodChain(user.id)).toEqual({ ok: true, findings: [] });
   });
 
-  it('nach updateUser mit geänderten Wochenstunden bleibt checkPeriodChain ok: true, weiterhin genau 1 Periode', async () => {
+  it('WR-07: ein abgewiesener updateUser-Aufruf mit geaenderten Wochenstunden laesst checkPeriodChain unveraendert ok: true, weiterhin genau 1 Periode', async () => {
     const input = baseUserInput('chain-update', { weeklyHours: 40, hireDate: '2026-02-01' });
     const user = await createUser(input);
     createdUserId = user.id;
 
-    await updateUser(user.id, { weeklyHours: 15 });
+    await expect(updateUser(user.id, { weeklyHours: 15 })).rejects.toThrow(WorkPeriodBypassError);
 
     expect(checkPeriodChain(user.id)).toEqual({ ok: true, findings: [] });
     expect(getWorkPeriods(user.id).length).toBe(1);
