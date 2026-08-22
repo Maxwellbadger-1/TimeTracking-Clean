@@ -196,6 +196,11 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
 
   const todayStr = useMemo(() => formatDateLocal(new Date()), []);
 
+  /** WR-05: leeres/fehlendes Eintrittsdatum ausdruecklich als `null` fuehren, statt sich auf
+   *  die Typzusage `string` zu verlassen — sonst rendert `formatGermanDate('')`
+   *  "Invalid Date" und `validFrom < ''` hebt die Stichtagspruefung stillschweigend auf. */
+  const hireDate = user.hireDate || null;
+
   const currentPeriod = useMemo(() => {
     const periods = periodsQuery.data;
     if (!periods) return null;
@@ -303,14 +308,31 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
     setFieldErrors((prev) => ({ ...prev, validFrom: undefined }));
   }
 
+  /**
+   * WR-04 (Code-Review Phase 12): `parseWeeklyHoursValue()` liefert fuer Werte ausserhalb
+   * 0-60 `null`. Dann gab es keine Vorschau, das Panel blieb im Platzhalter und der
+   * Primaerbutton war deaktiviert — der Platzhaltertext behauptet aber "sobald Stichtag und
+   * neue Wochenstunden gesetzt sind", und beides IST gesetzt. Die vom Vertrag vorgesehene
+   * Meldung (Zustand 9) entstand nur in `validateForm()`, das nur `handleSubmit` aufruft,
+   * und ein Submit ist bei deaktiviertem Standard-Submit-Button gar nicht ausloesbar (auch
+   * die implizite Absendung per Enter unterbleibt dann laut HTML-Standard). Der Admin tippte
+   * "65" und sah einen grauen Kasten mit einem falschen Satz und einen toten Knopf.
+   * Deshalb wird der Wertebereich jetzt beim Tippen geprueft, nicht erst beim Absenden.
+   */
   function handleWeeklyHoursChange(e: ChangeEvent<HTMLInputElement>) {
-    setWeeklyHours(e.target.value);
+    const raw = e.target.value;
+    setWeeklyHours(raw);
     previewSeqRef.current += 1; // WR-03
     setPreview(null);
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
     setFormError('');
-    setFieldErrors((prev) => ({ ...prev, weeklyHours: undefined }));
+    const outOfRange =
+      raw !== '' && (!Number.isFinite(Number(raw)) || Number(raw) < 0 || Number(raw) > 60);
+    setFieldErrors((prev) => ({
+      ...prev,
+      weeklyHours: outOfRange ? 'Wochenstunden müssen zwischen 0 und 60 liegen' : undefined,
+    }));
   }
 
   function handleWorkScheduleChange(schedule: WorkSchedule | null) {
@@ -334,8 +356,13 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
 
     if (!validFrom) {
       errors.validFrom = 'Stichtag ist erforderlich';
-    } else if (validFrom < user.hireDate) {
-      errors.validFrom = `Der Stichtag darf nicht vor dem Eintrittsdatum (${formatGermanDate(user.hireDate)}) liegen.`;
+    } else if (hireDate && validFrom < hireDate) {
+      // WR-05: `hireDate` ist im Typ `string`, der Bestand behandelt es aber als
+      // moeglicherweise leer (`EditUserModal` schreibt `user.hireDate || getTodayDate()`).
+      // Ohne die `hireDate &&`-Wache war `validFrom < ''` fuer jeden Wert falsch — die
+      // Pruefung entfiel stillschweigend, und der Anwender bekam statt eines Feldfehlers
+      // einen spaeten Serverfehler.
+      errors.validFrom = `Der Stichtag darf nicht vor dem Eintrittsdatum (${formatGermanDate(hireDate)}) liegen.`;
     } else if (user.endDate && validFrom > user.endDate) {
       errors.validFrom = `Der Stichtag liegt nach dem Austrittsdatum (${formatGermanDate(user.endDate)}).`;
     } else if (periodsQuery.data?.some((p) => p.validFrom === validFrom)) {
@@ -528,7 +555,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
             {user.firstName} {user.lastName}
           </p>
           <p className="text-sm text-blue-900 dark:text-blue-100">
-            Eintrittsdatum: {formatGermanDate(user.hireDate)}
+            Eintrittsdatum: {hireDate ? formatGermanDate(hireDate) : 'nicht hinterlegt'}
           </p>
           {periodsQuery.isLoading ? (
             <div className="flex justify-center py-8">
@@ -541,7 +568,11 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
             </p>
           ) : (
             <p className="text-sm text-blue-900 dark:text-blue-100">
-              Aktuell gültig seit {formatGermanDate(currentPeriod?.validFrom ?? user.hireDate)}:{' '}
+              {/* WR-05: ohne Periode UND ohne Eintrittsdatum gibt es kein Datum zu nennen —
+                  "Invalid Date" waere schlechter als der Verzicht auf den Zusatz. */}
+              {currentPeriod?.validFrom ?? hireDate
+                ? `Aktuell gültig seit ${formatGermanDate((currentPeriod?.validFrom ?? hireDate) as string)}: `
+                : 'Aktuell gültig: '}
               {formatWeeklyHoursDe(currentPeriod?.weeklyHours ?? user.weeklyHours)} h/Woche
             </p>
           )}
