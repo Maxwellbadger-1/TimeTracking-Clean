@@ -280,6 +280,20 @@ Plans:
 
 **Abhängigkeit:** Phase 11
 
+**Plans:** 9 Pläne in 5 Wellen (Welle 1: 12-01, 12-02 · Welle 2: 12-03, 12-04 · Welle 3: 12-05, 12-06, 12-08 · Welle 4: 12-07 · Welle 5: 12-09)
+
+Plans:
+
+- [ ] 12-01-PLAN.md — Migration 011 (`model_change`), Vertragstypen, Perioden-Lese-API `GET /api/work-periods` (D5, D6)
+- [ ] 12-02-PLAN.md — Modal-Infrastruktur: `modalStack.ts`, Portal, `zIndexClass`, ESC-Stapel, Fokusfalle
+- [ ] 12-03-PLAN.md — Wechsel-Service mit echtem Trockenlauf und signiertem `previewToken` (D2, D3, D4, D7)
+- [ ] 12-04-PLAN.md — Desktop-Datenschicht: Hooks und Periodenliste
+- [ ] 12-05-PLAN.md — Endpunkte `POST /preview` und `POST /change` plus Nachweis der vier Erfolgskriterien (D6)
+- [ ] 12-06-PLAN.md — Der Wechsel-Dialog mit Vorschaupanel, Bestätigung und allen 15 Zuständen (REQ-26, REQ-27)
+- [ ] 12-08-PLAN.md — WR-12-Nachzug: Desktop rechnet periodengetreu, Wirksamkeitsfenster erneut gemessen
+- [ ] 12-07-PLAN.md — Einbindung in die Stammdaten-Oberfläche und Sichtbarkeit im Kontoauszug (D1, REQ-29)
+- [ ] 12-09-PLAN.md — E2E-Test umgeschrieben, Pflicht-Gates, gebündelte UAT-Liste für Phase 14 (D8)
+
 ---
 
 ### Phase 13: Korrigieren und rückgängig machen
