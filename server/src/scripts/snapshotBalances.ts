@@ -46,6 +46,14 @@ import { existsSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
 import { assertNotProduction } from './productionGuard.js';
 import { getDatabasePath } from '../config/database.js';
+// WR-02 (10-REVIEW.md): ausschließlich Typ-Importe für db/unifiedOvertimeService. Ein
+// Werte-Import von 'better-sqlite3' ist unbedenklich (öffnet keine Datei), ein Werte-Import
+// von '../services/unifiedOvertimeService.js' dagegen würde über dessen Importkette
+// '../database/connection.js' laden und die Datenbank öffnen, bevor assertNotProduction()
+// gelaufen ist — genau die Reihenfolge, die der Kopfkommentar oben als zwingend begründet.
+// `import type` wird von TypeScript restlos entfernt und erzeugt zur Laufzeit keinen Import.
+import type { Database as BetterSqlite3Database } from 'better-sqlite3';
+import type { UnifiedOvertimeService } from '../services/unifiedOvertimeService.js';
 
 const TOOL_VERSION = '1.0.0';
 
@@ -331,8 +339,12 @@ interface UserSnapshot {
   }>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function collectUser(db: any, unifiedOvertimeService: any, userId: number, asOf: string): UserSnapshot {
+function collectUser(
+  db: BetterSqlite3Database,
+  unifiedOvertimeService: UnifiedOvertimeService,
+  userId: number,
+  asOf: string
+): UserSnapshot {
   // Stammdaten ausdrücklich ungefiltert (kein "WHERE deletedAt IS NULL") — D5 verlangt, dass
   // auch soft-gelöschte Nutzer Teil des Nachweises bleiben. workSchedule bleibt Rohtext.
   const masterRow = db
