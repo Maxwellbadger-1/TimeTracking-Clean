@@ -9,7 +9,7 @@ import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
 import { calculateCarryover, calculateProRataVacationDays, upsertVacationBalance } from './vacationBalanceService.js';
-import { createWorkPeriodContext, directWorkPeriodLookup } from './workPeriodContext.js';
+import { createWorkPeriodContext } from './workPeriodContext.js';
 
 /**
  * Absence Service
@@ -809,6 +809,23 @@ export async function approveAbsenceRequest(
     throw new Error('Only pending or rejected requests can be approved');
   }
 
+  // WR-02: EIN Perioden-Kontext für die gesamte Genehmigung.
+  //
+  // Vorher bekamen der Genehmigungsvorbehalt (unten) und die Abbuchung (weiter unten)
+  // je `directWorkPeriodLookup` übergeben — den Fallback, dessen eigener Vertrag in
+  // `workPeriodContext.ts` ausdrücklich sagt: "Darf NUR für Einzelabfragen verwendet
+  // werden, NICHT in Tagesschleifen." `calculateAbsenceHoursWithWorkSchedule()` iteriert
+  // aber per Definition über jeden Tag des Zeitraums und ruft für jeden Tag `resolve()`
+  // auf; jeder dieser Aufrufe lud über `resolveWorkPeriodAt()` die komplette
+  // Periodenliste des Nutzers neu. Bei einem vierwöchigen Urlaub waren das 2 × 28
+  // Volltabellenabfragen statt 1.
+  //
+  // Wichtiger als die Laufzeit: Zwischen Vorbehalt und Abbuchung liegen ein Commit und
+  // mehrere `await`. Ein gemeinsamer, vorladender Kontext garantiert, dass beide
+  // Rechnungen denselben Periodenstand sehen — sonst könnte die Abbuchung eine andere
+  // Stundenzahl ergeben als die Prüfung, die sie freigegeben hat.
+  const approvalPeriods = createWorkPeriodContext();
+
   // VALIDATION: Check overtime balance for overtime_comp
   if (request.type === 'overtime_comp') {
     const {
@@ -829,7 +846,7 @@ export async function approveAbsenceRequest(
       user,
       request.startDate,
       request.endDate,
-      directWorkPeriodLookup
+      approvalPeriods
     );
 
     const currentBalance = getOvertimeBalance(request.userId);
@@ -903,7 +920,7 @@ export async function approveAbsenceRequest(
       user,
       request.startDate,
       request.endDate,
-      directWorkPeriodLookup
+      approvalPeriods
     );
 
     recordOvertimeCompensation(
