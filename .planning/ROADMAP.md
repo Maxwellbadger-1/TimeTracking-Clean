@@ -406,7 +406,7 @@ Plans:
 
 **Welle 1**
 
-- [ ] 14-01-PLAN.md — REQ-32: die fünf Wechselfälle einzeln nachweisen, den einen fehlenden Fall (Erhöhung mit rückwirkendem Stichtag) schließen
+- [x] 14-01-PLAN.md — REQ-32: die fünf Wechselfälle einzeln nachweisen, den einen fehlenden Fall (Erhöhung mit rückwirkendem Stichtag) schließen
 - [ ] 14-02-PLAN.md — WR-07 schließen: `PUT /api/users/:id` ändert Wochenstunden nicht mehr an der Perioden-Historie vorbei (Entscheidung: vor dem Produktionslauf)
 - [ ] 14-03-PLAN.md — Abnahmesitzung vorbereiten: die 86 gesammelten Punkte nach Prüfweg gruppieren, Dubletten zusammenführen, Ablauf mit Zeitschätzung
 
