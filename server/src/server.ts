@@ -21,6 +21,7 @@ import overtimeRoutes from './routes/overtime.js';
 import vacationBalanceRoutes from './routes/vacationBalance.js';
 import vacationTransactionRoutes from './routes/vacationTransactions.js';
 import workTimeAccountsRoutes from './routes/workTimeAccounts.js';
+import workPeriodsRoutes from './routes/workPeriods.js';
 import reportsRoutes from './routes/reports.js';
 import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
@@ -190,6 +191,7 @@ app.use('/api/vacation-balances', vacationBalanceRoutes);
 app.use('/api/vacation-balance', vacationBalanceRoutes); // Singular alias for compatibility
 app.use('/api/vacation-transactions', vacationTransactionRoutes);
 app.use('/api/work-time-accounts', workTimeAccountsRoutes);
+app.use('/api/work-periods', workPeriodsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/settings', settingsRoutes);
