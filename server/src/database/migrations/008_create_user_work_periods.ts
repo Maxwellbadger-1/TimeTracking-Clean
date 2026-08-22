@@ -60,6 +60,44 @@ const EXPECTED_TRIGGERS = [
   'trg_user_work_periods_delete_guard',
 ];
 
+/**
+ * DELETE-Riegel als exportierte Konstante (WR-01, 10-06-PLAN.md), damit Migration 010 sie
+ * unverändert nachrüsten kann, statt eine dritte SQL-Kopie zu pflegen —
+ * `schemaMigrationParity.test.ts` vergleicht ohnehin die tatsächlichen `sqlite_master`-
+ * Einträge, keine gemeinsam genutzte Konstante schwächt diesen Nachweis ab.
+ *
+ * Zwei RAISE-Klauseln:
+ *   1. NEU (WR-01): verweigert das Löschen der letzten verbleibenden Periode eines noch
+ *      existierenden Nutzers — unabhängig davon, ob sie offen (validTo IS NULL) oder
+ *      geschlossen ist. Das ist die datenbankseitige Erfüllung der von Migration 009
+ *      hergestellten Invariante „jeder Nutzer hat mindestens eine Periode".
+ *   2. Bestehend: verweigert das Löschen, wenn dadurch eine Lücke zwischen einer
+ *      Vorgänger- und einer Nachfolgerperiode entstünde.
+ * Die Klausel `EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)` ist in BEIDEN
+ * RAISE-Klauseln zwingend beizubehalten: Ohne sie bricht `DELETE FROM users`
+ * (ON DELETE CASCADE) bei einem Nutzer mit mehreren Perioden ab, weil der Elternsatz zu
+ * diesem Zeitpunkt bereits fort ist und jede der beiden Bedingungen sonst zuschlägt.
+ */
+export const DELETE_GUARD_TRIGGER_SQL = `
+      CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_delete_guard
+      BEFORE DELETE ON user_work_periods
+      BEGIN
+        SELECT RAISE(ABORT, 'user_work_periods: Löschen würde den Nutzer ohne jede Periode zurücklassen')
+        WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
+          AND NOT EXISTS (
+            SELECT 1 FROM user_work_periods p
+            WHERE p.userId = OLD.userId AND p.id <> OLD.id
+          );
+        SELECT RAISE(ABORT, 'user_work_periods: Löschen würde eine Lücke in der Periodenkette hinterlassen')
+        WHERE OLD.validTo IS NOT NULL
+          AND EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
+          AND EXISTS (SELECT 1 FROM user_work_periods p
+                      WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validTo = OLD.validFrom)
+          AND EXISTS (SELECT 1 FROM user_work_periods p
+                      WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validFrom = OLD.validTo);
+      END
+    `;
+
 export default {
   up(db: Database.Database): void {
     logger.info('🚀 Migration 008: Creating user_work_periods (Arbeitszeit-Perioden)...');
@@ -164,14 +202,16 @@ export default {
     // Lücken-Riegel; INSERT/UPDATE unterscheiden sich nur darin, ob NEW.id sich selbst
     // ausschließen muss.
     //
-    // Der DELETE-Trigger lässt bewusst NUR das Löschen der jeweils letzten (offenen oder
-    // an keiner Seite verketteten) Periode zu. Die Klausel
-    // `EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)` ist kein Beiwerk: Ohne sie
-    // bricht ein `DELETE FROM users` (ON DELETE CASCADE) bei einem Nutzer mit drei
-    // verketteten Perioden ab, weil die mittlere Zeile den Lücken-Riegel auslöst. Getestet
-    // am 22.08.2026 gegen better-sqlite3: mit der Bedingung räumt die Kaskade alle
-    // Perioden ab, ohne sie scheitert sie. Testaufräumarbeiten
-    // (`DELETE FROM users WHERE id = ?`) hängen an dieser Klausel.
+    // Der DELETE-Trigger (Definition: DELETE_GUARD_TRIGGER_SQL oben, WR-01) verweigert
+    // sowohl das Leerlaufen der Periodenkette (letzte verbleibende Periode eines noch
+    // existierenden Nutzers) als auch das Aufreißen einer Lücke zwischen Vorgänger- und
+    // Nachfolgerperiode. Die Klausel `EXISTS (SELECT 1 FROM users u WHERE u.id =
+    // OLD.userId)` ist in BEIDEN RAISE-Klauseln kein Beiwerk: Ohne sie bricht ein
+    // `DELETE FROM users` (ON DELETE CASCADE) bei einem Nutzer mit mehreren verketteten
+    // Perioden ab, weil der Elternsatz zu diesem Zeitpunkt bereits fort ist und jede
+    // Bedingung sonst zuschlägt. Getestet am 22.08.2026 gegen better-sqlite3: mit der
+    // Bedingung räumt die Kaskade alle Perioden ab, ohne sie scheitert sie.
+    // Testaufräumarbeiten (`DELETE FROM users WHERE id = ?`) hängen an dieser Klausel.
     logger.info('📝 Creating triggers...');
     db.prepare(`
       CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_insert_guard
@@ -217,19 +257,7 @@ export default {
       END
     `).run();
 
-    db.prepare(`
-      CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_delete_guard
-      BEFORE DELETE ON user_work_periods
-      BEGIN
-        SELECT RAISE(ABORT, 'user_work_periods: Löschen würde eine Lücke in der Periodenkette hinterlassen')
-        WHERE OLD.validTo IS NOT NULL
-          AND EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
-          AND EXISTS (SELECT 1 FROM user_work_periods p
-                      WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validTo = OLD.validFrom)
-          AND EXISTS (SELECT 1 FROM user_work_periods p
-                      WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validFrom = OLD.validTo);
-      END
-    `).run();
+    db.prepare(DELETE_GUARD_TRIGGER_SQL).run();
 
     // Step 6: Indizes und Trigger gemeinsam verifizieren
     const finalIndexes = db

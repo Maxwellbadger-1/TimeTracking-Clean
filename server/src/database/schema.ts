@@ -337,6 +337,12 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_delete_guard
     BEFORE DELETE ON user_work_periods
     BEGIN
+      SELECT RAISE(ABORT, 'user_work_periods: Löschen würde den Nutzer ohne jede Periode zurücklassen')
+      WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
+        AND NOT EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = OLD.userId AND p.id <> OLD.id
+        );
       SELECT RAISE(ABORT, 'user_work_periods: Löschen würde eine Lücke in der Periodenkette hinterlassen')
       WHERE OLD.validTo IS NOT NULL
         AND EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)

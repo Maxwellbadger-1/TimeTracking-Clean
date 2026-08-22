@@ -108,13 +108,21 @@ describe('user_work_periods: Verhaltensmatrix der Trigger und Constraints (REQ-2
       }).not.toThrow();
     });
 
-    it('erlaubt DELETE der letzten (offenen) Periode', () => {
-      const userId = insertUser('letzte-loeschen');
-      const period = insertPeriod(userId, '2026-01-01', null);
+    it('erlaubt DELETE der jüngeren (offenen) Periode, wenn der Nutzer danach noch eine weitere Periode hat', () => {
+      // Nicht zu verwechseln mit dem WR-01-Riegel unten: hier bleibt nach dem Löschen eine
+      // zweite, verkettete Periode übrig — der Nutzer läuft nicht leer.
+      const userId = insertUser('zwei-verkettete-perioden');
+      insertPeriod(userId, '2026-01-01', '2026-06-01', 40);
+      const second = insertPeriod(userId, '2026-06-01', null, 30);
 
       expect(() => {
-        db.prepare(`DELETE FROM user_work_periods WHERE id = ?`).run(period.lastInsertRowid);
+        db.prepare(`DELETE FROM user_work_periods WHERE id = ?`).run(second.lastInsertRowid);
       }).not.toThrow();
+
+      const remaining = (db
+        .prepare(`SELECT COUNT(*) as count FROM user_work_periods WHERE userId = ?`)
+        .get(userId) as { count: number }).count;
+      expect(remaining).toBe(1);
     });
 
     it('räumt DELETE FROM users bei drei verketteten Perioden vollständig per Kaskade ab, ohne dass der DELETE-Trigger abbricht', () => {
@@ -143,6 +151,32 @@ describe('user_work_periods: Verhaltensmatrix der Trigger und Constraints (REQ-2
   });
 
   describe('Abgewiesen', () => {
+    // WR-01-Riegel (unten): verweigert das Leerlaufen der Periodenkette — die letzte
+    // verbleibende Periode eines noch existierenden Nutzers ist unlöschbar. Offen bleibt
+    // (Phase 13, 13-CONTEXT.md D3): das Löschen der ERSTEN von MEHREREN Perioden ist
+    // datenbankseitig weiterhin erlaubt (der Kaskadentest oben, `räumt DELETE FROM users
+    // ... ab`, löscht alle drei Perioden nacheinander per ON DELETE CASCADE, nicht per
+    // direktem DELETE auf die erste Periode bei fortbestehendem Nutzer). D3 verlangt für
+    // diesen Fall eine Ersetzungslogik (Vorperiode schließt die Lücke), die dieser Plan
+    // bewusst nicht vorwegnimmt — Phase 13 bringt sie mit.
+    it('verweigert DELETE der letzten verbleibenden Periode eines noch existierenden Nutzers (WR-01, 10-REVIEW.md)', () => {
+      const userId = insertUser('letzte-loeschen');
+      const period = insertPeriod(userId, '2026-01-01', null);
+
+      expect(() => {
+        db.prepare(`DELETE FROM user_work_periods WHERE id = ?`).run(period.lastInsertRowid);
+      }).toThrow(/ohne jede Periode/);
+    });
+
+    it('verweigert DELETE der letzten verbleibenden Periode auch, wenn sie geschlossen (validTo gesetzt) statt offen ist — der Riegel greift nicht nur bei validTo IS NULL', () => {
+      const userId = insertUser('letzte-geschlossen');
+      const period = insertPeriod(userId, '2026-01-01', '2026-06-01');
+
+      expect(() => {
+        db.prepare(`DELETE FROM user_work_periods WHERE id = ?`).run(period.lastInsertRowid);
+      }).toThrow(/ohne jede Periode/);
+    });
+
     it('weist eine Periode ab, die eine bestehende überlappt', () => {
       const userId = insertUser('ueberlappt');
       insertPeriod(userId, '2026-01-01', '2026-06-01', 40);
