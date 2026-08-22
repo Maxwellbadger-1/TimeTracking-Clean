@@ -7,22 +7,42 @@
  *   npm run validate:all-test-users
  */
 
-import Database from 'better-sqlite3';
-import { getUserById } from '../services/userService.js';
-import { getDailyTargetHours } from '../utils/workingDays.js';
-// REQ-25 (Plan 11-08): periodengültiger Maßstab statt aktuellem Nutzerstamm — Kontext je
-// Nutzer/Monat (s. validateUser unten). Statischer Import bewusst unverändert gelassen:
-// dieses Skript hat (wie schon vor diesem Plan) weder Produktionsschutz noch DATABASE_PATH-
-// Respektierung — es öffnet `./database/development.db` fest verdrahtet. Das auf den
-// Produktionsschutz-Pfad umzustellen wäre ein eigener, nicht in diesem Plan beauftragter
-// Umbau (s. SUMMARY, Abschnitt „Deferred Issues"); die Signatur-Nachführung selbst ändert an
-// diesem bestehenden Zustand nichts.
-import { createWorkPeriodContext } from '../services/workPeriodContext.js';
 import fs from 'fs';
 import path from 'path';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
+import { assertNotProduction } from './productionGuard.js';
 
-const db = new Database('./database/development.db');
+/**
+ * CR-03 (Phase 11): EINE Datenbank, nicht zwei.
+ *
+ * Vorher öffnete dieses Skript mit `new Database('./database/development.db')` eine ZWEITE,
+ * fest verdrahtete Verbindung und las darüber `holidays`, `absence_requests`,
+ * `time_entries` und `overtime_balance` — während die Sollstunden über `getUserById()`,
+ * `createWorkPeriodContext()` und `getDailyTargetHours()` aus der GETEILTEN Verbindung
+ * (`database/connection.js`, Pfad aus `getDatabasePath()`/`DATABASE_PATH`) kamen. Sobald
+ * `DATABASE_PATH` gesetzt ist — also im von `.claude/CLAUDE.md` vorgeschriebenen Betrieb —
+ * las ein und derselbe Prüflauf Nutzer und Perioden aus Datei A und Zeiteinträge,
+ * Abwesenheiten und Salden aus Datei B. Das Werkzeug konnte in dieser Form keine Aussage
+ * treffen: Es meldete Abweichungen, die es selbst erzeugte, oder verschwieg echte.
+ * Zusätzlich legte `new Database(...)` ohne `fileMustExist` die Datei an, wenn sie fehlte
+ * (Verstoß gegen „Neue DB-Files erstellen → verboten"), und der relative Pfad hing am
+ * Arbeitsverzeichnis statt am Skript.
+ *
+ * PRODUKTIONSSCHUTZ ZUERST, DANN DYNAMISCHER IMPORT (Muster aus validateOvertimeDetailed.ts
+ * und seedTestUsers.ts): `database/connection.ts` öffnet die Datei bereits beim `import`
+ * eines Service-Moduls, nicht erst beim Funktionsaufruf. Ein Guard NACH einer statischen
+ * Import-Zeile auf ein solches Modul wäre wirkungslos. Oben stehen deshalb nur
+ * import-sichere Module (Node-Builtins, `timezone.ts`, `productionGuard.ts` — löst nur
+ * Strings auf).
+ */
+assertNotProduction();
+
+const { db } = await import('../database/connection.js');
+const { getUserById } = await import('../services/userService.js');
+const { getDailyTargetHours } = await import('../utils/workingDays.js');
+// REQ-25 (Plan 11-08): periodengültiger Maßstab statt aktuellem Nutzerstamm — Kontext je
+// Nutzer/Monat (s. validateUser unten).
+const { createWorkPeriodContext } = await import('../services/workPeriodContext.js');
 
 interface ValidationResult {
   userId: number;
@@ -305,5 +325,7 @@ fs.writeFileSync(reportPath, report, 'utf-8');
 console.log(`\n📄 Detailed report: ${reportPath}`);
 console.log('═'.repeat(80) + '\n');
 
-db.close();
+// CR-03: KEIN db.close() mehr — `db` ist jetzt die geteilte Verbindung aus
+// database/connection.js und gehört nicht diesem Skript. `process.exit()` beendet den
+// Prozess und gibt das Dateihandle ohnehin frei.
 process.exit(failCount > 0 ? 1 : 0);
