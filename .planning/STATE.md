@@ -4,12 +4,12 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Completed 11-10-PLAN.md
-last_updated: "2026-08-22T06:33:03.609Z"
-last_activity: 2026-08-22
+last_updated: "2026-08-22T12:13:26.558Z"
+last_activity: 2026-08-22 -- Phase 12 planning complete
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 22
+  total_plans: 31
   completed_plans: 22
   percent: 43
 ---
@@ -263,7 +263,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
 Plan: 11 of 11
 Status: Ready to execute
-Last activity: 2026-08-22
+Last activity: 2026-08-22 -- Phase 12 planning complete
 
 ## Operator Next Steps
 
