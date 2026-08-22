@@ -34,6 +34,11 @@ export interface TransactionParams {
   description: string;
   referenceType?: 'time_entry' | 'absence' | 'manual' | 'system' | 'work_period' | null;
   referenceId?: number | null;
+  // reversalOf (Migration 014, DD-4, 13-01-PLAN.md): NUR auf einer Gegenbuchung gesetzt,
+  // zeigt auf die stornierte Original-Buchungszeile. referenceId bleibt der Bezug zur
+  // auslösenden Fremdentität (z. B. die Periode) — reversalOf ist der eindeutige Paarbezug
+  // zwischen zwei overtime_transactions-Zeilen, den referenceId nicht leisten kann.
+  reversalOf?: number | null;
   createdBy?: number | null;
   balanceBefore?: number;
   balanceAfter?: number;
@@ -57,12 +62,19 @@ export function createTransaction(params: TransactionParams): number | null {
     description,
     referenceType = null,
     referenceId = null,
+    reversalOf = null,
     createdBy = null,
     balanceBefore,
     balanceAfter
   } = params;
 
   // Check if this exact transaction already exists
+  //
+  // ABSICHTLICH OHNE reversalOf (13-01-PLAN.md, Task 2): Eine Gegenbuchung unterscheidet
+  // sich von ihrem Original bereits im Vorzeichen von `hours` (Storno-Prinzip, D2 aus
+  // 13-CONTEXT.md — die Originalzeile bleibt unverändert stehen, die Gegenbuchung gleicht
+  // mit umgekehrtem Vorzeichen aus). Eine zusätzliche Bedingung auf reversalOf würde die
+  // bestehende Duplikaterkennung nur aufweichen, ohne einen realen Duplikat-Fall abzudecken.
   const existing = db.prepare(`
     SELECT id FROM overtime_transactions
     WHERE userId = ?
@@ -92,9 +104,9 @@ export function createTransaction(params: TransactionParams): number | null {
   const result = db.prepare(`
     INSERT INTO overtime_transactions (
       userId, date, type, hours, balanceBefore, balanceAfter,
-      description, referenceType, referenceId, createdBy
+      description, referenceType, referenceId, reversalOf, createdBy
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     userId,
     date,
@@ -105,6 +117,7 @@ export function createTransaction(params: TransactionParams): number | null {
     description,
     referenceType,
     referenceId,
+    reversalOf,
     createdBy
   );
 

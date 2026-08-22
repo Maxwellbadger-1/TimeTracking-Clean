@@ -565,6 +565,14 @@ export function initializeDatabase(db: Database.Database): void {
       description TEXT,
       referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system', 'work_period')),
       referenceId INTEGER,
+      -- reversalOf (Migration 014, DD-4 aus 13-01-PLAN.md): referenceId zeigt auf die
+      -- AUSLÖSENDE Fremdentität (z. B. user_work_periods.id) und ist deshalb KEIN
+      -- eindeutiger Paarbezug — beide Zeilen eines Storno-Paars tragen dieselbe
+      -- referenceId. reversalOf wird ausschließlich auf der Gegenbuchung gesetzt und
+      -- zeigt auf die stornierte Original-Buchungszeile (Selbstreferenz).
+      -- reversedBy/reversedAt/reversedByName bekommen bewusst KEINE eigenen Spalten —
+      -- sie werden im Lesepfad über einen Selbst-Join auf reversalOf abgeleitet.
+      reversalOf INTEGER,
       -- WR-07 (Code-Review Phase 12): balanceBefore/balanceAfter gehören in DIESE
       -- CREATE TABLE, nicht erst in Migration 005/006/011. overtimeTransactionManager
       -- .createTransaction() schreibt beide Spalten in jedem INSERT; ohne sie wäre eine
@@ -576,7 +584,8 @@ export function initializeDatabase(db: Database.Database): void {
       createdAt TEXT DEFAULT (datetime('now')),
       createdBy INTEGER,
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (createdBy) REFERENCES users(id)
+      FOREIGN KEY (createdBy) REFERENCES users(id),
+      FOREIGN KEY (reversalOf) REFERENCES overtime_transactions(id)
     );
   `);
 
@@ -638,6 +647,22 @@ export function initializeDatabase(db: Database.Database): void {
     logger.warn(
       { error },
       '⏳ deletedAt-Indizes auf user_work_periods noch nicht anlegbar (Spalte fehlt bis Migration 013 gelaufen ist) — runMigrations() holt das nach'
+    );
+  }
+
+  // idx_overtime_transactions_reversal_of (Migration 014, DD-4) — dieselbe Begründung wie
+  // oben bei den deletedAt-Indizes: auf einer Bestandsdatenbank ohne die Spalte reversalOf
+  // wuerde ein ungeschuetzter Fehlschlag hier den kombinierten Indexblock oben nicht
+  // beruehren (er steht bewusst danach), aber trotzdem den Serverstart abbrechen, bevor
+  // runMigrations() die Spalte per ALTER TABLE nachruesten kann.
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_overtime_transactions_reversal_of ON overtime_transactions(reversalOf) WHERE reversalOf IS NOT NULL;
+    `);
+  } catch (error) {
+    logger.warn(
+      { error },
+      '⏳ idx_overtime_transactions_reversal_of noch nicht anlegbar (Spalte reversalOf fehlt bis Migration 014 gelaufen ist) — runMigrations() holt das nach'
     );
   }
 
