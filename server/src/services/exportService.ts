@@ -18,6 +18,7 @@ import logger from '../utils/logger.js';
 import { format } from 'date-fns';
 import { getDailyTargetHours } from '../utils/workingDays.js';
 import { getUserById } from './userService.js';
+import { createWorkPeriodContext } from './workPeriodContext.js';
 
 /**
  * DATEV CSV Export
@@ -64,6 +65,10 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
 
     logger.debug({ userCount: users.length }, 'Users loaded');
 
+    // Ein Kontext für den gesamten Export (D1/D2, T-11-26): schleift über viele Zeiteinträge
+    // mehrerer Nutzer, jede Nutzer-Periodenliste wird trotzdem nur einmal geladen.
+    const periods = createWorkPeriodContext();
+
     for (const user of users) {
       // Get full user object with workSchedule for accurate daily target hours
       const fullUser = getUserById(user.id);
@@ -95,7 +100,7 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
       for (const entry of timeEntries) {
         // CRITICAL: Use getDailyTargetHours() to respect individual work schedules
         // For part-time employees with unequal distribution (Mo 8h, Fr 2h), this gives correct daily target
-        const dailyTargetHours = getDailyTargetHours(fullUser, entry.date);
+        const dailyTargetHours = getDailyTargetHours(fullUser, entry.date, periods);
         const overtime = entry.hours - dailyTargetHours;
 
         rows.push([
