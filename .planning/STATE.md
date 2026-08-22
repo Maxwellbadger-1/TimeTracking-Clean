@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 11-08-PLAN.md
-last_updated: "2026-08-22T05:53:02.495Z"
+stopped_at: Completed 11-09-PLAN.md
+last_updated: "2026-08-22T06:18:47.863Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
   percent: 29
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 9 von 14 — noch nicht begonnen
+- **Phase:** 11 von 14 — 10 von 11 Plänen abgeschlossen, nur 11-10 offen
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
-- **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 11-08-PLAN.md
+- **Next action:** Plan 11-10 ausführen (Nullwirkungs- und Wirkungsnachweis auf echten Daten, D5/D6, REQ-25), danach Phase 9.1 (Journal-Backfill, noch ohne Pläne, siehe Warnhinweis unten) und Phase 12 (`/gsd:plan-phase 12`).
+- **Last completed:** 11-09-PLAN.md (Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün)
+- **Stopped at:** Completed 11-09-PLAN.md
 
 ## Phase Progress
 
@@ -38,12 +38,13 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 9 | Ein Maßstab, ein Weg | Nicht begonnen — REQ-17 bis REQ-19 |
-| 10 | Perioden-Fundament | Nicht begonnen — REQ-20 bis REQ-22 |
-| 11 | Datumsabhängige Berechnung | Nicht begonnen — REQ-23 bis REQ-25 |
-| 12 | Stundenwechsel bedienen | Nicht begonnen — REQ-26 bis REQ-29 |
-| 13 | Korrigieren und rückgängig machen | Nicht begonnen — REQ-30 bis REQ-31 |
-| 14 | Absicherung und Auslieferung | Nicht begonnen — REQ-32 bis REQ-33 |
+| 9 | Ein Maßstab, ein Weg | Complete (5/5 Pläne), verifiziert 11/11 — REQ-17 bis REQ-19 |
+| 9.1 | Journal-Backfill und Betriebs-Härtung | Noch keine Pläne (verankert, NICHT erledigt) — läuft mit dem Produktionslauf der Phase 14 |
+| 10 | Perioden-Fundament | Complete (6/6 Pläne), verifiziert 4/4 — REQ-20 bis REQ-22 |
+| 11 | Datumsabhängige Berechnung | 10 von 11 Plänen abgeschlossen (11-10 offen) — REQ-23 bis REQ-25 |
+| 12 | Stundenwechsel bedienen | Nicht begonnen — UI-SPEC abgenommen, Planung offen — REQ-26 bis REQ-29 |
+| 13 | Korrigieren und rückgängig machen | Nicht begonnen — UI-SPEC abgenommen, Planung offen — REQ-30 bis REQ-31 |
+| 14 | Absicherung und Auslieferung | Nicht begonnen — Kontext gesetzt — REQ-32 bis REQ-33 |
 
 ### Milestone v2.0 (abgeschlossen 2026-08-21)
 
@@ -166,6 +167,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 11-datumsabh-ngige-berechnung]: Produktionsschutz in migrateOvertimeToTransactions.ts nachgeruestet (T-11-27), da das Skript zuvor ungeschuetzt Ueberstundentransaktionen schrieb
 - [Phase 11-datumsabh-ngige-berechnung]: 11-11: create-admin.ts von fest verdrahtetem Pfad (server/database.db) auf DATABASE_PATH-bewusste geteilte Verbindung aus dist/database/connection.js umgestellt (Rule 3) - Skript ignorierte DATABASE_PATH zuvor vollstaendig
 - [Phase 11-datumsabh-ngige-berechnung]: 11-11: Alle acht Skripte, die Nutzer per direktem INSERT INTO users anlegen, rufen jetzt ensureInitialWorkPeriod() auf - kein Nutzer im Projekt entsteht mehr ohne Arbeitszeitperiode (REQ-23)
+- [Phase 11-09]: Desktop wird in Phase 11 nicht nachgezogen (Abhängigkeitskonflikt: fehlende Perioden-Lese-API), Wirksamkeitsfenster mit drei Messzahlen (alle 0) belegt statt behauptet
+- [Phase 11-09]: Erschöpfende Nachsuche fand sechs Neufunde (drei tote Funktionen in workingDays.ts, timeEntryService.updateOvertimeBalance, verifyTestData.ts, check_overtime.ts) - alle Produktivpfad=nein, kein blockierender Befund
 
 ## Quick Tasks Completed
 
@@ -218,6 +221,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 11-datumsabh-ngige-berechnung P05 | 25min | 2 tasks | 4 files |
 | Phase 11-datumsabh-ngige-berechnung P08 | 35min | 3 tasks | 7 files |
 | Phase 11-datumsabh-ngige-berechnung P11 | 105min | 3 tasks | 9 files |
+| Phase 11-datumsabh-ngige-berechnung P09 | 60min | 3 tasks | 6 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -254,7 +258,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
