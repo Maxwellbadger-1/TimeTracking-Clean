@@ -306,7 +306,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 12-09-PLAN.md — E2E-Test umgeschrieben, Pflicht-Gates, gebündelte UAT-Liste für Phase 14 (D8)
+- [x] 12-09-PLAN.md — E2E-Test umgeschrieben, Pflicht-Gates, gebündelte UAT-Liste für Phase 14 (D8)
 
 ---
 

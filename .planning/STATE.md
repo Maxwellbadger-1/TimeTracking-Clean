@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Completed 12-07-PLAN.md
-last_updated: "2026-08-22T15:02:14.964Z"
+status: verifying
+stopped_at: Completed 12-09-PLAN.md (Phase 12 vollstaendig, 9/9 Plaene)
+last_updated: "2026-08-22T15:13:38.992Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 31
-  completed_plans: 30
-  percent: 43
+  completed_plans: 31
+  percent: 57
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 12-07-PLAN.md
+- **Stopped at:** Completed 12-09-PLAN.md (Phase 12 vollstaendig, 9/9 Plaene)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -194,6 +194,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-07]: OvertimeTransactions.tsx haengt am /overtime/transactions/live-Endpunkt, der overtime_transactions bisher NICHT las - model_change waere ohne additiven Merge in overtimeLiveCalculationService.ts nie sichtbar geworden (Rule 1/2 Deviation, empirisch verifiziert)
 - [Phase 12-07]: Reset-Effekt in EditUserModal auf [user.id] statt [user], plus schmaler Sync-Effekt mit Wertvergleich fuer weeklyHours/workSchedule - noetig weil user nach der UserManagementPage-Umstellung bei jedem Refetch ein neues Objekt ist
 - [Phase 12-07]: WorkTimeChangeModal wird als Geschwister NACH </form> gerendert (innerhalb der Kinder von Modal), damit ein Submit im verschachtelten Dialog niemals handleSubmit des aeusseren Formulars erreicht (T-12-38)
+- [Phase 12-09]: Periodenlisten-Format ist '0 h' (kein erzwungenes Komma), verifiziert gegen WorkTimePeriodList.tsx statt der Plan-Platzhalterformulierung '0,0 h'
+- [Phase 12-09]: WorkTimeChangeModal-Formularfelder haben kein name/htmlFor - E2E-Selektor ueber label:has-text(X) + input/textarea statt [name=...]
+- [Phase 12-09]: Vollstaendiger E2E-Lauf in dieser lokalen Umgebung blockiert (Port 3000 durch fremdes Next.js-Projekt belegt, Port 1420 bereits von aktiver Fremd-Session belegt) - Fehler tritt im unveraenderten Login-Fixture auf, nicht am geaenderten Testcode; als UAT-Punkt 39 fuer Phase 14 dokumentiert
 
 ## Quick Tasks Completed
 
@@ -256,6 +259,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P06 | 70min | 2 tasks | 1 files |
 | Phase 12 P08 | 35min | 3 tasks | 7 files |
 | Phase 12-stundenwechsel-bedienen P07 | ~55min | 3 tasks | 6 files |
+| Phase 12-stundenwechsel-bedienen P09 | 50min | 2 tasks | 1 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -293,7 +297,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
 Plan: 9 of 9
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-22
 
 ## Operator Next Steps
