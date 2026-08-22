@@ -329,9 +329,18 @@ export function correctWorkPeriod(
       if (!validFromChanged) {
         updateWorkPeriodValues(period.id, input.weeklyHours, input.workSchedule);
       } else {
-        // previous ist an dieser Stelle garantiert nicht null: isFirst && validFromChanged
-        // wurde bereits in Schritt 2 abgewiesen.
-        const previousBeforeShift = previous as UserWorkPeriod;
+        // WR-03 (Code-Review Phase 13): kein Cast. Die Invariante „isFirst && validFromChanged
+        // wurde in Schritt 2 abgewiesen" deckt periodIndex === -1 NICHT ab — `findIndex`
+        // liefert -1, wenn die Periode nicht in der Kette steht, und -1 ergibt
+        // isFirst === false UND previous === null. Ein Cast hätte den Nullwert still
+        // unterdrückt und die nächste Zeile hätte ihn dereferenziert (TypeError → 500).
+        if (previous === null) {
+          throw new WorkPeriodCorrectionValidationError(
+            `Periode ${period.id}: keine Vorperiode in der Kette gefunden (Position ${periodIndex}). ` +
+            `Es wurde nichts verändert.`
+          );
+        }
+        const previousBeforeShift = previous;
         previousPeriodResult = {
           validFrom: previousBeforeShift.validFrom,
           weeklyHours: previousBeforeShift.weeklyHours,

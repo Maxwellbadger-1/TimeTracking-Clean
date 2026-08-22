@@ -195,7 +195,21 @@ export function deleteWorkPeriod(
 
     // 3. Validierung (D7/DD-17, Meldungstexte wörtlich aus 13-UI-SPEC).
     validateDeletionInput(input, isFirst, options.dryRun);
-    const previousPeriod = previous as NonNullable<typeof previous>;
+
+    // WR-03 (Code-Review Phase 13): kein Cast. Die Invariante „periodIndex === 0 ⇒ isFirst ⇒
+    // validateDeletionInput wirft" deckt periodIndex === -1 NICHT ab — `findIndex` liefert -1,
+    // wenn die Periode nicht in der Kette steht, und -1 ergibt isFirst === false UND
+    // previous === null. Ein Cast hätte den Nullwert still unterdrückt und die nächste Zeile
+    // hätte ihn dereferenziert (TypeError → 500). Heute ist der Fall nicht erreichbar, weil
+    // getWorkPeriodById() und getWorkPeriodsWithFlags() denselben deletedAt-IS-NULL-Filter
+    // tragen — eine Kopplung zwischen zwei Funktionen, die der Cast unsichtbar machte.
+    if (previous === null) {
+      throw new WorkPeriodDeletionValidationError(
+        `Periode ${period.id}: keine Vorperiode in der Kette gefunden (Position ${periodIndex}). ` +
+        `Es wurde nichts verändert.`
+      );
+    }
+    const previousPeriod = previous;
 
     // 3b. WR-04-Muster: Ab hier wird ausschließlich die GETRIMMTE Begründung geschrieben.
     const reason = input.reason.trim();
