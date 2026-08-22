@@ -186,7 +186,71 @@ einen Menschen oder eine Produktionskopie.
 
 ## Phase 13 — Korrigieren und rückgängig machen
 
-_Wird nach Abschluss der Phase ergänzt._
+Quelle: die zehn SUMMARY-Dateien `13-01-SUMMARY.md` bis `13-10-SUMMARY.md` sowie der
+Gate-/Entscheidungsabgleich aus `13-11-SUMMARY.md`. Die Phase ist technisch verifiziert
+(`tsc` grün für Server und Desktop, Server-Testsuite 478/481 mit exakt den drei
+vorbestehenden Fehlschlägen, alle vier `npx tsx`-Prüfskripte des Desktops grün, der
+nicht verhandelbare Doppelzählungs-Nachweis besteht). Die folgenden Punkte sind
+ausschließlich solche, die ein Mensch, ein laufender Server oder eine Produktionskopie
+braucht.
+
+| # | Prüfung | Erwartung | Warum ein Mensch |
+|---|---|---|---|
+| 13-U1 | Korrektur-Dialog (`WorkTimePeriodEditModal`) am laufenden Dev-Server öffnen, für eine Periode, die die Vergangenheit berührt | Amberfarbenes Warnbanner mit konkretem Zeitraum, Ausweg-Satz 3 ("Für zukünftige Änderungen nutzen Sie stattdessen …") sichtbar, die hervorgehobene Saldoänderung im Vorschaupanel ist der einzige Blickfang | Laufender Server plus angemeldete Admin-Sitzung, visuelle Beurteilung von Farbe/Hierarchie |
+| 13-U2 | Korrektur an einer Periode, die vollständig in der Zukunft liegt | Blaues Panel „Keine Rückwirkung" statt des amberfarbenen Warnbanners, **kein** Bestätigungsschritt beim Speichern | Visuelle Beurteilung der Panel-Variante, echte zukünftige Testperiode nötig |
+| 13-U3 | Löschbestätigung öffnen: die drei `details`-Punkte prüfen (Lückenschluss, Storno-Betrag, Saldoänderung) und die Pflichtbegründung (≥10 Zeichen, im `details`-Panel ergänzt, 13-09 Rule 2) | Punkte erscheinen in der Reihenfolge Lückenschluss/Storno/Saldoänderung; der Bestätigungsknopf bleibt gesperrt, solange die Vorschau lädt UND solange die Begründung kürzer als 10 Zeichen ist | Laufender Server, visuelle und Bedien-Prüfung des Sperrzustands |
+| 13-U4 | Löschvorschau scheitern lassen (Server während der Vorschau anhalten) | Punkt 3 (Saldoänderung) wird zum Fehlertext, der Bestätigungsknopf bleibt gesperrt, es wird nichts gelöscht | Erfordert gezieltes Abschalten des Servers während einer laufenden Anfrage |
+| 13-U5 | Kontoauszug nach einem echten Löschvorgang ansehen | Zwei Zeilen (Original + Storno), beide teal, je ein graues Zustands-Badge (`storniert`/`Storno`), gemeinsame Belegnummer (Id der Ursprungsbuchung); Klick auf den Beleg-Chip springt zur Partnerzeile und hebt sie 2s hervor | Visuelle Prüfung, echter Löschvorgang gegen laufenden Server nötig |
+| 13-U6 | Beleg-Chip im Fehlfall: Zeitraum so wählen, dass die Partnerzeile jenseits der Abschneidegrenze der Liste liegt, dann auf den Chip klicken | Ein Erklärtext (`toast.info`, einer von drei Textbuch-Sätzen je nach Fall: Liste voll / anderer Monat / anderes Jahr) erscheint statt eines stillen Klicks ins Leere | Visuelle Prüfung eines gezielt konstruierten Randfalls |
+| 13-U7 | Mitarbeiter-Sitzung auf einen fremden Nutzer (Periodenliste in `EditUserModal`) | Das graue Panel „Kein Zugriff auf die Arbeitszeit-Perioden" mit Schloss-Symbol erscheint, **kein** roter Fehler-Toast daneben | Braucht laufenden Server und eine echte Mitarbeiter-Sitzung (kein Admin) |
+| 13-U8 | Tastaturbedienung des Hinweis-Chips „Nicht löschbar" auf der ersten Periode eines Nutzers | Mit Tab erreichbar (`tabIndex={0}`), Einblendung des Tooltips bei Fokus (`group-focus-within`), mit ESC ausblendbar, ohne dass das umgebende `EditUserModal` schließt | Bedienung ausschließlich mit der Tastatur, keine automatisierte Prüfung dafür in diesem Plan |
+| 13-U9 | Dunkelmodus aller neuen Flächen: Korrekturblock unter der Periodenliste, Panel „Kein Zugriff", `details`-Panel der Löschbestätigung (inkl. Begründungsfeld), Zustands-Badges im Kontoauszug | Kontrast und Lesbarkeit mindestens so gut wie die bestehenden Flächen aus Phase 12, keine `opacity`-Krücken | Visuelle Beurteilung, pro Fläche im hellen und dunklen Modus |
+| 13-U10 | Fenster unter 640 px ziehen: Periodenzeilen-Aktionen, Korrekturblock-Knopf | Zeilenaktionen erscheinen nur als Symbole (kein Text), Trefferfläche mindestens 32 × 32 px (`p-2`), der Korrekturblock-Knopf läuft über die volle Breite | Visuelle Prüfung bei einer konkreten Fensterbreite |
+| 13-U11 | Generalprobe auf einer Kopie der Produktionsdatenbank: eine echte Umstellung eintragen, danach löschen, Salden aller Nutzer vor und nach dem Vorgang vergleichen | Kein Nutzer außer dem betroffenen zeigt eine Saldoänderung; der betroffene Nutzer landet exakt auf dem Stand vor der Umstellung (derselbe Nachweis wie der lokale „Zusicherung A/B/C/D"-Test, jetzt gegen echte Daten) | Produktionsdaten sind lokal ausgeschlossen (Produktionsschutz), Phase 13 hat nur mit `development.db` gearbeitet |
+| 13-U12 | Anmeldung und Laden der Perioden-/Kontoauszugsliste gegen einen echten, nicht portkollidierten Dev-Server nach der `api/client.ts`-Bereinigung (Plan 13-10: 42 `console.log` entfernt, Green-Server-Probe entfernt) | Login funktioniert, Perioden- und Kontoauszugsliste laden unverändert wie vor der Bereinigung, keine Konsolen-Fehlermeldung ersetzt den entfernten Code stillschweigend | In dieser Ausführungsumgebung nicht möglich — Port 3000 war durchgehend durch ein fremdes Next.js-Projekt belegt, ein manueller Login-Test konnte nicht durchgeführt werden (13-10-SUMMARY.md, „Issues Encountered") |
+| 13-U13 | `aria-label` des Löschbestätigungsknopfs (`confirmAriaLabel`, 13-09) mit einem Screenreader abhören | Der angesagte Name nennt die Periode konkret („Periode vom {Datum} löschen und stornieren"), nicht nur „Bestätigen" | Screenreader-Prüfung ist keine automatisierte Prüfung dieses Plans |
+
+### Fachliche Festlegungen, die eine Bestätigung brauchen
+
+| # | Festlegung | Alternative, die verworfen wurde |
+|---|---|---|
+| 13-F1 | Die erste Periode eines Nutzers lässt sich korrigieren, aber nicht löschen | Auch die erste Periode löschbar machen (hätte keine Vorperiode zum Lückenschluss) |
+| 13-F2 | Eine gelöschte Periode lässt sich nicht wiederherstellen; der Weg führt über eine neue Eintragung | Ein „Undo des Undo"-Mechanismus |
+| 13-F3 | Die Belegnummer beider Zeilen eines Storno-Paares ist die Id der **Ursprungsbuchung**, nicht die der Periode — bei mehreren Paaren an derselben Periode bleiben die Nummern dadurch unterscheidbar | Die Periode selbst als Belegnummer verwenden |
+| 13-F4 | Punkt 2 der Löschbestätigung wechselt in die Mehrzahlform, wenn eine Periode mehr als eine Buchung trägt (Abweichung vom Textbuch, das nur den Einzahlfall kennt) | Immer die Einzahlform zeigen, auch bei mehreren Buchungen |
+| 13-F5 | Der Kettenriegel der Datenbank wird beim Verschieben von „Gültig ab" innerhalb der Transaktion kurzzeitig ausgesetzt und danach über `checkPeriodChain()` geprüft | Den Riegel während der gesamten Korrektur aktiv lassen (hätte den Zwischenzustand blockiert) |
+| 13-F6 | `deletedBy` wird zusätzlich zu `deletedAt` gespeichert | Nur `deletedAt` ohne Angabe, wer gelöscht hat |
+| 13-F7 | Die Warnfarbe des Bestätigungsdialogs wurde von Gelb auf Amber angeglichen | Gelb beibehalten |
+| 13-F8 | Eine Pflichtbegründung (≥10 Zeichen) wurde der Löschbestätigung als Textfeld hinzugefügt, obwohl `13-UI-SPEC.md` dafür keinen Eingabeschritt vorsah — der Server verlangt sie zwingend im Speicherpfad, ohne das Feld wäre jeder echte Löschversuch am Server gescheitert (13-09, Rule 2) | Kein Eingabefeld, Löschung serverseitig immer mit 400 ablehnen lassen |
+| 13-F9 | `checkPeriodChain()` läuft nach jedem Schreiben in Korrektur und Löschung unbedingt, nicht nur im Zweig mit ausgesetztem Kettenriegel — ein zusätzliches Sicherheitsnetz gegen bereits bestehende Kettenschäden im Bestand (13-03) | `checkPeriodChain()` nur dort aufrufen, wo der Riegel tatsächlich ausgesetzt wurde |
+| 13-F10 | `reversedAt` (Zeitstempel der Gegenbuchung) wird über `formatCreatedAtDe()` formatiert statt über das im Plantext genannte `T12:00:00`-Datumsmuster — `reversedAt` ist ein UTC-Zeitstempel, kein reines Datumsfeld; das Datumsmuster hätte den bereits einmal behobenen Timezone-Bug reproduziert (13-10, Rule 1) | Dem Plantext wörtlich folgen und beide Zeitangaben über dasselbe Muster formatieren |
+
+### Nachrichtlich: Umgebungsbefunde ohne Handlungsbedarf in Phase 13
+
+- `vitest` ist im Verzeichnis `desktop/` weiterhin nicht lauffähig (fehlendes
+  `@babel/runtime`, vorbestehend seit Phase 12). Die in dieser Phase angelegten
+  Desktop-Prüfungen (`confirmDialogProps.check.ts`, `workTimePeriodEditRules.check.ts`,
+  `workTimePeriodDeleteRules.check.ts`, `overtimeTransactionFormat.check.ts`) laufen
+  ersatzweise als `npx tsx`-Skripte mit `node:assert` (alle 50 Einzeltests grün). Vor
+  Phase 14 zu reparieren, damit sie im regulären Testlauf mitlaufen.
+- Die tatsächlich benutzte lokale Arbeitsdatenbank ist `server/database/development.db`;
+  `server/database.db` ist eine veraltete, unmigrierte Altdatei ohne `user_work_periods`
+  (unverändert seit Phase 11/12).
+- Port 3000 war während der gesamten Ausführung von Phase 13 durch ein fremdes
+  Next.js-Projekt belegt (dieselbe Einschränkung wie in Phase 12, `12-09-SUMMARY.md`).
+  Anders als in Phase 12 wurde in Phase 13 kein Ersatzport (z. B. 3099) genutzt — jeder
+  Versuch einer echten Anmeldung/Live-Prüfung blieb ganz aus (siehe 13-U1 bis 13-U13
+  oben, `13-10-SUMMARY.md`, „Issues Encountered"). Für die Abnahme muss Port 3000 frei
+  sein.
+- Plan 13-03 fand einen veralteten `INSERT_GUARD_TRIGGER_SQL`-Textbaustein in zwei
+  bestehenden Testdateien (`workPeriodService.test.ts`, `workPeriodChangeService.test.ts`),
+  der bei jedem Testlauf den durch Migration 013 korrekt migrierten Trigger auf der
+  geteilten `development.db` durch eine veraltete Fassung überschrieb. Der Trigger wurde
+  repariert und die Testkonstanten korrigiert (Commit `f403ae2`). Der reparierte Trigger
+  sollte bei jedem künftigen `npm run sync-dev-db` erneut aus der Produktionsdatenbank
+  überschrieben werden — dort lief Migration 013 laut `13-01-SUMMARY.md` ebenfalls bereits,
+  kein bekannter Blocker, aber ein Punkt für die nächste Verifikation gegen eine frisch
+  synchronisierte `development.db`.
 
 ---
 
