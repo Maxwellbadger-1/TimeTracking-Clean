@@ -531,6 +531,55 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
     }
   });
 
+  it('WR-02: Ein bereits materialisierter Zukunftsmonat wird mit dem neuen Sollmodell nachgezogen, balanceDelta bleibt davon unberuehrt', () => {
+    const userId = createEmployee('wr02-zukunftsmonat', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+
+      const validFrom = firstOfMonthOffset(today, -1);
+      insertWeekdayTimeEntries(userId, validFrom, today, 8);
+
+      // Zukunftsmonat vorab materialisieren — genau die Lage, die durch genehmigten
+      // Zukunftsurlaub im Bestand entsteht (siehe Kommentar in getOvertimeBalance()).
+      const futureMonth = firstOfMonthOffset(today, 2).slice(0, 7);
+      rebuildOvertimeTransactionsForMonth(userId, futureMonth);
+
+      const futureBefore = db
+        .prepare('SELECT targetHours FROM overtime_balance WHERE userId = ? AND month = ?')
+        .get(userId, futureMonth) as { targetHours: number } | undefined;
+      expect(futureBefore).toBeDefined();
+      expect(futureBefore!.targetHours).toBeGreaterThan(0);
+
+      const outcome = applyWorkTimeChange(
+        {
+          userId,
+          validFrom,
+          weeklyHours: 20,
+          workSchedule: null,
+          reason: 'Halbierung der Wochenstunden — Nachweis fuer den Zukunftsmonat (WR-02)',
+        },
+        { dryRun: false, createdBy: adminId }
+      );
+
+      const futureAfter = db
+        .prepare('SELECT targetHours FROM overtime_balance WHERE userId = ? AND month = ?')
+        .get(userId, futureMonth) as { targetHours: number };
+
+      // Halbe Wochenstunden -> halbes Monatssoll. Der Zukunftsmonat traegt jetzt das neue
+      // Modell und nicht mehr das alte.
+      expect(futureAfter.targetHours).toBeCloseTo(futureBefore!.targetHours / 2, 2);
+
+      // Der gemessene und gebuchte balanceDelta stammt weiterhin ausschliesslich aus dem
+      // Zeitraum bis heute: getOvertimeBalance() blendet Zukunftsmonate aus.
+      expect(outcome.preview.balanceDelta).toBe(
+        Math.round((outcome.preview.balanceAfter - outcome.preview.balanceBefore) * 100) / 100
+      );
+      expect(outcome.preview.affectedMonths).not.toContain(futureMonth);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('Wechsel ueber einen Jahreswechsel: affectedMonths deckt zwei Kalenderjahre ab, der Lauf endet ohne Fehler', () => {
     const userId = createEmployee('jahreswechsel', 40, '2020-01-01');
     try {

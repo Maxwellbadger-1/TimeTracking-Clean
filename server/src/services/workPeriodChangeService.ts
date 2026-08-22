@@ -282,12 +282,41 @@ export function applyWorkTimeChange(
     const rangeStart = input.validFrom;
     const rangeEnd = input.validFrom > today ? rangeStart : today;
 
-    // 5. Betroffene Monate.
+    // 5. Betroffene Monate. `affectedMonths` ist der ANZEIGE-Zeitraum der Vorschau
+    //    ("neu gerechnet wird vom … bis heute") und bleibt deshalb der zusammenhängende
+    //    Bereich rangeStart..rangeEnd.
     const affectedMonths = monthsInRange(rangeStart, rangeEnd);
+
+    // 5b. WR-02 — BEREITS MATERIALISIERTE ZUKUNFTSMONATE.
+    //     Die alte Periode wird bei validFrom geschlossen, die neue erbt deren validTo: das
+    //     neue Modell gilt damit für den GESAMTEN Rest der alten Periode, also auch für die
+    //     Zukunft. Neu gerechnet wird per D3 aber nur bis heute. `overtime_balance`-Zeilen
+    //     für Zukunftsmonate, die bereits existieren (z. B. durch genehmigten
+    //     Zukunftsurlaub — siehe den Kommentar in `getOvertimeBalance()`), blieben sonst mit
+    //     dem ALTEN Sollmodell stehen und würden erst irgendwann zufällig überschrieben.
+    //
+    //     ENTSCHEIDUNG (bewusst, wie vom Review verlangt): Solche Monate werden mit neu
+    //     gerechnet — aber ausschließlich Monate, für die schon eine `overtime_balance`-Zeile
+    //     existiert. Neue Zukunftsmonate anzulegen wäre falsch (sie würden ein volles
+    //     Monatssoll ohne Ist erzeugen); vorhandene stehenzulassen ebenso.
+    //     Die `model_change`-Buchung bleibt davon unberührt: `getOvertimeBalance()` blendet
+    //     Zukunftsmonate aus, `balanceDelta` ändert sich also nicht.
+    const rangeEndMonth = rangeEnd.slice(0, 7);
+    const staleFutureMonths = (
+      db
+        .prepare(
+          `SELECT month FROM overtime_balance
+           WHERE userId = ? AND month > ?
+           ORDER BY month ASC`
+        )
+        .all(input.userId, rangeEndMonth) as Array<{ month: string }>
+    ).map((row) => row.month);
+
+    const rebuildMonths = [...affectedMonths, ...staleFutureMonths];
 
     // 6. Ist-Basis herstellen: overtime_balance darf beim Messen nicht veraltet sein, sonst
     //    enthielte die Differenz zusätzlich den Nachhall einer ausstehenden Selbstheilung.
-    for (const month of affectedMonths) {
+    for (const month of rebuildMonths) {
       rebuildOvertimeTransactionsForMonth(input.userId, month);
     }
 
@@ -358,8 +387,9 @@ export function applyWorkTimeChange(
       );
     }
 
-    // 12. Nachrechnen: derselbe begrenzte Bereich, jetzt mit der neuen Periode in der Kette.
-    for (const month of affectedMonths) {
+    // 12. Nachrechnen: derselbe begrenzte Bereich (inklusive der bereits materialisierten
+    //     Zukunftsmonate aus Schritt 5b), jetzt mit der neuen Periode in der Kette.
+    for (const month of rebuildMonths) {
       rebuildOvertimeTransactionsForMonth(input.userId, month);
     }
 
