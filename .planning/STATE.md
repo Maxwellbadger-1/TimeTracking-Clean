@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-08-22T13:24:56.511Z"
+stopped_at: Completed 12-04-PLAN.md
+last_updated: "2026-08-22T13:32:38.490Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 31
-  completed_plans: 25
+  completed_plans: 26
   percent: 43
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 12-03-PLAN.md
+- **Stopped at:** Completed 12-04-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -182,6 +182,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-02]: modalStack.test.ts laeuft als npx tsx-Pruefskript statt vitest-Test - vitest ist im Environment projektweit durch fehlendes @babel/runtime blockiert
 - [Phase 12-03]: previousWeeklyHours in der Journalbeschreibung faellt auf user.weeklyHours zurueck, wenn am Stichtag keine Periode aktiv war — Luecken-Fall im Textbuch nicht wortwoertlich vorgegeben; einzige sinnvolle Deutung von bisherigen Wochenstunden ohne bisherige Periode
 - [Phase 12-03]: Trockenlauf schreibt und rechnet auch im isNoOp-Fall wie der Speicherpfad, nur der Speicherpfad verweigert — Haelt D2 strikt ein - keine zweite Rechenbahn fuer Randfaelle
+- [Phase ?]: Kein optimistisches Update in useSaveWorkTimeChange (D2) - der Speichern-Button haengt an einem gueltigen previewToken
+- [Phase ?]: useSaveWorkTimeChange nutzt den bestehenden Helper invalidateUserAffectedQueries statt einzelner Ueberstunden-Query-Keys
 
 ## Quick Tasks Completed
 
@@ -239,6 +241,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P01 | 50min | 3 tasks | 6 files |
 | Phase 12-stundenwechsel-bedienen P02 | 12min | 3 tasks | 4 files |
 | Phase 12 P03 | 45min | 2 tasks | 3 files |
+| Phase 12-stundenwechsel-bedienen P04 | 35min | 2 tasks | 3 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -275,7 +278,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-08-22
 
