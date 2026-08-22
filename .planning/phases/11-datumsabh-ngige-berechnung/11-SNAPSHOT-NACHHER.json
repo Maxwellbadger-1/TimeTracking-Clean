@@ -1,0 +1,1972 @@
+{
+  "generatedAt": "2026-08-22T06:26:57.834Z",
+  "databasePath": "C:\\Users\\maxfe\\Maxflow Software\\Projekte\\Stiftung TimeTracker\\TimeTracking-Clean\\server\\database\\11-nullwirkung.db",
+  "asOf": "2026-08-20",
+  "toolVersion": "1.0.0",
+  "users": [
+    {
+      "userId": 1,
+      "masterData": {
+        "hireDate": "2025-11-13",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2025-11-13",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 0,
+        "overtime": 0,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2025-11",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2025-12",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-01",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2025,
+          "balance": {
+            "entitlement": 30,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 30
+          },
+          "transactionsSum": 30
+        },
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 30,
+            "carryover": 5,
+            "taken": 0,
+            "remaining": 35
+          },
+          "transactionsSum": 35
+        }
+      ]
+    },
+    {
+      "userId": 2,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 5,
+        "workSchedule": "{\"monday\":0,\"tuesday\":0,\"wednesday\":0,\"thursday\":5,\"friday\":0,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 155,
+        "actualHours": 165,
+        "overtime": 10,
+        "breakdown": {
+          "worked": 165,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 20,
+          "actualHours": 0,
+          "overtime": -20,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 20,
+          "actualHours": 29,
+          "overtime": 9,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 20,
+          "actualHours": 2.5,
+          "overtime": -17.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 25,
+          "actualHours": 21.5,
+          "overtime": -3.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 15,
+          "actualHours": 27.5,
+          "overtime": 12.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 15,
+          "actualHours": 60,
+          "overtime": 45,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 25,
+          "actualHours": 18.5,
+          "overtime": -6.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 15,
+          "actualHours": 6,
+          "overtime": -9,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2025,
+          "balance": {
+            "entitlement": 7,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 7
+          },
+          "transactionsSum": 7
+        },
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 7,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 7
+          },
+          "transactionsSum": 7
+        }
+      ]
+    },
+    {
+      "userId": 3,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 8,
+        "workSchedule": "{\"monday\":4,\"tuesday\":4,\"wednesday\":0,\"thursday\":0,\"friday\":0,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 252,
+        "actualHours": 256.77,
+        "overtime": 4.77,
+        "breakdown": {
+          "worked": 208.77,
+          "absenceCredits": 48,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 28,
+          "actualHours": 29.18,
+          "overtime": 1.1799999999999997,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 32,
+          "actualHours": 33.08,
+          "overtime": 1.0799999999999983,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 40,
+          "actualHours": 40.17,
+          "overtime": 0.1700000000000017,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 28,
+          "actualHours": 28.590000000000003,
+          "overtime": 0.5900000000000034,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 28,
+          "actualHours": 28.75,
+          "overtime": 0.75,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 40,
+          "actualHours": 41.33,
+          "overtime": 1.3299999999999983,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 32,
+          "actualHours": 31.16,
+          "overtime": -0.8399999999999999,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 24,
+          "actualHours": 24.510000000000005,
+          "overtime": 0.5100000000000051,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-09",
+          "targetHours": 36,
+          "actualHours": 16,
+          "overtime": -20,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2025,
+          "balance": {
+            "entitlement": 13,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 13
+          },
+          "transactionsSum": 13
+        },
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 13,
+            "carryover": 0,
+            "taken": 13,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 15,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "inactive",
+        "deletedAt": "2026-02-28 14:01:48",
+        "weeklyHours": 0,
+        "workSchedule": "{\"monday\":8,\"tuesday\":0,\"wednesday\":8,\"thursday\":0,\"friday\":4,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": null,
+      "overtimeError": "User 15 not found",
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 84,
+          "actualHours": 88.53999999999999,
+          "overtime": 4.539999999999992,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 80,
+          "actualHours": 80,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 88,
+          "actualHours": 0,
+          "overtime": -88,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2025,
+          "balance": {
+            "entitlement": 10,
+            "carryover": 0,
+            "taken": 5,
+            "remaining": 5
+          },
+          "transactionsSum": 5
+        },
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 10,
+            "carryover": 0,
+            "taken": 6,
+            "remaining": 4
+          },
+          "transactionsSum": 4
+        }
+      ]
+    },
+    {
+      "userId": 16,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 30,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 948,
+        "actualHours": 974,
+        "overtime": 26,
+        "breakdown": {
+          "worked": 824,
+          "absenceCredits": 150,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 120,
+          "actualHours": 168.5,
+          "overtime": 48.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 120,
+          "actualHours": 92,
+          "overtime": -28,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 132,
+          "actualHours": 135,
+          "overtime": 3,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 120,
+          "actualHours": 146.25,
+          "overtime": 26.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 108,
+          "actualHours": 87.5,
+          "overtime": -20.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 126,
+          "actualHours": 142,
+          "overtime": 16,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 138,
+          "actualHours": 108.25,
+          "overtime": -29.75,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 90,
+          "actualHours": 94.5,
+          "overtime": 4.5,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2025,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 28,
+            "carryover": 0,
+            "taken": 13,
+            "remaining": 15
+          },
+          "transactionsSum": 15
+        }
+      ]
+    },
+    {
+      "userId": 17,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 12,
+        "workSchedule": "{\"monday\":4,\"tuesday\":4,\"wednesday\":0,\"thursday\":4,\"friday\":0,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 368,
+        "actualHours": 366.7399999999999,
+        "overtime": -1.2599999999999998,
+        "breakdown": {
+          "worked": 326.74,
+          "absenceCredits": 40,
+          "corrections": 0,
+          "unpaidReduction": 8
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 44,
+          "actualHours": 53.09,
+          "overtime": 9.090000000000003,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 48,
+          "actualHours": 46.81999999999999,
+          "overtime": -1.1800000000000068,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 56,
+          "actualHours": 57.58,
+          "overtime": 1.5799999999999983,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 40,
+          "actualHours": 32.17,
+          "overtime": -7.829999999999998,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 40,
+          "actualHours": 39.089999999999996,
+          "overtime": -0.9100000000000037,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 52,
+          "actualHours": 49.66,
+          "overtime": -2.3400000000000034,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 52,
+          "actualHours": 53.58,
+          "overtime": 1.5799999999999983,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 36,
+          "actualHours": 34.75,
+          "overtime": -1.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-09",
+          "targetHours": 52,
+          "actualHours": 8,
+          "overtime": -44,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 20,
+            "carryover": 0,
+            "taken": 15,
+            "remaining": 5
+          },
+          "transactionsSum": 5
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 20,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 20
+          },
+          "transactionsSum": 20
+        }
+      ]
+    },
+    {
+      "userId": 18,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 20,
+        "workSchedule": "{\"monday\":0,\"tuesday\":0,\"wednesday\":8,\"thursday\":8,\"friday\":4,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 636,
+        "actualHours": 647.25,
+        "overtime": 11.25,
+        "breakdown": {
+          "worked": 587.25,
+          "absenceCredits": 60,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 84,
+          "actualHours": 93.75,
+          "overtime": 9.75,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 80,
+          "actualHours": 75,
+          "overtime": -5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 80,
+          "actualHours": 83.25,
+          "overtime": 3.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 92,
+          "actualHours": 90.75,
+          "overtime": -1.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 72,
+          "actualHours": 72.25,
+          "overtime": 0.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 72,
+          "actualHours": 72.75,
+          "overtime": 0.75,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 100,
+          "actualHours": 112.5,
+          "overtime": 12.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 60,
+          "actualHours": 51,
+          "overtime": -9,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 19,
+            "carryover": 0,
+            "taken": 9,
+            "remaining": 10
+          },
+          "transactionsSum": 10
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 19,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 19
+          },
+          "transactionsSum": 19
+        }
+      ]
+    },
+    {
+      "userId": 19,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 2.5,
+        "workSchedule": "{\"monday\":0,\"tuesday\":0,\"wednesday\":0,\"thursday\":2.5,\"friday\":0,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 77.5,
+        "actualHours": 89.91,
+        "overtime": 12.41,
+        "breakdown": {
+          "worked": 89.91,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 10,
+          "actualHours": 10.08,
+          "overtime": 0.08000000000000007,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 10,
+          "actualHours": 10,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 10,
+          "actualHours": 17.92,
+          "overtime": 7.920000000000002,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 12.5,
+          "actualHours": 11,
+          "overtime": -1.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 7.5,
+          "actualHours": 14.75,
+          "overtime": 7.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 7.5,
+          "actualHours": 12,
+          "overtime": 4.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 12.5,
+          "actualHours": 5.25,
+          "overtime": -7.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 7.5,
+          "actualHours": 8.91,
+          "overtime": 1.4100000000000001,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 6,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 6
+          },
+          "transactionsSum": 6
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 6,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 6
+          },
+          "transactionsSum": 6
+        }
+      ]
+    },
+    {
+      "userId": 20,
+      "masterData": {
+        "hireDate": "2026-04-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 7,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-04-01",
+        "endDate": "2026-08-20",
+        "targetHours": 134.40000000000023,
+        "actualHours": 120,
+        "overtime": -14.400000000000018,
+        "breakdown": {
+          "worked": 120,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-04",
+          "targetHours": 27.99999999999999,
+          "actualHours": 31.5,
+          "overtime": 3.5000000000000107,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 25.199999999999992,
+          "actualHours": 33,
+          "overtime": 7.800000000000008,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 29.399999999999988,
+          "actualHours": 24.5,
+          "overtime": -4.899999999999988,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 32.19999999999999,
+          "actualHours": 31,
+          "overtime": -1.1999999999999886,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 20.999999999999996,
+          "actualHours": 0,
+          "overtime": -20.999999999999996,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 21,
+      "masterData": {
+        "hireDate": "2026-04-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 5,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-04-01",
+        "endDate": "2026-08-20",
+        "targetHours": 96,
+        "actualHours": 83,
+        "overtime": -13,
+        "breakdown": {
+          "worked": 83,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-04",
+          "targetHours": 20,
+          "actualHours": 21.5,
+          "overtime": 1.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 18,
+          "actualHours": 21,
+          "overtime": 3,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 21,
+          "actualHours": 18.5,
+          "overtime": -2.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 23,
+          "actualHours": 22,
+          "overtime": -1,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 15,
+          "actualHours": 0,
+          "overtime": -15,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 22,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 47.5,
+        "overtime": 47.5,
+        "breakdown": {
+          "worked": 47.5,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": 8,
+          "overtime": 8,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 11.25,
+          "overtime": 11.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 9.25,
+          "overtime": 9.25,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 19,
+          "overtime": 19,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 23,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 0,
+        "overtime": 0,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 24,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 201.5,
+        "overtime": 201.5,
+        "breakdown": {
+          "worked": 249.5,
+          "absenceCredits": 0,
+          "corrections": -48,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 0,
+          "actualHours": 30.5,
+          "overtime": 30.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 17.5,
+          "overtime": 17.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": -7,
+          "overtime": -7,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 39,
+          "overtime": 39,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 49,
+          "overtime": 49,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 72.5,
+          "overtime": 72.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 8,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 8
+          },
+          "transactionsSum": 8
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 8,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 8
+          },
+          "transactionsSum": 8
+        }
+      ]
+    },
+    {
+      "userId": 25,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 8,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 252.79999999999936,
+        "actualHours": 18.25,
+        "overtime": -234.54999999999936,
+        "breakdown": {
+          "worked": 18.25,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 32.00000000000001,
+          "actualHours": 0,
+          "overtime": -32.00000000000001,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 32.00000000000001,
+          "actualHours": 0,
+          "overtime": -32.00000000000001,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 35.20000000000001,
+          "actualHours": 0,
+          "overtime": -35.20000000000001,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 32.00000000000001,
+          "actualHours": 16,
+          "overtime": -16.000000000000007,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 28.800000000000008,
+          "actualHours": 2.25,
+          "overtime": -26.550000000000008,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 33.60000000000001,
+          "actualHours": 0,
+          "overtime": -33.60000000000001,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 36.80000000000001,
+          "actualHours": 0,
+          "overtime": -36.80000000000001,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 24.000000000000004,
+          "actualHours": 0,
+          "overtime": -24.000000000000004,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 12,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 12
+          },
+          "transactionsSum": 12
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 12,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 12
+          },
+          "transactionsSum": 12
+        }
+      ]
+    },
+    {
+      "userId": 26,
+      "masterData": {
+        "hireDate": "2026-02-26",
+        "endDate": null,
+        "status": "inactive",
+        "deletedAt": "2026-02-27 15:50:29",
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": null,
+      "overtimeError": "User 26 not found",
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 25.5,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 25.5
+          },
+          "transactionsSum": 25.5
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 30,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 30
+          },
+          "transactionsSum": 30
+        }
+      ]
+    },
+    {
+      "userId": 27,
+      "masterData": {
+        "hireDate": "2026-02-27",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-02-27",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 0,
+        "overtime": 0,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 28,
+      "masterData": {
+        "hireDate": "2026-03-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 12,
+        "workSchedule": "{\"monday\":4,\"tuesday\":4,\"wednesday\":0,\"thursday\":4,\"friday\":0,\"saturday\":0,\"sunday\":0}"
+      },
+      "overtimePeriod": {
+        "startDate": "2026-03-01",
+        "endDate": "2026-08-20",
+        "targetHours": 284,
+        "actualHours": 91.5,
+        "overtime": -192.5,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 91.5,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-03",
+          "targetHours": 56,
+          "actualHours": 91.5,
+          "overtime": 35.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 48,
+          "actualHours": 0,
+          "overtime": -48,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 40,
+          "actualHours": 0,
+          "overtime": -40,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 52,
+          "actualHours": 0,
+          "overtime": -52,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 52,
+          "actualHours": 0,
+          "overtime": -52,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 36,
+          "actualHours": 0,
+          "overtime": -36,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 29,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 0,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 0,
+        "actualHours": 65.28,
+        "overtime": 65.28,
+        "breakdown": {
+          "worked": 85.78,
+          "absenceCredits": 0,
+          "corrections": -20.5,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 0,
+          "actualHours": 8,
+          "overtime": 8,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 0,
+          "actualHours": 10,
+          "overtime": 10,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 0,
+          "actualHours": -10.84,
+          "overtime": -10.84,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 0,
+          "actualHours": 16.2,
+          "overtime": 16.2,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 0,
+          "actualHours": 13.6,
+          "overtime": 13.6,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 0,
+          "actualHours": 15.5,
+          "overtime": 15.5,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 0,
+          "actualHours": 12.82,
+          "overtime": 12.82,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 0,
+          "actualHours": 0,
+          "overtime": 0,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    },
+    {
+      "userId": 30,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 40,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 1264,
+        "actualHours": 0,
+        "overtime": -1264,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 176,
+          "actualHours": 0,
+          "overtime": -176,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 144,
+          "actualHours": 0,
+          "overtime": -144,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 168,
+          "actualHours": 0,
+          "overtime": -168,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 184,
+          "actualHours": 0,
+          "overtime": -184,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 120,
+          "actualHours": 0,
+          "overtime": -120,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-10",
+          "targetHours": 176,
+          "actualHours": 0,
+          "overtime": -176,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 14,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 14
+          },
+          "transactionsSum": 14
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 20,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 20
+          },
+          "transactionsSum": 20
+        }
+      ]
+    },
+    {
+      "userId": 31,
+      "masterData": {
+        "hireDate": "2026-01-01",
+        "endDate": null,
+        "status": "active",
+        "deletedAt": null,
+        "weeklyHours": 40,
+        "workSchedule": null
+      },
+      "overtimePeriod": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-08-20",
+        "targetHours": 1264,
+        "actualHours": 0,
+        "overtime": -1264,
+        "breakdown": {
+          "worked": 0,
+          "absenceCredits": 0,
+          "corrections": 0,
+          "unpaidReduction": 0
+        }
+      },
+      "overtimeError": null,
+      "overtimeBalanceRows": [
+        {
+          "month": "2026-01",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-02",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-03",
+          "targetHours": 176,
+          "actualHours": 0,
+          "overtime": -176,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-04",
+          "targetHours": 160,
+          "actualHours": 0,
+          "overtime": -160,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-05",
+          "targetHours": 144,
+          "actualHours": 0,
+          "overtime": -144,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-06",
+          "targetHours": 168,
+          "actualHours": 0,
+          "overtime": -168,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-07",
+          "targetHours": 184,
+          "actualHours": 0,
+          "overtime": -184,
+          "carryoverFromPreviousYear": 0
+        },
+        {
+          "month": "2026-08",
+          "targetHours": 120,
+          "actualHours": 0,
+          "overtime": -120,
+          "carryoverFromPreviousYear": 0
+        }
+      ],
+      "vacationYears": [
+        {
+          "year": 2026,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        },
+        {
+          "year": 2027,
+          "balance": {
+            "entitlement": 0,
+            "carryover": 0,
+            "taken": 0,
+            "remaining": 0
+          },
+          "transactionsSum": 0
+        }
+      ]
+    }
+  ]
+}
