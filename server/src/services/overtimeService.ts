@@ -432,7 +432,11 @@ interface OvertimeSummary {
  * KEPT FOR: Backward compatibility and legacy reports
  */
 export function updateMonthlyOvertime(userId: number, month: string): void {
-  console.log(`\n🔄 updateMonthlyOvertime(userId=${userId}, month=${month}) - UNIFIED SERVICE`);
+  // WR-08: `console.log` umgeht Loglevel, Redaktion und strukturierte Felder und landet
+  // ungefiltert in `pm2 logs`. Diese Funktion ist ein aktiver Pfad (Aufrufer u. a.
+  // absenceService und userService); die Ausgaben laufen deshalb über den konfigurierten
+  // pino-Logger auf `debug` — nachvollziehbar, aber abschaltbar.
+  logger.debug({ userId, month }, '🔄 updateMonthlyOvertime (UnifiedOvertimeService)');
 
   // Get user with workSchedule support
   const user = getUserById(userId);
@@ -440,7 +444,7 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
   if (!user) {
     throw new Error(`User not found: ${userId}`);
   }
-  console.log(`  👤 User found: ${user.firstName} ${user.lastName}`);
+  logger.debug({ userId, firstName: user.firstName, lastName: user.lastName }, '👤 Nutzer geladen');
 
   const today = getCurrentDate();
   const currentMonth = formatDate(today, 'yyyy-MM');
@@ -463,19 +467,13 @@ export function updateMonthlyOvertime(userId: number, month: string): void {
 
   // MIGRATION TO UNIFIED SERVICE (Phase 2):
   // Delegate to UnifiedOvertimeService for consistent calculation logic
-  console.log(`  🔄 Delegating to UnifiedOvertimeService.calculateMonthlyOvertime()`);
+  logger.debug({ userId, month }, '🔄 Delegation an UnifiedOvertimeService.calculateMonthlyOvertime()');
   const monthlyResult = unifiedOvertimeService.calculateMonthlyOvertime(userId, month);
 
-  console.log(`\n  📊 MONTHLY HOURS BREAKDOWN (from UnifiedOvertimeService):`);
-  console.log(`    worked: ${monthlyResult.breakdown.worked}h`);
-  console.log(`    absenceCredits: ${monthlyResult.breakdown.absenceCredits}h`);
-  console.log(`    corrections: ${monthlyResult.breakdown.corrections}h`);
-  console.log(`    unpaidReduction: ${monthlyResult.breakdown.unpaidReduction}h`);
-  console.log(`    targetHours: ${monthlyResult.targetHours}h`);
-  console.log(`    actualHours: ${monthlyResult.actualHours}h`);
-  console.log(`    OVERTIME: ${monthlyResult.overtime}h\n`);
-
+  // WR-08: Die frühere Blockausgabe über sieben `console.log`-Zeilen steckt vollständig in
+  // dem strukturierten `logger.debug` unten — dieselben Werte, eine Zeile, filterbar.
   logger.debug({
+    userId,
     month,
     targetHours: monthlyResult.targetHours,
     actualHours: monthlyResult.actualHours,

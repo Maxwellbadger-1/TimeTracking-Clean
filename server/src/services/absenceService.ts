@@ -986,22 +986,30 @@ export async function rejectAbsenceRequest(
   approvedBy: number,
   adminNote?: string
 ): Promise<AbsenceRequest> {
-  console.log('\n🔍 ========== DEBUG: rejectAbsenceRequest CALLED ==========');
-  console.log('📥 Parameters:', { id, approvedBy, adminNote });
+  // WR-08: Diese Funktion protokollierte ihren kompletten Ablauf über `console.log` — 26
+  // Zeilen in einem aktiven API-Pfad. Die Ausgaben umgingen Loglevel, Redaktion und
+  // strukturierte Felder und landeten ungefiltert in `pm2 logs`; `.claude/CLAUDE.md`
+  // verbietet `console.log` in Production ausdrücklich. Der Ablauf ist jetzt über
+  // `logger.debug` mit strukturierten Feldern nachvollziehbar — abschaltbar über das
+  // Loglevel, statt immer zu schreiben.
+  logger.debug({ requestId: id, approvedBy, adminNote }, '🔍 rejectAbsenceRequest aufgerufen');
 
   const request = getAbsenceRequestById(id);
-  console.log('📄 Request found:', request ? {
-    id: request.id,
-    userId: request.userId,
-    type: request.type,
-    status: request.status,
-    startDate: request.startDate,
-    endDate: request.endDate,
-    days: request.days
-  } : 'NULL');
+  logger.debug(
+    {
+      requestId: id,
+      found: request !== undefined && request !== null,
+      userId: request?.userId,
+      type: request?.type,
+      status: request?.status,
+      startDate: request?.startDate,
+      endDate: request?.endDate,
+      days: request?.days,
+    },
+    '📄 Abwesenheitsantrag geladen'
+  );
 
   if (!request) {
-    console.log('❌ Request not found - throwing error');
     throw new Error('Absence request not found');
   }
 
@@ -1009,20 +1017,22 @@ export async function rejectAbsenceRequest(
   // This enables circular workflows: pending → approved → rejected → approved (re-approval)
   // Rejecting a rejected absence is a harmless no-op
   if (request.status !== 'pending' && request.status !== 'approved' && request.status !== 'rejected') {
-    console.log('❌ Invalid status - throwing error');
     throw new Error('Invalid absence status for rejection');
   }
 
   // Check if this was an approved absence (cancellation scenario)
   const wasApproved = request.status === 'approved';
-  console.log(`✅ Status check: request.status="${request.status}" → wasApproved=${wasApproved}`);
+  logger.debug({ requestId: id, status: request.status, wasApproved }, '✅ Statusprüfung');
 
   // Count transactions BEFORE rejection
   const transactionsBefore = db.prepare(`
     SELECT COUNT(*) as count FROM overtime_transactions
     WHERE userId = ? AND referenceType = 'absence' AND referenceId = ?
   `).get(request.userId, request.id) as { count: number };
-  console.log(`📊 Overtime transactions BEFORE rejection: ${transactionsBefore.count}`);
+  logger.debug(
+    { requestId: id, userId: request.userId, count: transactionsBefore.count },
+    '📊 Überstunden-Buchungen VOR der Ablehnung'
+  );
 
   // Update request status
   const query = `
@@ -1039,14 +1049,14 @@ export async function rejectAbsenceRequest(
   // better-sqlite3 transactions are synchronous, so only synchronous work belongs here.
   // The overtime recalculation below uses `await import()` and stays outside on purpose:
   // it is a derived value that can be safely recomputed, unlike the balance itself.
-  console.log('💾 Executing DB UPDATE (transactional)...');
+  logger.debug({ requestId: id }, '💾 Statuswechsel wird transaktional geschrieben');
   const applyRejection = db.transaction(() => {
     const updateResult = db.prepare(query).run(approvedBy, adminNote || null, id);
-    console.log('✅ DB UPDATE result:', { changes: updateResult.changes });
+    logger.debug({ requestId: id, changes: updateResult.changes }, '✅ Statuswechsel geschrieben');
 
     // Decrement pending balance for vacation requests
     if (request.type === 'vacation' && !wasApproved) {
-      console.log('📉 Decrementing vacation pending balance...');
+      logger.debug({ requestId: id, userId: request.userId }, '📉 Vorgemerkte Urlaubstage werden verringert');
       const year = parseInt(request.startDate.substring(0, 4));
       decrementVacationPending(request.userId, year, request.days);
     }
@@ -1064,7 +1074,7 @@ export async function rejectAbsenceRequest(
     //
     // Root cause analysis: .planning/debug/urlaubstage-bei-ablehnung-verloren.md
     if (wasApproved) {
-      console.log('♻️  Reverting balances (was approved → rejected)...');
+      logger.debug({ requestId: id, userId: request.userId }, '♻️ Salden werden zurückgebucht (war genehmigt → abgelehnt)');
       revertBalancesAfterDeletion(id, approvedBy, 'rejected');
       logger.info(
         { requestId: id, userId: request.userId, type: request.type, days: request.days },
@@ -1076,33 +1086,33 @@ export async function rejectAbsenceRequest(
 
   // Verify status changed
   const verifyRequest = getAbsenceRequestById(id);
-  console.log('🔍 Verify status after update:', verifyRequest?.status);
+  logger.debug({ requestId: id, status: verifyRequest?.status }, '🔍 Status nach dem Update');
 
   // CRITICAL: If rejecting an approved absence (e.g., cancelling vacation),
   // we need to recalculate overtime to remove the credit transactions
   if (wasApproved) {
-    console.log('🚀 wasApproved=true → Starting overtime recalculation...');
+    logger.debug({ requestId: id }, '🚀 Überstunden-Neuberechnung wird gestartet');
     try {
-      console.log('📦 Importing overtimeService...');
       const { updateMonthlyOvertime } = await import('./overtimeService.js');
-      console.log('✅ Import successful!');
 
       const affectedMonths = new Set<string>();
       for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
         affectedMonths.add(formatDate(d, 'yyyy-MM'));
       }
-      console.log('📅 Affected months:', Array.from(affectedMonths));
+      logger.debug({ requestId: id, months: Array.from(affectedMonths) }, '📅 Betroffene Monate');
 
       let recalcCount = 0;
       for (const month of affectedMonths) {
-        console.log(`\n  🔄 Recalculating month ${month} (${++recalcCount}/${affectedMonths.size})...`);
+        recalcCount++;
+        logger.debug(
+          { userId: request.userId, month, step: recalcCount, total: affectedMonths.size },
+          '🔄 Monat wird neu berechnet'
+        );
         try {
           updateMonthlyOvertime(request.userId, month);
           logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence rejection (was approved)');
-          console.log(`  ✅ SUCCESS for month ${month}`);
         } catch (error) {
           logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence rejection');
-          console.error(`  ❌ ERROR for month ${month}:`, error);
         }
       }
 
@@ -1111,37 +1121,38 @@ export async function rejectAbsenceRequest(
         SELECT COUNT(*) as count FROM overtime_transactions
         WHERE userId = ? AND referenceType = 'absence' AND referenceId = ?
       `).get(request.userId, request.id) as { count: number };
-      console.log(`📊 Overtime transactions AFTER recalculation: ${transactionsAfter.count}`);
-      console.log(`📉 Transactions deleted: ${transactionsBefore.count - transactionsAfter.count}`);
-
+      logger.debug(
+        {
+          requestId: id,
+          userId: request.userId,
+          countAfter: transactionsAfter.count,
+          deleted: transactionsBefore.count - transactionsAfter.count,
+        },
+        '📊 Überstunden-Buchungen NACH der Neuberechnung'
+      );
     } catch (error) {
       logger.error({ err: error, requestId: id }, '❌ Failed to import overtimeService for recalculation');
-      console.error('❌ CRITICAL ERROR during import/recalculation:', error);
     }
   } else {
-    console.log('⏭️  wasApproved=false → Skipping overtime recalculation');
+    logger.debug({ requestId: id }, '⏭️ Nicht genehmigt gewesen — keine Überstunden-Neuberechnung');
   }
 
   // Return updated request
   const updated = getAbsenceRequestById(id);
   if (!updated) {
-    console.log('❌ Failed to get updated request - throwing error');
     throw new Error('Failed to reject absence request');
   }
 
-  console.log('✅ Updated request retrieved:', { id: updated.id, status: updated.status });
+  logger.debug({ requestId: updated.id, status: updated.status }, '✅ Aktualisierter Antrag gelesen');
 
   // Broadcast WebSocket event
-  console.log('📡 Broadcasting WebSocket event...');
   broadcastEvent({
     type: 'absence:rejected',
     userId: updated.userId,
     data: updated,
     timestamp: new Date().toISOString(),
   });
-  console.log('✅ WebSocket event broadcasted');
-
-  console.log('🎉 ========== DEBUG: rejectAbsenceRequest COMPLETED ==========\n');
+  logger.debug({ requestId: updated.id }, '🎉 rejectAbsenceRequest abgeschlossen');
   return updated;
 }
 
