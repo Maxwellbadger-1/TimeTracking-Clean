@@ -39,9 +39,21 @@
  * einen Stichtagswechsel. Die Aneinanderreihung beider Schritte zu einem einzigen, ggf.
  * transaktional geklammerten Vorgang gehört NICHT in Phase 10 — das ist Phase 12.
  *
- * KEIN AUFRUFER IN PHASE 10 (D4, REQ-21): Dieser Service wird von Phase 10 aus bewusst von
- * niemandem aufgerufen. `users.weeklyHours`/`users.workSchedule` bleiben bis Phase 11 die
- * gelesene Quelle für die Berechnung; die Perioden laufen daneben her.
+ * SEIT PHASE 11 IST DIESER SERVICE DIE RECHENGRUNDLAGE (D4, REQ-23; WR-15).
+ *
+ * Bis einschließlich Phase 10 stand hier: "KEIN AUFRUFER IN PHASE 10 …
+ * `users.weeklyHours`/`users.workSchedule` bleiben bis Phase 11 die gelesene Quelle für
+ * die Berechnung." Genau diese Regel hat Phase 11 abgelöst — die Aussage war seit Plan
+ * 11-04 falsch und damit die erste irreführende Quelle für jede spätere Untersuchung.
+ *
+ * Stand heute: `getDailyTargetHours()` und `calculateAbsenceHoursWithWorkSchedule()`
+ * (`workingDays.ts`) lösen die Sollstunden AUSSCHLIESSLICH über die hier verwaltete
+ * Periode auf, erreichbar über `workPeriodContext.ts` (vorladender Cache bzw.
+ * `directWorkPeriodLookup`). `users.weeklyHours`/`users.workSchedule` bleiben als flache
+ * Felder bestehen (Phase 11 entfernt sie ausdrücklich nicht) und werden von
+ * `userService.updateUser()` in die offene Periode gespiegelt — sie sind aber nicht mehr
+ * die gelesene Quelle der Berechnung. Die vollständige Aufruferliste steht in
+ * `.planning/phases/11-datumsabh-ngige-berechnung/11-AUFRUFER-CHECKLISTE.md`.
  *
  * WICHTIG — DIESER SERVICE BLEIBT SYNCHRON.
  * better-sqlite3 ist synchron; kein async/await, keine dynamischen Importe in diesem Modul

@@ -19,8 +19,18 @@
  *
  * (3) Die Auflösung selbst steht nicht hier. Sowohl der Cache als auch der Fallback rufen
  * `resolveWorkPeriodIn()`/`resolveWorkPeriodAt()` aus `workPeriodService.ts` auf — die eine
- * Auflösungsstelle des Projekts (Lehre aus Phase 9: zwölf Kopien derselben Regel). Dieser
- * Plan ändert kein Verhalten: nach ihm ruft weiterhin niemand diesen Kontext auf.
+ * Auflösungsstelle des Projekts (Lehre aus Phase 9: zwölf Kopien derselben Regel).
+ *
+ * AUFRUFER (Stand nach Phase 11; WR-15 — der Satz "nach ihm ruft weiterhin niemand diesen
+ * Kontext auf" stammte aus Plan 11-02 und war seit Plan 11-04 falsch):
+ *   Services: `workingDays.ts` (Signaturparameter aller Sollstunden-Funktionen),
+ *   `absenceService.ts`, `overtimeService.ts`, `overtimeTransactionRebuildService.ts`,
+ *   `overtimeLiveCalculationService.ts`, `unifiedOvertimeService.ts`, `exportService.ts`.
+ *   Skripte: `migrateOvertimeToTransactions.ts`, `reproduceOvertimeCompDefect.ts`,
+ *   `validateAllTestUsers.ts`, `validateOvertimeCalculation.ts`,
+ *   `validateOvertimeDetailed.ts`, `verifyPeriodNullEffect.ts`.
+ *   Die vollständige, belegte Liste steht in
+ *   `.planning/phases/11-datumsabh-ngige-berechnung/11-AUFRUFER-CHECKLISTE.md`.
  *
  * WICHTIG — DIESER SERVICE BLEIBT SYNCHRON.
  * better-sqlite3 ist synchron; kein async/await, keine dynamischen Importe in diesem Modul
