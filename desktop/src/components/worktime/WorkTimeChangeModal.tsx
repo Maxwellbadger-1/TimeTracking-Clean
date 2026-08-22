@@ -129,7 +129,18 @@ function findInvalidScheduleDay(schedule: WorkSchedule | null): keyof WorkSchedu
   );
 }
 
-type PreviewPanelState = 'placeholder' | 'loading' | 'error' | 'noop' | 'future' | 'past';
+/**
+ * UI-Review Phase 12 (E-3): `stale` ist der vierte Wartezustand. Er greift, wenn Stichtag und
+ * Wochenstunden gueltig gesetzt sind, aber noch keine Antwort vorliegt — also im
+ * Entprellfenster zwischen `setPreview(null)` (synchron beim Tastendruck) und
+ * `previewM.isPending` (erst nach PREVIEW_DEBOUNCE_MS). Vorher fiel das Panel in diesen
+ * 400 ms auf `placeholder` zurueck und behauptete "sobald Stichtag und neue Wochenstunden
+ * gesetzt sind", obwohl beides gesetzt ist — ein sachlich falscher Satz, der wegen
+ * `role="status" aria-live="polite"` auch vorgelesen wurde, dazu zwei Layoutspruenge je
+ * getippter Ziffer. `stale` zeigt denselben Ladetext wie `loading`; der Satz wechselt damit
+ * nicht mehr, und die Ansage bleibt ruhig.
+ */
+type PreviewPanelState = 'placeholder' | 'stale' | 'loading' | 'error' | 'noop' | 'future' | 'past';
 
 /** Anzeige eines ISO-Datums im deutschen Format — niemals über ein UTC-Split-Verfahren. */
 function formatGermanDate(iso: string): string {
@@ -538,15 +549,22 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
   function getPreviewPanelState(): PreviewPanelState {
     if (previewM.isPending) return 'loading';
     if (previewErrorMessage) return 'error';
-    if (!validFrom || weeklyHoursNum === null || !preview) return 'placeholder';
+    // E-3: Der Platzhaltersatz gehoert ausschliesslich dem Fall, in dem die Eingaben
+    // tatsaechlich fehlen. Sind sie vollstaendig und fehlt nur noch die Antwort, ist das
+    // `stale` — der Wartefall, nicht der Leerfall.
+    if (!validFrom || weeklyHoursNum === null) return 'placeholder';
+    if (!preview) return 'stale';
     if (preview.isNoOp) return 'noop';
     return preview.isRetroactive ? 'past' : 'future';
   }
 
   const previewPanelState = getPreviewPanelState();
+  /** E-3: `stale` und `loading` sind derselbe Wartezustand fuer Anzeige, Hoehe und Ansage. */
+  const previewPanelIsWaiting = previewPanelState === 'stale' || previewPanelState === 'loading';
 
   const previewPanelVariantClasses: Record<PreviewPanelState, string> = {
     placeholder: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    stale: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
     loading: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
     error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
     noop: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
@@ -695,8 +713,11 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
         <div
           role="status"
           aria-live="polite"
-          aria-busy={previewM.isPending}
-          className={`rounded-lg border p-4 space-y-3 ${previewPanelVariantClasses[previewPanelState]}`}
+          aria-busy={previewPanelIsWaiting}
+          /* E-3: `min-h-56` (224 px, Raster 4) haelt den Kasten waehrend des Wartens auf der
+             Hoehe der vollstaendigen Vorschau — sonst faellt er je Tastendruck auf eine Zeile
+             zusammen und springt danach wieder auf. */
+          className={`rounded-lg border p-4 space-y-3 ${previewPanelIsWaiting ? 'min-h-56' : ''} ${previewPanelVariantClasses[previewPanelState]}`}
         >
           <div className="flex items-center gap-2">
             {renderPreviewIcon(previewPanelState)}
@@ -721,7 +742,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
             </p>
           )}
 
-          {previewPanelState === 'loading' && (
+          {previewPanelIsWaiting && (
             <div className="flex items-center gap-2">
               <LoadingSpinner size="sm" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
