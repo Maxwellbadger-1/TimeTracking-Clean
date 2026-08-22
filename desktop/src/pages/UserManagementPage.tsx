@@ -35,7 +35,10 @@ export function UserManagementPage() {
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  // Phase 12 (B4-Fix): nur noch die Id halten, das Objekt wird bei jedem Render aus der
+  // Nutzerquery abgeleitet — sonst zeigt EditUserModal nach dem Speichern eines
+  // Stundenwechsels eine Momentaufnahme statt des neuen Werts (Zustand 15).
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ userId: number; userName: string } | null>(null);
 
@@ -125,18 +128,12 @@ export function UserManagementPage() {
   }, [users]);
 
   const handleDeleteClick = (userId: number, userName: string) => {
-    console.log('🔥🔥🔥 HANDLE DELETE CLICKED 🔥🔥🔥');
-    console.log('👤 User to delete:', userName);
-    console.log('🆔 User ID:', userId);
-    console.log('🔒 Current user ID:', currentUser.id);
-
     if (userId === currentUser.id) {
       console.warn('⚠️ Cannot delete yourself!');
       // TODO: Show error dialog instead of alert
       return;
     }
 
-    console.log('❓ Showing confirmation dialog...');
     setDeleteConfirm({ userId, userName });
   };
 
@@ -144,18 +141,19 @@ export function UserManagementPage() {
     if (!deleteConfirm) return;
 
     const { userId } = deleteConfirm;
-    console.log('✅ User confirmed deletion');
-    console.log('🚀 Calling deleteUser.mutateAsync(' + userId + ')...');
 
     try {
-      const result = await deleteUser.mutateAsync(userId);
-      console.log('✅ Delete mutation completed successfully');
-      console.log('📊 Result:', result);
+      await deleteUser.mutateAsync(userId);
     } catch (error) {
       console.error('💥 Delete mutation failed with error:');
       console.error(error);
     }
   };
+
+  // Phase 12 (B4-Fix): aus der Nutzerquery abgeleitet statt als eigenes State-Objekt
+  // gehalten — nach einem Refetch (z. B. nach dem Speichern eines Stundenwechsels) zeigt
+  // das Modal dadurch sofort den neuen Wert (Zustand 15).
+  const editingUser = users?.find(u => u.id === editingUserId) ?? null;
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -461,7 +459,7 @@ export function UserManagementPage() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => setEditingUser(user)}
+                                  onClick={() => setEditingUserId(user.id)}
                                 >
                                   Bearbeiten
                                 </Button>
@@ -523,7 +521,7 @@ export function UserManagementPage() {
       {editingUser && (
         <EditUserModal
           isOpen={!!editingUser}
-          onClose={() => setEditingUser(null)}
+          onClose={() => setEditingUserId(null)}
           user={editingUser}
         />
       )}

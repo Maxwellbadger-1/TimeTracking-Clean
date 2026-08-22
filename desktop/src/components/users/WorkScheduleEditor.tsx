@@ -5,6 +5,11 @@ interface WorkScheduleEditorProps {
   value: WorkSchedule | null;
   weeklyHours: number;
   onChange: (schedule: WorkSchedule | null) => void;
+  /** Phase 12 (D1): schreibgeschuetzte Darstellung im EditUserModal; voll bedienbar
+   *  (Default) im neuen Wechsel-Dialog. Deaktiviert Toggle und Tagesfelder, ohne
+   *  Browser-Standardabblendung (kein opacity) — die Kontrastklassen halten den Wert
+   *  lesbar (`12-UI-SPEC.md` Abschnitt 1). */
+  readOnly?: boolean;
 }
 
 const DEFAULT_WORK_SCHEDULE: WorkSchedule = {
@@ -27,7 +32,7 @@ const DAY_LABELS: Record<keyof WorkSchedule, string> = {
   sunday: 'Sonntag',
 };
 
-export function WorkScheduleEditor({ value, weeklyHours, onChange }: WorkScheduleEditorProps) {
+export function WorkScheduleEditor({ value, weeklyHours, onChange, readOnly = false }: WorkScheduleEditorProps) {
   const [useIndividualSchedule, setUseIndividualSchedule] = useState(!!value);
   const [schedule, setSchedule] = useState<WorkSchedule>(
     value || DEFAULT_WORK_SCHEDULE
@@ -90,7 +95,8 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange }: WorkSchedul
         <button
           type="button"
           onClick={() => handleToggle(!useIndividualSchedule)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+          disabled={readOnly}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:cursor-not-allowed ${
             useIndividualSchedule
               ? 'bg-blue-600'
               : 'bg-gray-200 dark:bg-gray-700'
@@ -107,7 +113,7 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange }: WorkSchedul
       {/* Individual Schedule Editor */}
       {useIndividualSchedule && (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(Object.keys(DAY_LABELS) as Array<keyof WorkSchedule>).map((day) => (
               <div
                 key={day}
@@ -134,7 +140,8 @@ export function WorkScheduleEditor({ value, weeklyHours, onChange }: WorkSchedul
                     onChange={(e) =>
                       handleDayChange(day, parseFloat(e.target.value) || 0)
                     }
-                    className="w-20 px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={readOnly}
+                    className="w-20 px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:text-gray-600 dark:disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-gray-500 dark:text-gray-400">h</span>
                 </div>
