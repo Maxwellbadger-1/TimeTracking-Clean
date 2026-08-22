@@ -71,10 +71,17 @@ async function createAdmin() {
       .get('admin');
 
     if (existingAdmin) {
-      const overwrite = await question(
-        '\n⚠️  Es existiert bereits ein Admin-User. Überschreiben? (ja/nein): '
+      // WR-05: Die Frage lautete früher "Überschreiben? (ja/nein)" — überschrieben wurde
+      // aber NICHTS. Bei "ja" fiel der Code einfach zur Username-Prüfung durch und legte
+      // einen ZUSÄTZLICHEN Admin an. Wer die Frage wörtlich nahm, ging davon aus, das alte
+      // Konto sei entwertet; es blieb aktiv, inklusive altem Passwort. Die Frage sagt jetzt,
+      // was tatsächlich passiert. (Ein echtes Überschreiben wäre eine Verhaltensänderung
+      // dieses Skripts und gehört nicht in eine Review-Korrektur.)
+      const createAnother = await question(
+        '\n⚠️  Es existiert bereits ein Admin-User. Er bleibt unverändert bestehen. ' +
+          'Trotzdem einen WEITEREN Admin anlegen? (ja/nein): '
       );
-      if (overwrite.toLowerCase() !== 'ja') {
+      if (createAnother.toLowerCase() !== 'ja') {
         console.log('❌ Abgebrochen.');
         rl.close();
         db.close();
