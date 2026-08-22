@@ -371,7 +371,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 13-11-PLAN.md — Pflicht-Gates, Entscheidungsabgleich D1 bis D7, gebündelte UAT-Liste für Phase 14
+- [x] 13-11-PLAN.md — Pflicht-Gates, Entscheidungsabgleich D1 bis D7, gebündelte UAT-Liste für Phase 14
 
 ---
 

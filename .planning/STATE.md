@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Completed 13-09-PLAN.md
-last_updated: "2026-08-22T20:54:02.594Z"
+status: verifying
+stopped_at: Completed 13-11-PLAN.md
+last_updated: "2026-08-22T21:03:08.069Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 42
-  completed_plans: 41
-  percent: 57
+  completed_plans: 42
+  percent: 71
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-09-PLAN.md
+- **Stopped at:** Completed 13-11-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -221,6 +221,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13]: Pflichtbegründung (≥10 Zeichen) für das Löschen ergänzt (Rule 2) — Server weist leere/kurze Begründung im Speicherpfad ab, ohne das Feld wäre jeder echte Löschversuch ein 400
 - [Phase 13]: ConfirmDialog um sechste additive Prop confirmAriaLabel erweitert — 13-UI-SPEC.md fordert einen konkreten aria-label am Löschbestätigungsknopf, den ConfirmDialog bislang nicht anbot
 - [Phase 13]: Punkt 1 der Löschbestätigung (Lückenschluss) wird sofort clientseitig gerendert, Punkt 2 (Storno-Betrag) wartet mit Punkt 3 auf die Server-Vorschau — DD-38 behauptet fälschlich, beide seien vorab bekannt
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: Alle sieben D1-D7-Entscheidungen sind am fertigen Code belegt (13-11-SUMMARY.md), keine offene Fundstelle
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: Phase-13-UAT-Sammlung (13 Pruefpunkte, 10 Festlegungen) in 14-UAT-SAMMLUNG.md ergaenzt; Phasen 11/12 unangetastet
 
 ## Quick Tasks Completed
 
@@ -294,6 +296,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13 P08 | ~55min | 3 tasks | 4 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P10 | ~50min | 3 tasks | 4 files |
 | Phase 13 P09 | 75min | 3 tasks | 5 files |
+| Phase 13-korrigieren-und-r-ckg-ngig-machen P11 | 70min | 2 tasks | 1 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -331,7 +334,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
 Plan: 11 of 11
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-22
 
 ## Operator Next Steps
