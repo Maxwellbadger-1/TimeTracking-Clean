@@ -529,7 +529,12 @@ export async function updateUser(
     if (data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours) {
       logger.info({ oldHours: existingUser.weeklyHours, newHours: data.weeklyHours }, '🔄 weeklyHours changed, recalculating overtime');
       try {
-        recalculateOvertimeForUser(id);
+        // WR-07: `await` fehlte. `recalculateOvertimeForUser` ist async — ohne await gab der
+        // Aufruf sofort ein Promise zurueck, der try/catch konnte nie greifen, der
+        // Erfolgs-Log erschien vor der Berechnung, ein Fehler wurde zur unbehandelten
+        // Promise-Rejection (unter Node 20 per Default prozessbeendend), und die Antwort an
+        // den Client ging raus, waehrend die Neuberechnung noch lief.
+        await recalculateOvertimeForUser(id);
         logger.info('✅ Overtime recalculated');
       } catch (error) {
         logger.error({ err: error }, '❌ Failed to recalculate overtime');
@@ -545,7 +550,8 @@ export async function updateUser(
       if (oldSchedule !== newSchedule) {
         logger.info({ oldSchedule, newSchedule }, '🔄 workSchedule changed, recalculating overtime');
         try {
-          recalculateOvertimeForUser(id);
+          // WR-07: siehe Begruendung beim weeklyHours-Zweig oben.
+          await recalculateOvertimeForUser(id);
           logger.info('✅ Overtime recalculated');
         } catch (error) {
           logger.error({ err: error }, '❌ Failed to recalculate overtime');
