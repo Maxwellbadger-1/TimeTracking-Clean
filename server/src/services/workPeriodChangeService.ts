@@ -115,27 +115,53 @@ export class WorkTimeChangeValidationError extends Error {
  * geworfen, damit der Datenbanktreiber die gesamte Klammer zurückrollt. Außerhalb der Klammer
  * wird genau diese Fehlerklasse gefangen und ihr `outcome` als Ergebnis zurückgegeben — jeder
  * andere Fehler (Validierung, Konflikt) läuft ungefangen weiter zum Aufrufer.
+ *
+ * PHASE 13 (13-02-PLAN.md, Task 2): generisch gemacht (vorher fest an
+ * `WorkTimeChangeOutcome` gebunden), damit Plan 13-03/13-04 (Korrektur/Löschung) denselben
+ * Dry-Run/Save-Mechanismus wiederverwenden können, statt ihn zu kopieren — kein "Dual
+ * Calculation System" (.claude/CLAUDE.md). Die Rechenlogik dieses Services selbst bleibt
+ * dabei unverändert (NO REGRESSION).
  */
-class PreviewRollback extends Error {
-  constructor(readonly outcome: WorkTimeChangeOutcome) {
+export class PreviewRollback<T> extends Error {
+  constructor(readonly outcome: T) {
     super('Trockenlauf abgeschlossen — die Transaktion wird absichtlich zurückgerollt.');
     this.name = 'PreviewRollback';
   }
 }
 
+/**
+ * Kapselt den Trockenlauf-Fang: führt `run()` aus und gibt bei einem gezielt geworfenen
+ * `PreviewRollback` dessen `outcome` zurück, statt den Fehler weiterzureichen. Jeder andere
+ * Fehler (Validierung, Konflikt) läuft unverändert zum Aufrufer durch.
+ *
+ * PHASE 13 (13-02-PLAN.md, Task 2): Freigabe zur Wiederverwendung durch Plan 13-03/13-04 —
+ * vorher stand dieser Block inline am Ende von `applyWorkTimeChange()`. Die Rechenlogik selbst
+ * ist davon unberührt, nur die Trockenlauf-Mechanik ist jetzt eine benannte, geteilte Funktion.
+ */
+export function runWithPreviewRollback<T>(run: () => T): T {
+  try {
+    return run();
+  } catch (err) {
+    if (err instanceof PreviewRollback) {
+      return err.outcome as T;
+    }
+    throw err;
+  }
+}
+
 /** TT.MM.JJJJ aus einer YYYY-MM-DD-Zeichenkette — reine Zeichenkettenumformung, kein Date. */
-function toGermanDate(dateStr: string): string {
+export function toGermanDate(dateStr: string): string {
   const [year, month, day] = dateStr.split('-');
   return `${day}.${month}.${year}`;
 }
 
 /** "30,0" statt "30.0" — Komma als Dezimaltrennzeichen für die Journal-Beschreibung. */
-function formatWeeklyHoursDe(hours: number): string {
+export function formatWeeklyHoursDe(hours: number): string {
   return hours.toFixed(1).replace('.', ',');
 }
 
 /** Wertvergleich zweier Tagespläne — keine Objektidentität. */
-function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boolean {
+export function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boolean {
   if (a === null && b === null) return true;
   if (a === null || b === null) return false;
   return WEEKDAY_KEYS.every((key) => a[key] === b[key]);
@@ -148,7 +174,7 @@ function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boo
  * Datumsfortschaltung rein lokal über Kalenderfelder, keine ISO-String-Konvertierung über die
  * Date-Klasse (Muster aus `overtimeTransactionRebuildService.ts:285-286`).
  */
-function sumTargetHoursInRange(
+export function sumTargetHoursInRange(
   user: UserPublic,
   from: string,
   to: string,
@@ -178,7 +204,7 @@ function sumTargetHoursInRange(
 }
 
 /** Die betroffenen Kalendermonate (YYYY-MM) von `from` bis `to`, beide inklusiv. */
-function monthsInRange(from: string, to: string): string[] {
+export function monthsInRange(from: string, to: string): string[] {
   const [fromYear, fromMonth] = from.split('-').map(Number);
   const [toYear, toMonth] = to.split('-').map(Number);
 
@@ -607,12 +633,5 @@ export function applyWorkTimeChange(
     return { preview, period: newPeriod, transactionId };
   });
 
-  try {
-    return run();
-  } catch (err) {
-    if (err instanceof PreviewRollback) {
-      return err.outcome;
-    }
-    throw err;
-  }
+  return runWithPreviewRollback(run);
 }

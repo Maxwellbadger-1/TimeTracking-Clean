@@ -66,7 +66,13 @@
 import { db } from '../database/connection.js';
 import { isRealCalendarDate } from '../utils/validation.js';
 import { getTodayString } from '../utils/timezone.js';
-import type { UserWorkPeriod, UserWorkPeriodRow, WorkSchedule, DayName } from '../types/index.js';
+import type {
+  UserWorkPeriod,
+  UserWorkPeriodRow,
+  UserWorkPeriodListItem,
+  WorkSchedule,
+  DayName,
+} from '../types/index.js';
 
 const WEEKDAY_KEYS: readonly DayName[] = [
   'monday',
@@ -570,17 +576,6 @@ export function checkAllPeriodChains(): PeriodChainIssue[] {
  * bereits `deletedAt IS NULL` — eine weggenommene Periode erreicht damit keinen
  * Berechnungspfad mehr, bevor sie hier überhaupt weggenommen werden kann.
  */
-
-/**
- * Periodenliste inklusive serverseitig berechneter Flags (DD-6, 13-CONTEXT.md).
- *
- * `UserWorkPeriod` bleibt die reine Abbildung der Tabellenzeile — dieser Typ steht bewusst
- * daneben, nicht als Ersatz.
- */
-export interface UserWorkPeriodListItem extends UserWorkPeriod {
-  isFirst: boolean;
-  isCurrent: boolean;
-}
 
 /**
  * Liefert eine einzelne Periode über ihre Id, oder `null`, wenn sie nicht existiert ODER
