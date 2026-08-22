@@ -358,7 +358,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 13-07-PLAN.md — Desktop-Datenschicht: gespiegelte Verträge, vier Hooks, fünf additive Eigenschaften am `ConfirmDialog` (D5, D7)
+- [x] 13-07-PLAN.md — Desktop-Datenschicht: gespiegelte Verträge, vier Hooks, fünf additive Eigenschaften am `ConfirmDialog` (D5, D7)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
