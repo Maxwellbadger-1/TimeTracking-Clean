@@ -280,7 +280,7 @@ Plans:
 
 **Abhängigkeit:** Phase 11
 
-**Plans:** 9 Pläne in 5 Wellen (Welle 1: 12-01, 12-02 · Welle 2: 12-03, 12-04 · Welle 3: 12-05, 12-06, 12-08 · Welle 4: 12-07 · Welle 5: 12-09)
+**Plans:** 9/9 Pläne abgeschlossen — 9 Pläne in 5 Wellen (Welle 1: 12-01, 12-02 · Welle 2: 12-03, 12-04 · Welle 3: 12-05, 12-06, 12-08 · Welle 4: 12-07 · Welle 5: 12-09)
 
 Plans:
 
@@ -404,7 +404,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/? | **Nicht begonnen — Ausführung im Produktionsfenster der Phase 14** | — |
 | 10. Perioden-Fundament | v3.0 | 0/? | Nicht begonnen | — |
 | 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
-| 12. Stundenwechsel bedienen | v3.0 | 0/? | Nicht begonnen | — |
+| 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 0/? | Nicht begonnen | — |
 | 14. Absicherung und Auslieferung | v3.0 | 0/? | Nicht begonnen | — |
 
