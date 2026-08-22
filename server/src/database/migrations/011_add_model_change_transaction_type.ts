@@ -13,8 +13,14 @@
  * (`006_add_time_entry_transaction_type.ts`) — SQLite kennt kein
  * `ALTER TABLE ... ADD CONSTRAINT`. Die 18 bereits erlaubten `type`-Werte werden
  * unverändert übernommen und um `'model_change'` ergänzt; der `referenceType`-CHECK wird
- * um `'work_period'` ergänzt (identisches Format zu Migration 006, inklusive explizitem
- * `NULL` in der IN-Liste).
+ * um `'work_period'` ergänzt.
+ *
+ * KORREKTUR (Code-Review Phase 12, CR-05): Diese Migration hat das `NULL` aus der IN-Liste
+ * von Migration 006 zunächst mitkopiert. `'beliebig' IN ('a', NULL)` ergibt in SQL NULL und
+ * nicht FALSE — ein CHECK schlägt aber nur bei FALSE fehl, der Constraint war dadurch
+ * wirkungslos. Das `NULL` ist hier entfernt; Bestandsdatenbanken, in denen diese Migration
+ * bereits gelaufen ist, korrigiert die Folgemigration 012 durch einen erneuten
+ * Tabellen-Neubau.
  *
  * PARITY-PFLICHT: `server/src/database/schema.ts` (CREATE TABLE overtime_transactions)
  * bekommt in diesem Plan dieselben beiden Erweiterungen, damit eine frische Installation
@@ -55,7 +61,7 @@ export default {
         )),
         hours REAL NOT NULL,
         description TEXT,
-        referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system', 'work_period', NULL)),
+        referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system', 'work_period')),
         referenceId INTEGER,
         balanceBefore REAL,
         balanceAfter REAL,

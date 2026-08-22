@@ -526,6 +526,14 @@ export function initializeDatabase(db: Database.Database): void {
       description TEXT,
       referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system', 'work_period')),
       referenceId INTEGER,
+      -- WR-07 (Code-Review Phase 12): balanceBefore/balanceAfter gehören in DIESE
+      -- CREATE TABLE, nicht erst in Migration 005/006/011. overtimeTransactionManager
+      -- .createTransaction() schreibt beide Spalten in jedem INSERT; ohne sie wäre eine
+      -- frische Installation bis zum ersten Migrationslauf nicht schreibfähig. Migration 006
+      -- prüft die Spalten vor dem Kopieren (pragma table_info) und nimmt danach den
+      -- hasBalanceColumns-Zweig — der Migrationspfad bleibt dadurch unverändert lauffähig.
+      balanceBefore REAL,
+      balanceAfter REAL,
       createdAt TEXT DEFAULT (datetime('now')),
       createdBy INTEGER,
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
