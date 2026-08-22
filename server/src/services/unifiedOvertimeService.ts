@@ -333,8 +333,26 @@ export class UnifiedOvertimeService {
   private getUser(userId: number): UserPublic | null {
     const user = db
       .prepare(
-        `SELECT id, username, firstName, lastName, email, role,
-         weeklyHours, workSchedule, hireDate, endDate, position, department
+        // WR-04 (Code-Review Phase 11, Durchlauf 2): `vacationDaysPerYear`, `status`,
+        // `privacyConsentAt` und `createdAt` in die SELECT-Liste aufgenommen.
+        //
+        // WARUM: Die Zusicherung darunter behauptet ein vollständiges `UserPublic` minus
+        // `workSchedule`. In `UserPublic` (types/index.ts:54-73) sind diese vier Felder
+        // PFLICHTIG; die Abfrage lieferte sie nicht. Zur Laufzeit standen sie damit auf
+        // `undefined`, während der Compiler ihre Existenz garantierte — und die Funktion
+        // gibt das Objekt anschließend als vollständiges `UserPublic` zurück. Ein `any`
+        // sagt "ich weiß es nicht"; dieser Typ sagte "ich weiß es" und lag falsch. Heute
+        // liest nur `user.hireDate` (Zeile 189, 277) und `getDailyTargetHours()` daraus,
+        // der Schaden war also latent — genau das machte ihn zur Falle für den nächsten
+        // Aufrufer.
+        //
+        // Von den beiden im Befund genannten Wegen ist das der weniger invasive: Die
+        // Spalten nachzuziehen kostet nichts (dieselbe Zeile, derselbe Index) und hält den
+        // Rückgabetyp `UserPublic` — den `getDailyTargetHours(user: UserPublic, …)`
+        // ohnehin verlangt. Dieselbe SELECT-Liste benutzt `absenceService.ts:772-777`.
+        `SELECT id, username, firstName, lastName, email, role, department, position,
+         weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status,
+         privacyConsentAt, createdAt
          FROM users WHERE id = ? AND deletedAt IS NULL`
       )
       // WR-09: `as any` ersetzt. `workSchedule` kommt als rohe JSON-Zeichenkette aus
@@ -343,11 +361,13 @@ export class UnifiedOvertimeService {
 
     if (!user) return null;
 
-    // Parse workSchedule JSON string to object
+    // Parse workSchedule JSON string to object.
+    // WR-04: Die abschließende `as UserPublic`-Zusicherung ist entfallen — nach der
+    // Ergänzung oben stimmt die Form ohne Nachhelfen, und der Compiler prüft sie wieder.
     return {
       ...user,
       workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null,
-    } as UserPublic;
+    };
   }
 
   private getWorkedHours(userId: number, date: string): number {
