@@ -328,17 +328,36 @@ export function generateHistoricalExport(
       : db.prepare(overtimeQuery).all(startMonth, endMonth)) as HistoricalExportData['overtimeBalance'];
 
     // Get vacation balance
-    const startYear = parseInt(startDate.substring(0, 4));
-    const endYear = parseInt(endDate.substring(0, 4));
+    //
+    // WR-10: Jahreszahlen als PLATZHALTER statt in die Abfrage hineingeschrieben.
+    //
+    // Die Werte stammen aus `parseInt()` und waren deshalb nicht injizierbar — die
+    // Projektregel "Prepared Statements (PFLICHT!)" war trotzdem verletzt, und zwei echte
+    // Laufzeitfehler blieben: Bei vertauschten Parametern (`endYear < startYear`) ist
+    // `length` negativ, `years` leer und die Abfrage lautet `year IN ()` — SQL-Syntaxfehler.
+    // Bei einem unparsbaren Datum wird `parseInt()` zu `NaN` und die Abfrage lautet
+    // `year IN (NaN)` — ebenfalls Fehler. Beides endete als 500er ohne verwertbare Meldung.
+    // Jetzt: Eingaben zuerst prüfen, dann `?`-Platzhalter binden.
+    const startYear = parseInt(startDate.substring(0, 4), 10);
+    const endYear = parseInt(endDate.substring(0, 4), 10);
+
+    if (!Number.isInteger(startYear) || !Number.isInteger(endYear) || endYear < startYear) {
+      throw new Error(
+        `Ungültiger Zeitraum für den Historien-Export: ${startDate} bis ${endDate} ` +
+        `(gelesene Jahre: ${startYear} bis ${endYear}).`
+      );
+    }
+
     const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
+    const yearPlaceholders = years.map(() => '?').join(',');
 
     const vacationBalanceQuery = userId
-      ? `SELECT * FROM vacation_balance WHERE userId = ? AND year IN (${years.join(',')}) ORDER BY year`
-      : `SELECT * FROM vacation_balance WHERE year IN (${years.join(',')}) ORDER BY year`;
+      ? `SELECT * FROM vacation_balance WHERE userId = ? AND year IN (${yearPlaceholders}) ORDER BY year`
+      : `SELECT * FROM vacation_balance WHERE year IN (${yearPlaceholders}) ORDER BY year`;
 
     const vacationBalance = (userId
-      ? db.prepare(vacationBalanceQuery).all(userId)
-      : db.prepare(vacationBalanceQuery).all()) as HistoricalExportData['vacationBalance'];
+      ? db.prepare(vacationBalanceQuery).all(userId, ...years)
+      : db.prepare(vacationBalanceQuery).all(...years)) as HistoricalExportData['vacationBalance'];
 
     // Calculate statistics
     const totalWorkingHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0);
