@@ -37,29 +37,43 @@ import type { UserWorkPeriod, WorkSchedule } from '../types/index.js';
 const TEST_NOTE_MARKER = 'workperiod-test-marker-10-04';
 
 /**
- * Wörtliche Kopie des INSERT-Guard-Triggers aus
- * `server/src/database/migrations/008_create_user_work_periods.ts:176-196`. Wird nur genutzt,
- * um den Trigger innerhalb einer einzigen atomaren Transaktion kurz zu entfernen und sofort
- * wiederherzustellen (siehe Test zu `checkPeriodChain` mit eingeschleuster Lücke unten) — die
- * Transaktion hält den SQLite-Schreiblock, sodass kein anderer Prozess in der Lücke zwischen
- * DROP und CREATE schreiben kann.
+ * Wörtliche Kopie des INSERT-Guard-Triggers aus `server/src/database/schema.ts` (Stand
+ * Migration 013, DD-2/D3 aus 13-01-PLAN.md) — NICHT mehr die Fassung aus Migration 008. Wird
+ * nur genutzt, um den Trigger innerhalb einer einzigen atomaren Transaktion kurz zu entfernen
+ * und sofort wiederherzustellen (siehe Test zu `checkPeriodChain` mit eingeschleuster Lücke
+ * unten) — die Transaktion hält den SQLite-Schreiblock, sodass kein anderer Prozess in der
+ * Lücke zwischen DROP und CREATE schreiben kann.
+ *
+ * PHASE 13 (Rule 1 — Bugfix, 13-03-PLAN.md Task 2): Diese Konstante trug bis hierhin noch die
+ * VORPHASE-13-Fassung des Triggers (ohne `suspended`-Abfrage, ohne `deletedAt IS NULL`-Filter).
+ * Jeder Testlauf dieser Datei DROPPTE den migrierten (korrekten) Trigger auf der geteilten
+ * `development.db` und ERSETZTE ihn dauerhaft durch diese veraltete Fassung — die Migration
+ * 013/014-Zusage (aussetzbarer Kettenriegel, `withSuspendedChainGuard()`) war danach für JEDEN
+ * nachfolgenden Testlauf und jeden Serverstart gegen dieselbe Datenbank wirkungslos, bis die
+ * Migration erneut liefe (was `runMigrations()` wegen der bereits verbuchten Zeile in
+ * `migrations` nie täte). Plan 13-03 (Task 2, `correctWorkPeriod()`) deckte das auf, weil sein
+ * `withSuspendedChainGuard()`-Aufruf dadurch nicht mehr griff.
  */
 const INSERT_GUARD_TRIGGER_SQL = `
   CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_insert_guard
   BEFORE INSERT ON user_work_periods
   BEGIN
     SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
-    WHERE EXISTS (
-      SELECT 1 FROM user_work_periods p
-      WHERE p.userId = NEW.userId
-        AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
-        AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
-    );
+    WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+      AND EXISTS (
+        SELECT 1 FROM user_work_periods p
+        WHERE p.userId = NEW.userId
+          AND p.deletedAt IS NULL
+          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+      );
     SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
-    WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId)
+    WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+      AND EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.deletedAt IS NULL)
       AND NOT EXISTS (
         SELECT 1 FROM user_work_periods p
         WHERE p.userId = NEW.userId
+          AND p.deletedAt IS NULL
           AND (p.validTo = NEW.validFrom
                OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
       );

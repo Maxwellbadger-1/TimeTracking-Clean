@@ -1051,28 +1051,38 @@ describe('applyWorkTimeChange — Validierung (kein Schreibvorgang bei Ablehnung
 
 describe('applyWorkTimeChange — D7: eine Transaktionsklammer (Periode + Rebuild + Buchung)', () => {
   /**
-   * Woertliche Kopie des INSERT-Guard-Triggers aus
-   * `server/src/database/migrations/008_create_user_work_periods.ts:176-196` — genutzt, um
-   * innerhalb einer einzigen atomaren Transaktion eine Luecke einzuschleusen, die der
-   * Trigger selbst nicht verhindern kann, weil sie unter dessen Umgehung entsteht (Muster
-   * aus `workPeriodService.test.ts`, "checkPeriodChain — Service-Check ergaenzt die Trigger").
+   * Woertliche Kopie des INSERT-Guard-Triggers aus `server/src/database/schema.ts` (Stand
+   * Migration 013, DD-2/D3 aus 13-01-PLAN.md) — genutzt, um innerhalb einer einzigen atomaren
+   * Transaktion eine Luecke einzuschleusen, die der Trigger selbst nicht verhindern kann, weil
+   * sie unter dessen Umgehung entsteht (Muster aus `workPeriodService.test.ts`,
+   * "checkPeriodChain — Service-Check ergaenzt die Trigger").
+   *
+   * PHASE 13 (Rule 1 — Bugfix, 13-03-PLAN.md Task 2): wortgleiche Korrektur wie in
+   * `workPeriodService.test.ts` — diese Konstante trug bis hierhin noch die Vorphase-13-Fassung
+   * (ohne `suspended`-Abfrage, ohne `deletedAt IS NULL`-Filter) und ersetzte den migrierten
+   * Trigger auf der geteilten `development.db` bei jedem Testlauf dauerhaft durch die veraltete
+   * Fassung.
    */
   const INSERT_GUARD_TRIGGER_SQL = `
     CREATE TRIGGER IF NOT EXISTS trg_user_work_periods_insert_guard
     BEFORE INSERT ON user_work_periods
     BEGIN
       SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
-      WHERE EXISTS (
-        SELECT 1 FROM user_work_periods p
-        WHERE p.userId = NEW.userId
-          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
-          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
-      );
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = NEW.userId
+            AND p.deletedAt IS NULL
+            AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+            AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+        );
       SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
-      WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId)
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.deletedAt IS NULL)
         AND NOT EXISTS (
           SELECT 1 FROM user_work_periods p
           WHERE p.userId = NEW.userId
+            AND p.deletedAt IS NULL
             AND (p.validTo = NEW.validFrom
                  OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
         );
