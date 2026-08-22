@@ -64,10 +64,8 @@
  */
 
 import { db } from '../database/connection.js';
+import { isRealCalendarDate } from '../utils/validation.js';
 import type { UserWorkPeriod, UserWorkPeriodRow, WorkSchedule, DayName } from '../types/index.js';
-
-/** Ausschließlich Zeichenketten im Format YYYY-MM-DD — kein Date-Objekt, keine Zeitzone. */
-const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 
 const WEEKDAY_KEYS: readonly DayName[] = [
   'monday',
@@ -97,15 +95,23 @@ export class WorkPeriodConflictError extends Error {
 }
 
 /**
- * Prüft, dass ein übergebener Wert eine Zeichenkette im Format YYYY-MM-DD ist. Läuft zur
- * Laufzeit auch gegen Werte, die die TypeScript-Signatur eigentlich schon ausschließt (ein
- * `Date`-Objekt oder ein anders formatierter String), weil ein Aufrufer diese Prüfung nicht
- * per Typsystem umgehen können soll.
+ * Prüft, dass ein übergebener Wert eine Zeichenkette im Format YYYY-MM-DD **und ein echtes
+ * Kalenderdatum** ist. Läuft zur Laufzeit auch gegen Werte, die die TypeScript-Signatur
+ * eigentlich schon ausschließt (ein `Date`-Objekt oder ein anders formatierter String), weil
+ * ein Aufrufer diese Prüfung nicht per Typsystem umgehen können soll.
+ *
+ * CR-03 (Code-Review Phase 12): Vorher genügte `/^\d{4}-\d{2}-\d{2}$/`. `2026-02-31`,
+ * `2026-13-45` und `0000-00-00` bestanden diese Prüfung und wurden unverändert in
+ * `user_work_periods` geschrieben. Danach ist jede lexikografische Datumsvergleichslogik
+ * (`resolveWorkPeriodIn`, `checkPeriodChain`, die Trigger aus Migration 008) für diesen
+ * Nutzer dauerhaft verzerrt — `'2026-13-45'` sortiert hinter jedes echte Datum des Jahres.
+ * `isRealCalendarDate()` prüft die Monatslänge inklusive Schaltjahr, weiterhin ohne
+ * Zeitzonenbezug.
  */
 function assertDateFormat(value: unknown, paramName: string): asserts value is string {
-  if (typeof value !== 'string' || !DATE_FORMAT.test(value)) {
+  if (!isRealCalendarDate(value)) {
     throw new Error(
-      `${paramName} muss eine Zeichenkette im Format YYYY-MM-DD sein, erhalten: ` +
+      `${paramName} muss ein gültiges Kalenderdatum im Format YYYY-MM-DD sein, erhalten: ` +
       `${describeUnknown(value)}`
     );
   }
@@ -517,8 +523,7 @@ export function checkAllPeriodChains(): PeriodChainIssue[] {
         `Berechnung für ihn wirft MissingWorkPeriodError (D4).`
       );
     } else if (
-      typeof user.hireDate === 'string' &&
-      DATE_FORMAT.test(user.hireDate) &&
+      isRealCalendarDate(user.hireDate) &&
       periods[0].validFrom > user.hireDate
     ) {
       findings.push(

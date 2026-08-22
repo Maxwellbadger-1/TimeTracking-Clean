@@ -57,6 +57,7 @@ import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuil
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { createTransaction } from './overtimeTransactionManager.js';
 import { getTodayString, formatDate } from '../utils/timezone.js';
+import { isRealCalendarDate } from '../utils/validation.js';
 import logger from '../utils/logger.js';
 import type {
   UserPublic,
@@ -66,9 +67,6 @@ import type {
   WorkTimeChangeOutcome,
   WorkTimeChangePreview,
 } from '../types/index.js';
-
-/** Ausschließlich Zeichenketten im Format YYYY-MM-DD — kein Date-Objekt, keine Zeitzone. */
-const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 
 const WEEKDAY_KEYS: readonly (keyof WorkSchedule)[] = [
   'monday',
@@ -196,7 +194,13 @@ function monthsInRange(from: string, to: string): string[] {
  * damit die Vorschau schon vor dem Eintippen der Begründung berechnet werden kann.
  */
 function validateInput(input: WorkTimeChangeInput, user: UserPublic, dryRun: boolean): void {
-  if (!input.validFrom || !DATE_FORMAT.test(input.validFrom)) {
+  // CR-03: echte Kalenderprüfung statt reiner Formatprüfung. `2026-02-31`, `2026-13-45` und
+  // `0000-00-00` bestanden die alte Regex und landeten unverändert in
+  // `user_work_periods.validFrom` — danach liefert `monthsInRange()` eine leere Liste (kein
+  // Rebuild, balanceDelta 0, keine Buchung), `sumTargetHoursInRange()` misst über den
+  // Überlauf von `new Date(2026, 12, 45)` einen völlig anderen Tag, und jeder
+  // lexikografische Datumsvergleich dieses Nutzers ist dauerhaft verzerrt.
+  if (!isRealCalendarDate(input.validFrom)) {
     throw new WorkTimeChangeValidationError('Stichtag ist erforderlich');
   }
 

@@ -4,6 +4,32 @@
  */
 
 /**
+ * Prüft, ob eine Zeichenkette ein ECHTES Kalenderdatum im Format YYYY-MM-DD ist (CR-03,
+ * Code-Review Phase 12).
+ *
+ * WARUM eine eigene Funktion neben `validateDateString()`: Die Schreibwege der
+ * Arbeitszeitperioden brauchen ein Prädikat (true/false) statt eines Wurfs mit englischer
+ * Meldung — sie werfen ihre eigene, deutsche Fehlermeldung aus dem UI-Textbuch. Die reine
+ * Formatprüfung `/^\d{4}-\d{2}-\d{2}$/` reicht dafür nicht: `2026-02-31`, `2026-13-45` und
+ * `0000-00-00` bestehen sie und landen sonst dauerhaft in `user_work_periods.validFrom`,
+ * wo jede lexikografische Datumsvergleichslogik danach verzerrt ist.
+ *
+ * ZEITZONENFREI: `new Date(y, m, 0)` bildet den letzten Tag des Monats `m` rein über lokale
+ * Kalenderfelder (inklusive Schaltjahr). Es wird kein Datums-String geparst und kein
+ * `toISOString()` verwendet — kein UTC-Versatz möglich.
+ */
+export function isRealCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  if (year < 1900 || year > 2100) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1) return false;
+  return day <= new Date(year, month, 0).getDate();
+}
+
+/**
  * Validate date string format (YYYY-MM-DD)
  * Throws error if invalid to prevent SQL injection and data corruption
  *

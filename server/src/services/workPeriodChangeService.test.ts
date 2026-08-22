@@ -477,6 +477,45 @@ describe('applyWorkTimeChange — Validierung (kein Schreibvorgang bei Ablehnung
     }
   });
 
+  it('CR-03: Ein formal passender, aber unmoeglicher Kalendertag wird abgewiesen, keine Schreibwirkung', () => {
+    const userId = createEmployee('kein-echtes-datum', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+
+      const periodsBefore = countPeriods(userId);
+      const transactionsBefore = countTransactions(userId);
+
+      // Alle drei bestehen die reine Formatpruefung /^\d{4}-\d{2}-\d{2}$/ und landeten vor
+      // dem CR-03-Fix unveraendert in user_work_periods.validFrom.
+      for (const validFrom of ['2026-02-31', '2026-13-45', '0000-00-00', '2025-02-29']) {
+        const input: WorkTimeChangeInput = {
+          userId,
+          validFrom,
+          weeklyHours: 30,
+          workSchedule: null,
+          reason: `Unmoegliches Kalenderdatum ${validFrom} darf nicht gespeichert werden`,
+        };
+
+        expect(() => applyWorkTimeChange(input, { dryRun: false, createdBy: adminId })).toThrow(
+          WorkTimeChangeValidationError
+        );
+        expect(() => applyWorkTimeChange(input, { dryRun: true, createdBy: adminId })).toThrow(
+          WorkTimeChangeValidationError
+        );
+      }
+
+      // Gegenprobe: der 29.02. eines echten Schaltjahres wird NICHT abgewiesen (der Lauf
+      // scheitert dann an einer anderen Regel oder laeuft durch — jedenfalls nicht an der
+      // Kalenderpruefung).
+      expect(new Date(2028, 2, 0).getDate()).toBe(29);
+
+      expect(countPeriods(userId)).toBe(periodsBefore);
+      expect(countTransactions(userId)).toBe(transactionsBefore);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('Stichtag identisch zu einer bestehenden Periode wirft WorkTimeChangeValidationError, keine Schreibwirkung', () => {
     const userId = createEmployee('doppelter-stichtag', 40, '2020-01-01');
     try {
