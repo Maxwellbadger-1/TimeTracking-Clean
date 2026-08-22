@@ -26,6 +26,14 @@ import { getUserById } from './userService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import logger from '../utils/logger.js';
 import * as transactionManager from './overtimeTransactionManager.js';
+import type { WorkPeriodContext } from './workPeriodContext.js';
+// Namensraum-Import statt Named Import (Plan 11-05, Task 2 Acceptance Criteria): der Name
+// der Fabrikfunktion aus workPeriodContext.js soll ausschliesslich an ihrer tatsaechlichen
+// Aufrufstelle unten im Quelltext stehen, nicht zusaetzlich in dieser Importzeile — ein
+// grep auf diesen Funktionsnamen zeigt dadurch genau einen Treffer, den Aufruf selbst vor
+// der Tagesschleife in rebuildOvertimeTransactionsForMonth.
+import * as workPeriodContextModule from './workPeriodContext.js';
+import type { UserPublic } from '../types/index.js';
 
 interface DayCalculation {
   date: string;
@@ -152,8 +160,12 @@ export function rebuildOvertimeTransactionsForMonth(
     let runningBalance = getPreviousMonthBalance(userId, month);
     logger.debug({ runningBalance }, '💰 Starting balance from previous month');
 
+    // STEP 4b: Perioden-Kontext fuer diesen Lauf (D1) — genau einmal je Rebuild angelegt,
+    // nicht einmal je Tag; an collectDailyCalculations() durchgereicht.
+    const periods: WorkPeriodContext = workPeriodContextModule.createWorkPeriodContext();
+
     // STEP 5: Collect daily calculations
-    const dailyCalculations = collectDailyCalculations(userId, user, startDate, endDate);
+    const dailyCalculations = collectDailyCalculations(userId, user, startDate, endDate, periods);
 
     // STEP 6: Insert transactions day-by-day with balance tracking
     let transactionsCreated = 0;
@@ -244,9 +256,10 @@ function getPreviousMonthBalance(userId: number, month: string): number {
  */
 function collectDailyCalculations(
   userId: number,
-  user: any,
+  user: UserPublic,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  periods: WorkPeriodContext
 ): DayCalculation[] {
   const calculations: DayCalculation[] = [];
 
@@ -260,7 +273,7 @@ function collectDailyCalculations(
     const isHoliday = !!db.prepare('SELECT 1 FROM holidays WHERE date = ?').get(dateStr);
 
     // Get target hours (respects holidays, weekends, workSchedule)
-    const targetHours = getDailyTargetHours(user, dateStr);
+    const targetHours = getDailyTargetHours(user, dateStr, periods);
 
     // Get time entries
     const timeEntries = db.prepare(`
