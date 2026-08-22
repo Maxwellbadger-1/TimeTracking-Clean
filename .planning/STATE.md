@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-08-21T23:53:06.585Z"
-last_activity: 2026-08-21
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-08-22T00:05:01.907Z"
+last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 8
   percent: 14
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 10-01-PLAN.md
+- **Stopped at:** Completed 10-03-PLAN.md
 
 ## Phase Progress
 
@@ -139,6 +139,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 10-perioden-fundament]: 10-01: PRAGMA index_list(user_work_periods) liefert 3 Eintraege (2 benannte Indizes + 1 SQLite-Autoindex fuer UNIQUE(userId, validFrom)) - Tests pruefen auf benannte Indizes statt fester Gesamtzahl
 - [Phase 10-perioden-fundament]: 10-01: schemaMigrationParity.test.ts nutzt Dateien in os.tmpdir() statt :memory:, weil initializeDatabase() WAL-Modus erzwingt
 - [Phase 10-perioden-fundament]: 10-01: requirements.mark-complete fuer REQ-20/REQ-22 nicht anwendbar - REQUIREMENTS.md dieses Milestones nutzt kein Checkbox-/Pending-Complete-Format, nur eine Phasenzuordnungstabelle; Abdeckung bleibt wie gehabt ueber die Phase-10-Zeilen dokumentiert
+- [Phase 10-perioden-fundament]: 10-03: FALLBACK_PROJECT_START=2025-01-01 (D5) - deckt fruehesten gemessenen time_entries.date (2025-07-01) und hireDate (2025-11-13) ab, kein Epoch-Datum
+- [Phase 10-perioden-fundament]: 10-03: Selbstverifikation der Migration 009 vergleicht ALLE Perioden (nicht nur neu eingefuegte) gegen aktuelle users-Werte - Skip-Test fuer D7 musste weeklyHours/workSchedule der manuell vorab eingefuegten Periode identisch zum Nutzer halten
 
 ## Quick Tasks Completed
 
@@ -178,6 +180,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 09-ein-ma-stab-ein-weg P04 | 50min | 3 tasks | 7 files |
 | Phase 09-ein-ma-stab-ein-weg P05 | 55min | - tasks | - files |
 | Phase 10-perioden-fundament P01 | 45min | 2 tasks | 5 files |
+| Phase 10-perioden-fundament P03 | 35min | 2 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -214,9 +217,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 10 (Perioden-Fundament) — EXECUTING
-Plan: 2 of 5
+Plan: 4 of 5
 Status: Ready to execute
-Last activity: 2026-08-21
+Last activity: 2026-08-22
 
 ## Operator Next Steps
 

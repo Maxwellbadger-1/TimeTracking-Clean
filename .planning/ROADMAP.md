@@ -196,8 +196,8 @@ Plans:
 
 - [x] 10-01-PLAN.md — Migration 008: Tabelle `user_work_periods`, Constraints, Trigger; Spiegel in `schema.ts`, Typ `UserWorkPeriod`
 - [ ] 10-02-PLAN.md — Verhaltensmatrix der Datenbankriegel; CLI `migrate:copy` und Migrationslauf gegen eine Kopie
-- [ ] 10-03-PLAN.md — Migration 009: Bestandsüberführung ab `hireDate`, idempotent, mit Selbstverifikation
-- [ ] 10-04-PLAN.md — `workPeriodService`: Periode lesen, schreiben, zum Datum auflösen (noch ohne Aufrufer)
+- [x] 10-03-PLAN.md — Migration 009: Bestandsüberführung ab `hireDate`, idempotent, mit Selbstverifikation
+- [x] 10-04-PLAN.md — `workPeriodService`: Periode lesen, schreiben, zum Datum auflösen (noch ohne Aufrufer)
 - [ ] 10-05-PLAN.md — Salden-Snapshot-Werkzeug und Nullwirkungs-Nachweis auf einer Produktionskopie
 
 ---
