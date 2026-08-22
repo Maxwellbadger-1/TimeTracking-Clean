@@ -1,9 +1,65 @@
 import { db } from '../database/connection.js';
-import type { DayName, UserPublic } from '../types/index.js';
+import type { DayName, UserPublic, UserWorkPeriod } from '../types/index.js';
 import { formatDate as formatDateBerlin } from './timezone.js';
+import type { WorkPeriodContext } from '../services/workPeriodContext.js';
+import logger from './logger.js';
 
 // Re-export DayName type for use in other modules
 export type { DayName };
+
+/** Ausschließlich Zeichenketten im Format YYYY-MM-DD — Grundlage für den D4-Vergleich gegen
+ *  `user.hireDate`. Läuft zur Laufzeit auch gegen Werte, die die Signatur schon ausschließt. */
+const HIRE_DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Eigene Fehlerklasse für D4: Für ein Datum ab `hireDate` konnte keine Arbeitszeitperiode
+ * aufgelöst werden. Nach Migration 009 (Bestand) und Plan 11-03 (Neuanlage) hat jeder Nutzer
+ * eine lückenlose Periodenkette ab `hireDate` — ein Fehlen ist deshalb ein Datendefekt, kein
+ * Zustand, der einen stillen Rückfall auf `users.weeklyHours` rechtfertigt. Die Meldung nennt
+ * ausschließlich `userId` und Datum (T-11-12) — für ein Log gebaut, nicht für eine UI.
+ */
+export class MissingWorkPeriodError extends Error {
+  constructor(userId: number, date: string) {
+    super(
+      `Keine Arbeitszeitperiode für Nutzer ${userId} am ${date} gefunden. Nach Migration 009 ` +
+        `hat jeder Nutzer eine lückenlose Periodenkette ab hireDate — ein Fehlen ist ein ` +
+        `Datendefekt, kein Zustand, der einen Rückfall auf users.weeklyHours erlaubt (D4).`
+    );
+    this.name = 'MissingWorkPeriodError';
+  }
+}
+
+/**
+ * D4-Auflösung mit gemeinsamer Ausnahmebehandlung für `getDailyTargetHours` und
+ * `calculateAbsenceHoursWithWorkSchedule`: löst die Periode über den übergebenen Kontext auf.
+ * Kein Treffer und `dateStr` liegt vor `user.hireDate` → `null` (D4-Ausnahme, bestehendes
+ * Verhalten: 0 Sollstunden vor Eintrittsdatum). Kein Treffer sonst → Log + `MissingWorkPeriodError`,
+ * KEIN Rückfall auf `user.weeklyHours`/`user.workSchedule`.
+ */
+function resolvePeriodForDate(
+  user: UserPublic,
+  dateStr: string,
+  periods: WorkPeriodContext
+): UserWorkPeriod | null {
+  const period = periods.resolve(user.id, dateStr);
+  if (period) {
+    return period;
+  }
+
+  if (
+    typeof user.hireDate === 'string' &&
+    HIRE_DATE_FORMAT.test(user.hireDate) &&
+    dateStr < user.hireDate
+  ) {
+    return null;
+  }
+
+  logger.error(
+    { userId: user.id, date: dateStr },
+    'Keine Arbeitszeitperiode gefunden — D4: kein Rückfall auf users.weeklyHours/workSchedule'
+  );
+  throw new MissingWorkPeriodError(user.id, dateStr);
+}
 
 /**
  * Working Days Utility Functions
@@ -41,26 +97,44 @@ export function getDayName(date: Date | string): DayName {
 
 /**
  * Get daily target hours for a specific user and date
- * Uses workSchedule if available, otherwise falls back to weeklyHours/5
+ * Uses workSchedule if available, otherwise falls back to weeklyHours/5 —
+ * beides aus der Periode, die am übergebenen `date` galt (REQ-23), NICHT aus dem heutigen
+ * Stammdatensatz.
  *
- * CRITICAL: Holidays always return 0h target! (Feiertag = Arbeitsfrei)
+ * CRITICAL: Holidays always return 0h target! (Feiertag = Arbeitsfrei) — VOR der
+ * Periodenauflösung geprüft, unverändert seit vor diesem Umbau.
  *
- * @param user - User object with weeklyHours and optional workSchedule
+ * @param user - User object (liefert nur noch `id` und `hireDate` für diese Funktion —
+ *   `weeklyHours`/`workSchedule` werden NICHT mehr gelesen, s. D3/D4)
  * @param date - Date string (YYYY-MM-DD) or Date object
+ * @param periods - Perioden-Kontext (D3, PFLICHTPARAMETER OHNE VORGABEWERT): löst die am
+ *   `date` gültige Arbeitszeitperiode auf. Explizit übergeben statt intern geholt, damit ein
+ *   versteckter Datenbankzugriff in dieser Utility-Funktion — die in Tagesschleifen über ein
+ *   ganzes Jahr läuft — nicht unbemerkt bleibt. In Tagesschleifen `createWorkPeriodContext()`
+ *   (vorladend, D1/D2) übergeben, bei Einzelabfragen `directWorkPeriodLookup`
+ *   (`workPeriodContext.ts`).
  * @returns Target hours for this specific day (0-24)
+ * @throws {MissingWorkPeriodError} Wenn für `date` keine Periode aufgelöst werden kann und
+ *   `date` NICHT vor `user.hireDate` liegt (D4) — kein stiller Rückfall auf
+ *   `user.weeklyHours`/`user.workSchedule`. Daten vor `hireDate` liefern weiterhin 0 (D4-
+ *   Ausnahme, bestehendes Verhalten).
  *
  * @example
  * // Holiday check (FIRST!)
- * getDailyTargetHours(user, "2026-01-01") // Neujahr → 0h
+ * getDailyTargetHours(user, "2026-01-01", periods) // Neujahr → 0h
  *
- * // User with workSchedule: Mo=8h, Fr=2h
- * getDailyTargetHours(hans, "2025-02-07") // Friday → 2h
- * getDailyTargetHours(hans, "2025-02-03") // Monday → 8h
+ * // User mit periodenspezifischem workSchedule: Mo=8h, Fr=2h
+ * getDailyTargetHours(hans, "2025-02-07", periods) // Friday → 2h
+ * getDailyTargetHours(hans, "2025-02-03", periods) // Monday → 8h
  *
- * // User WITHOUT workSchedule (40h week)
- * getDailyTargetHours(user, "2025-02-03") // → 8h (40/5)
+ * // User WITHOUT workSchedule (40h week in dieser Periode)
+ * getDailyTargetHours(user, "2025-02-03", periods) // → 8h (40/5)
  */
-export function getDailyTargetHours(user: UserPublic, date: Date | string): number {
+export function getDailyTargetHours(
+  user: UserPublic,
+  date: Date | string,
+  periods: WorkPeriodContext
+): number {
   // CRITICAL: Check for holidays FIRST! (Feiertag = 0h Soll-Arbeitszeit)
   // FIX: Use formatDateBerlin() instead of toISOString() to respect Europe/Berlin timezone
   const dateStr = typeof date === 'string' ? date : formatDateBerlin(date, 'yyyy-MM-dd');
@@ -70,15 +144,22 @@ export function getDailyTargetHours(user: UserPublic, date: Date | string): numb
     return 0;
   }
 
-  // If user has individual work schedule, use it
-  if (user.workSchedule) {
+  const period = resolvePeriodForDate(user, dateStr, periods);
+
+  // D4-Ausnahme: kein Periodentreffer, aber dateStr liegt vor hireDate → 0, kein Fehler
+  if (!period) {
+    return 0;
+  }
+
+  // If period has individual work schedule, use it
+  if (period.workSchedule) {
     const dayName = getDayName(date);
-    return user.workSchedule[dayName] || 0;
+    return period.workSchedule[dayName] || 0;
   }
 
   // Fallback: Standard 5-day week (weeklyHours / 5)
   // SPECIAL CASE: weeklyHours=0 (Aushilfen) → 0h per day
-  if (user.weeklyHours === 0) {
+  if (period.weeklyHours === 0) {
     return 0;
   }
 
@@ -90,7 +171,7 @@ export function getDailyTargetHours(user: UserPublic, date: Date | string): numb
     return 0;
   }
 
-  return Math.round((user.weeklyHours / 5) * 100) / 100;
+  return Math.round((period.weeklyHours / 5) * 100) / 100;
 }
 
 /**
@@ -99,26 +180,39 @@ export function getDailyTargetHours(user: UserPublic, date: Date | string): numb
  *
  * CRITICAL: Used for overtime_comp validation and transaction recording!
  *
+ * ZWEITE, EIGENSTÄNDIGE KOPIE DER SOLLSTUNDEN-REGEL (bewusst, s. Grenze unten): Diese Funktion
+ * überspringt Samstag/Sonntag IMMER, unabhängig vom Wochenplan. `getDailyTargetHours` liefert
+ * für einen Nutzer mit Wochenendstunden im Wochenplan an Samstag/Sonntag hingegen Stunden. Eine
+ * Zusammenführung beider Funktionen würde für solche Nutzer Zahlen bewegen und damit die
+ * Nullwirkung (D5, Plan 11-04) verletzen. Auf der Arbeitskopie aus `11-AUSGANGSZUSTAND.md`
+ * Punkt (e) haben 0 von 20 Nutzern `workSchedule.saturday > 0` oder `workSchedule.sunday > 0` —
+ * die Zusammenführung bewegt heute keine Zahl, bleibt aber ausdrücklich Phase 14
+ * (Testabdeckung) vorbehalten und wird HIER NICHT vorgezogen.
+ *
+ * @param user - Nutzer (liefert `id` und `hireDate` für die Periodenauflösung je Tag, D3/D4)
  * @param startDate - Start date (YYYY-MM-DD)
  * @param endDate - End date (YYYY-MM-DD)
- * @param workSchedule - Individual work schedule (optional)
- * @param weeklyHours - Fallback if no workSchedule
+ * @param periods - Perioden-Kontext (D3, PFLICHTPARAMETER OHNE VORGABEWERT) — löst für jeden Tag
+ *   der Schleife die an diesem Tag gültige Periode auf, statt `workSchedule`/`weeklyHours` als
+ *   feste Parameter für den gesamten Zeitraum zu benutzen.
  * @returns Total hours for the absence period
+ * @throws {MissingWorkPeriodError} Wie `getDailyTargetHours` (D4) — außer für Tage vor
+ *   `user.hireDate`, die 0 beitragen statt zu werfen.
  *
  * @example
  * // User with workSchedule: Fr=2h
- * calculateAbsenceHoursWithWorkSchedule('2026-01-02', '2026-01-02', {friday: 2}, 18)
+ * calculateAbsenceHoursWithWorkSchedule(user, '2026-01-02', '2026-01-02', periods)
  * // → 2h (Friday only)
  *
  * // User without workSchedule: 40h/week
- * calculateAbsenceHoursWithWorkSchedule('2026-01-06', '2026-01-10', null, 40)
+ * calculateAbsenceHoursWithWorkSchedule(user, '2026-01-06', '2026-01-10', periods)
  * // → 40h (5 days × 8h)
  */
 export function calculateAbsenceHoursWithWorkSchedule(
+  user: UserPublic,
   startDate: string,
   endDate: string,
-  workSchedule: Record<DayName, number> | null,
-  weeklyHours: number
+  periods: WorkPeriodContext
 ): number {
   let totalHours = 0;
   const start = new Date(startDate + 'T12:00:00');
@@ -142,12 +236,18 @@ export function calculateAbsenceHoursWithWorkSchedule(
       continue;
     }
 
+    const period = resolvePeriodForDate(user, dateStr, periods);
+    if (!period) {
+      // D4-Ausnahme: dateStr vor user.hireDate → 0 Stunden für diesen Tag, kein Fehler
+      continue;
+    }
+
     // Calculate hours for this day
-    if (workSchedule) {
-      totalHours += workSchedule[dayName] || 0;
+    if (period.workSchedule) {
+      totalHours += period.workSchedule[dayName] || 0;
     } else {
       // Fallback: weeklyHours / 5
-      totalHours += Math.round((weeklyHours / 5) * 100) / 100;
+      totalHours += Math.round((period.weeklyHours / 5) * 100) / 100;
     }
   }
 
@@ -303,20 +403,23 @@ export function countWorkingDaysBetween(fromDate: string | Date, toDate: string 
  * Calculate target hours for a date range using individual work schedule
  * Iterates through each day and sums getDailyTargetHours()
  *
- * @param user - User object with weeklyHours and optional workSchedule
+ * @param user - User object (liefert `id`/`hireDate` für die Periodenauflösung, D3/D4)
  * @param fromDate - Start date (YYYY-MM-DD or Date)
  * @param toDate - End date (YYYY-MM-DD or Date)
+ * @param periods - Perioden-Kontext (D3, PFLICHTPARAMETER OHNE VORGABEWERT) — wird unverändert
+ *   an `getDailyTargetHours` durchgereicht.
  * @returns Total target hours for the period
  *
  * @example
  * // Hans: Mo=8h, Fr=2h, Woche vom 03.02.-07.02.2025 (Mo-Fr)
- * calculateTargetHoursForPeriod(hans, "2025-02-03", "2025-02-07")
+ * calculateTargetHoursForPeriod(hans, "2025-02-03", "2025-02-07", periods)
  * // → Mo 8h + Di 0h + Mi 0h + Do 0h + Fr 2h = 10h
  */
 export function calculateTargetHoursForPeriod(
   user: UserPublic,
   fromDate: string | Date,
-  toDate: string | Date
+  toDate: string | Date,
+  periods: WorkPeriodContext
 ): number {
   const start = typeof fromDate === 'string' ? new Date(fromDate) : fromDate;
   const end = typeof toDate === 'string' ? new Date(toDate) : toDate;
@@ -324,16 +427,10 @@ export function calculateTargetHoursForPeriod(
   let totalHours = 0;
 
   // Iterate through each day
+  // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr — getDailyTargetHours entscheidet
+  // selbst über Wochenende, Feiertag und Wochenplan und liefert für diese Tage 0.
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    // Skip weekends (unless user has workSchedule with weekend hours)
-    if (isWeekend && !user.workSchedule) {
-      continue;
-    }
-
-    totalHours += getDailyTargetHours(user, d);
+    totalHours += getDailyTargetHours(user, d, periods);
   }
 
   return Math.round(totalHours * 100) / 100;
