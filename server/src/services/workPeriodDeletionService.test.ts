@@ -12,6 +12,7 @@ import {
 } from './workPeriodService.js';
 import { applyWorkTimeChange, monthsInRange } from './workPeriodChangeService.js';
 import { deleteWorkPeriod, WorkPeriodDeletionValidationError } from './workPeriodDeletionService.js';
+import { correctWorkPeriod } from './workPeriodCorrectionService.js';
 import { createTransaction } from './overtimeTransactionManager.js';
 import { calculateLiveOvertimeTransactions } from './overtimeLiveCalculationService.js';
 import type { WorkPeriodDeletionInput, WorkTimeChangeInput } from '../types/index.js';
@@ -491,4 +492,181 @@ describe('deleteWorkPeriod — Doppelzaehlungs-Nachweis und Storno-Sichtbarkeit 
       cleanupEmployee(userId);
     }
   });
+});
+
+describe('CR-02 (Code-Review Phase 13) — zwei Originalbuchungen mit entgegengesetztem Vorzeichen an derselben Periode blockieren das Loeschen nicht mehr', () => {
+  it(
+    'Umstellung 40 -> 32 (Buchung A: +d), Korrektur zurueck auf 40 OHNE validFrom-Verschiebung ' +
+      '(Buchung B: -d am selben Tag, an derselben Periode), danach loeschen: die Gegenbuchung zu A ' +
+      'traegt ebenfalls -d und wurde vor dem Fix als Duplikat von B verworfen — die Periode war ' +
+      'dauerhaft unloeschbar (deterministischer 500). Jetzt gelingt das Loeschen.',
+    () => {
+      const hireDate = firstOfMonthOffset(today, -4);
+      const changeDate = firstOfMonthOffset(hireDate, 2);
+      const userId = createEmployee('cr02-sackgasse', 40, hireDate);
+      try {
+        insertTestWorkPeriod(userId, { validFrom: hireDate, weeklyHours: 40, workSchedule: null });
+        insertWeekdayTimeEntries(userId, hireDate, today, 9);
+        rebuildRange(userId, hireDate, today);
+
+        const saldoVorher = getOvertimeBalance(userId);
+        const summeVorher = sumTransactionHours(userId);
+
+        // Schritt 1: Stundenwechsel 40 -> 32 ab changeDate. Schreibt Buchung A
+        // (date = changeDate, referenceId = newPeriod.id, hours = +d).
+        const changeOutcome = applyWorkTimeChange(
+          {
+            userId,
+            validFrom: changeDate,
+            weeklyHours: 32,
+            workSchedule: null,
+            reason: 'Stundenwechsel auf 32 h fuer den CR-02-Nachweis',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+        const newPeriod = changeOutcome.period!;
+        const transactionA = changeOutcome.transactionId!;
+        expect(transactionA).not.toBeNull();
+        const deltaA = changeOutcome.preview.balanceDelta;
+        expect(deltaA).not.toBe(0);
+
+        // Schritt 2: Korrektur derselben Periode zurueck auf 40 h, OHNE validFrom zu
+        // verschieben. Schreibt Buchung B mit demselben Datum, derselben referenceId und
+        // hours = -deltaA. Vor dem Fix gelang dieser Schritt noch (+d != -d).
+        const correctionOutcome = correctWorkPeriod(
+          {
+            periodId: newPeriod.id,
+            validFrom: newPeriod.validFrom,
+            weeklyHours: 40,
+            workSchedule: null,
+            reason: 'Korrektur zurueck auf 40 h — die 32 h waren ein Eingabefehler',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+        const transactionB = correctionOutcome.transactionId;
+        expect(transactionB).not.toBeNull();
+        expect(Math.abs(correctionOutcome.preview.balanceDelta + deltaA)).toBeLessThanOrEqual(0.01);
+
+        const originalRows = db
+          .prepare(
+            `SELECT id, date, hours FROM overtime_transactions
+             WHERE referenceType = 'work_period' AND referenceId = ? AND reversalOf IS NULL
+             ORDER BY id ASC`
+          )
+          .all(newPeriod.id) as Array<{ id: number; date: string; hours: number }>;
+        expect(originalRows.length).toBe(2);
+        expect(originalRows[0].date).toBe(originalRows[1].date);
+        expect(Math.abs(originalRows[0].hours + originalRows[1].hours)).toBeLessThanOrEqual(0.01);
+
+        // Schritt 3: Loeschen. Genau hier warf der Code vor dem Fix — die Gegenbuchung zu A
+        // (hours = -deltaA) kollidierte in der Duplikatpruefung mit Buchung B.
+        const deleteOutcome = deleteWorkPeriod(
+          { periodId: newPeriod.id, reason: 'Ruecknahme der versehentlichen Umstellung' },
+          { dryRun: false, createdBy: adminId }
+        );
+
+        // Zwei Originalzeilen, zwei Gegenbuchungen — keine wurde stillschweigend verworfen.
+        expect(deleteOutcome.reversalTransactionIds.length).toBe(2);
+        const pairRows = db
+          .prepare(
+            `SELECT id, hours, reversalOf FROM overtime_transactions
+             WHERE referenceType = 'work_period' AND referenceId = ?`
+          )
+          .all(newPeriod.id) as Array<{ id: number; hours: number; reversalOf: number | null }>;
+        expect(pairRows.length).toBe(4);
+        const reversalTargets = pairRows
+          .filter((r) => r.reversalOf !== null)
+          .map((r) => r.reversalOf as number)
+          .sort((a, b) => a - b);
+        expect(reversalTargets).toEqual(
+          [transactionA, transactionB as number].sort((a, b) => a - b)
+        );
+
+        // Die Periode ist wirklich weg (Soft-Delete) und die Kette wieder geschlossen.
+        expect(getWorkPeriodById(newPeriod.id)).toBeNull();
+        expect(checkPeriodChain(userId).ok).toBe(true);
+
+        // KRITISCHER FALLSTRICK (Phase 12): keine Doppelzaehlung. Der TATSAECHLICH
+        // BERECHNETE Saldo ist wieder der Stand von vorher, die Journalsumme ebenso.
+        expect(Math.abs(getOvertimeBalance(userId) - saldoVorher)).toBeLessThan(0.017);
+        expect(Math.abs(sumTransactionHours(userId) - summeVorher)).toBeLessThanOrEqual(0.01);
+      } finally {
+        cleanupEmployee(userId);
+      }
+    }
+  );
+
+  it(
+    'Wiederholte Korrektur auf einen zuvor schon verwendeten Wert (40 -> 32 -> 40 -> 32) ' +
+      'scheitert nicht mehr mit einem generischen Serverfehler — die dritte Buchung ist ' +
+      'wertgleich zur ersten, aber ein eigener, dokumentationspflichtiger Vorgang.',
+    () => {
+      const hireDate = firstOfMonthOffset(today, -4);
+      const changeDate = firstOfMonthOffset(hireDate, 2);
+      const userId = createEmployee('cr02-wiederholung', 40, hireDate);
+      try {
+        insertTestWorkPeriod(userId, { validFrom: hireDate, weeklyHours: 40, workSchedule: null });
+        insertWeekdayTimeEntries(userId, hireDate, today, 9);
+        rebuildRange(userId, hireDate, today);
+
+        const changeOutcome = applyWorkTimeChange(
+          {
+            userId,
+            validFrom: changeDate,
+            weeklyHours: 32,
+            workSchedule: null,
+            reason: 'Stundenwechsel auf 32 h fuer den CR-02-Wiederholungsnachweis',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+        const newPeriod = changeOutcome.period!;
+
+        correctWorkPeriod(
+          {
+            periodId: newPeriod.id,
+            validFrom: newPeriod.validFrom,
+            weeklyHours: 40,
+            workSchedule: null,
+            reason: 'Erste Korrektur zurueck auf 40 h — Eingabefehler',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+
+        // Dieselbe Periode erneut auf 32 h: balanceDelta ist wieder +d, die Buchung damit
+        // wertgleich zur allerersten. Vor dem Fix: createTransaction() lieferte null und der
+        // Service warf einen nackten Error -> 500, obwohl die Vorschau eben noch gelang.
+        const secondCorrection = correctWorkPeriod(
+          {
+            periodId: newPeriod.id,
+            validFrom: newPeriod.validFrom,
+            weeklyHours: 32,
+            workSchedule: null,
+            reason: 'Doch wieder 32 h — die Rueckkorrektur war ihrerseits ein Irrtum',
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+        expect(secondCorrection.transactionId).not.toBeNull();
+
+        const originalRows = db
+          .prepare(
+            `SELECT id, hours FROM overtime_transactions
+             WHERE referenceType = 'work_period' AND referenceId = ? AND reversalOf IS NULL
+             ORDER BY id ASC`
+          )
+          .all(newPeriod.id) as Array<{ id: number; hours: number }>;
+        expect(originalRows.length).toBe(3);
+        // Erste und dritte Buchung sind wertgleich — und trotzdem beide vorhanden.
+        expect(Math.abs(originalRows[0].hours - originalRows[2].hours)).toBeLessThanOrEqual(0.01);
+
+        // Und die Periode bleibt loeschbar.
+        const deleteOutcome = deleteWorkPeriod(
+          { periodId: newPeriod.id, reason: 'Abschliessende Ruecknahme der Umstellung' },
+          { dryRun: false, createdBy: adminId }
+        );
+        expect(deleteOutcome.reversalTransactionIds.length).toBe(3);
+      } finally {
+        cleanupEmployee(userId);
+      }
+    }
+  );
 });

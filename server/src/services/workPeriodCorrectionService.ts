@@ -431,15 +431,24 @@ export function correctWorkPeriod(
         createdBy: options.createdBy,
         balanceBefore: journalBalance,
         balanceAfter: journalBalance,
+        // CR-02 (Phase 13): Eine Korrektur darf dieselbe Periode mehrfach hin- und
+        // zurückkorrigieren. Die zweite Korrektur zurück auf einen früher schon einmal
+        // verwendeten Wert erzeugt zwangsläufig eine wertgleiche Buchung am selben Tag an
+        // derselben Periode — fachlich ein eigener, dokumentationspflichtiger Vorgang, kein
+        // Duplikat. Die Eindeutigkeit dieses Pfades sichert der `isNoOp`-Riegel in Schritt 2:
+        // eine Korrektur, die nichts ändert, kommt hier gar nicht an.
+        allowDuplicate: true,
       });
 
-      // CR-06-Muster (Phase 12): createTransaction() ist idempotent und liefert null bei einem
-      // Duplikat. Im Speicherpfad ist das ein Fehlerzustand — die gesamte Klammer rollt zurück.
+      // Sicherheitsnetz: createTransaction() kann mit allowDuplicate: true nur noch bei einem
+      // echten Schreibfehler null liefern. Im Speicherpfad ist das ein Fehlerzustand — die
+      // gesamte Klammer rollt zurück. WorkPeriodCorrectionValidationError statt nacktem Error,
+      // damit die Route 400 mit lesbarem Text liefert statt eines generischen 500 (CR-02).
       if (transactionId === null) {
-        throw new Error(
-          `Korrektur der Periode ${period.id} (Nutzer ${period.userId}): die model_change-` +
-          `Buchung wurde als Duplikat verworfen (balanceDelta ${balanceDelta}) — es wird genau ` +
-          `eine Buchung erwartet.`
+        throw new WorkPeriodCorrectionValidationError(
+          'Die Korrektur konnte nicht im Kontoauszug festgehalten werden und wurde deshalb ' +
+          'nicht gespeichert. Es wurde nichts verändert — weder die Periode noch der ' +
+          'Kontoauszug. Bitte laden Sie die Ansicht neu und versuchen Sie es erneut.'
         );
       }
     }

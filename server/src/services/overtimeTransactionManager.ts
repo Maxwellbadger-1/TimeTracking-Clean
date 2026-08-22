@@ -42,6 +42,14 @@ export interface TransactionParams {
   createdBy?: number | null;
   balanceBefore?: number;
   balanceAfter?: number;
+  // allowDuplicate (CR-02 Phase 13): schaltet die Idempotenzprüfung für Aufrufer ab, die
+  // ihre Eindeutigkeit bereits selbst sicherstellen und für die eine zweite, wertgleiche
+  // Zeile am selben Tag ein FACHLICH GÜLTIGER Vorgang ist — namentlich die
+  // Stammdaten-Korrektur, die dieselbe Periode mehrfach hin- und zurückkorrigieren darf
+  // (`isNoOp`-Riegel in workPeriodCorrectionService). Ohne dieses Ventil verwirft die
+  // Duplikatprüfung die zweite Buchung, der Aufrufer wirft, und die gesamte
+  // Transaktionsklammer rollt zurück — eine dauerhaft unbedienbare Aktion.
+  allowDuplicate?: boolean;
 }
 
 /**
@@ -65,25 +73,45 @@ export function createTransaction(params: TransactionParams): number | null {
     reversalOf = null,
     createdBy = null,
     balanceBefore,
-    balanceAfter
+    balanceAfter,
+    allowDuplicate = false
   } = params;
 
   // Check if this exact transaction already exists
   //
-  // ABSICHTLICH OHNE reversalOf (13-01-PLAN.md, Task 2): Eine Gegenbuchung unterscheidet
-  // sich von ihrem Original bereits im Vorzeichen von `hours` (Storno-Prinzip, D2 aus
-  // 13-CONTEXT.md — die Originalzeile bleibt unverändert stehen, die Gegenbuchung gleicht
-  // mit umgekehrtem Vorzeichen aus). Eine zusätzliche Bedingung auf reversalOf würde die
-  // bestehende Duplikaterkennung nur aufweichen, ohne einen realen Duplikat-Fall abzudecken.
-  const existing = db.prepare(`
-    SELECT id FROM overtime_transactions
-    WHERE userId = ?
-      AND date = ?
-      AND type = ?
-      AND ABS(hours - ?) < 0.01
-      AND COALESCE(referenceType, '') = COALESCE(?, '')
-      AND COALESCE(referenceId, -1) = COALESCE(?, -1)
-  `).get(userId, date, type, hours, referenceType || '', referenceId ?? -1) as { id: number } | undefined;
+  // reversalOf IST TEIL DES IDENTITÄTSSCHLÜSSELS (CR-02 Phase 13). Der frühere Verzicht
+  // darauf stützte sich auf die Annahme, eine Gegenbuchung unterscheide sich von ihrem
+  // Original bereits im Vorzeichen von `hours`. Das trägt nicht, sobald zu EINER Periode
+  // mehrere Originalzeilen mit demselben Datum und derselben referenceId gehören (DD-15
+  // sagt ausdrücklich zu: „Es können mehrere sein"). Konkret: eine Umstellung 40 → 32
+  // schreibt +d, die Korrektur zurück auf 40 schreibt −d am selben Tag an derselben
+  // Periode. Die Gegenbuchung zu +d trägt ebenfalls −d und kollidierte mit der zweiten
+  // Originalzeile → die Periode war dauerhaft nicht mehr löschbar (500 bei jedem Versuch).
+  //
+  // Fachlich: eine Gegenbuchung ist NIE ein Duplikat einer Originalzeile, und zwei
+  // Gegenbuchungen zu VERSCHIEDENEN Originalen sind keine Duplikate voneinander. Zwei
+  // Gegenbuchungen zu DEMSELBEN Original bleiben eines — genau die Invariante, die der
+  // Storno-Pfad braucht.
+  const existing = allowDuplicate
+    ? undefined
+    : (db.prepare(`
+        SELECT id FROM overtime_transactions
+        WHERE userId = ?
+          AND date = ?
+          AND type = ?
+          AND ABS(hours - ?) < 0.01
+          AND COALESCE(referenceType, '') = COALESCE(?, '')
+          AND COALESCE(referenceId, -1) = COALESCE(?, -1)
+          AND COALESCE(reversalOf, -1) = COALESCE(?, -1)
+      `).get(
+        userId,
+        date,
+        type,
+        hours,
+        referenceType || '',
+        referenceId ?? -1,
+        reversalOf ?? -1
+      ) as { id: number } | undefined);
 
   if (existing) {
     logger.debug({

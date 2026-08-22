@@ -93,9 +93,10 @@ describe('Migration 014: reversalOf-Selbstreferenz auf overtime_transactions (DD
     expect(originalId).not.toBeNull();
 
     // Gleiche userId/date/type/referenceType/referenceId wie oben, nur hours mit
-    // umgekehrtem Vorzeichen — die Idempotenzprüfung in createTransaction() bleibt
-    // unverändert (kein reversalOf-Filter), erkennt das aber NICHT als Duplikat, weil
-    // ABS(hours - hours) bereits über die Vorzeichenumkehr hinausgeht.
+    // umgekehrtem Vorzeichen. Die Idempotenzprüfung in createTransaction() erkennt das aus
+    // zwei unabhängigen Gründen nicht als Duplikat: ABS(hours - hours) geht bereits über die
+    // Vorzeichenumkehr hinaus, und seit CR-02 (Phase 13) gehört reversalOf zum
+    // Identitätsschlüssel — eine Gegenbuchung ist nie ein Duplikat ihres Originals.
     const reversalId = createTransaction({
       userId,
       date: '2026-05-02',

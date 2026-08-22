@@ -334,11 +334,19 @@ export function deleteWorkPeriod(
         // CR-06-Muster (Phase 12): createTransaction() ist idempotent und liefert null bei
         // einem Duplikat. Eine stillschweigend ausgelassene Gegenbuchung wäre genau die
         // "bereinigte Lücke", die REQ-31 verbietet — die gesamte Klammer rollt zurück.
+        //
+        // Seit CR-02 (Phase 13) trägt der Identitätsschlüssel der Duplikatprüfung auch
+        // `reversalOf`. Damit kann diese Prüfung nur noch anschlagen, wenn zu DERSELBEN
+        // Originalzeile bereits eine Gegenbuchung existiert — genau die Invariante, die die
+        // NOT-EXISTS-Unterabfrage in Schritt 6 herstellt. Der Fall ist also ein echter
+        // Fehlerzustand (Nebenläufigkeit), kein Betriebsfall mehr.
+        // WorkPeriodDeletionValidationError statt nacktem Error, damit die Route 400 mit
+        // lesbarem Text liefert statt eines generischen 500.
         if (reversalId === null) {
-          throw new Error(
-            `Löschen der Periode ${period.id} (Nutzer ${period.userId}): die Gegenbuchung ` +
-            `zur Original-Buchung ${original.id} wurde als Duplikat verworfen — es wird für ` +
-            `jede erhobene Originalzeile genau eine Gegenbuchung erwartet.`
+          throw new WorkPeriodDeletionValidationError(
+            'Die Stornobuchung konnte nicht angelegt werden — die Periode wurde deshalb nicht ' +
+            'gelöscht. Es wurde nichts verändert — weder die Periode noch der Kontoauszug. ' +
+            'Bitte laden Sie die Ansicht neu und versuchen Sie es erneut.'
           );
         }
 
