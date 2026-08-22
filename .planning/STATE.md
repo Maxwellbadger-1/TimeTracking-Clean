@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 12-06-PLAN.md
-last_updated: "2026-08-22T14:20:45.542Z"
+stopped_at: Completed 12-08-PLAN.md
+last_updated: "2026-08-22T14:42:36.346Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 31
-  completed_plans: 28
+  completed_plans: 29
   percent: 43
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 12-06-PLAN.md
+- **Stopped at:** Completed 12-08-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -189,6 +189,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-06]: WorkTimeChangeModal.tsx Zustand 8 wechselt zwischen Task 1 (client-seitiger Vergleich gegen currentPeriod) und Task 2 (serverseitiges preview.isNoOp) die Datenquelle - im fertigen Dialog gibt es keine Client-Vergleichslogik mehr
 - [Phase 12-06]: formatSignedHours() zeigt bei Differenz=0 literal '± 0:00h' statt '+0:00h' - Randfall aus 12-UI-SPEC.md woertlich uebernommen
 - [Phase 12-06]: previewToken bindet nur Stichtag/Wochenstunden/Tagesplan (nicht die Begruendung) - jede Feldaenderung verwirft preview synchron im selben State-Update, nicht im entprellten Callback (T-12-28)
+- [Phase 12]: WR-12 Weg (b) gewaehlt: Desktop-Client-Kopie periodengetreu gemacht statt neuem Server-Vorschau-Endpunkt — Perioden-Lese-API aus Plan 12-01/12-04 bereits vorhanden; kein bestehender Endpunkt fuer eine Vorschau vor Antragstellung
+- [Phase 12]: Arbeitskopie fuer die Wirksamkeitsmessung aus server/database/development.db gezogen, nicht aus server/database.db — server/database.db ist lokal veraltet/unmigriert (keine user_work_periods-Tabelle)
 
 ## Quick Tasks Completed
 
@@ -249,6 +251,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P04 | 35min | 2 tasks | 3 files |
 | Phase 12-stundenwechsel-bedienen P05 | 100min | 2 tasks | 3 files |
 | Phase 12-stundenwechsel-bedienen P06 | 70min | 2 tasks | 1 files |
+| Phase 12 P08 | 35min | 3 tasks | 7 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -285,7 +288,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: 7 of 9
+Plan: 8 of 9
 Status: Ready to execute
 Last activity: 2026-08-22
 
