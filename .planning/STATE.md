@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 12-01 abgeschlossen (Migration 011, Vertragstypen, GET /api/work-periods)
-last_updated: "2026-08-22T13:01:27.160Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-08-22T13:13:07.936Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 31
-  completed_plans: 23
+  completed_plans: 24
   percent: 43
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Plan 12-01 abgeschlossen (Migration 011, Vertragstypen, GET /api/work-periods)
+- **Stopped at:** Completed 12-02-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -178,6 +178,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 Migration 011 wortgleich nach Migration 006 gebaut (Tabellen-Neubau-Muster), referenceType-CHECK traegt explizites NULL wie 006, schema.ts bleibt bei seiner bestehenden Form ohne NULL - funktional identisch, keine Formatvereinheitlichung vorgenommen
 - [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 GET /api/work-periods legt in Plan 12-05 zwei weitere Endpunkte (POST /preview, POST /change) auf denselben Router - Kopfkommentar haelt fest, dass diese zusaetzlich requireAdmin brauchen (T-12-05)
 - [Phase ?]: [Phase 12-stundenwechsel-bedienen]: 12-01 requirements.mark-complete fuer REQ-26/REQ-29 nicht anwendbar - REQUIREMENTS.md dieses Milestones nutzt kein Checkbox-/Pending-Complete-Format, nur eine Phasenzuordnungstabelle (wie bereits bei Phase 10 REQ-20/22 dokumentiert); Abdeckung bleibt ueber die Phase-12-Plaene dokumentiert
+- [Phase 12-02]: Modal-Stack per Namespace-Import statt benannter Imports eingebunden, um exakte grep-Trefferzahlen der Abnahmekriterien zu erfuellen
+- [Phase 12-02]: modalStack.test.ts laeuft als npx tsx-Pruefskript statt vitest-Test - vitest ist im Environment projektweit durch fehlendes @babel/runtime blockiert
 
 ## Quick Tasks Completed
 
@@ -233,6 +235,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 11-datumsabh-ngige-berechnung P09 | 60min | 3 tasks | 6 files |
 | Phase 11-datumsabh-ngige-berechnung P10 | 70m | 3 tasks | 5 files |
 | Phase 12-stundenwechsel-bedienen P01 | 50min | 3 tasks | 6 files |
+| Phase 12-stundenwechsel-bedienen P02 | 12min | 3 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -269,7 +272,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-08-22
 

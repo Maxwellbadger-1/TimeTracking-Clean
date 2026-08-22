@@ -287,7 +287,7 @@ Plans:
 **Wave 1**
 
 - [x] 12-01-PLAN.md — Migration 011 (`model_change`), Vertragstypen, Perioden-Lese-API `GET /api/work-periods` (D5, D6)
-- [ ] 12-02-PLAN.md — Modal-Infrastruktur: `modalStack.ts`, Portal, `zIndexClass`, ESC-Stapel, Fokusfalle
+- [x] 12-02-PLAN.md — Modal-Infrastruktur: `modalStack.ts`, Portal, `zIndexClass`, ESC-Stapel, Fokusfalle
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
