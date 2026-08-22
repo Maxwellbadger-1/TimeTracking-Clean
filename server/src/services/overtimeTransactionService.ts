@@ -16,6 +16,7 @@
 
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
  * CR-01 (Code-Review Phase 12) — WARUM `model_change` AUS JEDEM SUMMENPFAD FLIEGT:
@@ -458,12 +459,21 @@ export function getOvertimeBalance(userId: number): number {
   // IMPORTANT: Filter month <= current month to exclude future months.
   // Future months may have negative balances (e.g. approved future vacation already
   // recorded in overtime_balance) which must NOT count against current balance.
+  //
+  // WR-01 (Code-Review Phase 12): Der Vergleichsmonat kommt als gebundener Parameter aus
+  // `formatDate(getCurrentDate(), 'yyyy-MM')` — also aus Europe/Berlin — statt aus
+  // `strftime('%Y-%m', 'now')`. SQLites `'now'` ist UTC. Am Monatsersten zwischen 00:00 und
+  // 01:00/02:00 Berliner Zeit lieferte `strftime` noch den VORMONAT: `applyWorkTimeChange()`
+  // baute den neuen Monat dann zwar auf (affectedMonths kommt aus `getTodayString()`,
+  // Berlin), blendete ihn aber in beiden Messungen (balanceBefore/balanceAfter) aus — der
+  // gemessene und gebuchte balanceDelta war zu klein bzw. 0.
+  const currentMonth = formatDate(getCurrentDate(), 'yyyy-MM');
   const result = db.prepare(`
     SELECT COALESCE(SUM(actualHours - targetHours), 0) as balance
     FROM overtime_balance
     WHERE userId = ?
-      AND month <= strftime('%Y-%m', 'now')
-  `).get(userId) as { balance: number };
+      AND month <= ?
+  `).get(userId, currentMonth) as { balance: number };
 
   return Math.round(result.balance * 100) / 100; // Round to 2 decimals
 }
