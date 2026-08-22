@@ -254,6 +254,24 @@ export interface OvertimeTransactionRow {
    * Dieses Feld darf deshalb NIEMALS in eine Summe eingehen, nur angezeigt werden.
    */
   documentedDelta?: number;
+  // Phase 13 (REQ-31, DD-25): die folgenden fuenf Felder sind nur bei
+  // `type === 'model_change'` gesetzt und tragen die Storno-Geschichte des Kontoauszugs
+  // (Spiegel von LiveOvertimeTransaction, server/src/services/overtimeLiveCalculationService.ts).
+  /** Die Id der Buchungszeile selbst — die Sprungmarke, ueber die die Oberflaeche zur
+   *  Partnerzeile eines Storno-Paars springt (Original <-> Gegenbuchung). */
+  id?: number;
+  /** Gesetzt auf der Gegenbuchung: die Id der stornierten Originalzeile. `null` auf einer
+   *  Originalzeile, die (noch) nicht storniert wurde. */
+  reversalOf?: number | null;
+  /** Gesetzt auf der stornierten Originalzeile: die Id ihrer Gegenbuchung. `null`, solange
+   *  keine Gegenbuchung existiert. */
+  reversedBy?: number | null;
+  /** `createdAt` der Gegenbuchung — wann die Stornierung vorgenommen wurde. `null`, solange
+   *  keine Gegenbuchung existiert. */
+  reversedAt?: string | null;
+  /** Vor- und Nachname des Admins, der die Gegenbuchung erzeugt hat. `null`, solange keine
+   *  Gegenbuchung existiert ODER `createdBy` der Gegenbuchung selbst `null` ist. */
+  reversedByName?: string | null;
 }
 
 export interface OvertimeTransactionsResponse {

@@ -35,6 +35,12 @@ function makePeriod(overrides: Partial<WorkTimePeriod> = {}): WorkTimePeriod {
     note: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     createdBy: null,
+    // Phase 13: isFirst/isCurrent sind seit 13-07 Pflichtfelder auf WorkTimePeriod (Server
+    // liefert sie ab Plan 13-05 immer). Diese Fixture testet ausschliesslich
+    // resolveWorkTimePeriodIn()/countWorkingDaysForUser()/calculateAbsenceHoursWithWorkSchedule(),
+    // keine dieser Funktionen liest isFirst/isCurrent — Platzhalterwerte genuegen.
+    isFirst: false,
+    isCurrent: false,
     ...overrides,
   };
 }

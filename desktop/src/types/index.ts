@@ -151,6 +151,17 @@ export interface WorkTimePeriod {
   note: string | null;
   createdAt: string;
   createdBy: number | null;
+  /** Phase 13 (13-UI-SPEC.md, „Typerweiterung — ausdrücklich für den Planer"): true für die
+   *  erste (früheste, nicht weggenommene) Periode der Kette. Kommt serverseitig von
+   *  `getWorkPeriodsWithFlags()` (13-02-PLAN.md DD-6) — bewusst NICHT im Frontend aus der
+   *  Listenposition abgeleitet, weil das falsch würde, sobald die Liste je gefiltert,
+   *  begrenzt oder anders sortiert wird (dann wäre „die erste Zeile" nicht mehr „die erste
+   *  Periode"). */
+  isFirst: boolean;
+  /** Phase 13: true für die zu heute aufgelöste Periode (server: über resolveWorkPeriodIn(),
+   *  kein zweiter Intervallvergleich). Aus demselben Grund wie isFirst nicht im Frontend
+   *  abgeleitet. */
+  isCurrent: boolean;
 }
 
 export interface WorkTimeChangeInput {
@@ -208,4 +219,131 @@ export interface WorkTimeChangeResult {
   preview: WorkTimeChangePreview;
   /** ID der erzeugten model_change-Buchung, oder null, wenn balanceDelta 0 ist (D4). */
   transactionId: number | null;
+}
+
+// Korrigieren und rückgängig machen (Phase 13, REQ-30/REQ-31) — zeichengleiche Spiegelung von
+// server/src/types/index.ts (Plan 13-02). D1 (13-CONTEXT.md): zwei getrennte Aktionen mit
+// eigener Bedeutung, deshalb eigene Verträge statt eines Typs mit Modus-Flag. Die Hooks in
+// useWorkTimeChange.ts (Plan 13-07) rechnen nichts nach — die Servermeldung/-antwort wird
+// unverändert durchgereicht (D7).
+//
+// Simplifikation gegenüber dem Server: `WorkPeriodCorrectionOutcome.period` und
+// `WorkPeriodDeletionOutcome.deletedPeriod`/`previousPeriod` referenzieren serverseitig
+// `UserWorkPeriod | null` bzw. Teilausschnitte davon — inklusive `deletedAt`/`deletedBy`
+// (Phase-13-Buchhaltungsfelder aus Migration 013). Die Desktop-Spiegelung dieser Phase
+// verwendet an der einen Stelle, wo eine vollständige Periode zurückkommt
+// (WorkPeriodCorrectionOutcome.period), den bereits bestehenden Desktop-Typ `WorkTimePeriod`
+// (jetzt inkl. isFirst/isCurrent) statt einer dritten Periodenform — dieselbe Vereinfachung,
+// die der Server bereits für UserWorkPeriodListItem vs. UserWorkPeriod vornimmt. `deletedAt`/
+// `deletedBy` sind für die Oberfläche dieser Phase ohne Bedeutung: eine gerade korrigierte
+// Periode ist per Definition nicht gelöscht.
+export interface WorkPeriodCorrectionInput {
+  periodId: number;
+  /** Inklusiv, YYYY-MM-DD — der ggf. verschobene Beginn der korrigierten Periode. */
+  validFrom: string;
+  weeklyHours: number;
+  workSchedule: WorkSchedule | null;
+  /** Pflichtbegründung (D7) — wird im Service geprüft, nicht nur in der Route. */
+  reason: string;
+}
+
+/** Ergebnis einer Korrektur-Vorschau- oder -Speicher-Berechnung — Feldnamen exakt aus
+ *  13-UI-SPEC.md, Abschnitt „Datenvertrag" / „Korrektur-Vorschau", zeichengleich zur
+ *  Serverfassung (server/src/types/index.ts). */
+export interface WorkPeriodCorrectionPreview {
+  periodId: number;
+  userId: number;
+  /** true, wenn die Korrektur die Vergangenheit berührt und deshalb ein Rebuild bis heute
+   *  ausgelöst wird (D4). */
+  isRetroactive: boolean;
+  /** Erster Tag des neu zu berechnenden Zeitraums (inklusiv, YYYY-MM-DD). */
+  rangeFrom: string;
+  /** Letzter Tag des neu zu berechnenden Zeitraums (inklusiv, YYYY-MM-DD). */
+  rangeTo: string;
+  /** Anzahl der Arbeitstage innerhalb von rangeFrom..rangeTo. */
+  workingDays: number;
+  /** Sollstunden im Zeitraum vor der Korrektur. */
+  targetHoursBefore: number;
+  /** Sollstunden im Zeitraum nach der Korrektur. */
+  targetHoursAfter: number;
+  /** targetHoursAfter - targetHoursBefore. */
+  targetHoursDelta: number;
+  /** Überstundensaldo des Nutzers vor der Korrektur. */
+  balanceBefore: number;
+  /** Überstundensaldo des Nutzers nach Anwendung von balanceDelta. */
+  balanceAfter: number;
+  /** Die eine Differenzbuchung, die durch die Korrektur entsteht (D4). */
+  balanceDelta: number;
+  /** true, wenn Eingabe und bisherige Werte identisch sind — eine No-Op-Korrektur ist laut
+   *  13-UI-SPEC ein Validierungsfehler, kein stiller Erfolg (anders als bei
+   *  WorkTimeChangePreview.isNoOp). */
+  isNoOp: boolean;
+  /** Werte der Periode VOR der Korrektur — für die Periodenkennung im Dialog. */
+  period: {
+    validFrom: string;
+    validTo: string | null;
+    weeklyHours: number;
+    workSchedule: WorkSchedule | null;
+  };
+  /** Nur gesetzt, wenn `validFrom` verschoben wird — die Vorperiode wächst/schrumpft mit. */
+  previousPeriod: { validFrom: string; weeklyHours: number; newValidTo: string } | null;
+  /** Von rangeFrom..rangeTo betroffene Kalendermonate (YYYY-MM). */
+  affectedMonths: string[];
+}
+
+/** Antwortform der Korrektur-Vorschau-Route (Muster: WorkTimeChangePreviewResponse). */
+export type WorkPeriodCorrectionPreviewResponse = WorkPeriodCorrectionPreview & { previewToken: string };
+
+/** Ergebnis eines tatsächlichen Korrektur-Speicherns (nicht Dry-Run). */
+export interface WorkPeriodCorrectionOutcome {
+  /** Dieselbe Berechnung, die auch der Vorschau zugrunde lag. */
+  preview: WorkPeriodCorrectionPreview;
+  /** Die korrigierte Periode, oder null im Trockenlauf. Server: UserWorkPeriod | null — siehe
+   *  Simplifikationsvermerk oben. */
+  period: WorkTimePeriod | null;
+  /** ID der erzeugten Korrekturbuchung, oder null, wenn balanceDelta 0 ist. */
+  transactionId: number | null;
+}
+
+/** Eingabe für „Periode löschen" (D2). Bewusst OHNE `userId` — analog zu
+ *  WorkPeriodCorrectionInput ergibt sich der Nutzer aus der Periode. */
+export interface WorkPeriodDeletionInput {
+  periodId: number;
+  /** Pflichtbegründung (D7). */
+  reason: string;
+}
+
+/** Ergebnis einer Lösch-Vorschau- oder -Speicher-Berechnung (D2/D3) — Feldnamen aus
+ *  13-UI-SPEC.md, Abschnitt „Lösch-Vorschau", zeichengleich zur Serverfassung.
+ *
+ *  ABWEICHUNG VOM DATENVERTRAG (wie schon server-seitig in 13-02-PLAN.md Task 2 dokumentiert):
+ *  Die 13-UI-SPEC nennt `reversedTransaction` im Singular; tatsächlich kann eine Periode mehr
+ *  als eine `model_change`-Buchung tragen. Der Vertrag liefert deshalb die Liste
+ *  `reversedTransactions`, nicht eine einzelne Zeile — diese Spiegelung übernimmt exakt die
+ *  Serverfassung. */
+export interface WorkPeriodDeletionPreview {
+  periodId: number;
+  userId: number;
+  /** Werte der zu löschenden Periode VOR der Löschung. */
+  deletedPeriod: { validFrom: string; validTo: string | null; weeklyHours: number };
+  /** Die Vorperiode, die die Lücke schließt (D3) — `newValidTo` ist ihr neues `validTo`. */
+  previousPeriod: { validFrom: string; weeklyHours: number; newValidTo: string | null };
+  /** Alle Buchungen, die durch die Löschung storniert (per Gegenbuchung ausgeglichen) werden. */
+  reversedTransactions: Array<{ id: number; date: string; hours: number }>;
+  /** Erster Tag des Rebuilds (= validFrom der gelöschten Periode), inklusiv, YYYY-MM-DD. */
+  rebuildFrom: string;
+  balanceBefore: number;
+  balanceAfter: number;
+  balanceDelta: number;
+  affectedMonths: string[];
+}
+
+/** Antwortform der Lösch-Vorschau-Route (Muster: WorkTimeChangePreviewResponse). */
+export type WorkPeriodDeletionPreviewResponse = WorkPeriodDeletionPreview & { previewToken: string };
+
+/** Ergebnis eines tatsächlichen Löschens (nicht Dry-Run). */
+export interface WorkPeriodDeletionOutcome {
+  preview: WorkPeriodDeletionPreview;
+  /** IDs aller erzeugten Gegenbuchungen (D2 — Storno statt Löschung, sichtbar im Auszug). */
+  reversalTransactionIds: number[];
 }
