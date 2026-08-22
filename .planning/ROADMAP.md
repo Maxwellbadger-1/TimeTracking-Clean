@@ -334,7 +334,7 @@ Plans:
 
 **Abhängigkeit:** Phase 12
 
-**Plans:** 11 Pläne in 8 Wellen (Welle 1: 13-01 · Welle 2: 13-02, 13-06 · Welle 3: 13-03, 13-04 · Welle 4: 13-05 · Welle 5: 13-07 · Welle 6: 13-08, 13-10 · Welle 7: 13-09 · Welle 8: 13-11)
+**Plans:** 11/11 plans complete
 
 Plans:
 

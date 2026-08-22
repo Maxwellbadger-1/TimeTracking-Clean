@@ -4,7 +4,7 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: verifying
 stopped_at: Completed 13-11-PLAN.md
-last_updated: "2026-08-22T21:03:08.069Z"
+last_updated: "2026-08-22T22:15:34.325Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 13
+- **Phase:** 14
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
@@ -333,7 +333,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 11 of 11
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-08-22
 
