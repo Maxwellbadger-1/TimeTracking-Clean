@@ -49,11 +49,34 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const [emailError, setEmailError] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
+  /** WR-08: ersetzt das wirkungslose `alert()` — Browserdialoge funktionieren in Tauri
+   *  nicht (`ConfirmDialog.tsx` haelt genau das fest). */
+  const [endDateError, setEndDateError] = useState('');
 
   // Phase 12 (D1): Einstieg in den Stundenwechsel-Dialog
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const changeButtonRef = useRef<HTMLButtonElement>(null);
   const [successBanner, setSuccessBanner] = useState<{ validFrom: string; weeklyHours: number } | null>(null);
+
+  /**
+   * WR-17 (Code-Review Phase 12): Der 8-Sekunden-Timer des Erfolgsbanners wurde nirgends
+   * festgehalten und nirgends abgeraeumt. Speicherte der Admin binnen 8 Sekunden einen
+   * zweiten Stundenwechsel, loeschte der Timer des ERSTEN das Banner des ZWEITEN nach der
+   * Restlaufzeit — im Extremfall nach 200 ms, obwohl Zustand 15 des UI-Vertrags 8 s
+   * zusichert. Und beim Schliessen des Modals innerhalb der 8 Sekunden feuerte der Timer
+   * auf eine abgemeldete Komponente. Der Timer liegt jetzt in einer Ref, wird vor jedem
+   * Neusetzen geloescht und beim Abmelden aufgeraeumt.
+   */
+  const bannerTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (bannerTimerRef.current !== null) {
+        window.clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   // Update form when user changes (B4-Fix: nur beim Nutzerwechsel zuruecksetzen, nicht bei
   // jedem Refetch — `user` ist nach der Umstellung von UserManagementPage auf die
@@ -93,6 +116,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setEmailError('');
     setFirstNameError('');
     setLastNameError('');
+    setEndDateError('');
 
     // Validate email (OPTIONAL - only validate if provided)
     if (email && email.trim() && !isValidEmail(email)) {
@@ -116,11 +140,16 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     // This is standard practice in HR systems for onboarding workflows
 
     // Validate endDate: must be after hireDate
-    if (endDate && hireDate) {
-      if (endDate < hireDate) {
-        alert('Austrittsdatum muss nach dem Eintrittsdatum liegen');
-        isValid = false;
-      }
+    // WR-08 (Code-Review Phase 12): Hier stand `alert()`. Browserdialoge funktionieren in
+    // Tauri nicht — `ConfirmDialog.tsx` haelt das im Dateikopf ausdruecklich fest ("Replaces
+    // window.confirm() which doesn't work in Tauri"), und fuer `window.alert()` gilt
+    // dasselbe. `isValid = false` brach das Absenden ab, der Anwender sah aber keinerlei
+    // Rueckmeldung: der Klick auf "Aenderungen speichern" tat scheinbar nichts. Die Meldung
+    // laeuft jetzt ueber die vorhandene Fehlerzustandsfuehrung (error-Prop von `Input`,
+    // die role="alert" mitbringt).
+    if (endDate && hireDate && endDate < hireDate) {
+      setEndDateError('Austrittsdatum muss nach dem Eintrittsdatum liegen');
+      isValid = false;
     }
 
     return isValid;
@@ -184,6 +213,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setEmailError('');
     setFirstNameError('');
     setLastNameError('');
+    setEndDateError('');
 
     onClose();
   };
@@ -364,7 +394,11 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               label="Austrittsdatum (optional)"
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setEndDateError('');
+              }}
+              error={endDateError}
               helperText="Leer lassen, wenn Mitarbeiter aktiv ist"
             />
           </div>
@@ -424,7 +458,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             validFrom: result.period.validFrom,
             weeklyHours: result.period.weeklyHours,
           });
-          window.setTimeout(() => setSuccessBanner(null), 8000);
+          if (bannerTimerRef.current !== null) {
+            window.clearTimeout(bannerTimerRef.current);
+          }
+          bannerTimerRef.current = window.setTimeout(() => {
+            bannerTimerRef.current = null;
+            setSuccessBanner(null);
+          }, 8000);
           toast.success(
             result.preview.balanceDelta !== 0
               ? `Stundenwechsel gespeichert — Saldoänderung ${formatOvertimeHours(result.preview.balanceDelta)} steht im Kontoauszug`
