@@ -1,17 +1,42 @@
-import { useState, FormEvent, useEffect, useRef } from 'react';
+import { useState, useMemo, FormEvent, useEffect, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { WorkScheduleEditor } from './WorkScheduleEditor';
 import { WorkTimeChangeModal } from '../worktime/WorkTimeChangeModal';
 import { WorkTimePeriodList } from '../worktime/WorkTimePeriodList';
+import { WorkTimePeriodEditModal } from '../worktime/WorkTimePeriodEditModal';
+import { WorkTimePeriodActions } from '../worktime/workTimePeriodActions';
+import {
+  deleteConfirmTitle,
+  deleteConfirmMessage,
+  deleteDetailGapClosure,
+  deleteDetailReversal,
+  deleteDetailRebuild,
+  deleteConfirmText,
+  deleteCancelText,
+  deleteConfirmAriaLabel,
+  isDeleteConfirmDisabled,
+} from '../worktime/workTimePeriodDeleteRules';
 import { useUpdateUser } from '../../hooks';
+import { useAuthStore } from '../../store/authStore';
+import { useWorkPeriods, useDeleteWorkPeriodPreview, useDeleteWorkPeriod } from '../../hooks/useWorkTimeChange';
 import { isValidEmail, getTodayDate } from '../../utils';
 import { formatOvertimeHours } from '../../utils/timeUtils';
-import type { User, WorkSchedule, WorkTimeChangeResult } from '../../types';
+import type {
+  User,
+  WorkSchedule,
+  WorkTimeChangeResult,
+  WorkTimePeriod,
+  WorkPeriodCorrectionOutcome,
+  WorkPeriodDeletionPreviewResponse,
+} from '../../types';
 
 /** Wertvergleich zweier Tagesplaene — keine Objektidentitaet. Stabile Serialisierung ueber
  *  sortierte Schluessel, damit der Sync-Effekt (unten) nicht an der Objektidentitaet haengt,
@@ -22,6 +47,39 @@ function serializeWorkSchedule(schedule: WorkSchedule | null): string {
   return JSON.stringify(sortedKeys.map((key) => [key, schedule[key]]));
 }
 
+/**
+ * Phase 13 (D1/REQ-30/REQ-31): Textbausteine des Korrektur-/Löschblocks. Zeitzonen-sichere
+ * Anzeige eines ISO-Datums — niemals über die UTC-Split-Methode aus `.claude/CLAUDE.md`
+ * ("Timezone bugs!").
+ */
+function formatPeriodDate(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE');
+}
+
+function formatPeriodWeeklyHours(hours: number): string {
+  return hours.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+}
+
+/** `null` steht für eine offen bleibende (unbefristete) Periode — Textbuch behandelt diesen
+ *  Randfall nicht ausdrücklich (siehe workTimePeriodDeleteRules.ts, deleteDetailGapClosure). */
+function formatPeriodBoundary(iso: string | null): string {
+  return iso ? formatPeriodDate(iso) : 'offen';
+}
+
+/** Server: `requireAdmin` antwortet mit 'Forbidden - Admin access required' (403). Der globale
+ *  Fehler-Toast ist für `/work-periods*` unterdrückt — die Dialoge müssen die Aussage selbst
+ *  tragen (Muster aus `WorkTimePeriodEditModal.tsx`). */
+function isForbiddenPeriodMessage(message: string): boolean {
+  return message.startsWith('Forbidden');
+}
+
+/** Server (`workPeriodDeletionService.ts`, `validateDeletionInput`): wortgleicher Satz bei
+ *  umgangener Oberfläche (Zustand 23 — die erste Periode kann serverseitig nicht gelöscht
+ *  werden, auch wenn die Zeile clientseitig gar keinen Löschknopf zeigt). */
+function isFirstPeriodDeletionMessage(message: string): boolean {
+  return message === 'Die erste Periode kann nicht gelöscht werden. Korrigieren Sie sie stattdessen.';
+}
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +88,14 @@ interface EditUserModalProps {
 
 export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const updateUser = useUpdateUser();
+
+  // Phase 13 (T-13-41): `renderActions` wird WorkTimePeriodList nur bei isAdmin uebergeben —
+  // die eigentliche Durchsetzung liegt serverseitig (Plan 13-05, requireAdmin auf allen
+  // Perioden-Endpunkten); dieser Client-Check ist Bequemlichkeit, kein Schutz. In der Praxis
+  // ist EditUserModal ohnehin nur ueber UserManagementPage erreichbar, die selbst schon
+  // `user.role === 'admin'` verlangt (App.tsx) — dieser zweite Check ist defensiv.
+  const { user: currentUser } = useAuthStore();
+  const isAdmin = currentUser?.role === 'admin';
 
   // Form state - Initialize with user data
   const [email, setEmail] = useState(user.email || ''); // Handle NULL email
@@ -81,6 +147,308 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     },
     []
   );
+
+  // Phase 13 (D1/REQ-30/REQ-31): Perioden fuer die Korrektur-/Loeschsteuerung. Derselbe
+  // Query-Key wie in WorkTimePeriodList (['work-periods', userId]) — TanStack Query
+  // dedupliziert, kein zusaetzlicher Serveraufruf. `enabled: false` fuer Nicht-Admins
+  // (useWorkPeriods(null)).
+  const { data: periods, error: periodsLoadError } = useWorkPeriods(isAdmin ? user.id : null);
+  const periodsAscending = useMemo(() => {
+    if (!periods) return [];
+    return [...periods].sort((a, b) => (a.validFrom < b.validFrom ? -1 : a.validFrom > b.validFrom ? 1 : 0));
+  }, [periods]);
+  /** DD-37: der Block-Knopf oeffnet die heute gueltige Periode, ersatzweise die erste —
+   *  existiert keine Periode, ist der Block ausgeblendet (Zustand 4). */
+  const blockTargetPeriod =
+    periodsAscending.find((p) => p.isCurrent) ?? periodsAscending.find((p) => p.isFirst) ?? null;
+
+  function neighborsOfPeriod(period: WorkTimePeriod): {
+    previousPeriod: WorkTimePeriod | null;
+    nextPeriod: WorkTimePeriod | null;
+  } {
+    const idx = periodsAscending.findIndex((p) => p.id === period.id);
+    if (idx === -1) return { previousPeriod: null, nextPeriod: null };
+    return {
+      previousPeriod: idx > 0 ? periodsAscending[idx - 1] : null,
+      nextPeriod: idx < periodsAscending.length - 1 ? periodsAscending[idx + 1] : null,
+    };
+  }
+
+  // Korrektur-Dialog (DD-32/DD-37): Zeilenaktion "Korrigieren" und der Block-Knopf teilen sich
+  // denselben WorkTimePeriodEditModal — nur die Periodenauswahl unterscheidet sich.
+  const [correctionPeriod, setCorrectionPeriod] = useState<WorkTimePeriod | null>(null);
+  /** DD-39: welcher der drei Ausloeser den jeweiligen Dialog geoeffnet hat — bestimmt, wohin
+   *  der Fokus nach dem Schliessen zurueckkehrt. */
+  const [correctionTrigger, setCorrectionTrigger] = useState<'block' | 'row' | null>(null);
+  const blockCorrectButtonRef = useRef<HTMLButtonElement>(null);
+  const rowCorrectButtonRef = useRef<HTMLButtonElement>(null);
+  const rowDeleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Löschbestätigung (DD-38): laedt ihre Vorschau beim Oeffnen, der Bestaetigungsknopf bleibt
+  // gesperrt, bis sie vorliegt.
+  const [deletionPeriod, setDeletionPeriod] = useState<WorkTimePeriod | null>(null);
+  const [deletionPreview, setDeletionPreview] = useState<WorkPeriodDeletionPreviewResponse | null>(null);
+  const [deletionPreviewFailed, setDeletionPreviewFailed] = useState(false);
+  /** D7: Pflichtbegründung auch für das Löschen — der Server weist eine leere/zu kurze
+   *  Begründung im Speicherpfad ab (`workPeriodDeletionService.ts`, `validateDeletionInput`,
+   *  `dryRun === false`). 13-UI-SPEC.md zeigt dafür keinen eigenen Formularschritt; dieses Feld
+   *  steht deshalb im `details`-Panel der Löschbestätigung — sonst wäre "Löschen" bei jedem
+   *  echten Versuch ein serverseitiger 400 ("Begründung ist erforderlich"). */
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionError, setDeletionError] = useState('');
+  const deletePreviewM = useDeleteWorkPeriodPreview();
+  const deleteM = useDeleteWorkPeriod();
+
+  /** Punkt 2 (Storno) und Punkt 3 (Saldoänderung) der `details`-Liste kommen beide aus
+   *  derselben Server-Vorschau — anders als DD-38 nahelegt ("Punkt 1 und Punkt 2 stehen schon
+   *  vorher"), ist der stornierte Betrag (`reversedTransactions`) dem Client vor der Vorschau
+   *  nicht bekannt (keine Transaktions-Referenz auf `WorkTimePeriod`). Punkt 1 (Lückenschluss)
+   *  IST vorher bekannt, weil `newValidTo` der Vorperiode nach D3 exakt `deletionPeriod.validTo`
+   *  ist — hier abweichend von DD-38 umgesetzt und in der SUMMARY vermerkt. */
+  const deletionPreviewState: 'loading' | 'error' | 'ready' = deletionPreviewFailed
+    ? 'error'
+    : deletionPreview
+      ? 'ready'
+      : 'loading';
+
+  // Gemeinsames gruenes Erfolgsbanner fuer Korrektur/Loeschen — eigener Zustand und Timer,
+  // getrennt vom Stundenwechsel-Banner oben (WR-17-Muster, Zeile 66-83).
+  const [periodBanner, setPeriodBanner] = useState<string | null>(null);
+  const periodBannerTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (periodBannerTimerRef.current !== null) {
+        window.clearTimeout(periodBannerTimerRef.current);
+        periodBannerTimerRef.current = null;
+      }
+    },
+    []
+  );
+
+  function showPeriodBanner(text: string) {
+    setPeriodBanner(text);
+    if (periodBannerTimerRef.current !== null) {
+      window.clearTimeout(periodBannerTimerRef.current);
+    }
+    periodBannerTimerRef.current = window.setTimeout(() => {
+      periodBannerTimerRef.current = null;
+      setPeriodBanner(null);
+    }, 8000);
+  }
+
+  function focusCorrectionTrigger(trigger: 'block' | 'row' | null) {
+    if (trigger === 'block') {
+      blockCorrectButtonRef.current?.focus();
+    } else {
+      rowCorrectButtonRef.current?.focus();
+    }
+  }
+
+  function openCorrectionFromBlock() {
+    if (!blockTargetPeriod) return;
+    setCorrectionTrigger('block');
+    setCorrectionPeriod(blockTargetPeriod);
+  }
+
+  function openCorrectionFromRow(period: WorkTimePeriod) {
+    setCorrectionTrigger('row');
+    setCorrectionPeriod(period);
+  }
+
+  function closeCorrectionDialog() {
+    const trigger = correctionTrigger;
+    setCorrectionPeriod(null);
+    setCorrectionTrigger(null);
+    focusCorrectionTrigger(trigger);
+  }
+
+  function handleCorrectionSaved(outcome: WorkPeriodCorrectionOutcome) {
+    const trigger = correctionTrigger;
+    setCorrectionPeriod(null);
+    setCorrectionTrigger(null);
+    if (outcome.period) {
+      showPeriodBanner(
+        `Periode ab ${formatPeriodDate(outcome.period.validFrom)} korrigiert: jetzt ${formatPeriodWeeklyHours(
+          outcome.period.weeklyHours
+        )} h/Woche.`
+      );
+    }
+    toast.success(
+      outcome.preview.balanceDelta !== 0
+        ? `Korrektur gespeichert — Saldoänderung ${formatOvertimeHours(outcome.preview.balanceDelta)} steht im Kontoauszug`
+        : 'Korrektur gespeichert'
+    );
+    focusCorrectionTrigger(trigger);
+  }
+
+  function runDeletionPreview(periodId: number) {
+    setDeletionPreviewFailed(false);
+    deletePreviewM.mutate(
+      { periodId },
+      {
+        onSuccess: (data) => {
+          if (data) setDeletionPreview(data);
+        },
+        onError: () => {
+          setDeletionPreviewFailed(true);
+        },
+      }
+    );
+  }
+
+  function openDeletion(period: WorkTimePeriod) {
+    setDeletionPeriod(period);
+    setDeletionPreview(null);
+    setDeletionPreviewFailed(false);
+    setDeletionReason('');
+    setDeletionError('');
+    runDeletionPreview(period.id);
+  }
+
+  function closeDeletionDialog() {
+    if (deleteM.isPending) return;
+    setDeletionPeriod(null);
+    setDeletionPreview(null);
+    setDeletionPreviewFailed(false);
+    setDeletionReason('');
+    setDeletionError('');
+    rowDeleteButtonRef.current?.focus();
+  }
+
+  async function handleConfirmDeletion() {
+    if (!deletionPeriod || !deletionPreview) return;
+    setDeletionError('');
+    const deletedValidFrom = deletionPeriod.validFrom;
+    try {
+      const outcome = await deleteM.mutateAsync({
+        periodId: deletionPeriod.id,
+        userId: deletionPeriod.userId,
+        input: {
+          periodId: deletionPeriod.id,
+          reason: deletionReason.trim(),
+          previewToken: deletionPreview.previewToken,
+        },
+      });
+      setDeletionPeriod(null);
+      setDeletionPreview(null);
+      setDeletionPreviewFailed(false);
+      setDeletionReason('');
+      if (outcome) {
+        showPeriodBanner(
+          `Periode vom ${formatPeriodDate(deletedValidFrom)} gelöscht. Die Periode ab ${formatPeriodDate(
+            outcome.preview.previousPeriod.validFrom
+          )} gilt jetzt bis zum ${formatPeriodBoundary(outcome.preview.previousPeriod.newValidTo)}.`
+        );
+      }
+      toast.success('Periode gelöscht — Storno steht im Kontoauszug');
+      rowDeleteButtonRef.current?.focus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      if (isForbiddenPeriodMessage(message)) {
+        setDeletionError('Ihnen fehlt die Berechtigung für diese Änderung. Es wurde nichts verändert.');
+      } else if (isFirstPeriodDeletionMessage(message)) {
+        setDeletionError('Die erste Periode kann nicht gelöscht werden. Korrigieren Sie sie stattdessen.');
+      } else {
+        setDeletionError(
+          `Die Periode wurde nicht gelöscht. Es wurde nichts verändert — weder die Periode noch der Kontoauszug. ${message}`
+        );
+      }
+    }
+  }
+
+  /** `details`-Panel der Löschbestätigung: Lückenschluss (immer bekannt), dann Storno und
+   *  Saldoänderung (beide aus der Server-Vorschau, siehe Kommentar bei `deletionPreviewState`),
+   *  dann die Pflichtbegründung, dann ein etwaiges Fehlerbanner (Zustand 22/23) — `ConfirmDialog`
+   *  bietet keinen zweiten Inhaltsslot außerhalb dieses Panels. */
+  function renderDeletionDetails(): ReactNode {
+    if (!deletionPeriod) return null;
+    const { previousPeriod } = neighborsOfPeriod(deletionPeriod);
+
+    return (
+      <>
+        {previousPeriod && (
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {deleteDetailGapClosure({
+              previousValidFrom: previousPeriod.validFrom,
+              previousWeeklyHours: previousPeriod.weeklyHours,
+              newValidTo: deletionPeriod.validTo,
+            })}
+          </p>
+        )}
+
+        {deletionPreviewState === 'loading' && (
+          <div className="flex items-center gap-2">
+            <LoadingSpinner size="sm" />
+            <span className="text-sm text-gray-600 dark:text-gray-400">Auswirkung wird berechnet …</span>
+          </div>
+        )}
+
+        {deletionPreviewState === 'error' && (
+          <div className="space-y-2">
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Die Auswirkung konnte nicht berechnet werden. Ohne diese Angabe wird nicht gelöscht.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => runDeletionPreview(deletionPeriod.id)}
+            >
+              Erneut berechnen
+            </Button>
+          </div>
+        )}
+
+        {deletionPreviewState === 'ready' && deletionPreview && (
+          <>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {deleteDetailReversal({ reversedTransactions: deletionPreview.reversedTransactions })}
+            </p>
+            <div className="flex items-center gap-2">
+              {deletionPreview.balanceDelta > 0 ? (
+                <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              ) : deletionPreview.balanceDelta < 0 ? (
+                <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+              ) : null}
+              <span
+                className={`text-lg font-bold ${
+                  deletionPreview.balanceDelta > 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : deletionPreview.balanceDelta < 0
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                {deleteDetailRebuild({
+                  rebuildFrom: deletionPreview.rebuildFrom,
+                  balanceBefore: deletionPreview.balanceBefore,
+                  balanceAfter: deletionPreview.balanceAfter,
+                  balanceDelta: deletionPreview.balanceDelta,
+                })}
+              </span>
+            </div>
+          </>
+        )}
+
+        <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+          <Textarea
+            label="Begründung (Pflicht)"
+            value={deletionReason}
+            onChange={(e) => setDeletionReason(e.target.value)}
+            rows={3}
+            helperText={`${deletionReason.length}/10 Zeichen (Minimum)`}
+            required
+          />
+        </div>
+
+        {deletionError && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+            <p className="text-sm text-red-900 dark:text-red-100">{deletionError}</p>
+          </div>
+        )}
+      </>
+    );
+  }
 
   // Update form when user changes (B4-Fix: nur beim Nutzerwechsel zuruecksetzen, nicht bei
   // jedem Refetch — `user` ist nach der Umstellung von UserManagementPage auf die
@@ -310,6 +678,15 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             </div>
           )}
 
+          {/* Zustaende 17/25 (Korrektur/Loeschen gespeichert): dasselbe 8-Sekunden-Bannermuster,
+              eigener Zustand (periodBanner), damit es unabhaengig vom Stundenwechsel-Banner
+              oben lebt. */}
+          {periodBanner && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-sm text-green-800 dark:text-green-200">{periodBanner}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-4">
             <Select
               label="Rolle"
@@ -382,9 +759,75 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
             </h3>
             {/* WR-11: Zustand 10 — die vom Wechsel-Dialog gemeldete Kollisionsperiode wird
                 hier hervorgehoben (`ring-2 ring-red-400`). Ohne diese Verdrahtung war der
-                Hervorhebungspfad in `WorkTimePeriodList` toter Code. */}
-            <WorkTimePeriodList userId={user.id} highlightPeriodId={conflictPeriodId} />
+                Hervorhebungspfad in `WorkTimePeriodList` toter Code.
+                Phase 13 (T-13-41): `renderActions` nur fuer Admins — die Spalte samt <th>
+                entfaellt sonst vollstaendig (Phase-12-Verhalten). Zustand 24/Fussnote (D3):
+                dauerhaft sichtbar, traegt die Erklaerung "nicht loeschbar" fuer Screenreader
+                und ohne jede Interaktion. */}
+            <WorkTimePeriodList
+              userId={user.id}
+              highlightPeriodId={conflictPeriodId}
+              renderActions={
+                isAdmin
+                  ? (period) => (
+                      <WorkTimePeriodActions
+                        period={period}
+                        hireDate={hireDate}
+                        onCorrect={openCorrectionFromRow}
+                        onDelete={openDeletion}
+                        isDeleting={deleteM.isPending && deletionPeriod?.id === period.id}
+                        correctButtonRef={rowCorrectButtonRef}
+                        deleteButtonRef={rowDeleteButtonRef}
+                      />
+                    )
+                  : undefined
+              }
+              footnote={
+                isAdmin
+                  ? 'Die erste Periode (ab dem Eintrittsdatum) lässt sich korrigieren, aber nicht löschen — sie hat keine Vorgängerin, die die entstehende Lücke schließen könnte.'
+                  : undefined
+              }
+            />
           </div>
+
+          {/* Korrekturblock (13-UI-SPEC.md Abschnitt "Die zwei Aktionen — sichtbare Trennung",
+              REQ-30/D1): optisch leiser als der Phase-12-Block oben (Ghost-Knopf statt
+              gefuelltem Button), aber mit eigener Ueberschrift, Warnsymbol und eindeutiger
+              Wortwahl — sechs unabhaengige Unterscheidungsmerkmale gegenueber "Stundenwechsel
+              ab Datum …". Ausgeblendet ohne Periode (Zustand 4) und fuer Nicht-Admins. */}
+          {isAdmin && blockTargetPeriod && (
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Sonderfall: Die Werte waren von jeher falsch
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Wenn die hinterlegten Stunden nie gestimmt haben, ist das kein Stundenwechsel,
+                  sondern eine Korrektur. Sie ändert die bereits gerechnete Vergangenheit und
+                  braucht eine Begründung.
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Hat sich die Arbeitszeit ab einem <strong>Datum</strong> geändert, nehmen Sie
+                  oben „Stundenwechsel ab Datum …" — dann bleibt die Vergangenheit unberührt.
+                </p>
+                <div className="flex justify-end pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
+                    className="sm:w-auto text-amber-600 dark:text-amber-400"
+                    ref={blockCorrectButtonRef}
+                    onClick={openCorrectionFromBlock}
+                    disabled={!!periodsLoadError}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-1.5" />
+                    Stammdaten rückwirkend korrigieren …
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -482,6 +925,65 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
           );
           changeButtonRef.current?.focus();
         }}
+      />
+
+      {/* Korrektur-Dialog (DD-32/DD-37/DD-39/DD-40): Geschwister nach </form>, geoeffnet aus
+          dem Block-Knopf ODER der Zeilenaktion "Korrigieren" — die Komponente selbst kennt
+          diesen Unterschied nicht, nur `correctionPeriod`. Bedingtes Rendern statt eines
+          dauerhaft gemounteten Dialogs mit `isOpen`-Toggle: `WorkTimePeriodEditModal` verlangt
+          eine echte `period`, ohne eine Platzhalterperiode fuer den geschlossenen Zustand zu
+          erfinden — `useModalLayer` fuehrt Anfangsfokus/Fokusrueckgabe beim Mounten/Unmounten
+          exakt so aus wie beim isOpen-Wechsel (siehe useModalLayer.ts, alle drei Effekte
+          reagieren bereits auf den ersten Render). */}
+      {correctionPeriod && (
+        <WorkTimePeriodEditModal
+          isOpen
+          onClose={closeCorrectionDialog}
+          user={user}
+          period={correctionPeriod}
+          previousPeriod={neighborsOfPeriod(correctionPeriod).previousPeriod}
+          nextPeriod={neighborsOfPeriod(correctionPeriod).nextPeriod}
+          onConflict={setConflictPeriodId}
+          onSaved={handleCorrectionSaved}
+        />
+      )}
+
+      {/* Löschbestätigung (DD-38/DD-40, T-13-42/T-13-43): dauerhaft gemountet, `isOpen` steuert
+          Sichtbarkeit — anders als der Korrektur-Dialog, weil der Dialog waehrend des
+          Loeschens (Zustand 21) und im Fehlerfall (Zustand 22/23) offen bleiben muss (siehe
+          `closeOnConfirm`-Prop unten), ohne dass `deletionPeriod` zwischenzeitlich null wird. */}
+      <ConfirmDialog
+        isOpen={deletionPeriod !== null}
+        onClose={closeDeletionDialog}
+        onConfirm={() => void handleConfirmDeletion()}
+        title={deleteConfirmTitle()}
+        message={
+          deletionPeriod
+            ? deleteConfirmMessage({
+                validFrom: deletionPeriod.validFrom,
+                validTo: deletionPeriod.validTo,
+                weeklyHours: deletionPeriod.weeklyHours,
+                firstName: user.firstName,
+                lastName: user.lastName,
+              })
+            : ''
+        }
+        details={renderDeletionDetails()}
+        confirmText={deleteConfirmText()}
+        cancelText={deleteCancelText()}
+        confirmAriaLabel={deletionPeriod ? deleteConfirmAriaLabel(deletionPeriod.validFrom) : undefined}
+        variant="danger"
+        zIndexClass="z-[60]"
+        confirmDisabled={
+          isDeleteConfirmDisabled({
+            previewReady: deletionPreviewState === 'ready',
+            previewFailed: deletionPreviewState === 'error',
+            isDeleting: deleteM.isPending,
+          }) || deletionReason.trim().length < 10
+        }
+        confirmLoading={deleteM.isPending}
+        cancelDisabled={deleteM.isPending}
+        closeOnConfirm={false}
       />
     </Modal>
   );

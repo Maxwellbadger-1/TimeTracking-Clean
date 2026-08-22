@@ -38,6 +38,11 @@ interface ConfirmDialogProps {
    *  bleibt der Dialog offen (Zustaende 21/22 — der Aufrufer schliesst selbst, sobald der
    *  Vorgang abgeschlossen ist). */
   closeOnConfirm?: boolean;
+  /** Phase 13 (13-UI-SPEC.md, Abschnitt "Barrierefreiheit"): ueberschreibt den `aria-label` des
+   *  Bestaetigungsknopfes, z. B. "Periode vom 01.03.2026 löschen und stornieren" — konkreter als
+   *  der sichtbare `confirmText`. Ungesetzt = keine Ueberschreibung, der Knopf traegt seinen
+   *  bisherigen zugaenglichen Namen aus `confirmText` (Rueckwaertskompatibilitaet). */
+  confirmAriaLabel?: string;
 }
 
 /**
@@ -75,6 +80,7 @@ export function ConfirmDialog({
   confirmLoading,
   cancelDisabled,
   closeOnConfirm,
+  confirmAriaLabel,
 }: ConfirmDialogProps) {
   // Alle Hooks stehen oberhalb der fruehen Rueckgabe (`if (!isOpen) return null;`
   // weiter unten) — sonst verletzt die Komponente die Rules of Hooks.
@@ -167,6 +173,7 @@ export function ConfirmDialog({
                 variant={confirmButtonVariant}
                 onClick={handleConfirm}
                 disabled={confirmDisabledResolved}
+                aria-label={confirmAriaLabel}
               >
                 {confirmLoading && <LoadingSpinner size="sm" className="mr-2" />}
                 {confirmText}
