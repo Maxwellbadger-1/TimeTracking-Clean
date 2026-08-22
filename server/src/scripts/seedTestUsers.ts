@@ -28,7 +28,7 @@ assertNotProduction();
 const { db } = await import('../database/connection.js');
 const { ensureOvertimeBalanceEntries } = await import('../services/overtimeService.js');
 const { performYearEndRollover } = await import('../services/yearEndRolloverService.js');
-const { ensureInitialWorkPeriod, getUserById } = await import('../services/userService.js');
+const { ensureInitialWorkPeriod, getUserById, mirrorUserToWorkPeriod } = await import('../services/userService.js');
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -96,12 +96,18 @@ function upsertUser(userData: {
 
     logger.info({ username: userData.username }, '✅ Updated existing test user');
 
-    // Sicherheitsnetz für Alt-Fälle (Plan 11-03-Muster): idempotent, tut nichts, wenn der
-    // Nutzer bereits eine Periode hat.
+    // CR-02: `ensureInitialWorkPeriod()` allein reicht hier NICHT — sie ist idempotent und
+    // tut nichts, wenn schon eine Periode existiert. Ein zweiter Lauf mit geänderten
+    // Sollwerten hinterließ dadurch einen Nutzer, dessen `users`-Zeile die neuen Werte trug,
+    // dessen Berechnung aber die alten Periodenwerte benutzte — und bei vorverlegtem
+    // `hireDate` zusätzlich ein Datum ohne Periode (D4 → harter Fehler).
+    // `mirrorUserToWorkPeriod()` (userService.ts) macht beides: Startperiode anlegen falls
+    // nötig, validFrom nachziehen, Werte angleichen. Kein dritter Schreibweg.
     const updatedUser = getUserById(existingUser.id);
-    if (updatedUser) {
-      ensureInitialWorkPeriod(updatedUser, null);
+    if (!updatedUser) {
+      throw new Error(`seedTestUsers/upsertUser: Nutzer ${existingUser.id} nach Update nicht gefunden`);
     }
+    mirrorUserToWorkPeriod(updatedUser);
 
     return existingUser.id;
   } else {

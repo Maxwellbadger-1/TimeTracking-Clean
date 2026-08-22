@@ -5,7 +5,7 @@ import { getVacationBalance } from './absenceService.js';
 import { getOvertimeBalance } from './overtimeTransactionService.js';
 // UNUSED: import { calculateMonthlyTargetHours } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
-import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod, setWorkPeriodValidFrom } from './workPeriodService.js';
+import { createWorkPeriod, getWorkPeriods, getCurrentWorkPeriod, setWorkPeriodValidFrom, updateWorkPeriodValues } from './workPeriodService.js';
 import { formatDate, getCurrentDate } from '../utils/timezone.js';
 
 /**
@@ -126,6 +126,56 @@ function syncStartPeriodToHireDate(
     setWorkPeriodValidFrom(first.id, newHireDate);
   }
   // newHireDate >= first.validFrom: Fall 3 oben — bewusst keine Änderung.
+}
+
+/**
+ * Bringt die Periodenkette eines Nutzers auf den Stand seines Stammdatensatzes (CR-02).
+ *
+ * WARUM: `ensureInitialWorkPeriod()` ist per Vertrag idempotent und tut NICHTS, wenn bereits
+ * eine Periode existiert. Ein Schreibweg außerhalb von `updateUser()` — namentlich der
+ * Update-Zweig von `seedTestUsers.upsertUser()` — hinterließ dadurch einen Nutzer, dessen
+ * `users`-Zeile die neuen Sollwerte trug, dessen Berechnung aber weiter die ALTEN
+ * Periodenwerte benutzte. Die anschließende Validierung verglich dann Erwartungen aus der
+ * `users`-Zeile gegen Ergebnisse aus der Periode und meldete Abweichungen, deren Ursache
+ * nicht im Rechenweg lag.
+ *
+ * Drei Schritte, alle idempotent — ein zweiter Aufruf mit unveränderten Stammdaten schreibt
+ * nichts:
+ * 1. Startperiode anlegen, falls gar keine existiert (Alt-Fall).
+ * 2. `validFrom` nachziehen, falls `hireDate` vorverlegt wurde (CR-01).
+ * 3. `weeklyHours`/`workSchedule` der offenen Periode angleichen.
+ *
+ * Legt bewusst KEINE zweite Periode an und verschiebt keinen Stichtag — das ist Phase 12.
+ * Der Aufrufer ist für die transaktionale Klammer zuständig, wenn er eine braucht.
+ */
+export function mirrorUserToWorkPeriod(user: UserPublic): void {
+  ensureInitialWorkPeriod(user, null);
+  syncStartPeriodToHireDate(user.id, user.hireDate, user);
+
+  const current = getCurrentWorkPeriod(user.id);
+  if (!current) {
+    throw new Error(
+      `mirrorUserToWorkPeriod: Nutzer ${user.id} hat auch nach ensureInitialWorkPeriod keine offene Periode.`
+    );
+  }
+
+  const desiredSchedule = user.workSchedule ?? null;
+  const valuesDiffer =
+    current.weeklyHours !== user.weeklyHours ||
+    JSON.stringify(current.workSchedule ?? null) !== JSON.stringify(desiredSchedule);
+
+  if (valuesDiffer) {
+    logger.info(
+      {
+        userId: user.id,
+        periodId: current.id,
+        oldWeeklyHours: current.weeklyHours,
+        newWeeklyHours: user.weeklyHours,
+      },
+      '🔄 mirrorUserToWorkPeriod: offene Periode wird an den Stammdatensatz angeglichen (CR-02)'
+    );
+    updateWorkPeriodValues(current.id, user.weeklyHours, desiredSchedule);
+  }
 }
 
 /**
@@ -438,16 +488,11 @@ export async function updateUser(
         );
       }
 
-      // Ausnahme (Plan 11-03, Task 2): Diese Welle darf workPeriodService.ts nicht anfassen
-      // (Plan 11-02 arbeitet dort parallel). Ein Funktion zum Ändern von Werten einer
-      // bestehenden Periode gibt es dort noch nicht — deshalb hier direkt, ausschließlich
-      // für das Ändern von weeklyHours/workSchedule, NIE für das Anlegen einer Periode.
-      // Phase 12 führt diesen Schreibzugriff in workPeriodService.ts zusammen.
-      db.prepare(`UPDATE user_work_periods SET weeklyHours = ?, workSchedule = ? WHERE id = ?`).run(
-        mirroredWeeklyHours,
-        mirroredWorkSchedule ? JSON.stringify(mirroredWorkSchedule) : null,
-        currentPeriod.id
-      );
+      // CR-02: Das rohe UPDATE steht nicht mehr hier, sondern als updateWorkPeriodValues()
+      // in workPeriodService.ts — ein Schreibweg für Periodenwerte, den auch die
+      // Seed-/Wartungsskripte benutzen. Ändert ausschließlich weeklyHours/workSchedule,
+      // NIE ein Datum und NIE das Anlegen einer Periode.
+      updateWorkPeriodValues(currentPeriod.id, mirroredWeeklyHours, mirroredWorkSchedule ?? null);
     });
 
     applyUpdate();

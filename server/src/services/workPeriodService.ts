@@ -332,6 +332,43 @@ export function closeWorkPeriod(periodId: number, validTo: string): UserWorkPeri
 }
 
 /**
+ * Ändert `weeklyHours` und `workSchedule` einer bestehenden Periode — untrennbar in der
+ * Signatur, genau wie bei `createWorkPeriod` (D2/REQ-20): Es gibt keinen Aufruf, der nur
+ * die Wochenstunden ändert und den Tagesplan stehen lässt.
+ *
+ * DER EINE SCHREIBWEG (CR-02, Phase 11): Vorher stand dieses UPDATE als rohes SQL in
+ * `userService.updateUser()`, und das Seed-Skript hatte gar keinen — es verließ sich auf die
+ * idempotente Anlagefunktion und ließ die Periode dadurch auf Altwerten stehen. Beide
+ * Aufrufer gehen jetzt hier durch.
+ *
+ * Verschiebt KEIN Datum: `validFrom`/`validTo` bleiben unangetastet. Ein Stichtagswechsel
+ * ist `closeWorkPeriod` + `createWorkPeriod` (Phase 12), nicht diese Funktion.
+ */
+export function updateWorkPeriodValues(
+  periodId: number,
+  weeklyHours: number,
+  workSchedule: WorkSchedule | null
+): UserWorkPeriod {
+  try {
+    const result = db
+      .prepare(`UPDATE user_work_periods SET weeklyHours = ?, workSchedule = ? WHERE id = ?`)
+      .run(weeklyHours, workSchedule === null ? null : JSON.stringify(workSchedule), periodId);
+
+    if (result.changes === 0) {
+      throw new Error(`updateWorkPeriodValues: Periode ${periodId} existiert nicht.`);
+    }
+  } catch (err) {
+    translateWorkPeriodError(err, `Werte der Periode ${periodId} konnten nicht geändert werden`);
+  }
+
+  const row = db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM user_work_periods WHERE id = ?`)
+    .get(periodId) as UserWorkPeriodRow;
+
+  return rowToWorkPeriod(row);
+}
+
+/**
  * Setzt `validFrom` einer bestehenden Periode. Einziger Anwendungsfall (CR-01, Phase 11):
  * Das Eintrittsdatum eines Nutzers wird VORVERLEGT — dann muss die Startperiode nach vorn
  * mitwachsen, sonst entsteht ein Datum zwischen neuem `hireDate` und `validFrom`, für das
