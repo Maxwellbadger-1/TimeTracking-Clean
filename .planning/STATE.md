@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 13-08-PLAN.md
-last_updated: "2026-08-22T20:18:38.917Z"
+stopped_at: Completed 13-10-PLAN.md
+last_updated: "2026-08-22T20:32:02.009Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 39
+  completed_plans: 40
   percent: 57
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-08-PLAN.md
+- **Stopped at:** Completed 13-10-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -216,6 +216,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-07] WorkPeriodCorrectionOutcome.period referenziert den bestehenden Desktop-Typ WorkTimePeriod statt einer dritten Periodenform mit deletedAt/deletedBy — dieselbe Vereinfachung wie beim Server (UserWorkPeriodListItem vs. UserWorkPeriod)
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-08] CR-03-Tagesplan-Validierung (0-24h je Tag) bleibt in WorkTimePeriodEditModal.tsx, nicht in workTimePeriodEditRules.ts — keine der vier im Plan benannten Entscheidungen, betrifft den WorkScheduleEditor-Teilbaum
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-08] isForbiddenMessage() prueft auf den Praefix 'Forbidden' (Server: requireAdmin liefert 'Forbidden - Admin access required') statt auf 'FORBIDDEN' — das ist der Sondertext nur fuer useWorkPeriods()/GET
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-10: reversedNoteLine() formatiert reversedAt (UTC-Zeitstempel) ueber formatCreatedAtDe() statt des T12:00:00-Musters, das im Projekt nur fuer reine YYYY-MM-DD-Felder gilt -- verhindert den in CR-04 dokumentierten Timezone-Bug
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-10: JSON-Parse-Fehlerpfad in api/client.ts auf einen einzigen console.error konsolidiert (Rohtext-Vorschau 200 Zeichen statt vollstaendiger Nutzdaten), damit zusammen mit dem Netzwerkfehler-Fangnetz genau zwei console.error stehenbleiben
 
 ## Quick Tasks Completed
 
@@ -287,6 +289,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P05 | 50min | 3 tasks | 4 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P07 | 50min | 3 tasks | 8 files |
 | Phase 13 P08 | ~55min | 3 tasks | 4 files |
+| Phase 13-korrigieren-und-r-ckg-ngig-machen P10 | ~50min | 3 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -323,7 +326,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 

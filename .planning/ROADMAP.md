@@ -363,7 +363,7 @@ Plans:
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [x] 13-08-PLAN.md — Korrektur-Dialog `WorkTimePeriodEditModal`, Zustand „Kein Zugriff" und Fußnote in der Periodenliste (D1, D3, D7)
-- [ ] 13-10-PLAN.md — Storno-Paar im Kontoauszug: Zustands-Badges, Beleg-Chip, Sprungmarke; Debugausgaben aus `api/client.ts` entfernt (D2)
+- [x] 13-10-PLAN.md — Storno-Paar im Kontoauszug: Zustands-Badges, Beleg-Chip, Sprungmarke; Debugausgaben aus `api/client.ts` entfernt (D2)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
