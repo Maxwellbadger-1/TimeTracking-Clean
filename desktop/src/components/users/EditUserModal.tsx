@@ -183,6 +183,24 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const blockTargetPeriod =
     periodsAscending.find((p) => p.isCurrent) ?? periodsAscending.find((p) => p.isFirst) ?? null;
 
+  /**
+   * M-4 (UI-Review Phase 13): Zustand 2 des Designvertrags — „Periodenliste Ladefehler →
+   * Korrekturblock bleibt sichtbar, aber sein Button ist `disabled`".
+   *
+   * Gebaut war das Gegenteil: Der Block hing allein an `blockTargetPeriod`, und das ist bei
+   * jedem Ladefehler `null` (`periods` bleibt `undefined`). Mit dem Block verschwanden
+   * Überschrift, Erklärsatz UND der Abgrenzungssatz, der „Stundenwechsel" von „Korrektur"
+   * trennt — ausgerechnet in dem Moment, in dem die Liste daneben einen roten Fehler zeigt.
+   * Das dafür vorgesehene `disabled={!!periodsLoadError}` am Knopf war damit toter Code: Es
+   * konnte nie zugleich einen Fehler und ein Ziel geben.
+   *
+   * ZUSTAND 3 IST KEIN LADEFEHLER: Bei einem 403 meldet `useWorkPeriods()` `FORBIDDEN`
+   * (DD-31), die Liste zeigt das Panel „Kein Zugriff", und dort verlangt der Vertrag
+   * ausdrücklich „kein Korrekturblock". Dieser Fall bleibt deshalb ausgenommen.
+   */
+  const periodsAccessDenied = periodsLoadError?.message === 'FORBIDDEN';
+  const periodsLoadFailed = !!periodsLoadError && !periodsAccessDenied;
+
   function neighborsOfPeriod(period: WorkTimePeriod): {
     previousPeriod: WorkTimePeriod | null;
     nextPeriod: WorkTimePeriod | null;
@@ -928,8 +946,10 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
               REQ-30/D1): optisch leiser als der Phase-12-Block oben (Ghost-Knopf statt
               gefuelltem Button), aber mit eigener Ueberschrift, Warnsymbol und eindeutiger
               Wortwahl — sechs unabhaengige Unterscheidungsmerkmale gegenueber "Stundenwechsel
-              ab Datum …". Ausgeblendet ohne Periode (Zustand 4) und fuer Nicht-Admins. */}
-          {isAdmin && blockTargetPeriod && (
+              ab Datum …". Ausgeblendet ohne Periode (Zustand 4), im Zustand 3 („Kein Zugriff")
+              und fuer Nicht-Admins. Bei einem Ladefehler bleibt er sichtbar, sein Knopf ist
+              gesperrt (Zustand 2, M-4). */}
+          {isAdmin && (blockTargetPeriod || periodsLoadFailed) && (
             <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -953,7 +973,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
                     className="sm:w-auto text-amber-600 dark:text-amber-400"
                     ref={blockCorrectButtonRef}
                     onClick={openCorrectionFromBlock}
-                    disabled={!!periodsLoadError}
+                    disabled={periodsLoadFailed || !blockTargetPeriod}
                   >
                     <AlertTriangle className="w-4 h-4 mr-1.5" />
                     Stammdaten rückwirkend korrigieren …
