@@ -287,5 +287,228 @@ Restposten mitgeht.
 
 ## Phase 14 — Absicherung und Auslieferung
 
-_Eigene Punkte der Phase, insbesondere der reale Umstellungsfall (D6) und die Freigabe
-des Produktionslaufs (D2)._
+Eigene Punkte der Phase. Die ersten vier sind laut Planauftrag von Plan 14-03 vorgegeben; die
+Punkte 14-U5 bis 14-U9 kommen aus dem Ausführungsauftrag hinzu — nach Erstellung von
+14-UAT-SAMMLUNG.md sind weitere anwendersichtbare bzw. betrieblich relevante Änderungen
+gelandet (fünf UI-Korrekturen Phase 13, sechs UI-Korrekturen Phase 12, der B-2-Sicherheitsfix,
+der REQ-32-Nachweis und die konkrete WR-07-Oberflächenwirkung), die sonst aus der Sitzung
+fielen.
+
+- `14-U1` — Der reale Umstellungsfall (D6): die vier Werte (Nutzer-ID und Name, Stichtag, alte
+  Wochenstunden, neue Wochenstunden) werden vom Anwender genannt und nach dem Lauf gegen die
+  Erwartung geprüft. Prüfweg B.
+- `14-U2` — Freigabe des Produktionslaufs (D2): Backup vorhanden und rückspielbar, Deployment
+  verifiziert, Trockenlauf gesichtet, dann erst `--apply`. Prüfweg B.
+- `14-U3` — Nach dem Release: `latest.json` enthält alle vier Plattformschlüssel mit Signatur,
+  eine installierte Alt-Version zieht das Update. Prüfweg C.
+- `14-U4` — WR-07: entschieden durch Plan 14-02, nur zur Kenntnis. Prüfweg D.
+- `14-U5` — Fünf UI-Korrekturen aus Phase 13 (`13-UI-REVIEW-FIX.md`, M-1 bis M-5, alle fünf
+  behoben): rückwirkend-ja/nein kommt vom Server (M-1, Blocker), Tooltip „Nicht löschbar" durch
+  `title`+`aria-label` ersetzt (M-2), Pflichtbegründung meldet sich im Absendepfad statt stumm
+  zu sperren (M-3), Korrekturblock bleibt bei Ladefehler sichtbar und gesperrt (M-4), der Anker
+  von Löschbestätigungspunkt 3 ist wieder eine Zahl statt eines Absatzes (M-5). Anwendersichtbar
+  am Korrektur- und Löschdialog. Prüfweg A.
+- `14-U6` — Sechs UI-Korrekturen aus Phase 12 (`12-UI-REVIEW-FIX.md`, alle sechs behoben):
+  `ConfirmDialog` scrollt bei niedrigem Fenster statt Knöpfe zu verlieren (E-1, Blocker),
+  Vorschaupanel zeigt keinen falschen Platzhaltersatz mehr während des Ladens (E-3),
+  Zeilenmarkierung (Zustand 10) jetzt als Zellfläche statt unsichtbarem `box-shadow` (V-2),
+  Toggle „Individueller Wochenplan" und Dialog-Hilfstexte barrierefrei angebunden (V-4/E-5/T-3),
+  Akzentfarbe auf die vier vertraglich reservierten Stellen zurückgenommen (F-1), Vertragstext
+  zur Journalzeile `model_change` nachgezogen (C-4, keine Codeänderung). Anwendersichtbar am
+  Wechsel-Dialog und der Periodenliste. Prüfweg A.
+- `14-U7` — B-2-Sicherheitsfix (`13-SECURITY-FIX.md`, bereits committet `2c1c2ce`):
+  `withSuspendedChainGuard()` verweigert die Aussetzung des Kettenriegels jetzt außerhalb einer
+  aktiven `db.transaction()`-Klammer und setzt einen aus einem früheren Lauf hängengebliebenen
+  Riegel beim Serverstart zurück (mit Logzeile). Nicht anwendersichtbar, rein serverseitig und
+  bereits durch 5 neue automatisierte Tests belegt (491 grün / 3 rot, die drei vorbestehend).
+  Prüfweg D — zur Kenntnis, kein manueller Retest nötig.
+- `14-U8` — REQ-32-Nachweis (`14-REQ32-NACHWEIS.md`, Plan 14-01): die fünf laut REQUIREMENTS.md
+  geforderten Wechselfälle (Reduzierung mit künftigem Stichtag, Erhöhung mit rückwirkendem
+  Stichtag, Stichtag mitten im Monat, Wechsel über einen Jahreswechsel, Periode löschen und neu
+  rechnen) sind einzeln benannt und einzeln per `npx vitest run -t "<Titel>"` maschinell
+  nachgewiesen. Sie brauchen deshalb **keinen** manuellen Retest in der Abnahmesitzung — die
+  Nachweisdatei dokumentiert Fundstelle und wörtliche Testausgabe je Fall. Prüfweg D — zur
+  Kenntnis.
+- `14-U9` — WR-07-Verhalten in der Oberfläche (Plan 14-02, `PUT /api/users/:id` weist eine
+  tatsächliche `weeklyHours`/`workSchedule`-Änderung jetzt mit HTTP 400 ab): am laufenden
+  Dev-Server prüfen, dass ein Admin im `EditUserModal` unveränderte Stammdaten weiterhin
+  speichern kann (kein 400 bei bloßer Feldanwesenheit ohne Wertänderung) und dass eine
+  tatsächliche Wochenstunden-/Wochenplan-Änderung über dieses Formular abgewiesen wird und der
+  Admin stattdessen zum Stundenwechsel-Dialog („Stundenwechsel ab Datum …") geleitet werden
+  muss, um die Änderung mit Vorschau, Pflichtbegründung und Journalzeile einzutragen. Prüfweg A.
+
+Diese neun Punkte (`14-U1` bis `14-U9`) zählen **nicht** in die Kontrollsumme 86 der
+Bestandspunkte aus den Phasen 11 bis 13 — sie kommen ausdrücklich hinzu.
+
+---
+
+## Prüfweg-Zuordnung aller 86 Punkte (Plan 14-03)
+
+Diese Tabelle ordnet jeden der 86 Bestandspunkte aus den Phasen 11, 12 und 13 (siehe
+Kontrollsumme oben, `6 + 51 + 29 = 86`) genau einem von vier Prüfwegen zu und belegt jeden der
+acht vorgeprüften Dublettenkandidaten am Wortlaut. Kein bestehender Abschnitt oberhalb dieser
+Zeile wurde verändert — dies ist ein reiner Anhang.
+
+**Vier Prüfwege:**
+- **A** — am laufenden Dev-Server prüfbar (`cd server && npm run dev` auf Port 3000, Desktop im
+  Dev-Modus, angemeldete Sitzung, keine echten Produktionsdaten nötig).
+- **B** — braucht eine Produktionskopie (echter Datenbestand: Salden aller Nutzer, Laufzeiten
+  bei vielen Zeiteinträgen, Bestandsdaten vor einer Migration, `checkAllPeriodChains()` gegen
+  echte Daten).
+- **C** — erst nach dem Release prüfbar (ausgelieferte Desktop-App und/oder deployter Server:
+  Auto-Update, `latest.json`, Verhalten bei Anwendern).
+- **D** — Festlegung bestätigen oder widersprechen (Zustimmungsfrage, kein Prüfweg — läuft als
+  Durchsprache ohne Server/Daten).
+
+### Phase 11 — Datumsabhängige Berechnung (6 Punkte)
+
+| Punkt | Kurztitel | Prüfweg | Dublette von | Begründung |
+|---|---|---|---|---|
+| 11-U1 | DATEV-Export mit soft-gelöschtem Nutzer | A | — | Laufender Dev-Server + Admin-Sitzung genügt, keine echten Produktionsdaten nötig |
+| 11-U2 | DATEV-Export bei lückenhafter Periodenkette (409) | A | — | HTTP-Verhalten am laufenden Server, kein Produktionsbestand nötig |
+| 11-U3 | `GET /api/admin/period-chains` Admin/Nicht-Admin | A | — | Rollenprüfung am laufenden Server mit Testnutzern |
+| 11-U4 | `validate:overtime:detailed` vierter Vergleichsweg | A | — | Läuft gegen laufenden Dev-Server, kein Produktionsbestand vorausgesetzt |
+| 11-U5 | Live-Anzeige/Kontoauszug Desktop bei Modellwechsel | A | — | Desktop im Dev-Modus, Testnutzer mit Modellwechsel genügt |
+| 11-U6 | Generalprobe Rechenweg auf Produktionskopie | B | 13-U11 | Dublettenkandidat 1 bestätigt — 13-U11 ist der vollständigere Nachweis (Umstellung UND Löschen, alle Salden) |
+
+**Fachliche Festlegungen 11-F1 bis 11-F3** (laut `<bestand>` nicht Teil der Kontrollsumme 6 — die
+Sammlung selbst zählt für Phase 11 nur die U-Tabelle; hier trotzdem Prüfweg zugeordnet, da die
+Planvorgabe „Führe sie in einer eigenen vierten Gruppe D" allgemein für Festlegungen gilt):
+
+| Punkt | Kurztitel | Prüfweg | Dublette von | Begründung |
+|---|---|---|---|---|
+| 11-F1 | Eintrittsdatum nach hinten: Kette bleibt stehen | D | — | Zustimmungsfrage zu einer bereits umgesetzten Festlegung |
+| 11-F2 | Migrationsskript bricht bei Datendefekt ab | D | — | Zustimmungsfrage zu einer bereits umgesetzten Festlegung |
+| 11-F3 | DATEV-Export bricht mit 409 ab statt Nutzer wegzulassen | D | — | Zustimmungsfrage zu einer bereits umgesetzten Festlegung |
+
+### Phase 12 — Stundenwechsel bedienen (51 Punkte)
+
+| Punkt | Kurztitel | Prüfweg | Dublette von | Begründung |
+|---|---|---|---|---|
+| 1 | Migration 011 auf Produktionskopie | B | — | Explizite Produktionskopie, Zeilenzahl-/Integritätsvergleich |
+| 2 | `GET /api/work-periods` fremde `userId` → 403 | B | — | Text fordert ausdrücklich Produktionsnachweis mit echten Passwörtern |
+| 3 | Bestehendes Modal hell/dunkel unverändert | A | — | Regressionscheck bestehender Komponente, Dev-Server genügt |
+| 4 | `ConfirmDialog` X-Button/ESC | A | — | UI-Verhalten am Dev-Server |
+| 5 | Verschachtelte Dialoge ESC/Formularerhalt | A | (Leitpunkt) | Dublettenkandidat 3 bestätigt — Leitpunkt, deckt ESC-Verhalten und Formularerhalt ab |
+| 6 | Fokus nach Dialogschluss auf Auslöser | A | 22 | Im Tastaturdurchgang von Punkt 22 mitgeprüft (gleicher Testablauf) |
+| 7 | Screenreader-Name X-Button | A | — | Accessibility-Panel am Dev-Server |
+| 8 | Fokusfalle Tab-Zyklus im Dialog | A | 22 | Im Tastaturdurchgang von Punkt 22 mitgeprüft (gleicher Testablauf) |
+| 9 | Rückwirkender Wechsel auf Kopie, Laufzeit <10s | B | — | Explizit „Kopie der Produktionsdatenbank", Performance bei echtem Datenvolumen |
+| 10 | Abgebrochener Speichervorgang | A | — | Serverabbruch mitten im Lauf, Dev-Server genügt |
+| 11 | `previewToken` über Serverneustart | A | — | Zustandslosigkeit, Dev-Server genügt |
+| 12 | Rundung `balanceDelta`/`targetHoursDelta` lange Zeiträume | A | — | Abgleich mit `validate:overtime:detailed` am Dev-Server, keine Produktionsdaten zwingend nötig |
+| 13 | Kontrast Periodenliste hell/dunkel | A | 13-U9 | Dublettenkandidat 4 (Teilmenge) — im einen Kontrastdurchgang über alle neuen Flächen mitgeprüft |
+| 14 | Fenster <640px Periodenliste scrollbar | A | — | Responsive-Check, Dev-Server |
+| 15 | Mehrperioden-Reihenfolge/Badges | A | — | Visuelle Prüfung mit Testdaten am Dev-Server |
+| 16 | Fehler-/Wiederholzustand Periodenliste | A | — | Serverstopp/-neustart am Dev-Server |
+| 17 | Vollständiger Vorschau→Speichern-Zyklus, realer Nutzer | B | — | Vergleich mit echtem Kontoauszugssaldo, Produktionskopie |
+| 18 | Saldo unbeteiligter Nutzer vor/nach Testlauf | B | 13-U11 | Dublettenkandidat 1 (Teilmenge) — Teil der Generalprobe, deckt „kein Nutzer außer dem betroffenen" ab |
+| 19 | `checkAllPeriodChains()` gegen Produktionskopie | B | — | Explizit Produktionskopie nach realem Wechsel |
+| 20 | `PREVIEW_STALE` im Wechsel-Dialog | A | 13-U18 | Dublettenkandidat 7 bestätigt — gleiches Textmuster, im gemeinsamen `PREVIEW_STALE`-Durchgang mitgeprüft |
+| 21 | Visuelle Abnahme Wechsel-Dialog hell/dunkel | A | 13-U9 | Dublettenkandidat 4 (Teilmenge) — im einen Kontrastdurchgang mitgeprüft |
+| 22 | Tastaturbedienung vollständig | A | (Leitpunkt) | Dublettenkandidat 8 (Teilmenge) bestätigt — Leitpunkt, subsumiert Punkt 6 und 8 |
+| 23 | Differenz 0: Textvariante „± 0:00h" | A | — | UI-Text, Dev-Server |
+| 24 | Fenster <640px Stichtag/Sollstunden-Layout | A | — | Dublettenkandidat 4 geprüft und **verworfen für diesen Punkt** — Punkt 24 beschreibt Responsive-Layout, nicht Kontrast/Dunkelmodus; geprüft, keine Dublette — anderer Prüfinhalt (Fensterbreite statt Farbkontrast) |
+| 25 | Vorschau 15min warten, Neuberechnung | A | — | Zeitgesteuerter Zustand, Dev-Server |
+| 26 | Fallback „Aktuell gültig seit Eintrittsdatum" | A | — | Neuer Nutzer ohne Periode, Dev-Server |
+| 27 | Kontrast Wochenstundenfeld ≥4,5:1 | A | 13-U9 | Dublettenkandidat 4 (Teilmenge) — im einen Kontrastdurchgang mitgeprüft |
+| 28 | Vollständiger Bedienfluss Desktop | A | — | Kompletter Klickpfad, Dev-Server |
+| 29 | Kontoauszug Modellwechsel-Zeile | A | — | Anzeige nach echtem Wechsel am Dev-Server |
+| 30 | Bestehende Nutzerverwaltungswege unverändert | A | — | Regressionscheck, Dev-Server |
+| 31 | z-Index Wechsel-/Bestätigungsdialog | A | 5 | Dublettenkandidat 3 (Teilmenge) — reale Einbettung bereits in Punkt 5 mitgeprüft |
+| 32 | Abwesenheitsantrag über Stichtag | A | — | Dev-Server, Vorschauwert vs. gebuchter Wert |
+| 33 | Abwesenheitsantrag über Feiertag | A | — | Dev-Server |
+| 34 | Server nicht erreichbar beim Ausfüllen | A | — | Fehlerzustand am Dev-Server |
+| 35 | `WorkScheduleDisplay` „gültig seit" | A | — | Anzeigeprüfung, Dev-Server |
+| 36 | Kompakter Modus zeigt keine Stichtag-Zeile | D | — | Ausdrücklich „zu klären, ob Phase 13/14 sie dort ergänzen soll" — Festlegungsfrage, kein Verhaltenstest |
+| 37 | E2E-Test 0-Stunden-Fall | A | 48 | Dublettenkandidat 2 bestätigt — von Punkt 48 „ersetzt und präzisiert" |
+| 38 | Übrige sieben kaputte Selektoren | A | 48 | Dublettenkandidat 2 (erweitert) — laut Punkt 48 bereits repariert („sieben Tests wurden repariert, darunter der 0-Stunden-Test") |
+| 39 | Vollständiger Playwright-Lauf `user-edit.spec.ts` | A | 48 | Dublettenkandidat 2 bestätigt — von Punkt 48 „ersetzt und präzisiert" |
+| 40 | Bestandsdaten `referenceType` vor Migration 012 | B | — | `SELECT ... GROUP BY referenceType` gegen echten Datenbestand |
+| 41 | Rückwirkungsgrenze „Beginn des Vorjahres" bestätigen | D | — | Fachliche Frage, keine Prüfhandlung |
+| 42 | Rate-Limit 30/min real gegenprüfen | A | 13-U17 | Dublettenkandidat 6 bestätigt — der beschriebene IP-Eimer ist seit Commit `74a8be6` überholt (jetzt Route+Nutzer-Eimer, siehe 13-U17), gleicher Prüfweg |
+| 43 | Einmalverbrauch `previewToken` | D | — | Architekturentscheidung, kein Test |
+| 44 | Zukunftsmonate auf Produktionskopie | B | — | Explizit Produktionskopie |
+| 45 | Begründung getrimmt gespeichert — Zeilenklärung | D | — | Klärungsfrage „wenn das anders gemeint war, ist es eine Zeile" — Entscheidung |
+| 46 | Fokus 13 Modal-Aufrufer — Entscheidung | D | — | Dublettenkandidat 8 geprüft und **verworfen für diesen Punkt** — Punkt 46 sagt ausdrücklich „ist zu entscheiden", ist keine Verhaltensprüfung wie 6/8/22, sondern eine offene Gestaltungsfrage |
+| 47 | Kontrast neuer Elemente Kontoauszug ≥4,5:1 | A | 13-U9 | Dublettenkandidat 4 (Teilmenge) — im einen Kontrastdurchgang mitgeprüft |
+| 48 | E2E-Suite `user-edit.spec.ts` einmal laufen lassen | A | (Leitpunkt) | Dublettenkandidat 2 bestätigt — Leitpunkt, ersetzt/präzisiert 37 und 39, subsumiert 38 |
+| 49 | Typ-Spalte gewöhnliche Tageszeilen | A | — | Visuelle Sichtprüfung, Dev-Server |
+| 50 | Text bei verweigerter Vorschau — Klärungsfrage | D | — | „wäre eine eigene Formulierung besser" — Entscheidung, `12-UI-SPEC.md` kennt keinen Baustein |
+| 51 | Pflichtgrund bei Krankmeldung | D | — | Ausdrücklich „eine Neufestlegung für Frontend und Server" |
+
+### Phase 13 — Korrigieren und rückgängig machen (29 Punkte)
+
+| Punkt | Kurztitel | Prüfweg | Dublette von | Begründung |
+|---|---|---|---|---|
+| 13-U1 | Warnbanner bei rückwirkender Periode | A | — | Visuelle/Bedienprüfung am Dev-Server |
+| 13-U2 | Panel „Keine Rückwirkung" bei künftiger Periode | A | — | Visuelle Prüfung, keine Produktionsdaten nötig |
+| 13-U3 | Löschbestätigung: Pflichtbegründung/Sperrzustand | A | — | Bedienprüfung am Dev-Server |
+| 13-U4 | Löschvorschau scheitert (Server gestoppt) | A | — | Gezieltes Abschalten am Dev-Server |
+| 13-U5 | Kontoauszug nach echtem Löschvorgang | A | — | Zwei-Zeilen-Darstellung am Dev-Server |
+| 13-U6 | Beleg-Chip Fehlfall (Partnerzeile außerhalb Liste) | A | — | Konstruierter Randfall am Dev-Server |
+| 13-U7 | Mitarbeitersitzung auf fremden Nutzer | A | — | Echte Mitarbeiter-Sitzung, kein Produktionsbestand nötig |
+| 13-U8 | Tastatur „Nicht löschbar"-Chip | A | — | Tastaturbedienung am Dev-Server |
+| 13-U9 | Dunkelmodus aller neuen Flächen (Phase 13) | A | (Leitpunkt) | Dublettenkandidat 4 (Teilmenge) bestätigt — Leitpunkt des Kontrastdurchgangs, subsumiert P12-13/21/27/47 |
+| 13-U10 | Fenster <640px Zeilenaktionen/Korrekturblock-Knopf | A | — | Dublettenkandidat 4 geprüft und **verworfen für diesen Punkt** — Responsive-Layout (Trefferfläche, Zeilenumbruch), nicht Kontrast; geprüft, keine Dublette |
+| 13-U11 | Generalprobe: Umstellung eintragen und löschen, alle Salden | B | (Leitpunkt) | Dublettenkandidat 1 bestätigt — Leitpunkt (11-U6, P12-18), vollständigster Nachweis |
+| 13-U12 | Login/Laden nach `api/client.ts`-Bereinigung | A | — | Manueller Login-Test am Dev-Server |
+| 13-U13 | `aria-label` Löschbestätigungsknopf | A | — | Screenreader-Prüfung am Dev-Server |
+| 13-F1 | Erste Periode korrigierbar, nicht löschbar | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F2 | Keine Wiederherstellung gelöschter Perioden | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F3 | Belegnummer = Id der Ursprungsbuchung | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F4 | Mehrzahlform bei mehreren Buchungen | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F5 | Kettenriegel kurzzeitig ausgesetzt, dann geprüft | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F6 | `deletedBy` zusätzlich zu `deletedAt` | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F7 | Warnfarbe Gelb → Amber | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F8 | Pflichtbegründung Löschbestätigung ergänzt | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F9 | `checkPeriodChain()` unbedingt nach jedem Schreiben | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-F10 | `reversedAt` über `formatCreatedAtDe()` formatiert | D | — | Zustimmungsfrage zu bereits umgesetzter Festlegung |
+| 13-U14 | Migration 015 auf Produktionskopie, integrity/foreign_key_check | B | — | Dublettenkandidat 5 geprüft und **verworfen** — andere Migration als P12-1 (015 statt 011), eigenständige Integritätsprüfung; beide Migrationen müssen unabhängig verifiziert werden, auch wenn der Prüfweg (B) identisch ist |
+| 13-U15 | Ehemals tödlichen Ablauf nachstellen (40→32→40→löschen) | A | — | Manuelle Nachstellung am Dev-Server |
+| 13-U16 | Korrektur ohne Saldowirkung, Journalzeile sichtbar | A | — | Kontoauszug-Prüfung am Dev-Server |
+| 13-U17 | Drosselung dreier Vorschau-Routen real | A | (Leitpunkt) | Dublettenkandidat 6 bestätigt — Leitpunkt, absorbiert P12-42 (dessen IP-Eimer-Beschreibung überholt ist); Prüfung des Bedientempos braucht keine Produktionsdaten |
+| 13-U18 | `PREVIEW_STALE` in Löschbestätigung | A | (Leitpunkt) | Dublettenkandidat 7 bestätigt — Leitpunkt, absorbiert P12-20 (gleiches Textmuster, anderer Dialog) |
+| 13-U19 | Storno-Paar mit Zukunftsdatum im Kontoauszug | A | — | Konstruierte Zukunftsperiode am Dev-Server |
+
+*(Der „Offene Restposten aus dem Code-Review (WR-07)" oberhalb dieser Zuordnung ist wie in
+`<abgeschlossene_punkte>` festgelegt kein eigener Zählpunkt der 29 — er ist durch Plan 14-02
+entschieden und erscheint als `14-U4` im Abschnitt „Phase 14" oben.)*
+
+### Ergebnis der acht vorgeprüften Dublettenkandidaten
+
+| # | Kandidat | Ergebnis |
+|---|---|---|
+| 1 | Generalprobe auf Produktionskopie (11-U6, P12-18, 13-U11) | **Bestätigt**, Leitpunkt 13-U11 |
+| 2 | Vollständiger Playwright-Lauf (P12-37/38/39/48) | **Bestätigt**, Leitpunkt 48 (Wortlaut: „Ersetzt und präzisiert die Punkte 37-39") |
+| 3 | Verschachtelte Dialoge, ESC, z-Index (P12-5, P12-31) | **Bestätigt**, Leitpunkt 5 (P12-5 trägt bereits den Satz „Jetzt im realen Einbettungskontext prüfbar (seit 12-07)") |
+| 4 | Kontrast/Dunkelmodus neuer Flächen (P12-13/21/24/27/47, 13-U9/13-U10) | **Teilweise bestätigt** — Kontrastteilmenge (P12-13/21/27/47, 13-U9) zusammengeführt auf Leitpunkt 13-U9; P12-24 und 13-U10 **verworfen** (beide beschreiben Responsive-Layout <640px, keine Kontrastfrage, wörtlich nachgeprüft) |
+| 5 | Migration auf Produktionskopie (P12-1, 13-U14) | **Verworfen** — zwei verschiedene Migrationen (011 und 015), unterschiedlicher Prüfinhalt trotz identischem Prüfweg |
+| 6 | Drosselung im Realbetrieb (P12-42, 13-U17) | **Bestätigt**, Leitpunkt 13-U17 (P12-42 beschreibt den seit Commit `74a8be6` überholten IP-Eimer) |
+| 7 | `PREVIEW_STALE`-Fehlertext (P12-20, 13-U18) | **Bestätigt**, Leitpunkt 13-U18 (gleiches Textmuster, zwei Dialoge) |
+| 8 | Fokusverhalten beim Öffnen von Dialogen (P12-6/8/22/46) | **Teilweise bestätigt** — Verhaltensteilmenge (P12-6/8) zusammengeführt auf Leitpunkt 22; P12-46 **verworfen** (ausdrücklich eine offene Entscheidung, keine Verhaltensprüfung) |
+
+**Zusätzliche Suche nach nicht im Kontextblock genannten Dubletten:** geprüft und verworfen —
+11-U3 („GET /api/admin/period-chains" Rollenprüfung) gegen P12-19 (`checkAllPeriodChains()`
+gegen Produktionskopie): unterschiedliche Prüfziele (Autorisierung vs. Datenintegrität nach
+echtem Wechsel). P12-9 (Laufzeit `applyWorkTimeChange()` <10s) gegen P12-17 (voller
+Vorschau→Speichern-Zyklus, Saldoabgleich): unterschiedliche Zusicherung (Performance vs.
+Korrektheit). 13-U1 (Warnbanner rückwirkend) gegen P12-3 (bestehendes Modal unverändert):
+unterschiedliche Komponenten. Keine weitere Dublette bestätigt.
+
+### Kontrollzeile
+
+| Gruppe | Anzahl |
+|---|---|
+| A — Dev-Server | 58 |
+| B — Produktionskopie | 11 |
+| C — nach dem Release | 0 |
+| D — Festlegung | 17 |
+| **Summe** | **86** |
+
+Davon auf einen Leitpunkt zusammengeführt (bereits in der Summe 86 enthalten, hier zur
+Transparenz separat gezählt): 14 Punkte — 11-U6, P12-18 (→13-U11); P12-37, P12-38, P12-39
+(→48); P12-31 (→5); P12-13, P12-21, P12-27, P12-47 (→13-U9); P12-42 (→13-U17); P12-20
+(→13-U18); P12-6, P12-8 (→22).
+
+**6 (Phase 11) + 51 (Phase 12) + 29 (Phase 13) = 86 — Kontrollsumme bestätigt.**
