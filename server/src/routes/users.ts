@@ -17,6 +17,7 @@ import {
   updatePrivacyConsent,
   changeOwnPassword,
   resetUserPassword,
+  WorkPeriodBypassError,
 } from '../services/userService.js';
 import { initializeVacationAccountsForNewUser } from '../services/vacationBalanceService.js';
 import { logAudit } from '../services/auditService.js';
@@ -435,6 +436,17 @@ router.put(
         res.status(404).json({
           success: false,
           error: 'User not found',
+        });
+        return;
+      }
+
+      // WR-07 (Plan 14-02): PUT /api/users/:id lehnt eine tatsaechliche Wertaenderung an
+      // weeklyHours/workSchedule mit 400 ab, nicht mit 500 — es ist ein abgelehnter, kein
+      // fehlgeschlagener Aufruf.
+      if (error instanceof WorkPeriodBypassError) {
+        res.status(400).json({
+          success: false,
+          error: error.message,
         });
         return;
       }

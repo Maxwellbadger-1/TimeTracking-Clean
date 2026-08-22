@@ -449,6 +449,20 @@ export async function createUser(data: UserCreateInput): Promise<UserPublic> {
 }
 
 /**
+ * WR-07 (Plan 14-02, siehe `.planning/phases/14-absicherung-und-auslieferung/14-WR07-ENTSCHEIDUNG.md`):
+ * `updateUser()` wirft diesen Fehler, wenn `weeklyHours`/`workSchedule` sich gegenüber dem
+ * gespeicherten Wert tatsächlich ändern sollen. `name` wird explizit gesetzt, damit
+ * `instanceof` über Modulgrenzen zuverlässig bleibt (Muster: `WorkTimeChangeValidationError`
+ * in `workPeriodChangeService.ts`).
+ */
+export class WorkPeriodBypassError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'WorkPeriodBypassError';
+  }
+}
+
+/**
  * Update user
  */
 export async function updateUser(
@@ -472,6 +486,24 @@ export async function updateUser(
     // `hireDate` schwerer wiegt: Es löscht `overtime_balance` und macht den Wiederaufbau
     // unmöglich. Begründung vollständig bei `assertWellFormedHireDate()`.
     assertWellFormedHireDate(data.hireDate);
+
+    // WR-07 (Plan 14-02, siehe 14-WR07-ENTSCHEIDUNG.md): PUT /api/users/:id aendert
+    // weeklyHours/workSchedule nicht mehr an der Perioden-Historie vorbei. Die Abweisung
+    // greift ausschliesslich bei einer tatsaechlichen WERTAENDERUNG (nicht bei blosser
+    // Anwesenheit des Feldes, sonst bricht das Speichern unveraenderter Stammdaten aus
+    // EditUserModal.handleSubmit) und wirft VOR jedem Lese-/Schreibzugriff dieser Funktion,
+    // damit nachweislich nichts geschrieben wird. Ersatzwege: POST /api/work-periods/change
+    // (Stundenwechsel ab Stichtag) und PUT /api/work-periods/:id (Stammdaten korrigieren).
+    const weeklyHoursChanged =
+      data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours;
+    const workScheduleChanged =
+      data.workSchedule !== undefined &&
+      JSON.stringify(data.workSchedule ?? null) !== JSON.stringify(existingUser.workSchedule ?? null);
+    if (weeklyHoursChanged || workScheduleChanged) {
+      throw new WorkPeriodBypassError(
+        'Wochenstunden und Tagesplan werden nicht mehr ueber PUT /api/users/:id geaendert. Nutzen Sie POST /api/work-periods/change (Stundenwechsel ab Stichtag) oder PUT /api/work-periods/:id (Stammdaten korrigieren).'
+      );
+    }
 
     // Build dynamic UPDATE query
     const updates: string[] = [];
@@ -505,18 +537,10 @@ export async function updateUser(
       updates.push('position = ?');
       values.push(data.position || null); // Convert empty/falsy values to NULL
     }
-    if (data.weeklyHours !== undefined) {
-      // VALIDATION: Weekly hours must be reasonable
-      if (data.weeklyHours < 0 || data.weeklyHours > 80) {
-        throw new Error(`Weekly hours must be between 0 and 80, got: ${data.weeklyHours}`);
-      }
-      updates.push('weeklyHours = ?');
-      values.push(data.weeklyHours);
-    }
-    if (data.workSchedule !== undefined) {
-      updates.push('workSchedule = ?');
-      values.push(data.workSchedule ? JSON.stringify(data.workSchedule) : null);
-    }
+    // WR-07 (Plan 14-02): Die beiden Zweige fuer weeklyHours/workSchedule sind entfallen.
+    // Jede tatsaechliche Wertaenderung wirft bereits oben WorkPeriodBypassError; erreicht
+    // dieser Punkt, ist der Wert (falls im Payload vorhanden) mit dem gespeicherten Wert
+    // identisch — ein erneutes Schreiben desselben Werts waere ein leerer Vorgang.
     if (data.vacationDaysPerYear !== undefined) {
       updates.push('vacationDaysPerYear = ?');
       values.push(data.vacationDaysPerYear);
@@ -553,56 +577,14 @@ export async function updateUser(
 
     logger.debug({ sqlQuery, values, updates }, '📝 SQL details');
 
-    // Spiegelt eine Stammdaten-Wochenstunden-/Tagesplan-Änderung in die offene Periode.
-    //
-    // 1. Das ist eine ÜBERGANGSMASSNAHME aus dem Fenster zwischen Phase 11 und Phase 12.
-    // 2. Sie hält das damalige Verhalten aufrecht: Wer die Stammdaten-Wochenstunden ändert,
-    //    ändert damit die Berechnung ab Beginn der offenen Periode. Ohne sie würde eine
-    //    Stundenänderung wirkungslos, ohne dass jemand es merkt.
-    // 3. Diese Stelle legt bewusst KEINE zweite Periode an und verschiebt kein Datum.
-    //
-    // WR-07 (Code-Review Phase 13) — RICHTIGSTELLUNG EINER FALSCHEN ZUSAGE:
-    //
-    // Hier stand bis zum Code-Review, Phase 12 ersetze diesen Weg durch den Stichtagswechsel
-    // und „Phase 13 durch die ausdrückliche Aktion ‚Stammdaten korrigieren' mit
-    // Pflichtbegründung". Beide Aktionen sind gebaut — der Übergangsweg wurde aber NICHT
-    // entfernt. Der Kommentar las sich, als wäre er erledigt; er war es nicht.
-    //
-    // WAS DAS HEISST: Über `PUT /api/users/:id` lässt sich mit veränderten
-    // `weeklyHours`/`workSchedule` weiterhin das erreichen, was `PUT /api/work-periods/:id`
-    // unter Vorschau-Token, Pflichtbegründung, Kettenprüfung, Rebuild, Journalzeile und
-    // audit_log-Eintrag stellt — nur ohne all das. Die eigene Oberfläche nutzt den Weg nicht
-    // mehr (`EditUserModal.handleSubmit` schickt `weeklyHours` unverändert), über die API ist
-    // er erreichbar.
-    //
-    // WARUM ER (NOCH) STEHT: Das Entfernen ist eine Vertragsänderung an `updateUser()`
-    // ausserhalb des Änderungsumfangs von Phase 13 und berührt eine eigene Testdatei einer
-    // früheren Phase (`userWorkPeriodProvisioning.test.ts`). Als ausdrücklicher Restposten
-    // in PROJECT_STATUS.md geführt („Offene Restposten") statt hier stillschweigend als
-    // erledigt behauptet.
-    //
-    // WAS SOFORT BEHOBEN IST: Die Spiegelung liess `overtime_balance` mit den ALTEN
-    // Sollstunden stehen — die Periode trug danach neue Werte, der Saldo die alten, bis
-    // irgendein späterer Rebuild den Unterschied zufällig materialisierte. Die betroffenen
-    // Aggregatzeilen werden jetzt in derselben Transaktion verworfen und beim nächsten
-    // Zugriff neu gerechnet (dasselbe Muster wie im hireDate-Zweig, WR-09 Phase 11).
-    const weeklyHoursChanged =
-      data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours;
-    const workScheduleChanged =
-      data.workSchedule !== undefined &&
-      JSON.stringify(data.workSchedule ?? null) !== JSON.stringify(existingUser.workSchedule ?? null);
-    const mustMirrorPeriod = weeklyHoursChanged || workScheduleChanged;
     // CR-01: Eine hireDate-Änderung muss die Startperiode mitziehen — sonst entsteht ein
-    // Datum ohne Periode und jede Folgeberechnung wirft (D4).
+    // Datum ohne Periode und jede Folgeberechnung wirft (D4). Von WR-07 unberührt: das ist
+    // kein Schreibweg an weeklyHours/workSchedule vorbei, sondern die Nachführung eines
+    // reinen Datumsfelds.
     const hireDateChanged =
       data.hireDate !== undefined && data.hireDate !== existingUser.hireDate;
-    const mirroredWeeklyHours = data.weeklyHours !== undefined ? data.weeklyHours : existingUser.weeklyHours;
-    const mirroredWorkSchedule =
-      data.workSchedule !== undefined ? data.workSchedule ?? null : existingUser.workSchedule;
 
     let changes = 0;
-    // Nutzer-Update und Perioden-Spiegelung sind atomar (T-11-09): Schlägt einer der beiden
-    // Schritte fehl, bleibt keiner stehen.
     const applyUpdate = db.transaction((): void => {
       const stmt = db.prepare(sqlQuery);
       const result = stmt.run(...values);
@@ -636,41 +618,6 @@ export async function updateUser(
         );
         db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
       }
-
-      if (!mustMirrorPeriod) {
-        return;
-      }
-
-      let currentPeriod = getCurrentWorkPeriod(id);
-      if (!currentPeriod) {
-        // Nutzer ohne Periode sollte nach Task 1 dieses Plans nicht mehr vorkommen —
-        // Sicherheitsnetz für Alt-Fälle, exakt wie im Behavior-Abschnitt gefordert.
-        ensureInitialWorkPeriod(existingUser, null);
-        currentPeriod = getCurrentWorkPeriod(id);
-      }
-
-      if (!currentPeriod) {
-        throw new Error(
-          `updateUser: Nutzer ${id} hat auch nach ensureInitialWorkPeriod keine offene Periode.`
-        );
-      }
-
-      // CR-02: Das rohe UPDATE steht nicht mehr hier, sondern als updateWorkPeriodValues()
-      // in workPeriodService.ts — ein Schreibweg für Periodenwerte, den auch die
-      // Seed-/Wartungsskripte benutzen. Ändert ausschließlich weeklyHours/workSchedule,
-      // NIE ein Datum und NIE das Anlegen einer Periode.
-      updateWorkPeriodValues(currentPeriod.id, mirroredWeeklyHours, mirroredWorkSchedule ?? null);
-
-      // WR-07 (Code-Review Phase 13): Der Übergangsweg rechnet den Saldo nicht neu. Ohne
-      // diese Zeile trüge die Periode danach neue Sollstunden und `overtime_balance` die
-      // alten — ein stiller Verzug, bis irgendein späterer Rebuild den Unterschied zufällig
-      // materialisiert. Die Aggregatzeilen werden deshalb IN DERSELBEN Transaktion verworfen
-      // und beim nächsten Zugriff neu gerechnet. `overtime_transactions` bleiben unangetastet
-      // (unveränderlicher Prüfpfad) — dasselbe Muster wie im hireDate-Zweig oben.
-      //
-      // Das ersetzt NICHT die Journalzeile und die Pflichtbegründung, die
-      // `PUT /api/work-periods/:id` stellt; es beseitigt nur die Saldo-Inkonsistenz.
-      db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
     });
 
     applyUpdate();
@@ -694,40 +641,10 @@ export async function updateUser(
     // bleiben nur noch die Seiteneffekte, die tatsächlich asynchron sind und deshalb NICHT
     // in eine better-sqlite3-Transaktion passen.
 
-    // If weeklyHours changed, recalculate all overtime_balance entries
-    if (data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours) {
-      logger.info({ oldHours: existingUser.weeklyHours, newHours: data.weeklyHours }, '🔄 weeklyHours changed, recalculating overtime');
-      try {
-        // WR-07: `await` fehlte. `recalculateOvertimeForUser` ist async — ohne await gab der
-        // Aufruf sofort ein Promise zurueck, der try/catch konnte nie greifen, der
-        // Erfolgs-Log erschien vor der Berechnung, ein Fehler wurde zur unbehandelten
-        // Promise-Rejection (unter Node 20 per Default prozessbeendend), und die Antwort an
-        // den Client ging raus, waehrend die Neuberechnung noch lief.
-        await recalculateOvertimeForUser(id);
-        logger.info('✅ Overtime recalculated');
-      } catch (error) {
-        logger.error({ err: error }, '❌ Failed to recalculate overtime');
-        // Don't fail the update, but log the error
-      }
-    }
-
-    // If workSchedule changed, recalculate all overtime_balance entries
-    if (data.workSchedule !== undefined) {
-      const oldSchedule = existingUser.workSchedule ? JSON.stringify(existingUser.workSchedule) : null;
-      const newSchedule = data.workSchedule ? JSON.stringify(data.workSchedule) : null;
-
-      if (oldSchedule !== newSchedule) {
-        logger.info({ oldSchedule, newSchedule }, '🔄 workSchedule changed, recalculating overtime');
-        try {
-          // WR-07: siehe Begruendung beim weeklyHours-Zweig oben.
-          await recalculateOvertimeForUser(id);
-          logger.info('✅ Overtime recalculated');
-        } catch (error) {
-          logger.error({ err: error }, '❌ Failed to recalculate overtime');
-          // Don't fail the update, but log the error
-        }
-      }
-    }
+    // WR-07 (Plan 14-02): Die beiden Neuberechnungs-Bloecke fuer weeklyHours/workSchedule
+    // sind entfallen. Sie waren nur nach einer erfolgreichen Spiegelung erreichbar; diese
+    // Funktion wirft jetzt bei jeder tatsaechlichen Wertaenderung bereits vor dem Schreiben
+    // WorkPeriodBypassError, der Codepfad hier ist damit unerreichbar geworden.
 
     // If vacationDaysPerYear changed, update vacation_balance entitlement for all years
     if (data.vacationDaysPerYear !== undefined && data.vacationDaysPerYear !== existingUser.vacationDaysPerYear) {
