@@ -246,7 +246,7 @@ Plans:
 - [x] 11-05-PLAN.md — Kanonischer Überstundenweg und Rebuild periodenbewusst
 - [x] 11-06-PLAN.md — Legacy-Pfad und Live-Anzeige, D7-Nachweis
 - [x] 11-07-PLAN.md — Abwesenheiten, Überstundenausgleich und DATEV-Export
-- [ ] 11-08-PLAN.md — Validierungs- und Migrationswerkzeuge periodenbewusst (REQ-25)
+- [x] 11-08-PLAN.md — Validierungs- und Migrationswerkzeuge periodenbewusst (REQ-25)
 - [ ] 11-11-PLAN.md — Nutzeranlegende Skripte legen die Startperiode mit an; `create-admin.ts` gesondert geprüft
 - [ ] 11-09-PLAN.md — Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün (REQ-23, REQ-24)
 - [ ] 11-10-PLAN.md — Nullwirkungs- und Wirkungsnachweis auf echten Daten (D5, D6, REQ-25)
