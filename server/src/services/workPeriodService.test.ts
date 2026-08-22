@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { db } from '../database/connection.js';
 import {
   resolveWorkPeriodAt,
+  resolveWorkPeriodIn,
   getWorkPeriods,
   getCurrentWorkPeriod,
   createWorkPeriod,
@@ -9,7 +10,7 @@ import {
   checkPeriodChain,
   WorkPeriodConflictError,
 } from './workPeriodService.js';
-import type { WorkSchedule } from '../types/index.js';
+import type { UserWorkPeriod, WorkSchedule } from '../types/index.js';
 
 /**
  * WORK PERIOD SERVICE TESTS — Grenzfälle der Auflösung und des Schreibpfads (Plan 10-04)
@@ -81,6 +82,55 @@ beforeAll(() => {
   db.pragma('foreign_keys = ON');
   const fkStatus = db.pragma('foreign_keys', { simple: true }) as number;
   expect(fkStatus).toBe(1);
+});
+
+/** Baut eine UserWorkPeriod-Fixture ohne Datenbankzugriff — für resolveWorkPeriodIn(). */
+function makePeriod(
+  overrides: Partial<UserWorkPeriod> & Pick<UserWorkPeriod, 'validFrom' | 'validTo' | 'weeklyHours'>
+): UserWorkPeriod {
+  return {
+    id: overrides.id ?? 1,
+    userId: overrides.userId ?? 1,
+    validFrom: overrides.validFrom,
+    validTo: overrides.validTo,
+    weeklyHours: overrides.weeklyHours,
+    workSchedule: overrides.workSchedule ?? null,
+    note: overrides.note ?? null,
+    createdAt: overrides.createdAt ?? '2026-01-01T00:00:00.000Z',
+    createdBy: overrides.createdBy ?? null,
+  };
+}
+
+describe('resolveWorkPeriodIn — die eine Auflösung, jetzt datenbankfrei (Plan 11-02)', () => {
+  it('leere Liste liefert null', () => {
+    expect(resolveWorkPeriodIn([], '2026-05-01')).toBeNull();
+  });
+
+  it('eine laufende Periode [2026-01-01, null) löst am validFrom auf', () => {
+    const p = makePeriod({ id: 1, validFrom: '2026-01-01', validTo: null, weeklyHours: 40 });
+    expect(resolveWorkPeriodIn([p], '2026-01-01')).toBe(p);
+  });
+
+  it('zwei Perioden: 2026-07-14 löst die erste, 2026-07-15 die zweite auf (halboffen, D1 Phase 10)', () => {
+    const p1 = makePeriod({ id: 1, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40 });
+    const p2 = makePeriod({ id: 2, validFrom: '2026-07-15', validTo: null, weeklyHours: 20 });
+    expect(resolveWorkPeriodIn([p1, p2], '2026-07-14')).toBe(p1);
+    expect(resolveWorkPeriodIn([p1, p2], '2026-07-15')).toBe(p2);
+  });
+
+  it('Datum vor der ersten Periode liefert null', () => {
+    const p1 = makePeriod({ id: 1, validFrom: '2026-01-01', validTo: null, weeklyHours: 40 });
+    expect(resolveWorkPeriodIn([p1], '2025-12-31')).toBeNull();
+  });
+
+  it("ein Datum ohne YYYY-MM-DD-Muster wirft mit einer Meldung, die den Wert zitiert", () => {
+    expect(() => resolveWorkPeriodIn([], '2026-8-1')).toThrow('2026-8-1');
+  });
+
+  it('ein zur Laufzeit übergebenes Date-Objekt wirft trotz TypeScript-Signatur', () => {
+    const runtimeDate = new Date('2026-08-01') as unknown as string;
+    expect(() => resolveWorkPeriodIn([], runtimeDate)).toThrow();
+  });
 });
 
 describe('resolveWorkPeriodAt — Grenzfälle des halboffenen Intervalls (D1)', () => {
