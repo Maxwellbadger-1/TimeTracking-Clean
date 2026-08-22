@@ -6,11 +6,20 @@
  * And: Calculated overtime balances
  */
 
-import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
-import { ensureOvertimeBalanceEntries } from '../services/overtimeService.js';
 import logger from '../utils/logger.js';
 import { formatDate } from '../utils/timezone.js';
+import { assertNotProduction } from './productionGuard.js';
+
+// Produktionsschutz MUSS vor jedem Import laufen, der transitiv
+// server/src/database/connection.ts lädt (öffnet die DB auf Modulebene) — Muster aus
+// snapshotBalances.ts. Vorher fehlte dieser Schutz in dieser Datei vollständig (Rule 2,
+// T-11-45, Plan 11-11).
+assertNotProduction();
+
+const { db } = await import('../database/connection.js');
+const { ensureOvertimeBalanceEntries } = await import('../services/overtimeService.js');
+const { ensureInitialWorkPeriod, getUserById } = await import('../services/userService.js');
 
 logger.info('🚀 Creating ONE test user: Max Mustermann');
 
@@ -23,6 +32,14 @@ const result = db.prepare(`
 
 const userId = result.lastInsertRowid as number;
 logger.info({ userId }, '✅ User created');
+
+// D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses Nutzers
+// mit einem harten Fehler ab. Einziger Schreibweg: ensureInitialWorkPeriod() (userService.ts).
+const createdUser = getUserById(userId);
+if (!createdUser) {
+  throw new Error(`createOneTestUser: Nutzer ${userId} nach Anlage nicht gefunden`);
+}
+ensureInitialWorkPeriod(createdUser, null);
 
 // 2. Add time entries for 2024, 2025, 2026
 logger.info('📅 Adding time entries (2024-2026)...');

@@ -15,11 +15,20 @@
  *          Bestehende Test-User werden NICHT dupliziert (UPDATE statt INSERT)
  */
 
-import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
 import logger from '../utils/logger.js';
-import { ensureOvertimeBalanceEntries } from '../services/overtimeService.js';
-import { performYearEndRollover } from '../services/yearEndRolloverService.js';
+import { assertNotProduction } from './productionGuard.js';
+
+// Produktionsschutz MUSS vor jedem Import laufen, der transitiv
+// server/src/database/connection.ts lädt (öffnet die DB auf Modulebene) — Muster aus
+// snapshotBalances.ts. Vorher fehlte dieser Schutz in dieser Datei vollständig (Rule 2,
+// T-11-45, Plan 11-11).
+assertNotProduction();
+
+const { db } = await import('../database/connection.js');
+const { ensureOvertimeBalanceEntries } = await import('../services/overtimeService.js');
+const { performYearEndRollover } = await import('../services/yearEndRolloverService.js');
+const { ensureInitialWorkPeriod, getUserById } = await import('../services/userService.js');
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -86,6 +95,14 @@ function upsertUser(userData: {
     );
 
     logger.info({ username: userData.username }, '✅ Updated existing test user');
+
+    // Sicherheitsnetz für Alt-Fälle (Plan 11-03-Muster): idempotent, tut nichts, wenn der
+    // Nutzer bereits eine Periode hat.
+    const updatedUser = getUserById(existingUser.id);
+    if (updatedUser) {
+      ensureInitialWorkPeriod(updatedUser, null);
+    }
+
     return existingUser.id;
   } else {
     // Insert new user
@@ -109,8 +126,19 @@ function upsertUser(userData: {
       userData.status
     );
 
-    logger.info({ username: userData.username, id: result.lastInsertRowid }, '✅ Created new test user');
-    return result.lastInsertRowid as number;
+    const newUserId = result.lastInsertRowid as number;
+    logger.info({ username: userData.username, id: newUserId }, '✅ Created new test user');
+
+    // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses
+    // Nutzers mit einem harten Fehler ab. Einziger Schreibweg: ensureInitialWorkPeriod()
+    // (userService.ts). Gilt für jeden Aufrufer von upsertUser() (Schleife bei Zeile ~700).
+    const createdUser = getUserById(newUserId);
+    if (!createdUser) {
+      throw new Error(`seedTestUsers/upsertUser: Nutzer ${newUserId} nach Anlage nicht gefunden`);
+    }
+    ensureInitialWorkPeriod(createdUser, null);
+
+    return newUserId;
   }
 }
 

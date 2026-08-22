@@ -11,8 +11,17 @@
  *   npm run seed-test-data
  */
 
-import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
+import { assertNotProduction } from './productionGuard.js';
+
+// Produktionsschutz MUSS vor jedem Import laufen, der transitiv
+// server/src/database/connection.ts lädt (öffnet die DB auf Modulebene) — Muster aus
+// snapshotBalances.ts. Vorher fehlte dieser Schutz in dieser Datei vollständig (Rule 2,
+// T-11-45, Plan 11-11).
+assertNotProduction();
+
+const { db } = await import('../database/connection.js');
+const { ensureInitialWorkPeriod, getUserById } = await import('../services/userService.js');
 
 console.log('🌱 Seeding Test Data (EDGE CASES - Dezember 2025)...\n');
 console.log('⚠️  WICHTIG: Heute ist Montag 08.12.2025');
@@ -46,7 +55,18 @@ async function createUser(data: {
     data.hireDate
   );
 
-  return result.lastInsertRowid as number;
+  const userId = result.lastInsertRowid as number;
+
+  // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses Nutzers
+  // mit einem harten Fehler ab. Einziger Schreibweg: ensureInitialWorkPeriod() (userService.ts).
+  // Direkt nach der Anlage, innerhalb dieser Helper-Funktion — gilt für alle drei Aufrufstellen.
+  const createdUser = getUserById(userId);
+  if (!createdUser) {
+    throw new Error(`seedTestData/createUser: Nutzer ${userId} nach Anlage nicht gefunden`);
+  }
+  ensureInitialWorkPeriod(createdUser, null);
+
+  return userId;
 }
 
 // Helper: Create time entry

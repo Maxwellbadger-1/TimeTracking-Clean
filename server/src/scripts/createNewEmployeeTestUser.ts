@@ -16,11 +16,20 @@
  * USES TRANSACTION PATTERN!
  */
 
-import { db } from '../database/connection.js';
 import bcrypt from 'bcrypt';
-import { ensureOvertimeBalanceEntries } from '../services/overtimeService.js';
 import logger from '../utils/logger.js';
 import { formatDate } from '../utils/timezone.js';
+import { assertNotProduction } from './productionGuard.js';
+
+// Produktionsschutz MUSS vor jedem Import laufen, der transitiv
+// server/src/database/connection.ts lädt (öffnet die DB auf Modulebene) — Muster aus
+// snapshotBalances.ts. Vorher fehlte dieser Schutz in dieser Datei vollständig (Rule 2,
+// T-11-45, Plan 11-11).
+assertNotProduction();
+
+const { db } = await import('../database/connection.js');
+const { ensureOvertimeBalanceEntries } = await import('../services/overtimeService.js');
+const { ensureInitialWorkPeriod, getUserById } = await import('../services/userService.js');
 
 logger.info('🚀 Creating NEW EMPLOYEE test user - Lisa Neuling (hired 01.01.2026)');
 
@@ -203,6 +212,14 @@ const createNewEmployeeTestUser = db.transaction(() => {
 try {
   const userId = createNewEmployeeTestUser();
   logger.info({ userId }, '💾 Transaction COMMITTED successfully!');
+
+  // D4 (Phase 11): ohne Startperiode bricht die erste Überstundenberechnung dieses Nutzers
+  // mit einem harten Fehler ab. Einziger Schreibweg: ensureInitialWorkPeriod() (userService.ts).
+  const createdUser = getUserById(userId);
+  if (!createdUser) {
+    throw new Error(`createNewEmployeeTestUser: Nutzer ${userId} nach Anlage nicht gefunden`);
+  }
+  ensureInitialWorkPeriod(createdUser, null);
 
   // Force WAL checkpoint
   db.pragma('wal_checkpoint(FULL)');
