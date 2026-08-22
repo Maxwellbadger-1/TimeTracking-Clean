@@ -5,15 +5,23 @@ import os from 'os';
 import path from 'path';
 import { initializeDatabase } from './schema.js';
 import migration008 from './migrations/008_create_user_work_periods.js';
+import migration013 from './migrations/013_soft_delete_user_work_periods.js';
 
 /**
  * Maschineller Nachweis, dass `schema.ts` und Migration 008 wortgleiche Datenbankobjekte
  * für `user_work_periods` erzeugen — der Ersatz für den Kommentar „MUSS identisch bleiben".
  *
+ * Seit Migration 013 (13-01-PLAN.md, Task 1/3) läuft auf dem Migrationspfad zusätzlich
+ * migration013.up(dbB) nach migration008.up(dbB) — genau die Kette, die auf einer echten
+ * Bestandsdatenbank auch abläuft (008 legt die Tabelle an, 013 rüstet deletedAt/deletedBy
+ * und den aussetzbaren Kettenriegel nach). Ohne diese Ergänzung würde dieser Test seit der
+ * Parität-Erweiterung in schema.ts (deletedAt/deletedBy, work_period_chain_guard-bewusste
+ * Trigger) rot laufen, weil dbA (schema.ts) dann mehr Spalten/Indizes trägt als dbB.
+ *
  * Beide Datenbanken sind Dateien in os.tmpdir() mit eindeutigen Namen, nicht `:memory:`:
  * `initializeDatabase()` erzwingt WAL-Modus und wirft bei einer Speicherdatenbank.
  */
-describe('schema.ts <-> migrations/008_create_user_work_periods.ts Gleichheit', () => {
+describe('schema.ts <-> migrations/008+013 (user_work_periods) Gleichheit', () => {
   const pathA = path.join(os.tmpdir(), `parity-schema-${Date.now()}-${process.pid}.db`);
   const pathB = path.join(os.tmpdir(), `parity-migration-${Date.now()}-${process.pid}.db`);
 
@@ -28,7 +36,17 @@ describe('schema.ts <-> migrations/008_create_user_work_periods.ts Gleichheit', 
 
   function normalizeSql(sql: string | null): string {
     if (sql === null) return '';
-    return sql.replace(/\s+/g, ' ').trim();
+    // SQLite quotiert den Tabellennamen automatisch in doppelten Anfuehrungszeichen, wenn
+    // die CREATE-TABLE-Anweisung aus einem ALTER TABLE ... RENAME TO hervorgegangen ist
+    // (Tabellen-Neubau-Technik aus Migration 012/013) — schema.ts legt dieselbe Tabelle ohne
+    // RENAME an und bleibt unquotiert. Beide Formen sind semantisch identisch (alle
+    // Bezeichner in diesem Projekt sind quotierungsfrei gueltig), deshalb werden doppelt
+    // quotierte Bezeichner vor dem Vergleich normalisiert — reine SQL-Stringliterale nutzen
+    // ausschliesslich einfache Anfuehrungszeichen und sind davon nicht betroffen.
+    return sql
+      .replace(/"([A-Za-z_][A-Za-z0-9_]*)"/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   function objectsFor(db: Database.Database): Array<{ type: string; name: string; sql: string }> {
@@ -58,6 +76,7 @@ describe('schema.ts <-> migrations/008_create_user_work_periods.ts Gleichheit', 
       )
     `).run();
     migration008.up(dbB);
+    migration013.up(dbB);
     const objectsB = objectsFor(dbB);
     dbB.close();
 

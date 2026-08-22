@@ -255,6 +255,25 @@ export function initializeDatabase(db: Database.Database): void {
     );
   `);
 
+  // 4b2. work_period_chain_guard table (aussetzbarer Kettenriegel, DD-2 aus 13-01-PLAN.md)
+  //
+  // Einzeilige Steuertabelle: Waehrend der Vorperiode-waechst/Periode-verschiebt-sich-Sequenz
+  // eines validFrom-Wechsels ist die Kette zwischenzeitlich zwangslaeufig inkonsistent, die
+  // Trigger unten pruefen aber nach jeder Anweisung. `suspended = 1` setzt die INSERT-/
+  // UPDATE-Riegel innerhalb einer db.transaction()-Klammer aus, der DELETE-Riegel bleibt
+  // davon unberuehrt (absolut, nicht aussetzbar).
+  //
+  // MUSS identisch bleiben mit migrations/013_soft_delete_user_work_periods.ts.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_period_chain_guard (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      suspended INTEGER NOT NULL DEFAULT 0 CHECK (suspended IN (0, 1))
+    );
+  `);
+  db.exec(`
+    INSERT OR IGNORE INTO work_period_chain_guard (id, suspended) VALUES (1, 0);
+  `);
+
   // 4c. user_work_periods table (Arbeitszeit-Perioden)
   //
   // Historisiert weeklyHours/workSchedule statt sie flach in users zu halten (D2, REQ-20).
@@ -263,10 +282,17 @@ export function initializeDatabase(db: Database.Database): void {
   // Datenbankseite von REQ-22/D3 (Überlappungs-/Lückenschutz); der partielle UNIQUE-Index
   // idx_user_work_periods_one_open erzwingt höchstens eine offene Periode je Nutzer.
   //
+  // deletedAt/deletedBy (D2/D3, 13-CONTEXT.md): Soft-Delete-Fundament — eine Periode wird
+  // per UPDATE ... SET deletedAt = ... weggenommen, nie per echtem DELETE. Kein
+  // Tabellen-Constraint UNIQUE(userId, validFrom) mehr — der Ersatz ist der partielle Index
+  // idx_user_work_periods_user_from_unique (WHERE deletedAt IS NULL), sonst wuerde eine
+  // weggenommene Periode fuer immer das erneute Anlegen mit demselben validFrom blockieren.
+  //
   // users.weeklyHours und users.workSchedule bleiben unangetastet (D4, REQ-21) — diese
   // Tabelle läuft nur daneben her, sie ersetzt nichts.
   //
-  // MUSS identisch bleiben mit migrations/008_create_user_work_periods.ts —
+  // MUSS identisch bleiben mit migrations/008_create_user_work_periods.ts und
+  // migrations/013_soft_delete_user_work_periods.ts —
   // Abweichungen zwischen schema.ts und Migration sind eine bekannte Fehlerquelle.
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_work_periods (
@@ -279,13 +305,16 @@ export function initializeDatabase(db: Database.Database): void {
       note TEXT,
       createdAt TEXT DEFAULT (datetime('now')),
       createdBy INTEGER,
-      UNIQUE(userId, validFrom),
+      deletedAt TEXT,
+      deletedBy INTEGER,
       CHECK (validFrom GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
       CHECK (validTo IS NULL OR validTo GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
       CHECK (validTo IS NULL OR validTo > validFrom),
       CHECK (weeklyHours >= 0 AND weeklyHours <= 168),
+      CHECK (deletedAt IS NULL OR deletedAt GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'),
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (createdBy) REFERENCES users(id)
+      FOREIGN KEY (createdBy) REFERENCES users(id),
+      FOREIGN KEY (deletedBy) REFERENCES users(id)
     );
   `);
 
@@ -294,17 +323,21 @@ export function initializeDatabase(db: Database.Database): void {
     BEFORE INSERT ON user_work_periods
     BEGIN
       SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
-      WHERE EXISTS (
-        SELECT 1 FROM user_work_periods p
-        WHERE p.userId = NEW.userId
-          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
-          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
-      );
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = NEW.userId
+            AND p.deletedAt IS NULL
+            AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+            AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+        );
       SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
-      WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId)
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.deletedAt IS NULL)
         AND NOT EXISTS (
           SELECT 1 FROM user_work_periods p
           WHERE p.userId = NEW.userId
+            AND p.deletedAt IS NULL
             AND (p.validTo = NEW.validFrom
                  OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
         );
@@ -316,17 +349,23 @@ export function initializeDatabase(db: Database.Database): void {
     BEFORE UPDATE ON user_work_periods
     BEGIN
       SELECT RAISE(ABORT, 'user_work_periods: Überlappung mit einer bestehenden Periode desselben Nutzers')
-      WHERE EXISTS (
-        SELECT 1 FROM user_work_periods p
-        WHERE p.userId = NEW.userId AND p.id <> NEW.id
-          AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
-          AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
-      );
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND NEW.deletedAt IS NULL
+        AND EXISTS (
+          SELECT 1 FROM user_work_periods p
+          WHERE p.userId = NEW.userId AND p.id <> NEW.id
+            AND p.deletedAt IS NULL
+            AND (NEW.validTo IS NULL OR p.validFrom < NEW.validTo)
+            AND (p.validTo   IS NULL OR NEW.validFrom < p.validTo)
+        );
       SELECT RAISE(ABORT, 'user_work_periods: Lücke zur bestehenden Periodenkette desselben Nutzers')
-      WHERE EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.id <> NEW.id)
+      WHERE (SELECT suspended FROM work_period_chain_guard WHERE id = 1) = 0
+        AND NEW.deletedAt IS NULL
+        AND EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = NEW.userId AND p.id <> NEW.id AND p.deletedAt IS NULL)
         AND NOT EXISTS (
           SELECT 1 FROM user_work_periods p
           WHERE p.userId = NEW.userId AND p.id <> NEW.id
+            AND p.deletedAt IS NULL
             AND (p.validTo = NEW.validFrom
                  OR (NEW.validTo IS NOT NULL AND p.validFrom = NEW.validTo))
         );
@@ -341,15 +380,15 @@ export function initializeDatabase(db: Database.Database): void {
       WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
         AND NOT EXISTS (
           SELECT 1 FROM user_work_periods p
-          WHERE p.userId = OLD.userId AND p.id <> OLD.id
+          WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.deletedAt IS NULL
         );
       SELECT RAISE(ABORT, 'user_work_periods: Löschen würde eine Lücke in der Periodenkette hinterlassen')
       WHERE OLD.validTo IS NOT NULL
         AND EXISTS (SELECT 1 FROM users u WHERE u.id = OLD.userId)
         AND EXISTS (SELECT 1 FROM user_work_periods p
-                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validTo = OLD.validFrom)
+                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.deletedAt IS NULL AND p.validTo = OLD.validFrom)
         AND EXISTS (SELECT 1 FROM user_work_periods p
-                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.validFrom = OLD.validTo);
+                    WHERE p.userId = OLD.userId AND p.id <> OLD.id AND p.deletedAt IS NULL AND p.validFrom = OLD.validTo);
     END;
   `);
 
@@ -568,7 +607,6 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_vacation_tx_user_year ON vacation_transactions(userId, year);
     CREATE INDEX IF NOT EXISTS idx_vacation_tx_reference ON vacation_transactions(referenceType, referenceId);
     CREATE INDEX IF NOT EXISTS idx_user_work_periods_user_from ON user_work_periods(userId, validFrom);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_work_periods_one_open ON user_work_periods(userId) WHERE validTo IS NULL;
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_userId ON overtime_corrections(userId);
     CREATE INDEX IF NOT EXISTS idx_overtime_corrections_date ON overtime_corrections(date);
     CREATE INDEX IF NOT EXISTS idx_work_time_accounts_userId ON work_time_accounts(userId);
@@ -578,6 +616,30 @@ export function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_password_change_log_userId ON password_change_log(userId);
     CREATE INDEX IF NOT EXISTS idx_password_change_log_changedBy ON password_change_log(changedBy);
   `);
+
+  // Die drei deletedAt-abhaengigen Indizes auf user_work_periods (Migration 013, D2/D3)
+  // stehen ABSICHTLICH ausserhalb des obigen kombinierten db.exec()-Blocks und einzeln in
+  // try/catch: Auf einer Bestandsdatenbank, die schon bis Migration 012 lief, existiert die
+  // Spalte deletedAt an dieser Stelle noch nicht — initializeDatabase() laeuft immer VOR
+  // runMigrations() (server.ts:212-215), CREATE TABLE IF NOT EXISTS ist auf der bestehenden
+  // Tabelle ein No-Op. Ein ungeschuetzter Fehlschlag hier wuerde in einem kombinierten
+  // db.exec() den kompletten restlichen Indexblock abbrechen (ALLE nachfolgenden Indizes,
+  // nicht nur diese drei). Auf einer frischen Installation hat die Tabelle deletedAt von
+  // Anfang an (CREATE TABLE oben) und alle drei Statements greifen sofort; auf einer
+  // Bestandsdatenbank holt Migration 013 (Tabellen-Neubau, legt dieselben Indizes erneut an)
+  // das fehlende Schema nach dem Start automatisch nach.
+  try {
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_work_periods_one_open ON user_work_periods(userId) WHERE validTo IS NULL AND deletedAt IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_work_periods_user_from_unique ON user_work_periods(userId, validFrom) WHERE deletedAt IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_user_work_periods_deleted ON user_work_periods(userId, deletedAt);
+    `);
+  } catch (error) {
+    logger.warn(
+      { error },
+      '⏳ deletedAt-Indizes auf user_work_periods noch nicht anlegbar (Spalte fehlt bis Migration 013 gelaufen ist) — runMigrations() holt das nach'
+    );
+  }
 
   logger.info('✅ Database schema initialized successfully');
   logger.info('✅ WAL mode enabled for multi-user support');
