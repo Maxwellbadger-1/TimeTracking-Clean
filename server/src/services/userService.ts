@@ -555,16 +555,37 @@ export async function updateUser(
 
     // Spiegelt eine Stammdaten-Wochenstunden-/Tagesplan-Änderung in die offene Periode.
     //
-    // 1. Das ist eine ÜBERGANGSMASSNAHME für das Fenster zwischen Phase 11 und Phase 12.
-    // 2. Sie hält das heutige Verhalten exakt aufrecht: Wer die Stammdaten-Wochenstunden
-    //    ändert, ändert damit die Berechnung ab Beginn der offenen Periode — genau wie vor
-    //    diesem Umbau. Ohne sie würde eine Stundenänderung wirkungslos, ohne dass jemand es
-    //    merkt.
-    // 3. Phase 12 ersetzt diesen Weg durch den Stichtagswechsel (`closeWorkPeriod` +
-    //    `createWorkPeriod`), Phase 13 durch die ausdrückliche Aktion „Stammdaten
-    //    korrigieren" mit Pflichtbegründung.
-    // 4. Diese Stelle legt deshalb bewusst KEINE zweite Periode an und verschiebt kein
-    //    Datum.
+    // 1. Das ist eine ÜBERGANGSMASSNAHME aus dem Fenster zwischen Phase 11 und Phase 12.
+    // 2. Sie hält das damalige Verhalten aufrecht: Wer die Stammdaten-Wochenstunden ändert,
+    //    ändert damit die Berechnung ab Beginn der offenen Periode. Ohne sie würde eine
+    //    Stundenänderung wirkungslos, ohne dass jemand es merkt.
+    // 3. Diese Stelle legt bewusst KEINE zweite Periode an und verschiebt kein Datum.
+    //
+    // WR-07 (Code-Review Phase 13) — RICHTIGSTELLUNG EINER FALSCHEN ZUSAGE:
+    //
+    // Hier stand bis zum Code-Review, Phase 12 ersetze diesen Weg durch den Stichtagswechsel
+    // und „Phase 13 durch die ausdrückliche Aktion ‚Stammdaten korrigieren' mit
+    // Pflichtbegründung". Beide Aktionen sind gebaut — der Übergangsweg wurde aber NICHT
+    // entfernt. Der Kommentar las sich, als wäre er erledigt; er war es nicht.
+    //
+    // WAS DAS HEISST: Über `PUT /api/users/:id` lässt sich mit veränderten
+    // `weeklyHours`/`workSchedule` weiterhin das erreichen, was `PUT /api/work-periods/:id`
+    // unter Vorschau-Token, Pflichtbegründung, Kettenprüfung, Rebuild, Journalzeile und
+    // audit_log-Eintrag stellt — nur ohne all das. Die eigene Oberfläche nutzt den Weg nicht
+    // mehr (`EditUserModal.handleSubmit` schickt `weeklyHours` unverändert), über die API ist
+    // er erreichbar.
+    //
+    // WARUM ER (NOCH) STEHT: Das Entfernen ist eine Vertragsänderung an `updateUser()`
+    // ausserhalb des Änderungsumfangs von Phase 13 und berührt eine eigene Testdatei einer
+    // früheren Phase (`userWorkPeriodProvisioning.test.ts`). Als ausdrücklicher Restposten
+    // in PROJECT_STATUS.md geführt („Offene Restposten") statt hier stillschweigend als
+    // erledigt behauptet.
+    //
+    // WAS SOFORT BEHOBEN IST: Die Spiegelung liess `overtime_balance` mit den ALTEN
+    // Sollstunden stehen — die Periode trug danach neue Werte, der Saldo die alten, bis
+    // irgendein späterer Rebuild den Unterschied zufällig materialisierte. Die betroffenen
+    // Aggregatzeilen werden jetzt in derselben Transaktion verworfen und beim nächsten
+    // Zugriff neu gerechnet (dasselbe Muster wie im hireDate-Zweig, WR-09 Phase 11).
     const weeklyHoursChanged =
       data.weeklyHours !== undefined && data.weeklyHours !== existingUser.weeklyHours;
     const workScheduleChanged =
@@ -639,6 +660,17 @@ export async function updateUser(
       // Seed-/Wartungsskripte benutzen. Ändert ausschließlich weeklyHours/workSchedule,
       // NIE ein Datum und NIE das Anlegen einer Periode.
       updateWorkPeriodValues(currentPeriod.id, mirroredWeeklyHours, mirroredWorkSchedule ?? null);
+
+      // WR-07 (Code-Review Phase 13): Der Übergangsweg rechnet den Saldo nicht neu. Ohne
+      // diese Zeile trüge die Periode danach neue Sollstunden und `overtime_balance` die
+      // alten — ein stiller Verzug, bis irgendein späterer Rebuild den Unterschied zufällig
+      // materialisiert. Die Aggregatzeilen werden deshalb IN DERSELBEN Transaktion verworfen
+      // und beim nächsten Zugriff neu gerechnet. `overtime_transactions` bleiben unangetastet
+      // (unveränderlicher Prüfpfad) — dasselbe Muster wie im hireDate-Zweig oben.
+      //
+      // Das ersetzt NICHT die Journalzeile und die Pflichtbegründung, die
+      // `PUT /api/work-periods/:id` stellt; es beseitigt nur die Saldo-Inkonsistenz.
+      db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(id);
     });
 
     applyUpdate();
