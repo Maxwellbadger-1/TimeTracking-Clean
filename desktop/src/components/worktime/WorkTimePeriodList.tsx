@@ -1,10 +1,18 @@
 import { useMemo, type ReactNode } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Lock } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
-import { getTodayDate, resolveWorkTimePeriodIn } from '../../utils';
+import { getTodayDate } from '../../utils';
 import type { WorkTimePeriod, DayName } from '../../types';
+
+/**
+ * Die Oberflaeche stellt die Zugriffsregel fuer Arbeitszeit-Perioden nicht selbst her, sie
+ * zeigt sie nur (Muster aus `VacationTransactions.tsx`). Die Durchsetzung liegt serverseitig
+ * (`13-CONTEXT.md` D5, Plan 13-05: `requireAuth`/`requireAdmin` auf `GET /api/work-periods`).
+ * Ein 403 wird von `useWorkPeriods()` als `Error('FORBIDDEN')` gemeldet (Plan 13-07, DD-31);
+ * diese Komponente uebersetzt genau diesen Fall in Zustand 3 ("Kein Zugriff"), nicht mehr.
+ */
 
 interface WorkTimePeriodListProps {
   userId: number;
@@ -12,6 +20,14 @@ interface WorkTimePeriodListProps {
   highlightPeriodId?: number | null;
   /** Ist die Prop nicht gesetzt, wird die Aktionsspalte gar nicht gerendert (Schnitt Phase 13). */
   renderActions?: (period: WorkTimePeriod) => ReactNode;
+  /** Uebersteuerung des serverseitig erkannten 403-Zustands (Zustand 3, "Kein Zugriff"). Die
+   *  Komponente erkennt FORBIDDEN bereits selbst aus dem Ladefehler; diese Prop ist fuer
+   *  Aufrufer gedacht, die den Zustand unabhaengig vom eigenen Ladevorgang erzwingen wollen. */
+  accessDenied?: boolean;
+  /** Dauerhaft sichtbare Fussnote unter der Tabelle (13-UI-SPEC: "Die Fussnote ist der
+   *  Traeger — sie ist ohne jede Interaktion lesbar"). Erscheint auch bei nur einer Zeile,
+   *  aber NICHT im Zustand "Kein Zugriff". */
+  footnote?: ReactNode;
 }
 
 const DAY_SHORT_LABELS: Record<DayName, string> = {
@@ -45,7 +61,13 @@ function formatWorkSchedule(period: WorkTimePeriod): string {
     .join(' · ');
 }
 
-export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }: WorkTimePeriodListProps) {
+export function WorkTimePeriodList({
+  userId,
+  highlightPeriodId,
+  renderActions,
+  accessDenied,
+  footnote,
+}: WorkTimePeriodListProps) {
   const { data, isLoading, error, refetch } = useWorkPeriods(userId);
 
   const sortedPeriods = useMemo(() => {
@@ -61,22 +83,38 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
    */
   const today = getTodayDate();
 
-  /**
-   * WR-06 (Code-Review Phase 12): Die Intervallbedingung war hier je Zeile nachgebaut.
-   * `resolveWorkTimePeriodIn()` ist DIE EINE Aufloesungsstelle im Desktop, zeichengleich zu
-   * `resolveWorkPeriodIn()` im Server — jede zweite Fassung ist ein Dual-Calculation-Fehler.
-   * Die heute gueltige Periode wird deshalb einmal bestimmt und je Zeile nur noch ueber die
-   * Id verglichen.
-   */
-  const currentPeriodId = useMemo(
-    () => resolveWorkTimePeriodIn(sortedPeriods, today)?.id ?? null,
-    [sortedPeriods, today]
-  );
+  // DD-35 (Plan 13-08): Die "aktuell gueltige Periode" wurde hier frueher ein zweites Mal
+  // selbst bestimmt (WR-19/WR-06 warnten bereits genau vor diesem Dual-Calculation-Risiko).
+  // Seit Plan 13-05 liefert der Server `isCurrent` ueber `getWorkPeriodsWithFlags()`
+  // (`resolveWorkPeriodIn()`, dieselbe Aufloesungsstelle wie zuvor im Client). Die lokale
+  // Berechnung ist deshalb entfernt, nicht ergaenzt — sonst gaebe es zwei Quellen fuer
+  // dieselbe Aussage in derselben Komponente.
+
+  // DD-31 (Plan 13-07): `useWorkPeriods()` meldet einen 403 als `Error('FORBIDDEN')`. Die
+  // Prop `accessDenied` bleibt als Uebersteuerung fuer den Aufrufer bestehen.
+  const isAccessDenied = accessDenied || error?.message === 'FORBIDDEN';
 
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
         <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (isAccessDenied) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <div className="flex items-center gap-2">
+          <Lock className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            Kein Zugriff auf die Arbeitszeit-Perioden
+          </h4>
+        </div>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          Diese Angaben dürfen nur Administratoren einsehen. Wenn Sie glauben, dass Sie sie
+          brauchen, wenden Sie sich an eine Administratorin oder einen Administrator.
+        </p>
       </div>
     );
   }
@@ -138,7 +176,9 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
           {sortedPeriods.map((period) => {
-            const isCurrent = period.id === currentPeriodId;
+            // DD-35: `isCurrent` kommt seit Plan 13-05 vom Server (getWorkPeriodsWithFlags(),
+            // resolveWorkPeriodIn()) statt aus einer zweiten Berechnung hier.
+            const isCurrent = period.isCurrent;
             const isPlanned = period.validFrom > today;
             const isHighlighted = highlightPeriodId != null && period.id === highlightPeriodId;
 
@@ -198,6 +238,7 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
           })}
         </tbody>
       </table>
+      {footnote && <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">{footnote}</p>}
     </div>
   );
 }
