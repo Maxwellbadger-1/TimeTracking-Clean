@@ -33,13 +33,32 @@ interface ModalLayer {
   handlePanelKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => void;
 }
 
-export function useModalLayer(isOpen: boolean, onClose: () => void, label = 'modal'): ModalLayer {
+/**
+ * Phase 13 (DD-28, 13-07-PLAN.md): optionaler vierter Parameter fuer Aufrufer, die ESC
+ * situativ sperren muessen (z. B. `ConfirmDialog` waehrend eines laufenden Loeschvorgangs,
+ * Zustand 21 der 13-UI-SPEC). Der Wert wird — wie `onClose` — in einem Ref gehalten und im
+ * ESC-Effekt gelesen, damit die Abhaengigkeitsliste `[isOpen]` unveraendert bleibt und keine
+ * Neuregistrierung bei jedem Render entsteht. `Modal.tsx` ruft weiterhin ohne diesen
+ * Parameter auf; sein Verhalten ist unveraendert.
+ */
+interface ModalLayerOptions {
+  escDisabled?: boolean;
+}
+
+export function useModalLayer(
+  isOpen: boolean,
+  onClose: () => void,
+  label = 'modal',
+  options?: ModalLayerOptions
+): ModalLayer {
   const idRef = useRef<symbol>(Symbol(label));
   const onCloseRef = useRef(onClose);
+  const escDisabledRef = useRef(options?.escDisabled ?? false);
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<Element | null>(null);
 
   onCloseRef.current = onClose;
+  escDisabledRef.current = options?.escDisabled ?? false;
 
   // Stack-Teilnahme + Scroll-Lock. Abhaengigkeit ausschliesslich [isOpen] —
   // onClose ist bei den Aufrufern eine Inline-Funktion und wuerde bei jedem
@@ -59,7 +78,11 @@ export function useModalLayer(isOpen: boolean, onClose: () => void, label = 'mod
     if (!isOpen) return;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && modalStack.isTopModal(idRef.current)) {
+      if (
+        e.key === 'Escape' &&
+        modalStack.isTopModal(idRef.current) &&
+        !escDisabledRef.current
+      ) {
         e.stopPropagation();
         onCloseRef.current();
       }
