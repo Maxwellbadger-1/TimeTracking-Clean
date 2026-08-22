@@ -55,6 +55,13 @@ export interface ApiResponse<T> {
   error?: string;
   message?: string;
   token?: string; // JWT token (returned on login)
+  /**
+   * Phase 13 (DD-31, 13-07-PLAN.md): nur bei `success: false` gesetzt. Der HTTP-Statuscode
+   * war bisher fuer den Aufrufer nicht sichtbar — `useWorkPeriods()` braucht ihn, um einen
+   * 403 (Zugriffsablehnung) von jedem anderen Fehler zu unterscheiden (T-13-31, Zustand 3
+   * „Kein Zugriff" vs. Zustand 2 Ladefehler). Minimale, additive Ergaenzung, kein Cast.
+   */
+  status?: number;
 }
 
 // JWT Token Storage
@@ -203,6 +210,7 @@ class ApiClient {
         return {
           success: false,
           error: data.error || `HTTP error! status: ${response.status}`,
+          status: response.status,
         };
       }
 
