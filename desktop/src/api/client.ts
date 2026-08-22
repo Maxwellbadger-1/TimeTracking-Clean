@@ -180,7 +180,19 @@ class ApiClient {
         // SUPPRESS: 401 Unauthorized (handled by auth store)
         // SUPPRESS: 403 on /users endpoint (employees calling admin-only endpoint is expected)
         const is403OnUsers = response.status === 403 && endpoint === '/users';
-        const shouldShowToast = response.status !== 401 && !is403OnUsers;
+
+        // WR-10 (Code-Review Phase 12): SUPPRESS fuer Endpunkte, die ihre Fehler selbst im
+        // Vertragstext darstellen. Der Wechsel-Dialog behandelt genau diese Faelle bereits
+        // (Zustand 13/14, jeweils EIN Banner) — der globale Toast zeigte daneben zusaetzlich
+        // den internen Fehlercode: "PREVIEW_STALE: Die Vorschau ist nicht mehr aktuell."
+        // mit dem Untertitel "Die Anfrage konnte nicht verarbeitet werden.". Ein interner
+        // Code in der Oberflaeche einer Personalverwaltung steht in keinem Textbuch, und die
+        // doppelte Meldung widerspricht Zustand 13/14.
+        // Geprueft: alle Verbraucher von /work-periods stellen ihre Fehler selbst dar —
+        // WorkTimeChangeModal (Banner + Feldfehler), WorkTimePeriodList (Fehlerzustand mit
+        // "Perioden erneut laden") und AbsenceRequestForm (previewUnavailable).
+        const handlesOwnErrors = endpoint.startsWith('/work-periods');
+        const shouldShowToast = response.status !== 401 && !is403OnUsers && !handlesOwnErrors;
 
         if (shouldShowToast) {
           toast.error(data.error || `Server-Fehler: ${response.status}`, {
