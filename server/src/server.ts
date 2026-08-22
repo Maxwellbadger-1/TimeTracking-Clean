@@ -27,6 +27,8 @@ import settingsRoutes from './routes/settings.js';
 import exportsRoutes from './routes/exports.js';
 import performanceRoutes from './routes/performance.js';
 import yearEndRolloverRoutes from './routes/yearEndRollover.js';
+// WR-02 (Code-Review Phase 11, Durchlauf 2): Aufrufer fuer checkAllPeriodChains().
+import adminRoutes from './routes/admin.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { performanceMonitor } from './middleware/performanceMonitor.js';
 import { startBackupScheduler, startYearEndRolloverScheduler } from './services/cronService.js';
@@ -194,6 +196,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/exports', exportsRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/year-end-rollover', yearEndRolloverRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);

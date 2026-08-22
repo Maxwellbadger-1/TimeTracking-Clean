@@ -489,6 +489,16 @@ export interface PeriodChainIssue {
  *    Perioden) — unverändert über dieselbe Funktion, keine zweite Kopie der Regel.
  *
  * Liefert nur die auffälligen Nutzer; ein leeres Ergebnis heißt "Bestand in Ordnung".
+ *
+ * AUFRUFER (WR-02, Durchlauf 2 — bis dahin hatte diese Funktion außerhalb der Tests
+ * keinen einzigen, die Zusage oben galt also faktisch nicht):
+ *   - `src/scripts/checkPeriodChains.ts` / `npm run check:period-chains` — Exitcode 1 bei
+ *     Befunden, für Cron und Pipelines. Nicht gegen die Produktion (Produktionsschutz).
+ *   - `GET /api/admin/period-chains` (`src/routes/admin.ts`) — derselbe Check zur Laufzeit
+ *     auf der laufenden Verbindung; der Weg, der auch die Produktion abdeckt.
+ *   - `src/services/workPeriodService.test.ts` — Regressionsnetz.
+ * Ein Aufruf beim Serverstart wurde bewusst NICHT ergänzt; Begründung im Kopf von
+ * `checkPeriodChains.ts`.
  */
 export function checkAllPeriodChains(): PeriodChainIssue[] {
   const users = db
