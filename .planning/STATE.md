@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: verifying
-stopped_at: Completed 13-11-PLAN.md
+status: ready
+stopped_at: Completed Phase 13 — verifiziert 4/4
 last_updated: "2026-08-22T22:15:34.325Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 42
   completed_plans: 42
   percent: 71
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 13 — korrigieren-und-r-ckg-ngig-machen
+**Current focus:** Phase 14 — absicherung-und-auslieferung
 
 ## Current Status
 
 - **Phase:** 14
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
-- **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-11-PLAN.md
+- **Next action:** `/gsd:plan-phase 14` — Absicherung und Auslieferung (14-CONTEXT.md liegt vor)
+- **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
+- **Stopped at:** Completed Phase 13
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
