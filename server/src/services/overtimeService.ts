@@ -9,7 +9,8 @@ import {
 import { getUserById } from './userService.js';
 import { rebuildOvertimeTransactionsForMonth } from './overtimeTransactionRebuildService.js';
 import {
-  deleteEarnedTransactionsForDate,
+  // WR-16: deleteEarnedTransactionsForDate wurde hier entfernt — sein einziger Aufrufer
+  // war die geloeschte tote Funktion _updateOvertimeTransactionsForDate().
   recordOvertimeEarned,
   getOvertimeBalance,
   recordVacationCredit,
@@ -24,183 +25,32 @@ import {
 } from './overtimeTransactionService.js';
 import { updateWorkTimeAccountBalance } from './workTimeAccountService.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
-import { createWorkPeriodContext, directWorkPeriodLookup } from './workPeriodContext.js';
+// WR-16: directWorkPeriodLookup wurde hier entfernt — sein einziger Aufrufer war die
+// geloeschte tote Funktion _updateOvertimeTransactionsForDate().
+import { createWorkPeriodContext } from './workPeriodContext.js';
+
+/**
+ * WR-16: Vier Funktionen ohne Aufrufer wurden hier ENTFERNT (Phase 11, Code-Review):
+ * `_calculateAbsenceCreditsForMonth()`, `_calculateUnpaidLeaveForMonth()`,
+ * `ensureAbsenceTransactionsForMonth()` und `_updateOvertimeTransactionsForDate()`.
+ *
+ * Sie waren laut `09-INVENTAR-SOLLSTUNDEN.md` nachweislich toter Code und hatten in
+ * Phase 11 trotzdem `createWorkPeriodContext()`-Aufrufe und `directWorkPeriodLookup`-
+ * Parameter bekommen — also Pflegeaufwand bei jeder künftigen Änderung, ohne je zu
+ * laufen. `ensureAbsenceTransactionsForMonth()` trug zusätzlich 21 `console.log`-Zeilen
+ * und einen `recordOvertimeEarned()`-Schreibpfad, der bei versehentlicher Reaktivierung
+ * echte Buchungen erzeugt hätte.
+ *
+ * Das Archiv ist die Git-Historie, nicht ein `_`-Präfix. Die Funktionen sind bis
+ * einschließlich Commit "fix(11): WR-08 ..." in `git log -- server/src/services/overtimeService.ts`
+ * vollständig nachlesbar.
+ */
 
 /**
  * Professional 3-Level Overtime Service
  * Tracks overtime on DAILY, WEEKLY, and MONTHLY basis
  * Based on German labor law and industry best practices
  */
-
-/**
- * Calculate absence credits for a specific month
- * CRITICAL: Correctly handles absences spanning multiple months!
- * NOW SUPPORTS: Individual work schedules (workSchedule)
- *
- * Example: Vacation from Nov 25 - Dec 5
- * - November: Credits Nov 25-30 (working days only)
- * - December: Credits Dec 1-5 (working days only)
- *
- * @param userId - User ID
- * @param month - Month in 'YYYY-MM' format
- * @param hireDate - User's hire date (ISO string)
- * @param endDate - End date for calculation (Date object, typically today or month end)
- * @returns Total absence credit hours for the month
- */
-// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
-function _calculateAbsenceCreditsForMonth(
-  userId: number,
-  month: string,
-  hireDate: string,
-  endDate: Date
-): number {
-  const periods = createWorkPeriodContext();
-  const monthStart = new Date(month + '-01');
-  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-  // Effective range: (month start OR hire date) to (month end OR endDate)
-  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(hireDate).getTime()));
-  const rangeEnd = new Date(Math.min(monthEnd.getTime(), endDate.getTime()));
-
-  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
-  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
-
-  // Get all approved absences that overlap with this month's range
-  // CRITICAL: Use proper date range query, NOT startDate LIKE 'YYYY-MM%'!
-  const absences = db.prepare(`
-    SELECT id, type, startDate, endDate, days
-    FROM absence_requests
-    WHERE userId = ?
-      AND status = 'approved'
-      AND type IN ('sick', 'vacation', 'overtime_comp')
-      AND startDate <= ?
-      AND endDate >= ?
-  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
-    id: number;
-    type: string;
-    startDate: string;
-    endDate: string;
-    days: number;
-  }>;
-
-  if (absences.length === 0) {
-    return 0;
-  }
-
-  // Get user for workSchedule
-  const user = getUserById(userId);
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // For each absence, calculate credit hours using individual work schedule
-  let totalCreditHours = 0;
-
-  for (const absence of absences) {
-    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
-
-    // Iterate through each day and sum getDailyTargetHours()
-    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr vor der Summe. Feiertag,
-    // workSchedule und Wochenende werden ausschließlich von getDailyTargetHours() selbst
-    // entschieden (server/src/utils/workingDays.ts:66-91); ein arbeitsfreier Tag liefert
-    // dort bereits 0 und trägt zur Summe nichts bei — der Vorfilter war redundant.
-    let absenceHours = 0;
-    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-      absenceHours += getDailyTargetHours(user, dateStr, periods);
-    }
-
-    totalCreditHours += absenceHours;
-
-    logger.debug({
-      absenceId: absence.id,
-      type: absence.type,
-      originalRange: `${absence.startDate} - ${absence.endDate}`,
-      monthRange: `${rangeStartStr} - ${rangeEndStr}`,
-      overlapRange: `${formatDate(absenceStart, 'yyyy-MM-dd')} - ${formatDate(absenceEnd, 'yyyy-MM-dd')}`,
-      absenceHours
-    }, 'Absence credit calculation (workSchedule-aware)');
-  }
-
-  logger.debug({
-    month,
-    absencesCount: absences.length,
-    totalCreditHours
-  }, 'Total absence credits for month');
-
-  return totalCreditHours;
-}
-
-/**
- * Calculate unpaid leave hours for a specific month
- * Unpaid leave REDUCES target hours (user doesn't need to work those days)
- * NOW SUPPORTS: Individual work schedules (workSchedule)
- *
- * @param userId - User ID
- * @param month - Month in 'YYYY-MM' format
- * @param hireDate - User's hire date
- * @param endDate - End date for calculation
- * @returns Total unpaid leave hours to subtract from target
- */
-// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
-function _calculateUnpaidLeaveForMonth(
-  userId: number,
-  month: string,
-  hireDate: string,
-  endDate: Date
-): number {
-  const periods = createWorkPeriodContext();
-  const monthStart = new Date(month + '-01');
-  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-  const rangeStart = new Date(Math.max(monthStart.getTime(), new Date(hireDate).getTime()));
-  const rangeEnd = new Date(Math.min(monthEnd.getTime(), endDate.getTime()));
-
-  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
-  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
-
-  const absences = db.prepare(`
-    SELECT id, startDate, endDate
-    FROM absence_requests
-    WHERE userId = ?
-      AND status = 'approved'
-      AND type = 'unpaid'
-      AND startDate <= ?
-      AND endDate >= ?
-  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
-    id: number;
-    startDate: string;
-    endDate: string;
-  }>;
-
-  // Get user for workSchedule
-  const user = getUserById(userId);
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  let totalUnpaidHours = 0;
-
-  for (const absence of absences) {
-    const absenceStart = new Date(Math.max(new Date(absence.startDate).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(absence.endDate).getTime(), rangeEnd.getTime()));
-
-    // Iterate through each day and sum getDailyTargetHours()
-    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr vor der Summe. Feiertag,
-    // workSchedule und Wochenende werden ausschließlich von getDailyTargetHours() selbst
-    // entschieden (server/src/utils/workingDays.ts:66-91); ein arbeitsfreier Tag liefert
-    // dort bereits 0 und trägt zur Summe nichts bei — der Vorfilter war redundant.
-    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      // FIX: Pass dateStr instead of Date object to avoid timezone conversion issues
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-      totalUnpaidHours += getDailyTargetHours(user, dateStr, periods);
-    }
-  }
-
-  return totalUnpaidHours;
-}
 
 interface DailyOvertime {
   date: string;
@@ -214,197 +64,6 @@ interface WeeklyOvertime {
   targetHours: number;
   actualHours: number;
   overtime: number;
-}
-
-/**
- * PROFESSIONAL STANDARD: Ensure absence transactions exist for a month
- *
- * This creates individual transaction records in overtime_transactions for transparency.
- * Called from updateMonthlyOvertime() to maintain audit trail.
- *
- * IDEMPOTENT: Deletes existing absence transactions for month before creating new ones.
- *
- * Professional systems (SAP SuccessFactors, Personio, DATEV) require transparent transaction history.
- */
-// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
-function ensureAbsenceTransactionsForMonth(userId: number, month: string): void {
-  console.log(`\n  🔧 ensureAbsenceTransactionsForMonth(userId=${userId}, month=${month})`);
-  const periods = createWorkPeriodContext();
-
-  // WR (Plan 09-05 Task 4, dieselbe Ursache wie overtimeTransactionRebuildService.ts und
-  // ensureAbsenceTransactions() oben): new Date(month + '-01') parst als UTC-Mitternacht
-  // statt lokal. Mitgezogen, obwohl diese Funktion unerreichbar ist (09-INVENTAR-
-  // KREDITIERUNG.md #8) — eine unerreichbare Kopie desselben Fehlers führt die nächste
-  // Untersuchung genauso in die Irre wie eine erreichbare.
-  const [year, monthNum] = month.split('-').map(Number);
-  const monthStart = new Date(year, monthNum - 1, 1);
-  const monthEnd = new Date(year, monthNum, 0);
-
-  // Get user for workSchedule
-  const user = getUserById(userId);
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  const [hYear, hMonth, hDay] = user.hireDate.split('-').map(Number);
-  const hireDate = new Date(hYear, hMonth - 1, hDay);
-  const rangeStart = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
-  const rangeEnd = new Date(Math.min(monthEnd.getTime(), getCurrentDate().getTime()));
-
-  const rangeStartStr = formatDate(rangeStart, 'yyyy-MM-dd');
-  const rangeEndStr = formatDate(rangeEnd, 'yyyy-MM-dd');
-
-  console.log(`    📅 Date range: ${rangeStartStr} to ${rangeEndStr}`);
-
-  // Count existing absence transactions BEFORE
-  const monthFirstDay = formatDate(monthStart, 'yyyy-MM-dd');
-  const monthLastDay = formatDate(monthEnd, 'yyyy-MM-dd');
-  const transactionsBefore = db.prepare(`
-    SELECT COUNT(*) as count FROM overtime_transactions
-    WHERE userId = ?
-      AND date BETWEEN ? AND ?
-      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_deduction')
-  `).get(userId, monthFirstDay, monthLastDay) as { count: number };
-  console.log(`    📊 Existing absence transactions BEFORE: ${transactionsBefore.count}`);
-
-  // CRITICAL FIX: ALWAYS delete old absence transactions first, regardless of current approved absences!
-  // This ensures that when an approved absence is rejected/deleted, its transactions get removed.
-  console.log(`    🗑️  Deleting ALL old absence transactions for this month...`);
-  const deleteResult = db.prepare(`
-    DELETE FROM overtime_transactions
-    WHERE userId = ?
-      AND date BETWEEN ? AND ?
-      AND type IN ('vacation_credit', 'sick_credit', 'overtime_comp_credit', 'special_credit', 'unpaid_deduction')
-  `).run(userId, monthFirstDay, monthLastDay);
-  console.log(`    ✅ Deleted ${deleteResult.changes} old transactions`);
-
-  // Now load ALL currently approved absences for this month (all types!)
-  //
-  // REQ-19, CR-01, 09-INVENTAR-KREDITIERUNG.md #8: 'overtime_comp' bewusst NICHT in dieser
-  // Liste — dieselbe Begründung wie in ensureAbsenceTransactions() oben. Diese Funktion hat
-  // in der Planung zu 09-05 keinen Aufrufer im Produktivcode (nicht erreichbar), wird aber
-  // aus Konsistenzgründen mitgezogen: eine unerreichbare Kopie der Regel führt die nächste
-  // Untersuchung genauso in die Irre wie eine erreichbare.
-  const absences = db.prepare(`
-    SELECT id, type, startDate, endDate
-    FROM absence_requests
-    WHERE userId = ?
-      AND status = 'approved'
-      AND type IN ('vacation', 'sick', 'special', 'unpaid')
-      AND startDate <= ?
-      AND endDate >= ?
-  `).all(userId, rangeEndStr, rangeStartStr) as Array<{
-    id: number;
-    type: 'vacation' | 'sick' | 'special' | 'unpaid';
-    startDate: string;
-    endDate: string;
-  }>;
-
-  console.log(`    📋 Found ${absences.length} currently approved absences in month`);
-
-  if (absences.length === 0) {
-    logger.debug({ userId, month }, 'No approved absences in month → No new transactions to create');
-    console.log(`    ✅ No approved absences → Old transactions deleted, no new ones to create`);
-    return;
-  }
-
-  logger.info({ userId, month, absencesCount: absences.length }, '🔄 Creating absence transactions for month');
-
-  // PHASE 1 FIX: Create "earned" transactions for absence days FIRST
-  // This implements neutralization: vacation day shows earned: -8h + vacation_credit: +8h = 0h net
-  let earnedTransactionsCreated = 0;
-
-  console.log(`    🔧 PHASE 1: Creating earned transactions for absence days (neutralization)...`);
-
-  for (const absence of absences) {
-    // WR (Plan 09-05 Task 4): lokale Zerlegung statt new Date(ISO-String) — siehe Guard-
-    // Kommentar am Funktionskopf.
-    const [asYear1, asMonth1, asDay1] = absence.startDate.split('-').map(Number);
-    const [aeYear1, aeMonth1, aeDay1] = absence.endDate.split('-').map(Number);
-    const absenceStart = new Date(Math.max(new Date(asYear1, asMonth1 - 1, asDay1).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(aeYear1, aeMonth1 - 1, aeDay1).getTime(), rangeEnd.getTime()));
-
-    // Iterate through each day of absence
-    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
-    // Feiertag, workSchedule und Wochenende in dieser Reihenfolge selbst
-    // (server/src/utils/workingDays.ts:66-91) und liefert an arbeitsfreien Tagen bereits 0 -
-    // die nachfolgende Prüfung übernimmt die Entscheidung allein.
-    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-
-      // Get target hours for this day (workSchedule-aware!)
-      const targetHours = getDailyTargetHours(user, dateStr, periods);
-      if (targetHours === 0) continue; // Skip non-working days
-
-      // Check if time entries exist for this day
-      const hasTimeEntries = db.prepare(`
-        SELECT 1 FROM time_entries WHERE userId = ? AND date = ?
-      `).get(userId, dateStr);
-
-      if (!hasTimeEntries) {
-        // No time entries exist → create earned transaction with NEGATIVE hours
-        // This represents the Soll/Ist difference: 0 (actual) - targetHours (target) = -targetHours
-        recordOvertimeEarned(userId, dateStr, -targetHours, `Abwesenheit (${absence.type}): Soll/Ist-Differenz`);
-        earnedTransactionsCreated++;
-      }
-    }
-  }
-
-  console.log(`    ✅ Created ${earnedTransactionsCreated} earned transactions (negative hours for absence days)`);
-
-  // For each absence, iterate through each day and create CREDIT transactions
-  let transactionsCreated = 0;
-
-  console.log(`    🔧 PHASE 2: Creating credit transactions (neutralizes earned transactions)...`);
-
-  for (const absence of absences) {
-    // WR (Plan 09-05 Task 4): lokale Zerlegung statt new Date(ISO-String) — siehe Guard-
-    // Kommentar am Funktionskopf.
-    const [asYear2, asMonth2, asDay2] = absence.startDate.split('-').map(Number);
-    const [aeYear2, aeMonth2, aeDay2] = absence.endDate.split('-').map(Number);
-    const absenceStart = new Date(Math.max(new Date(asYear2, asMonth2 - 1, asDay2).getTime(), rangeStart.getTime()));
-    const absenceEnd = new Date(Math.min(new Date(aeYear2, aeMonth2 - 1, aeDay2).getTime(), rangeEnd.getTime()));
-
-    // Iterate through each day
-    // REQ-17: Kein eigener Wochenend-/Feiertagsfilter mehr. getDailyTargetHours() prüft
-    // Feiertag, workSchedule und Wochenende in dieser Reihenfolge selbst
-    // (server/src/utils/workingDays.ts:66-91) und liefert an arbeitsfreien Tagen bereits 0 -
-    // die nachfolgende Prüfung übernimmt die Entscheidung allein.
-    for (let d = new Date(absenceStart); d <= absenceEnd; d.setDate(d.getDate() + 1)) {
-      const dateStr = formatDate(d, 'yyyy-MM-dd');
-
-      // Calculate daily target hours (workSchedule-aware)
-      const dailyHours = getDailyTargetHours(user, dateStr, periods);
-
-      if (dailyHours === 0) {
-        continue; // Skip days where user doesn't work (per workSchedule)
-      }
-
-      // Call appropriate record function based on absence type
-      switch (absence.type) {
-        case 'vacation':
-          recordVacationCredit(userId, dateStr, dailyHours, absence.id);
-          transactionsCreated++;
-          break;
-        case 'sick':
-          recordSickCredit(userId, dateStr, dailyHours, absence.id);
-          transactionsCreated++;
-          break;
-        case 'special':
-          recordSpecialCredit(userId, dateStr, dailyHours, absence.id);
-          transactionsCreated++;
-          break;
-        case 'unpaid':
-          // Unpaid leave: REDUCES target, does NOT give credit
-          // But we still create a transaction for transparency
-          recordUnpaidAdjustment(userId, dateStr, dailyHours, absence.id);
-          transactionsCreated++;
-          break;
-      }
-    }
-  }
-
-  logger.info({ userId, month, transactionsCreated }, '✅ Absence transactions created');
 }
 
 interface MonthlyOvertime {
@@ -543,61 +202,6 @@ export function updateAllOvertimeLevels(userId: number, date: string): void {
   updateWorkTimeAccountBalance(userId, currentBalance);
 
   logger.debug({ userId, date, balance: currentBalance }, '✅ Work Time Account synced from overtime_balance');
-}
-
-/**
- * Update overtime_transactions for a specific date
- *
- * PROFESSIONAL STANDARD (SAP SuccessFactors, Personio):
- * - Recalculates daily overtime (Soll/Ist difference)
- * - Creates/updates transaction record
- * - Handles holidays (0h Soll) and no time entries (-Xh Minusstunden)
- *
- * @param userId User ID
- * @param date Date (YYYY-MM-DD)
- */
-// Laut 09-INVENTAR-SOLLSTUNDEN.md: kein Aufrufer (toter Code), mitgezogen statt gelöscht.
-// @deprecated Not currently used - kept for reference
-export function _updateOvertimeTransactionsForDate(userId: number, date: string): void {
-  // Get user for workSchedule-aware calculation
-  const user = getUserById(userId);
-  if (!user) {
-    logger.error({ userId }, 'updateOvertimeTransactionsForDate: User not found');
-    throw new Error(`User not found: ${userId}`);
-  }
-
-  // Check if date is before hire date
-  if (date < user.hireDate) {
-    logger.debug({ userId, date, hireDate: user.hireDate }, 'Skipped: Date before hire date');
-    return;
-  }
-
-  // Calculate target hours (respects holidays and workSchedule!)
-  const targetHours = getDailyTargetHours(user, date, directWorkPeriodLookup);
-
-  // Calculate actual hours
-  const actualHours = db.prepare(`
-    SELECT COALESCE(SUM(hours), 0) as total
-    FROM time_entries
-    WHERE userId = ? AND date = ?
-  `).get(userId, date) as { total: number };
-
-  // Calculate overtime
-  const overtime = actualHours.total - targetHours;
-
-  // Delete existing earned transactions for this date
-  deleteEarnedTransactionsForDate(userId, date);
-
-  // ✅ Record new transaction (ALWAYS, even 0h for complete audit trail!)
-  recordOvertimeEarned(userId, date, overtime);
-
-  logger.debug({
-    userId,
-    date,
-    targetHours,
-    actualHours: actualHours.total,
-    overtime
-  }, 'Updated overtime transaction');
 }
 
 /**
