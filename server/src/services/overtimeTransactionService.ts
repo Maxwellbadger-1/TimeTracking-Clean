@@ -21,10 +21,20 @@ export interface OvertimeTransaction {
   id: number;
   userId: number;
   date: string;
-  type: 'time_entry' | 'compensation' | 'correction' | 'carryover';
+  // WR (Plan 12-05): 'model_change' ergaenzt — Migration 011 (Plan 12-01) hat den
+  // Buchungstyp bereits im CHECK-Constraint der Tabelle zugelassen; dieses Interface, der
+  // Lesevertrag von getOvertimeHistory()/getOvertimeHistoryByDateRange(), kannte ihn bisher
+  // nicht. Ohne diese Ergaenzung waere der Literalvergleich auf 'model_change' in
+  // workPeriodChangeService.test.ts (REQ-29) ein TypeScript-Fehler gewesen. Die uebrigen,
+  // bereits vor dieser Phase im CHECK-Constraint vorhandenen Werte (z. B. 'earned',
+  // 'vacation_credit') bleiben unveraendert ausserhalb dieses Interfaces — vorbestehende
+  // Ungenauigkeit, nicht Teil dieses Plans (Scope-Grenze).
+  type: 'time_entry' | 'compensation' | 'correction' | 'carryover' | 'model_change';
   hours: number;
   description: string | null;
-  referenceType: 'time_entry' | 'absence' | 'manual' | 'system' | null;
+  // 'work_period' ergaenzt — Migration 011 (Plan 12-01) hat diesen Referenztyp fuer
+  // model_change-Buchungen zugelassen (Referenz auf user_work_periods.id).
+  referenceType: 'time_entry' | 'absence' | 'manual' | 'system' | 'work_period' | null;
   referenceId: number | null;
   createdAt: string;
   createdBy: number | null;
