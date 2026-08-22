@@ -647,16 +647,21 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
                   Sollstunden im Zeitraum
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  {/* WR-01: Sollstunden sind absolute Groessen — nur die Differenz traegt ein
+                      Vorzeichen (12-UI-SPEC.md, Textbuch Vorschaupanel: "bisher {H:MMh} ·
+                      neu {H:MMh} · Differenz {±H:MMh}"). Ein vorangestelltes Plus auf
+                      "bisher 160:00h" suggeriert eine Gutschrift und stellt drei Zellen
+                      visuell gleich, von denen nur eine eine Bilanzgroesse ist. */}
                   <div>
                     <p className="text-gray-600 dark:text-gray-400">bisher</p>
                     <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatSignedHours(preview.targetHoursBefore)}
+                      {formatHours(preview.targetHoursBefore)}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-600 dark:text-gray-400">neu</p>
                     <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatSignedHours(preview.targetHoursAfter)}
+                      {formatHours(preview.targetHoursAfter)}
                     </p>
                   </div>
                   <div>
@@ -673,17 +678,23 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTime
                 Umstellung {formatSignedHours(preview.balanceAfter)}
               </p>
 
+              {/* WR-02: Dreiwegunterscheidung. `>= 0` zeigte bei einer Nulldifferenz einen
+                  gruenen Aufwaertspfeil — Gruen und TrendingUp sind im Farbvertrag dieser
+                  Phase mit "Gutschrift" belegt, und hier gibt es keine. `12-UI-SPEC.md`
+                  legt fuer diesen Randfall ausdruecklich gray-600/400 fest. */}
               <div className="flex items-center gap-2">
-                {preview.balanceDelta >= 0 ? (
+                {preview.balanceDelta > 0 ? (
                   <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                ) : (
+                ) : preview.balanceDelta < 0 ? (
                   <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
-                )}
+                ) : null}
                 <span
                   className={`text-lg font-bold ${
-                    preview.balanceDelta >= 0
+                    preview.balanceDelta > 0
                       ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
+                      : preview.balanceDelta < 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400'
                   }`}
                 >
                   Änderung des Überstundensaldos: {formatSignedHours(preview.balanceDelta)}
