@@ -142,14 +142,34 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
             const isPlanned = period.validFrom > today;
             const isHighlighted = highlightPeriodId != null && period.id === highlightPeriodId;
 
+            /**
+             * UI-Review Phase 12 (V-2): Frueher `ring-2 ring-red-400` auf dem `<tr>`.
+             * Tailwind bildet `ring-*` als `box-shadow` ab; der Schatten liegt also
+             * ausserhalb der Zeilenbox. Am 22.08.2026 in headless Edge (dieselbe
+             * Blink/WebView2-Engine wie Tauri unter Windows) mit dem echten Markup
+             * nachgestellt: Der Schatten wird zwar gemalt — die Annahme, `border-collapse:
+             * collapse` unterdruecke ihn, trifft in aktuellem Blink nicht zu —, aber der
+             * umgebende `overflow-x-auto`-Container beschneidet ihn. `overflow-x: auto`
+             * macht die y-Achse rechnerisch ebenfalls zum Scrollbereich, und die Tabelle
+             * ist exakt so breit wie er (`w-full`): Es bleiben zwei rote Querstriche ueber
+             * und unter der Zeile, bei der ersten oder letzten Zeile sogar nur einer. Das
+             * liest sich als Trennlinie, nicht als Markierung — Zustand 10 kam nicht an.
+             * Ersatz: Flaechen- und Randmarkierung auf den Zellen. Zellhintergruende liegen
+             * innerhalb der Zeile und koennen nicht beschnitten werden.
+             */
+            const highlightCellClass = isHighlighted ? 'bg-red-50 dark:bg-red-900/20' : '';
+            const highlightFirstCellClass = isHighlighted
+              ? 'border-l-4 border-red-500 dark:border-red-400'
+              : '';
+
             return (
               <tr
                 key={period.id}
-                className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                  isHighlighted ? 'ring-2 ring-red-400' : ''
-                }`}
+                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
               >
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                <td
+                  className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${highlightCellClass} ${highlightFirstCellClass}`}
+                >
                   <div className="flex items-center gap-2">
                     {formatIsoDate(period.validFrom)}
                     {(isCurrent || isPlanned) && (
@@ -159,17 +179,17 @@ export function WorkTimePeriodList({ userId, highlightPeriodId, renderActions }:
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                <td className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${highlightCellClass}`}>
                   {period.validTo ? formatIsoDate(period.validTo) : '—'}
                 </td>
-                <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">
+                <td className={`px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100 ${highlightCellClass}`}>
                   {formatWeeklyHours(period.weeklyHours)} h
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                <td className={`px-4 py-3 text-sm text-gray-700 dark:text-gray-300 ${highlightCellClass}`}>
                   {formatWorkSchedule(period)}
                 </td>
                 {renderActions && (
-                  <td className="px-4 py-3 text-sm text-right">
+                  <td className={`px-4 py-3 text-sm text-right ${highlightCellClass}`}>
                     {renderActions(period)}
                   </td>
                 )}
