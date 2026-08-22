@@ -79,6 +79,31 @@ export function isStoredWorkSchedule(value: unknown): value is WorkSchedule {
   );
 }
 
+/**
+ * Kanonisiert einen Tagesplan zu einer vergleichbaren Zeichenkette: `null` wird zu `'null'`,
+ * ein Objekt wird mit SORTIERTEN Schlüsseln und über `Number(...)` normalisierten Werten neu
+ * aufgebaut, bevor `JSON.stringify` läuft. Zwei Objekte mit denselben Werten in
+ * unterschiedlicher Schlüsselreihenfolge liefern damit dieselbe Zeichenkette.
+ *
+ * EINE STELLE (WR-11/IN-01): Diese Funktion lag bisher ausschließlich in
+ * `workTimeChangeToken.ts` (dort ist sie die Grundlage der HMAC-Signatur). Das Prüfskript
+ * `verifyDesktopEffectiveness.ts` verglich stattdessen ROHE JSON-Zeichenketten und zählte
+ * zwei inhaltsgleiche Tagespläne mit unterschiedlicher Schlüsselreihenfolge oder
+ * Formatierung als Drift. Beide benutzen jetzt diese eine Fassung.
+ */
+export function canonicalizeWorkSchedule(workSchedule: WorkSchedule | null): string {
+  if (workSchedule === null) {
+    return 'null';
+  }
+
+  const canonical: Record<string, number> = {};
+  const sortedKeys = [...WEEKDAY_KEYS].sort();
+  for (const key of sortedKeys) {
+    canonical[key] = Number(workSchedule[key]);
+  }
+  return JSON.stringify(canonical);
+}
+
 /** Summe der sieben Tageswerte, auf zwei Nachkommastellen gerundet. */
 export function sumWorkScheduleHours(workSchedule: WorkSchedule): number {
   const total = WEEKDAY_KEYS.reduce((sum, key) => sum + workSchedule[key], 0);

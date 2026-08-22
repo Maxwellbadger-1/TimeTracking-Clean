@@ -36,6 +36,8 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WorkSchedule } from '../types/index.js';
+// WR-11/IN-01: EINE Kanonisierung fuer Token-Signatur und Pruefskript.
+import { canonicalizeWorkSchedule } from '../utils/workSchedule.js';
 
 /**
  * Gebunden sind der ausstellende Admin und die vier Berechnungsfelder — die Begründung
@@ -73,16 +75,6 @@ const PREVIEW_TOKEN_TTL_MS = 15 * 60 * 1000;
 /** Vorlauf, den ein Uhrenversatz zwischen Prozessen maximal erklären darf. */
 const FUTURE_ISSUE_TOLERANCE_MS = 60 * 1000;
 
-const WEEKDAY_KEYS: readonly (keyof WorkSchedule)[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];
-
 /**
  * Liefert den Signaturschlüssel. In Produktion OHNE gesetztes `SESSION_SECRET` wirft die
  * Ausstellung/Prüfung mit sprechender Meldung statt still einen vorhersehbaren
@@ -101,25 +93,6 @@ function resolveSecret(): string {
     );
   }
   return 'dev-secret-only-for-development';
-}
-
-/**
- * Kanonisiert den Tagesplan: `null` wird zur Zeichenkette `'null'`, ein Objekt wird mit
- * sortierten Schlüsseln und über `Number(...)` normalisierten Werten neu aufgebaut, bevor
- * `JSON.stringify` läuft. Zwei Objekte mit denselben Werten in unterschiedlicher
- * Schlüsselreihenfolge liefern damit dieselbe kanonische Zeichenkette und dieselbe Signatur.
- */
-function canonicalizeWorkSchedule(workSchedule: WorkSchedule | null): string {
-  if (workSchedule === null) {
-    return 'null';
-  }
-
-  const canonical: Record<string, number> = {};
-  const sortedKeys = [...WEEKDAY_KEYS].sort();
-  for (const key of sortedKeys) {
-    canonical[key] = Number(workSchedule[key]);
-  }
-  return JSON.stringify(canonical);
 }
 
 function buildCanonicalString(binding: PreviewTokenBinding, issuedAtMs: number): string {

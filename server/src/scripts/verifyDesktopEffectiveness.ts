@@ -25,6 +25,12 @@
  * UNVERSEHRTHEITSNACHWEIS: Dateigröße und Änderungszeitstempel der geöffneten Datei werden
  * vor UND nach der Messung ausgegeben — bei einem rein lesenden Werkzeug müssen beide Werte
  * identisch sein.
+ *
+ * KEIN `process.exit()` (WR-12, Code-Review Phase 12): `process.stdout` ist beim Umleiten in
+ * eine Datei oder Pipe gepuffert und asynchron. `process.exit()` beendet den Prozess, ohne
+ * den Puffer zu leeren — bei genau dem Werkzeug, dessen Ausgabe als Messnachweis in eine
+ * Datei geschrieben werden soll. Stattdessen wird `process.exitCode` gesetzt und
+ * zurückgekehrt; Node beendet sich danach von selbst und leert den Puffer vorher.
  */
 
 import { existsSync, statSync } from 'fs';
@@ -32,6 +38,9 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { assertNotProduction } from './productionGuard.js';
 import { getDatabasePath } from '../config/database.js';
+// WR-11: importsicher — dieses Modul importiert ausschließlich einen Typ und öffnet keine
+// Datei. Es liefert die EINE Kanonisierung, die auch die Token-Signatur benutzt.
+import { canonicalizeWorkSchedule, isStoredWorkSchedule } from '../utils/workSchedule.js';
 
 interface MultiPeriodRow {
   userId: number;
@@ -55,6 +64,32 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
+/**
+ * WR-11: Vergleichsform eines gespeicherten Tagesplans. Der Driftvergleich verglich vorher
+ * ROHE JSON-Zeichenketten — zwei inhaltsgleiche Tagesplaene mit unterschiedlicher
+ * Schluesselreihenfolge oder Formatierung wurden dadurch als Drift gezaehlt. Ein Text, der
+ * kein auswertbarer Tagesplan ist, wird bewusst unveraendert (aber getrimmt) verglichen:
+ * dann ist der Rohtext die einzige verfuegbare Information.
+ */
+function comparableWorkSchedule(raw: string | null): string {
+  if (raw === null || raw.trim() === '') {
+    return 'null';
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return `unparsierbar:${raw.trim()}`;
+  }
+  if (parsed === null) {
+    return 'null';
+  }
+  if (!isStoredWorkSchedule(parsed)) {
+    return `kein-tagesplan:${JSON.stringify(parsed)}`;
+  }
+  return canonicalizeWorkSchedule(parsed);
+}
+
 function main(): void {
   // DATABASE_PATH ist Pflicht — kein Rückfall auf getDatabasePath()s interne Standardwahl
   // (`.claude/CLAUDE.md`, Database Rules: ohne DATABASE_PATH entsteht sonst eine leere DB).
@@ -62,7 +97,8 @@ function main(): void {
     console.error('FEHLER: DATABASE_PATH ist nicht gesetzt.');
     console.error('  Setze DATABASE_PATH=<pfad-zu-einer-arbeitskopie> explizit.');
     console.error('  Nutzung: DATABASE_PATH=./database/12-08-wirksamkeit.db npx tsx src/scripts/verifyDesktopEffectiveness.ts');
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   // Guard VOR dem Öffnen der Datenbank.
@@ -72,7 +108,8 @@ function main(): void {
 
   if (!existsSync(resolvedPath)) {
     console.error(`FEHLER: Datenbankdatei existiert nicht: ${resolvedPath}`);
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   const statBefore = statSync(resolvedPath);
@@ -96,19 +133,22 @@ function main(): void {
   print(`1) Nutzer mit >1 Periode: ${multiPeriod.length} ${JSON.stringify(multiPeriod.map((r) => r.userId))}`);
 
   // 2. Drift zwischen users.weeklyHours/workSchedule und der offenen Periode.
+  //    WR-11: `AND u.deletedAt IS NULL` — soft-geloeschte Mitarbeiter sind keine Drift.
   const drift = db
     .prepare(
       `SELECT u.id as userId, u.weeklyHours as usersWeeklyHours, u.workSchedule as usersWorkSchedule,
               p.weeklyHours as periodWeeklyHours, p.workSchedule as periodWorkSchedule
        FROM users u
-       JOIN user_work_periods p ON p.userId = u.id AND p.validTo IS NULL`
+       JOIN user_work_periods p ON p.userId = u.id AND p.validTo IS NULL
+       WHERE u.deletedAt IS NULL`
     )
     .all() as DriftRow[];
   let driftCount = 0;
   const driftIds: number[] = [];
   for (const row of drift) {
-    const wsA = row.usersWorkSchedule || null;
-    const wsB = row.periodWorkSchedule || null;
+    // WR-11: kanonisierter Vergleich statt Rohtext-Vergleich.
+    const wsA = comparableWorkSchedule(row.usersWorkSchedule);
+    const wsB = comparableWorkSchedule(row.periodWorkSchedule);
     if (row.usersWeeklyHours !== row.periodWeeklyHours || wsA !== wsB) {
       driftCount++;
       driftIds.push(row.userId);
@@ -117,17 +157,23 @@ function main(): void {
   print(`2) Drift-Zahl: ${driftCount} userIds: ${JSON.stringify(driftIds)}`);
 
   // 3. Nutzer ohne offene Periode.
+  //    WR-11: `AND u.deletedAt IS NULL` — ein soft-geloeschter Mitarbeiter hat typischerweise
+  //    keine offene Periode mehr und erschien dadurch dauerhaft in dieser Kennzahl. Die Zahl
+  //    konnte strukturell nie 0 werden, obwohl die Ergebnisaussage unten genau darauf aufbaut.
   const noOpen = db
     .prepare(
       `SELECT u.id FROM users u
-       WHERE NOT EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = u.id AND p.validTo IS NULL)`
+       WHERE u.deletedAt IS NULL
+         AND NOT EXISTS (SELECT 1 FROM user_work_periods p WHERE p.userId = u.id AND p.validTo IS NULL)`
     )
     .all() as NoOpenRow[];
   print(`3) Nutzer ohne offene Periode: ${noOpen.length} ${JSON.stringify(noOpen.map((r) => r.id))}`);
 
-  const totalUsers = (db.prepare('SELECT COUNT(*) c FROM users').get() as { c: number }).c;
+  const totalUsers = (
+    db.prepare('SELECT COUNT(*) c FROM users WHERE deletedAt IS NULL').get() as { c: number }
+  ).c;
   const totalPeriods = (db.prepare('SELECT COUNT(*) c FROM user_work_periods').get() as { c: number }).c;
-  print(`Gesamtzahl users: ${totalUsers}`);
+  print(`Gesamtzahl users (ohne soft-geloeschte): ${totalUsers}`);
   print(`Gesamtzahl user_work_periods: ${totalPeriods}`);
 
   db.close();
@@ -142,7 +188,8 @@ function main(): void {
 
   if (!unchanged) {
     console.error('FEHLER: Datei wurde durch dieses rein lesende Werkzeug verändert.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   print('');
@@ -154,7 +201,6 @@ function main(): void {
         ? 'ERGEBNIS: Zahl 1 (Nutzer mit >1 Periode) ist weiterhin 0; mindestens eine der anderen beiden Zahlen ist nicht 0 (siehe oben) — kein Aussagewert fuer Begruendung 2, die ausschliesslich an Zahl 1 haengt.'
         : 'ERGEBNIS: Alle drei Zahlen sind 0 — Begruendung 2 der Disposition traegt in dieser Arbeitskopie noch.'
   );
-  process.exit(0);
 }
 
 main();
