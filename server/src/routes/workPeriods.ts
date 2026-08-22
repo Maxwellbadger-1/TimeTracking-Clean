@@ -121,8 +121,20 @@ router.get(
   (req: Request, res: Response<ApiResponse<UserWorkPeriod[]>>) => {
     try {
       const isAdmin = req.session.user!.role === 'admin';
-      const requestedUserId = req.query.userId
-        ? parseInt(req.query.userId as string, 10)
+
+      // WR-10: `req.query.userId` ist bei `?userId=1&userId=2` ein `string[]`. Der frühere
+      // Cast `req.query.userId as string` warf dort nicht, sondern lieferte über die
+      // implizite Konvertierung `"1,2"` das Ergebnis `1` — die Route verhielt sich bei
+      // unerwarteter Eingabe still statt mit 400. Der Kopfkommentar dieser Datei behauptet
+      // zudem, an keiner Stelle einen solchen Cast zu enthalten.
+      const rawUserId: unknown = req.query.userId;
+      if (rawUserId !== undefined && typeof rawUserId !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid userId' });
+        return;
+      }
+
+      const requestedUserId = rawUserId
+        ? Number.parseInt(rawUserId, 10)
         : req.session.user!.id;
 
       if (Number.isNaN(requestedUserId)) {
@@ -223,6 +235,22 @@ router.post(
       workSchedule: parsed.workSchedule,
     });
     if (!verification.valid) {
+      // WR-08: Die Antwort bleibt für alle drei Ablehnungsgründe bewusst EINHEITLICH (kein
+      // Orakel für einen Angreifer), der Grund wird aber protokolliert. Ein `mismatch`
+      // bedeutet: gültige Signatur, aber ANDERE Eingabewerte als in der geprüften Vorschau —
+      // also entweder ein Client-Fehler oder ein gezielter Umgehungsversuch der geprüften
+      // Berechnung. Bisher war das von einem schlichten Ablauf nicht unterscheidbar und
+      // hinterließ keine Spur. Protokolliert werden ausschließlich IDs und der Grund — keine
+      // Begründungstexte (T-12-26).
+      logger.warn(
+        {
+          reason: verification.reason,
+          userId: parsed.userId,
+          adminId: req.session.user!.id,
+          validFrom: parsed.validFrom,
+        },
+        'previewToken abgelehnt — Stundenwechsel nicht gespeichert'
+      );
       res.status(409).json({
         success: false,
         error: 'PREVIEW_STALE: Die Vorschau ist nicht mehr aktuell.',
