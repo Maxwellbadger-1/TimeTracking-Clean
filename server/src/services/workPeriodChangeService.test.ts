@@ -733,6 +733,55 @@ describe('applyWorkTimeChange — Validierung (kein Schreibvorgang bei Ablehnung
     }
   });
 
+  it('WR-03: Ein Stichtag vor dem Beginn des Vorjahres wird abgewiesen, keine Schreibwirkung', () => {
+    const [todayYear] = today.split('-').map(Number);
+    // hireDate weit zurueck, damit die Ablehnung nachweislich an der Rueckwirkungsgrenze
+    // haengt und nicht am Eintrittsdatum.
+    const userId = createEmployee('wr03-rueckwirkung', 40, `${todayYear - 6}-01-01`);
+    try {
+      insertTestWorkPeriod(userId, {
+        validFrom: `${todayYear - 6}-01-01`,
+        weeklyHours: 40,
+        workSchedule: null,
+      });
+
+      const periodsBefore = countPeriods(userId);
+      const transactionsBefore = countTransactions(userId);
+
+      const zuWeitZurueck: WorkTimeChangeInput = {
+        userId,
+        validFrom: `${todayYear - 2}-12-31`,
+        weeklyHours: 20,
+        workSchedule: null,
+        reason: 'Stichtag liegt vor dem Beginn des Vorjahres und muss abgelehnt werden',
+      };
+
+      expect(() =>
+        applyWorkTimeChange(zuWeitZurueck, { dryRun: false, createdBy: adminId })
+      ).toThrow(WorkTimeChangeValidationError);
+      expect(() =>
+        applyWorkTimeChange(zuWeitZurueck, { dryRun: true, createdBy: adminId })
+      ).toThrow(WorkTimeChangeValidationError);
+
+      expect(countPeriods(userId)).toBe(periodsBefore);
+      expect(countTransactions(userId)).toBe(transactionsBefore);
+
+      // Gegenprobe: exakt der Beginn des Vorjahres ist noch erlaubt.
+      const geradeNochErlaubt: WorkTimeChangeInput = {
+        ...zuWeitZurueck,
+        validFrom: `${todayYear - 1}-01-01`,
+        reason: 'Stichtag genau am Beginn des Vorjahres ist zulaessig',
+      };
+      const outcome = applyWorkTimeChange(geradeNochErlaubt, {
+        dryRun: false,
+        createdBy: adminId,
+      });
+      expect(outcome.period).not.toBeNull();
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('CR-04: Tagesplan ausserhalb 0..24 und Tagesplansumme ueber 60 werden abgewiesen, keine Schreibwirkung', () => {
     const userId = createEmployee('tagesplan-grenzen', 40, '2020-01-01');
     try {

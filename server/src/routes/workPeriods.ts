@@ -16,6 +16,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { workTimeChangePreviewLimiter } from '../middleware/rateLimits.js';
 import { getWorkPeriods, WorkPeriodConflictError } from '../services/workPeriodService.js';
 import {
   applyWorkTimeChange,
@@ -153,6 +154,9 @@ router.get(
  */
 router.post(
   '/preview',
+  // WR-03: eigener, enger Limiter VOR der Rollenprüfung — der Trockenlauf ist ein echter
+  // Schreib-Rebuild in einer exklusiven SQLite-Schreibtransaktion, nicht ein billiger Lesezugriff.
+  workTimeChangePreviewLimiter,
   requireAuth,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkTimeChangePreviewResponse>>) => {

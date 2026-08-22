@@ -231,6 +231,24 @@ function validateInput(input: WorkTimeChangeInput, user: UserPublic, dryRun: boo
     );
   }
 
+  // WR-03: Obergrenze für die Rückwirkung. `validFrom` war nach unten nur durch `hireDate`
+  // begrenzt — bei einem Eintrittsdatum von 2015 umfasst `affectedMonths` über 130 Monate,
+  // von denen jeder ZWEIMAL vollständig neu aufgebaut wird (Schritt 6 und Schritt 12), und
+  // zwar innerhalb einer einzigen Schreibtransaktion, die better-sqlite3 als exklusive
+  // Sperre hält. Für die Dauer blockiert jeder andere Schreibvorgang des Servers — und die
+  // Vorschau verwirft die Arbeit anschließend vollständig.
+  //
+  // Grenze: Beginn des Vorjahres. Damit sind höchstens 24 Monate betroffen. Ein Wechsel
+  // weiter zurück ist ein Sonderfall, der nicht über die Adminoberfläche laufen soll.
+  const currentYear = Number(getTodayString().slice(0, 4));
+  const earliestValidFrom = `${currentYear - 1}-01-01`;
+  if (input.validFrom < earliestValidFrom) {
+    throw new WorkTimeChangeValidationError(
+      `Der Stichtag darf nicht weiter zurückliegen als der ${toGermanDate(earliestValidFrom)} ` +
+      `(Beginn des Vorjahres).`
+    );
+  }
+
   if (user.endDate && input.validFrom > user.endDate) {
     throw new WorkTimeChangeValidationError(
       `Der Stichtag liegt nach dem Austrittsdatum (${toGermanDate(user.endDate)}).`

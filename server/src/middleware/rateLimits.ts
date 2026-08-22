@@ -50,6 +50,35 @@ export const loginLimiter = rateLimit({
 });
 
 /**
+ * Rate limit für die Stundenwechsel-Vorschau: 30 Anfragen pro Minute (WR-03, Phase 12).
+ *
+ * WARUM EIGEN: `POST /api/work-periods/preview` ist kein gewöhnlicher Lese-Endpunkt. Der
+ * Trockenlauf führt einen ECHTEN Schreib-Rebuild aus (D2: dieselbe Codebahn wie das
+ * Speichern, am Ende zurückgerollt) — jeder betroffene Monat wird zweimal vollständig neu
+ * aufgebaut, mit DELETE und Tages-INSERTs, und das alles innerhalb einer einzigen
+ * Schreibtransaktion, die better-sqlite3 als exklusive Sperre hält. Für die Dauer blockiert
+ * jeder andere Schreibvorgang des Servers. Der allgemeine `apiLimiter` (600/min) ist dafür
+ * um Größenordnungen zu weit.
+ *
+ * DEVELOPMENT: 10.000/min (kein Drosseln beim Testen), wie bei den übrigen Limitern.
+ */
+export const workTimeChangePreviewLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 Minute
+  max: isDevelopment ? 10000 : 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Zu viele Vorschau-Berechnungen. Bitte warten Sie einen Moment.',
+      retryAfter: 60,
+      limit: isDevelopment ? 10000 : 30,
+      window: '1 minute',
+    });
+  },
+});
+
+/**
  * Rate limit for absence creation: 30 per hour (DoS Protection)
  * Prevents database spam from malicious actors while allowing legitimate use
  * DEVELOPMENT: 1000/hour for testing
