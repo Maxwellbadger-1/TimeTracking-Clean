@@ -18,7 +18,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "check:rules:types": "tsc -p tsconfig.check.json --noEmit",
+    "check:rules": "npm run check:rules:types && tsx src/components/ui/confirmDialogProps.check.ts && tsx src/components/worktime/overtimeTransactionFormat.check.ts && tsx src/components/worktime/workTimePeriodEditRules.check.ts && tsx src/components/worktime/workTimePeriodDeleteRules.check.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

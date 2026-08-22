@@ -5,7 +5,9 @@
  * `modalStack.test.ts`). Muster übernommen: ein `npx tsx`-Prüfskript mit `node:assert`
  * (identisch zu `workTimePeriodEditRules.check.ts`, Plan 13-08).
  *
- * Ausführung: npx tsx src/components/worktime/workTimePeriodDeleteRules.check.ts
+ * Ausführung: cd desktop && npm run check:rules (typprüft über tsconfig.check.json und
+ *              führt alle vier *.check.ts-Skripte aus; einzeln:
+ *              npx tsx src/components/worktime/workTimePeriodDeleteRules.check.ts)
  */
 import assert from 'node:assert/strict';
 import {

@@ -5,7 +5,9 @@
  * siehe modalStack.test.ts). Dieses Skript folgt demselben Muster: `npx tsx` +
  * `node:assert`, vollstaendige Zeichenkettenvergleiche statt `includes`.
  *
- * Ausfuehrung: npx tsx src/components/worktime/overtimeTransactionFormat.check.ts
+ * Ausfuehrung: cd desktop && npm run check:rules (typprueft ueber tsconfig.check.json und
+ *              fuehrt alle vier *.check.ts-Skripte aus; einzeln:
+ *              npx tsx src/components/worktime/overtimeTransactionFormat.check.ts)
  */
 import assert from 'node:assert/strict';
 import {

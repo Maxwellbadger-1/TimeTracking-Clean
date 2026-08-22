@@ -1,0 +1,33 @@
+{
+  // Typprüfung der *.check.ts-Prüfskripte — WR-04 (Code-Review Phase 13).
+  //
+  // WARUM EIN EIGENES PROGRAMM: tsconfig.json schließt die Prüfskripte aus, weil sie gegen
+  // node:assert/strict und console laufen. Im Hauptprogramm sind nur DOM-Typen sichtbar
+  // (typeRoots zeigt auf ./node_modules/@types, und desktop/node_modules ist durch das
+  // npm-Workspace-Hoisting leer) — node:assert/strict schlüge dort mit TS2307 fehl. Statt die
+  // Node-Typen ins Anwendungsprogramm zu ziehen, wo sie nichts zu suchen haben, bekommen die
+  // Prüfskripte ein eigenes Programm mit denselben strict-Regeln.
+  //
+  // WAS DAS REPARIERT: Vor diesem Programm war keine der vier Prüfdateien Teil irgendeines
+  // tsc-Laufs — der Kopfkommentar in confirmDialogProps.check.ts behauptete trotzdem, seine
+  // zentrale Zusicherung "traegt AUSSCHLIESSLICH tsc --noEmit". Diese Zusicherung existierte
+  // faktisch nicht.
+  //
+  // AUSFÜHRUNG: npm run check:rules:types (nur Typen) bzw. npm run check:rules
+  // (Typprüfung + tatsächlicher Lauf aller vier Skripte über tsx).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // ../node_modules/@types zuerst: npm-Workspaces hoisten alle Abhängigkeiten in den
+    // Repo-Root, desktop/node_modules ist leer. Der zweite Eintrag bleibt stehen, damit ein
+    // künftig nicht mehr gehoistetes Paket weiterhin gefunden wird.
+    "typeRoots": ["../node_modules/@types", "./node_modules/@types"],
+    "noEmit": true
+  },
+  // vite-env.d.ts liefert die Vite-Client-Typen (import.meta.env), die die Prüfskripte über
+  // ihre Importkette (api/client.ts) benötigen. Als "types"-Eintrag ist "vite/client" hier
+  // nicht auflösbar, weil typeRoots die Auflösung auf @types-Verzeichnisse einschränkt.
+  "include": ["src/**/*.check.ts", "src/vite-env.d.ts"],
+  "exclude": ["node_modules", "../node_modules", "../server"],
+  "references": []
+}

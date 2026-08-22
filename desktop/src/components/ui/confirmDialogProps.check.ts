@@ -10,7 +10,9 @@
  * Aenderungsumfangs. Deshalb dieselbe Ausweichroute: ein `npx tsx`-Pruefskript mit
  * `node:assert`, ohne Renderer.
  *
- * Ausfuehrung: cd desktop && npx tsx src/components/ui/confirmDialogProps.check.ts
+ * Ausfuehrung: cd desktop && npm run check:rules
+ * (typprueft ueber `tsconfig.check.json` und fuehrt danach alle vier `*.check.ts`-Skripte
+ * aus; einzeln: `npx tsx src/components/ui/confirmDialogProps.check.ts`).
  */
 import assert from 'node:assert/strict';
 import type { ComponentProps } from 'react';
@@ -27,10 +29,17 @@ function test(name: string, fn: () => void): void {
 // --- 1. Rueckwaertskompatibilitaet ---------------------------------------------------------
 //
 // Ein Objektliteral, das nur die bisherigen Pflichtfelder von ConfirmDialogProps traegt, ist
-// ein gueltiger Wert dieses Typs. Diese Zusicherung traegt AUSSCHLIESSLICH `tsc --noEmit` — das
+// ein gueltiger Wert dieses Typs. Diese Zusicherung traegt AUSSCHLIESSLICH der Compiler — das
 // Objekt wird nie konstruiert/gerendert, nur typgeprueft. Waeren `details`, `confirmDisabled`,
 // `confirmLoading`, `cancelDisabled` oder `closeOnConfirm` NICHT optional, wuerde diese
-// Zuweisung nicht kompilieren und `npx tsc --noEmit` mit einem Typfehler abbrechen.
+// Zuweisung nicht kompilieren.
+//
+// WICHTIG (WR-04, Code-Review Phase 13): Der Compilerlauf, der diese Zusicherung traegt, ist
+// `npm run check:rules:types` (`tsc -p tsconfig.check.json --noEmit`) — NICHT das
+// Haupt-Gate `npx tsc --noEmit`. `tsconfig.json` schliesst `*.check.ts` aus dem Programm aus,
+// und keine eingeschlossene Datei importiert diese hier. Der frueher an dieser Stelle
+// stehende Verweis auf `npx tsc --noEmit` beschrieb eine Pruefung, die es nicht gab; das
+// eigene Programm in `tsconfig.check.json` stellt sie jetzt tatsaechlich her.
 test('Rueckwaertskompatibilitaet: bisherige Pflichtfelder allein ergeben gueltige ConfirmDialogProps (Compiler-Beweis)', () => {
   const legacyProps: ComponentProps<typeof ConfirmDialog> = {
     isOpen: true,
