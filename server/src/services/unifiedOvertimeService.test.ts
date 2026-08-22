@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../database/connection.js';
 import { unifiedOvertimeService } from './unifiedOvertimeService.js';
+import { stubWorkPeriodContext, insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
+import * as workPeriodService from './workPeriodService.js';
 
 /**
  * UNIFIED OVERTIME SERVICE TESTS
@@ -37,6 +39,12 @@ describe('UnifiedOvertimeService', () => {
       '2026-01-01'
     );
     testUserId = result.lastInsertRowid as number;
+
+    // Plan 11-05: Seit der Signaturänderung von getDailyTargetHours (D3, Plan 11-04) löst
+    // die Berechnung ausschließlich über user_work_periods auf, nicht mehr über
+    // users.weeklyHours/workSchedule direkt. Ohne diese Periode würfe jeder Aufruf mit
+    // Default-Kontext (directWorkPeriodLookup/createWorkPeriodContext) MissingWorkPeriodError.
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-01-01', weeklyHours: 40 });
   });
 
   afterEach(() => {
@@ -249,6 +257,11 @@ describe('UnifiedOvertimeService', () => {
         '2026-02-01'
       );
       const febUserId = febUserResult.lastInsertRowid as number;
+      insertTestWorkPeriod(febUserId, {
+        validFrom: '2026-02-01',
+        weeklyHours: 10,
+        workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 },
+      });
 
       try {
         // Calculate January (before hire date)
@@ -291,6 +304,11 @@ describe('UnifiedOvertimeService', () => {
         '2026-02-01'
       );
       const febFirstUserId = febFirstUserResult.lastInsertRowid as number;
+      insertTestWorkPeriod(febFirstUserId, {
+        validFrom: '2026-02-01',
+        weeklyHours: 10,
+        workSchedule: { monday: 2, tuesday: 2, wednesday: 2, thursday: 2, friday: 2 },
+      });
 
       try {
         // Add 4h correction for Feb 5th (within calculation period Feb 1-6)
@@ -408,6 +426,83 @@ describe('UnifiedOvertimeService', () => {
       expect(sickResult.actualHours).toBe(8);
       expect(sickResult.overtime).toBe(0);
       expect(sickResult.breakdown.absenceCredit).toBe(8);
+    });
+  });
+
+  describe('Plan 11-05: Periodenbewusster kanonischer Weg (D1-D4)', () => {
+    it('rechnet targetHours anhand der am Tag gültigen Periode (Stichtag 15.07.2026, 40h davor, 20h danach, kein Wochenplan)', () => {
+      const periods = stubWorkPeriodContext([
+        { userId: testUserId, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40 },
+        { userId: testUserId, validFrom: '2026-07-15', validTo: null, weeklyHours: 20 },
+      ]);
+
+      const before = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-07-14', periods);
+      const after = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-07-15', periods);
+
+      expect(before.targetHours).toBe(8); // 40h / 5 Tage
+      expect(after.targetHours).toBe(4); // 20h / 5 Tage
+    });
+
+    it('calculateMonthlyOvertime summiert einen periodenwechselnden Monat korrekt (Summe = Summe der Einzeltage)', () => {
+      const periods = stubWorkPeriodContext([
+        { userId: testUserId, validFrom: '2026-01-01', validTo: '2026-07-15', weeklyHours: 40 },
+        { userId: testUserId, validFrom: '2026-07-15', validTo: null, weeklyHours: 20 },
+      ]);
+
+      const result = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, '2026-07', periods);
+
+      const day14 = result.dailyResults.find(d => d.date === '2026-07-14');
+      const day15 = result.dailyResults.find(d => d.date === '2026-07-15');
+      expect(day14?.targetHours).toBe(8);
+      expect(day15?.targetHours).toBe(4);
+
+      const summedTarget = result.dailyResults.reduce((sum, d) => sum + d.targetHours, 0);
+      expect(result.targetHours).toBe(summedTarget);
+    });
+
+    it('D1: ein Monatslauf lädt die Perioden des Nutzers genau einmal, nicht einmal je Tag (Zähler-Nachweis)', () => {
+      const spy = vi.spyOn(workPeriodService, 'getWorkPeriods');
+      spy.mockClear();
+
+      const result = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, '2026-07');
+
+      // Juli 2026 hat 31 Tage — bei einem Aufruf je Tag stünde hier 31, nicht 1.
+      expect(result.dailyResults.length).toBeGreaterThan(1);
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      spy.mockRestore();
+    });
+
+    it('D1: eine Periodenauflösung je Zeitraumlauf, auch bei calculatePeriodOvertime', () => {
+      const spy = vi.spyOn(workPeriodService, 'getWorkPeriods');
+      spy.mockClear();
+
+      unifiedOvertimeService.calculatePeriodOvertime(testUserId, '2026-01-05', '2026-01-20');
+
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      spy.mockRestore();
+    });
+
+    it('unbezahlter Urlaub reduziert das Soll weiterhin auf 0, ohne Ist-Gutschrift (Verrechnungsreihenfolge unverändert)', () => {
+      db.prepare(`
+        INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testUserId, 'unpaid', '2026-01-13', '2026-01-13', 'approved', 1);
+
+      const result = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-13');
+
+      expect(result.targetHours).toBe(0);
+      expect(result.actualHours).toBe(0);
+      expect(result.breakdown.unpaidReduction).toBe(8);
+    });
+
+    it('ein Feiertag überschreibt das Soll weiterhin auf 0h (Verrechnungsreihenfolge unverändert)', () => {
+      // 2026-01-01 ist laut bestehender Suite (Zeile "January 2026: 01.01 is Wednesday
+      // (holiday)") ein hinterlegter Feiertag.
+      const result = unifiedOvertimeService.calculateDailyOvertime(testUserId, '2026-01-01');
+
+      expect(result.targetHours).toBe(0);
     });
   });
 });
