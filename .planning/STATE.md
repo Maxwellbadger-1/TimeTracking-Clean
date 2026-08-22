@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-08-22T19:21:00.865Z"
+stopped_at: Completed 13-04-PLAN.md
+last_updated: "2026-08-22T19:32:47.348Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 35
+  completed_plans: 36
   percent: 57
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-03-PLAN.md
+- **Stopped at:** Completed 13-04-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -207,6 +207,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 13-06]: Test-Cleanup loescht user_work_periods nicht explizit, sondern raeumt ueber ON DELETE CASCADE beim Loeschen des Nutzers auf - der BEFORE-DELETE-Riegel wuerde ein echtes DELETE der letzten Periode verweigern
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: checkPeriodChain() laeuft in correctWorkPeriod() unbedingt nach jedem Schreiben (nicht nur bei verschobenem validFrom) als Sicherheitsnetz gegen bereits bestehende Kettenschaeden
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: Rule-1-Fix: veralteter INSERT-Guard-Trigger-Text in workPeriodService.test.ts und workPeriodChangeService.test.ts (Vor-Migration-013-Fassung) beschaedigte die geteilte development.db bei jedem Testlauf -- auf Migration-013-Fassung korrigiert, live-Trigger repariert
+- [Phase ?]: 13-04: isFirst-Pruefung (DD-17) laeuft unbedingt, auch im Trockenlauf - eine Vorschau auf eine nicht loeschbare erste Periode waere sonst irrefuehrend
+- [Phase ?]: 13-04: Gegenbuchung mit hours=-original.hours und journal-neutralem balanceBefore/balanceAfter - die tatsaechliche Saldo-Ruecknahme kommt ausschliesslich aus dem Rebuild ab validFrom (DD-14), nicht aus der Gegenbuchung
 
 ## Quick Tasks Completed
 
@@ -274,6 +276,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P02 | 35min | 3 tasks | 8 files |
 | Phase 13 P06 | 35min | 2 tasks | 2 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P03 | 45min | 2 tasks | 4 files |
+| Phase 13 P04 | 50min | 2 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -310,7 +313,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
