@@ -10,6 +10,11 @@ import {
   checkPeriodChain,
   checkAllPeriodChains,
   WorkPeriodConflictError,
+  getWorkPeriodById,
+  extendWorkPeriodTo,
+  softDeleteWorkPeriod,
+  getWorkPeriodsWithFlags,
+  withSuspendedChainGuard,
 } from './workPeriodService.js';
 import type { UserWorkPeriod, WorkSchedule } from '../types/index.js';
 
@@ -445,6 +450,203 @@ describe('checkAllPeriodChains — Bestands-Check über alle Nutzer (WR-03)', ()
     expect(checkAllPeriodChains().some((i) => i.userId === userId)).toBe(false);
   });
 });
+describe('Soft-Delete (Phase 13, D2/D3)', () => {
+  const PHASE13_PREFIX = 'test-13-02-';
+
+  function createPhase13TestUser(suffix: string): number {
+    const username = `${PHASE13_PREFIX}${suffix}-${Math.random().toString(36).slice(2, 8)}`;
+    const result = db
+      .prepare(
+        `INSERT INTO users (username, email, firstName, lastName, password, role, weeklyHours, hireDate)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(username, `${username}@test.local`, 'Test', 'Phase13', 'hash', 'employee', 40, '2020-01-01');
+    return result.lastInsertRowid as number;
+  }
+
+  function deletePhase13TestUser(id: number): void {
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  }
+
+  let userId: number;
+
+  afterEach(() => {
+    deletePhase13TestUser(userId);
+  });
+
+  it('getWorkPeriods() liefert eine weggenommene Periode nicht mehr — die Länge sinkt um genau 1', () => {
+    userId = createPhase13TestUser('list-length');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      validTo: '2020-06-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+    createWorkPeriod({
+      userId,
+      validFrom: '2020-06-01',
+      weeklyHours: 20,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    expect(getWorkPeriods(userId).length).toBe(2);
+
+    softDeleteWorkPeriod(p1.id, userId);
+
+    expect(getWorkPeriods(userId).length).toBe(1);
+  });
+
+  it('getCurrentWorkPeriod() liefert null, wenn die einzige offene Periode weggenommen wurde', () => {
+    userId = createPhase13TestUser('current-null');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    expect(getCurrentWorkPeriod(userId)?.id).toBe(p1.id);
+
+    softDeleteWorkPeriod(p1.id, userId);
+
+    expect(getCurrentWorkPeriod(userId)).toBeNull();
+  });
+
+  it('getWorkPeriodById() liefert null für eine weggenommene Periode', () => {
+    userId = createPhase13TestUser('byid-null');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    expect(getWorkPeriodById(p1.id)?.id).toBe(p1.id);
+
+    softDeleteWorkPeriod(p1.id, userId);
+
+    expect(getWorkPeriodById(p1.id)).toBeNull();
+  });
+
+  it('resolveWorkPeriodAt() löst innerhalb des Zeitraums einer weggenommenen Periode nicht mehr auf — die Berechnung sieht sie nicht mehr', () => {
+    userId = createPhase13TestUser('resolve-gone');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    expect(resolveWorkPeriodAt(userId, '2020-03-01')?.id).toBe(p1.id);
+
+    softDeleteWorkPeriod(p1.id, userId);
+
+    expect(resolveWorkPeriodAt(userId, '2020-03-01')).toBeNull();
+  });
+
+  it('softDeleteWorkPeriod() setzt deletedAt und deletedBy; ein zweiter Aufruf für dieselbe Periode wirft', () => {
+    userId = createPhase13TestUser('double-delete');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    const deleted = softDeleteWorkPeriod(p1.id, userId);
+    expect(deleted.deletedAt).not.toBeNull();
+    expect(deleted.deletedBy).toBe(userId);
+
+    expect(() => softDeleteWorkPeriod(p1.id, userId)).toThrow();
+  });
+
+  it('extendWorkPeriodTo(id, null) macht eine geschlossene Periode zur offenen — ein anschließendes getCurrentWorkPeriod() liefert genau diese', () => {
+    userId = createPhase13TestUser('extend-open');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      validTo: '2020-06-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    expect(getCurrentWorkPeriod(userId)).toBeNull();
+
+    const extended = extendWorkPeriodTo(p1.id, null);
+    expect(extended.validTo).toBeNull();
+
+    expect(getCurrentWorkPeriod(userId)?.id).toBe(p1.id);
+  });
+
+  it('getWorkPeriodsWithFlags() markiert genau eine Periode mit isFirst und höchstens eine mit isCurrent — nach dem Wegnehmen der ersten Periode wandert isFirst auf die nächste', () => {
+    userId = createPhase13TestUser('flags');
+    const p1 = createWorkPeriod({
+      userId,
+      validFrom: '2020-01-01',
+      validTo: '2020-06-01',
+      weeklyHours: 40,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+    const p2 = createWorkPeriod({
+      userId,
+      validFrom: '2020-06-01',
+      weeklyHours: 20,
+      workSchedule: null,
+      note: TEST_NOTE_MARKER,
+    });
+
+    const withFlags = getWorkPeriodsWithFlags(userId);
+    expect(withFlags.length).toBe(2);
+    expect(withFlags.filter((p) => p.isFirst).map((p) => p.id)).toEqual([p1.id]);
+    expect(withFlags.filter((p) => p.isCurrent).length).toBeLessThanOrEqual(1);
+    expect(withFlags.find((p) => p.id === p2.id)?.isCurrent).toBe(true);
+
+    softDeleteWorkPeriod(p1.id, userId);
+
+    const afterDelete = getWorkPeriodsWithFlags(userId);
+    expect(afterDelete.length).toBe(1);
+    expect(afterDelete[0].id).toBe(p2.id);
+    expect(afterDelete[0].isFirst).toBe(true);
+  });
+
+  it('withSuspendedChainGuard() setzt work_period_chain_guard.suspended innerhalb des Aufrufs auf 1 und danach wieder auf 0 — auch dann, wenn die übergebene Funktion wirft', () => {
+    userId = createPhase13TestUser('chain-guard');
+
+    let suspendedDuringCall: number | undefined;
+    withSuspendedChainGuard(() => {
+      suspendedDuringCall = (
+        db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
+      ).suspended;
+    });
+    expect(suspendedDuringCall).toBe(1);
+
+    const afterCall = (
+      db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
+    ).suspended;
+    expect(afterCall).toBe(0);
+
+    expect(() =>
+      withSuspendedChainGuard(() => {
+        throw new Error('x');
+      })
+    ).toThrow();
+
+    const afterThrow = (
+      db.prepare('SELECT suspended FROM work_period_chain_guard WHERE id = 1').get() as { suspended: number }
+    ).suspended;
+    expect(afterThrow).toBe(0);
+  });
+});
+
 describe('workPeriodService — Aufräumnachweis', () => {
   it('hinterlässt nach dem Lauf keine Periode eines Testnutzers dieser Datei', () => {
     const totalCount = (
