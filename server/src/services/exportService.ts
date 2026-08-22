@@ -67,6 +67,37 @@ function csvField(value: unknown): string {
 }
 
 /**
+ * CR-03 (Code-Review Phase 11, Durchlauf 2): Der Export bricht ab, wenn er nicht
+ * vollständig sein kann — mit der VOLLSTÄNDIGEN Liste der betroffenen Nutzer.
+ *
+ * WARUM Abbruch und nicht "Datei mit Warnblock ausliefern": Empfänger dieser Datei sind
+ * laut Kopfkommentar Steuerberater und Betriebsprüfung (GoBD). Eine CSV, die vollständig
+ * aussieht, aber die Zeiteinträge und Abwesenheiten eines Mitarbeiters lautlos weglässt,
+ * ist ein prüfungsrelevantes Dokument mit unbemerkter Lücke — schlimmer als ein
+ * ausgebliebener Export. Ein Warnblock am Dateiende hilft nicht zuverlässig: DATEV-
+ * Importwege lesen die Zeilen maschinell, ein Kommentarblock wird überlesen oder als
+ * Datensatz missdeutet.
+ *
+ * WARUM trotzdem nicht zurück zum Vorzustand (500 beim ERSTEN defekten Nutzer): Die
+ * WR-03-Vereinzelung aus Durchlauf 1 bleibt erhalten — die Schleife läuft vollständig
+ * durch und SAMMELT alle Datendefekte. Der Bediener bekommt damit in einem Durchgang die
+ * Liste aller zu korrigierenden Nutzer statt einen nach dem anderen. Nur das stille
+ * `continue` am Ende ist durch diesen Abbruch ersetzt.
+ *
+ * `skippedUserIds` trägt die Nutzer-IDs, damit die Route sie in die 409-Antwort
+ * übernehmen kann.
+ */
+export class IncompleteExportError extends Error {
+  constructor(
+    public readonly skippedUserIds: number[],
+    message: string
+  ) {
+    super(message);
+    this.name = 'IncompleteExportError';
+  }
+}
+
+/**
  * DATEV CSV Export
  * Format: Semicolon-separated, UTF-8 with BOM
  *
@@ -114,6 +145,10 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
     // Ein Kontext für den gesamten Export (D1/D2, T-11-26): schleift über viele Zeiteinträge
     // mehrerer Nutzer, jede Nutzer-Periodenliste wird trotzdem nur einmal geladen.
     const periods = createWorkPeriodContext();
+
+    // CR-03: Nutzer, deren Zeilen wegen eines Datendefekts (D4) nicht berechnet werden
+    // konnten. Wird nach der Schleife ausgewertet — siehe `IncompleteExportError`.
+    const skippedUserIds: number[] = [];
 
     for (const user of users) {
       // WR-11: `getUserByIdIncludingDeleted()` statt `getUserById()`.
@@ -206,14 +241,34 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
         rows.push(...userRows);
       } catch (err) {
         if (err instanceof MissingWorkPeriodError) {
+          // CR-03: Hier stand ein reines `continue`. Der Nutzer fiel damit lautlos aus
+          // einer Datei heraus, die anschließend mit HTTP 200 als vollständiger
+          // GoBD-Export ausgeliefert wurde. Jetzt wird der Defekt vermerkt, die Schleife
+          // läuft weiter (um ALLE betroffenen Nutzer zu finden), und nach der Schleife
+          // bricht der Export ab. Begründung der Entscheidung "Abbruch statt Warnblock"
+          // vollständig bei `IncompleteExportError`.
           logger.error(
             { userId: user.id, err },
-            'Datendefekt: Nutzer ohne Arbeitszeitperiode — im DATEV-Export übersprungen (D4, WR-03)'
+            'Datendefekt: Nutzer ohne Arbeitszeitperiode — DATEV-Export kann nicht vollständig erzeugt werden (D4, CR-03)'
           );
+          skippedUserIds.push(user.id);
           continue;
         }
         throw err;
       }
+    }
+
+    // CR-03: Kein halbes GoBD-Dokument. Die Prüfung steht NACH der Schleife, damit die
+    // Fehlermeldung alle betroffenen Nutzer nennt und nicht nur den ersten.
+    if (skippedUserIds.length > 0) {
+      throw new IncompleteExportError(
+        skippedUserIds,
+        `DATEV-Export abgebrochen: ${skippedUserIds.length} Nutzer haben keine lückenlose ` +
+          `Arbeitszeitperiode (Datendefekt D4) — Nutzer-IDs: ${skippedUserIds.join(', ')}. ` +
+          'Eine Datei ohne deren Zeiteinträge und Abwesenheiten würde vollständig aussehen, ' +
+          'wäre es aber nicht. Perioden prüfen mit `npm run check:period-chains`, danach ' +
+          'den Export wiederholen.'
+      );
     }
 
     // Create CSV with UTF-8 BOM (for Excel/DATEV compatibility)

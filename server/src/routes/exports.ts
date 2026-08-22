@@ -14,6 +14,7 @@ import {
   generateDATEVExport,
   generateHistoricalExport,
   historicalExportToCSV,
+  IncompleteExportError,
   type HistoricalExportData
 } from '../services/exportService.js';
 import { logAudit } from '../services/auditService.js';
@@ -108,6 +109,26 @@ router.get(
 
       res.send(csv);
     } catch (error) {
+      // CR-03 (Code-Review Phase 11, Durchlauf 2): Ein Datendefekt darf nicht als
+      // HTTP 200 mit unvollständiger GoBD-Datei enden. `generateDATEVExport()` bricht in
+      // diesem Fall mit `IncompleteExportError` ab und liefert die vollständige Liste der
+      // betroffenen Nutzer mit; die geht hier unverändert an den Aufrufer, damit der
+      // Administrator weiß, WAS zu korrigieren ist, statt in `pm2 logs` suchen zu müssen.
+      // 409 (Conflict) statt 500: Der Server arbeitet korrekt, der Bestand widerspricht
+      // der Anforderung "vollständiger Export".
+      if (error instanceof IncompleteExportError) {
+        logger.error(
+          { skippedUserIds: error.skippedUserIds },
+          '❌ DATEV export incomplete — aborted instead of delivering a partial GoBD file'
+        );
+        res.status(409).json({
+          success: false,
+          error: error.message,
+          skippedUserIds: error.skippedUserIds,
+        });
+        return;
+      }
+
       logger.error({ err: error }, '❌ Error generating DATEV export');
       res.status(500).json({
         success: false,
