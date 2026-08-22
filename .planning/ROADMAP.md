@@ -349,7 +349,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 13-03-PLAN.md — `correctWorkPeriod()`: rückwirkende Korrektur einer bestehenden Periode, eine Rechenbahn für Vorschau und Speichern (D1, D4, D6, D7 — REQ-30)
+- [x] 13-03-PLAN.md — `correctWorkPeriod()`: rückwirkende Korrektur einer bestehenden Periode, eine Rechenbahn für Vorschau und Speichern (D1, D4, D6, D7 — REQ-30)
 - [ ] 13-04-PLAN.md — `deleteWorkPeriod()`: Soft-Delete, Lückenschluss, Rebuild und Gegenbuchung, plus der Doppelzählungs-Nachweis (D2, D3, D4, D6, D7 — REQ-31)
 
 **Wave 4** *(blocked on Wave 3 completion)*
