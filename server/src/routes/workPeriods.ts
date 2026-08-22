@@ -1,5 +1,5 @@
 /**
- * Arbeitszeitperioden-Router (Milestone v3.0, Phase 12, REQ-26 bis REQ-29).
+ * Arbeitszeitperioden-Router (Milestone v3.0, Phase 12 + 13, REQ-26 bis REQ-31).
  *
  * Neben dem Lese-Endpunkt (GET /, Plan 12-01) traegt dieser Router seit Plan 12-05 die
  * beiden Schreibendpunkte fuer den Stundenwechsel: POST /preview (Trockenlauf ueber
@@ -11,17 +11,43 @@
  *
  * D2/REQ-27: Beide Routen rufen exakt dieselbe Funktion (`applyWorkTimeChange`) auf — es
  * gibt keine im Frontend nachgebaute Vorschau-Rechnung.
+ *
+ * ERWEITERUNG PLAN 13-05 (DD-19, D1, REQ-30/REQ-31): vier weitere Endpunkte fuer
+ * „Stammdaten korrigieren" und „Periode loeschen" — GETRENNTE Pfade statt eines
+ * gemeinsamen Endpunkts mit `mode`-Feld, damit die serverseitige Trennung der beiden
+ * fachlich unterschiedlichen Schreibwege (D1, 13-CONTEXT.md) auch im Router sichtbar
+ * bleibt, nicht nur in der Oberflaeche:
+ *   - POST /:id/correct/preview — Korrektur-Vorschau (Trockenlauf ueber `correctWorkPeriod`)
+ *   - PUT /:id                  — Korrektur speichern (verlangt ein gueltiges, fuer genau
+ *                                  diese Periode/diesen Admin ausgestelltes previewToken)
+ *   - POST /:id/delete/preview  — Loesch-Vorschau (Trockenlauf ueber `deleteWorkPeriod`)
+ *   - DELETE /:id                — Loeschen und stornieren (verlangt ebenfalls ein gueltiges
+ *                                  previewToken)
+ * Alle vier tragen requireAuth + requireAdmin; beide Vorschauen zusaetzlich den bereits
+ * bestehenden `workTimeChangePreviewLimiter` VOR der Rollenpruefung (T-13-24) — beide sind
+ * echte Rebuilds in einer exklusiven Schreibtransaktion, kein billiger Lesezugriff.
  */
 
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { workTimeChangePreviewLimiter } from '../middleware/rateLimits.js';
-import { getWorkPeriods, WorkPeriodConflictError } from '../services/workPeriodService.js';
+import {
+  getWorkPeriodsWithFlags,
+  WorkPeriodConflictError,
+} from '../services/workPeriodService.js';
 import {
   applyWorkTimeChange,
   WorkTimeChangeValidationError,
 } from '../services/workPeriodChangeService.js';
+import {
+  correctWorkPeriod,
+  WorkPeriodCorrectionValidationError,
+} from '../services/workPeriodCorrectionService.js';
+import {
+  deleteWorkPeriod,
+  WorkPeriodDeletionValidationError,
+} from '../services/workPeriodDeletionService.js';
 import * as workTimeChangeTokenModule from '../services/workTimeChangeToken.js';
 // CR-04/IN-01: EIN Tagesplan-Typwächter für Route und Service. Vorher lag hier eine
 // wortgleiche, ebenso lückenhafte Kopie — eine Verschärfung wäre nur an einer der beiden
@@ -29,10 +55,14 @@ import * as workTimeChangeTokenModule from '../services/workTimeChangeToken.js';
 import { isWorkSchedule } from '../utils/workSchedule.js';
 import type {
   ApiResponse,
-  UserWorkPeriod,
+  UserWorkPeriodListItem,
   WorkSchedule,
   WorkTimeChangeOutcome,
   WorkTimeChangePreviewResponse,
+  WorkPeriodCorrectionOutcome,
+  WorkPeriodCorrectionPreviewResponse,
+  WorkPeriodDeletionOutcome,
+  WorkPeriodDeletionPreviewResponse,
 } from '../types/index.js';
 import logger from '../utils/logger.js';
 
@@ -106,6 +136,88 @@ function parseWorkTimeChangeSaveRequestBody(body: unknown): WorkTimeChangeSaveRe
 }
 
 /**
+ * DD-22 (Plan 13-05): Anfragekörper der Korrektur-Routen — drei Rechenfelder, plus
+ * (permissiv gelesen) Begründung und Vorschau-Token. `periodId` steht NICHT im Körper,
+ * sondern kommt aus der Pfadangabe `:id` (IDOR-Vermeidung, siehe `WorkPeriodCorrectionInput`
+ * in `types/index.ts`).
+ */
+interface WorkPeriodCorrectionRequestBody {
+  validFrom: string;
+  weeklyHours: number;
+  workSchedule: WorkSchedule | null;
+  reason: string;
+  previewToken: string;
+}
+
+/**
+ * Liest den Anfragekörper der Korrektur-Routen über einen Typwächter, kein Cast. `reason`
+ * und `previewToken` werden wie bei der Stundenwechsel-Route permissiv gelesen (fehlend ⇒
+ * leere Zeichenkette) — ein fehlendes Token beantwortet bereits `verifyCorrectionPreviewToken`
+ * mit 409/PREVIEW_STALE, eine fehlende Begründung der Service mit 400 (DD-22).
+ */
+function parseWorkPeriodCorrectionBody(body: unknown): WorkPeriodCorrectionRequestBody | null {
+  if (typeof body !== 'object' || body === null) {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+
+  if (typeof record.validFrom !== 'string' || record.validFrom.length === 0) {
+    return null;
+  }
+  if (typeof record.weeklyHours !== 'number' || !Number.isFinite(record.weeklyHours)) {
+    return null;
+  }
+  if (record.workSchedule !== null && record.workSchedule !== undefined && !isWorkSchedule(record.workSchedule)) {
+    return null;
+  }
+
+  const reason = typeof record.reason === 'string' ? record.reason : '';
+  const previewToken = typeof record.previewToken === 'string' ? record.previewToken : '';
+
+  return {
+    validFrom: record.validFrom,
+    weeklyHours: record.weeklyHours,
+    workSchedule:
+      record.workSchedule === null || record.workSchedule === undefined
+        ? null
+        : (record.workSchedule as WorkSchedule),
+    reason,
+    previewToken,
+  };
+}
+
+/**
+ * DD-22: Anfragekörper der Lösch-Routen — es gibt keine Eingabewerte, die zu binden wären
+ * (`periodId` kommt aus der Pfadangabe), nur Begründung und Vorschau-Token, beide permissiv
+ * gelesen.
+ */
+interface WorkPeriodDeleteRequestBody {
+  reason: string;
+  previewToken: string;
+}
+
+function parseWorkPeriodDeleteBody(body: unknown): WorkPeriodDeleteRequestBody | null {
+  if (typeof body !== 'object' || body === null) {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+
+  const reason = typeof record.reason === 'string' ? record.reason : '';
+  const previewToken = typeof record.previewToken === 'string' ? record.previewToken : '';
+
+  return { reason, previewToken };
+}
+
+/**
+ * DD-22: liest die Pfadangabe `:id` über `Number.parseInt(req.params.id, 10)`. Liefert `null`
+ * bei `Number.isNaN` — die aufrufende Route antwortet dann mit 400.
+ */
+function parsePeriodIdParam(raw: string): number | null {
+  const periodId = Number.parseInt(raw, 10);
+  return Number.isNaN(periodId) ? null : periodId;
+}
+
+/**
  * GET /api/work-periods
  * Liefert die Arbeitszeitperioden eines Nutzers, aufsteigend nach validFrom.
  *
@@ -118,7 +230,7 @@ function parseWorkTimeChangeSaveRequestBody(body: unknown): WorkTimeChangeSaveRe
 router.get(
   '/',
   requireAuth,
-  (req: Request, res: Response<ApiResponse<UserWorkPeriod[]>>) => {
+  (req: Request, res: Response<ApiResponse<UserWorkPeriodListItem[]>>) => {
     try {
       const isAdmin = req.session.user!.role === 'admin';
 
@@ -147,7 +259,9 @@ router.get(
         return;
       }
 
-      res.json({ success: true, data: getWorkPeriods(requestedUserId) });
+      // DD-23: liefert isFirst/isCurrent bereits serverseitig berechnet mit — der Desktop
+      // muss diese Flags nicht mehr selbst nachrechnen (Dual-Calculation-Risiko geschlossen).
+      res.json({ success: true, data: getWorkPeriodsWithFlags(requestedUserId) });
     } catch (error) {
       logger.error({ err: error }, 'Failed to load work periods');
       res.status(500).json({ success: false, error: 'Failed to load work periods' });
@@ -298,6 +412,287 @@ router.post(
       }
       logger.error({ err: error }, 'Failed to save work time change');
       res.status(500).json({ success: false, error: 'Failed to save work time change' });
+    }
+  }
+);
+
+/**
+ * POST /api/work-periods/:id/correct/preview
+ * Berechnet die Vorschau einer Stammdaten-Korrektur — echter Dry-Run über `correctWorkPeriod`
+ * (D2/DD-19, keine zweite Rechenbahn). Admin only (D6/T-13-23): die Vorschau legt Sollstunden
+ * und Saldo eines fremden Nutzers offen. `workTimeChangePreviewLimiter` läuft VOR der
+ * Rollenprüfung (T-13-24) — der Trockenlauf ist ein echter Schreib-Rebuild in einer exklusiven
+ * Schreibtransaktion.
+ *
+ * Body: { validFrom, weeklyHours, workSchedule }. Die Begründung wird im Trockenlauf nicht
+ * geprüft und ist auch nicht Teil des ausgestellten Tokens.
+ */
+router.post(
+  '/:id/correct/preview',
+  workTimeChangePreviewLimiter,
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<WorkPeriodCorrectionPreviewResponse>>) => {
+    const periodId = parsePeriodIdParam(req.params.id);
+    if (periodId === null) {
+      res.status(400).json({ success: false, error: 'Invalid periodId' });
+      return;
+    }
+
+    const parsed = parseWorkPeriodCorrectionBody(req.body);
+    if (!parsed) {
+      res.status(400).json({ success: false, error: 'Missing or invalid fields' });
+      return;
+    }
+
+    try {
+      const outcome = correctWorkPeriod(
+        {
+          periodId,
+          validFrom: parsed.validFrom,
+          weeklyHours: parsed.weeklyHours,
+          workSchedule: parsed.workSchedule,
+          reason: '',
+        },
+        { dryRun: true, createdBy: req.session.user!.id }
+      );
+
+      const previewToken = workTimeChangeTokenModule.issueCorrectionPreviewToken({
+        adminId: req.session.user!.id,
+        periodId,
+        validFrom: parsed.validFrom,
+        weeklyHours: parsed.weeklyHours,
+        workSchedule: parsed.workSchedule,
+      });
+
+      res.json({ success: true, data: { ...outcome.preview, previewToken } });
+    } catch (error) {
+      if (error instanceof WorkPeriodCorrectionValidationError) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
+      if (error instanceof WorkPeriodConflictError) {
+        res.status(409).json({ success: false, error: error.message });
+        return;
+      }
+      logger.error({ err: error }, 'Failed to preview work period correction');
+      res.status(500).json({ success: false, error: 'Failed to preview work period correction' });
+    }
+  }
+);
+
+/**
+ * PUT /api/work-periods/:id
+ * Speichert eine Stammdaten-Korrektur — verlangt ein zuvor über POST /:id/correct/preview
+ * ausgestelltes, noch gültiges `previewToken` (D6/T-13-21). Ein fehlendes, abgelaufenes oder
+ * zu anderen Werten ausgestelltes Token führt zu 409 mit demselben Fehlercode-Präfix wie
+ * Phase 12 und schreibt NICHTS.
+ *
+ * Body: { validFrom, weeklyHours, workSchedule, reason, previewToken }.
+ */
+router.put(
+  '/:id',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<WorkPeriodCorrectionOutcome>>) => {
+    const periodId = parsePeriodIdParam(req.params.id);
+    if (periodId === null) {
+      res.status(400).json({ success: false, error: 'Invalid periodId' });
+      return;
+    }
+
+    const parsed = parseWorkPeriodCorrectionBody(req.body);
+    if (!parsed) {
+      res.status(400).json({ success: false, error: 'Missing or invalid fields' });
+      return;
+    }
+
+    const verification = workTimeChangeTokenModule.verifyCorrectionPreviewToken(parsed.previewToken, {
+      adminId: req.session.user!.id,
+      periodId,
+      validFrom: parsed.validFrom,
+      weeklyHours: parsed.weeklyHours,
+      workSchedule: parsed.workSchedule,
+    });
+    if (!verification.valid) {
+      // WR-08/T-13-22-Muster: einheitliche Antwort für alle drei Ablehnungsgründe, der Grund
+      // wird ausschließlich protokolliert — keine Begründungstexte, keine Namen (T-13-25).
+      logger.warn(
+        {
+          reason: verification.reason,
+          periodId,
+          adminId: req.session.user!.id,
+          validFrom: parsed.validFrom,
+        },
+        'previewToken abgelehnt — Korrektur nicht gespeichert'
+      );
+      res.status(409).json({
+        success: false,
+        error: 'PREVIEW_STALE: Die Vorschau ist nicht mehr aktuell.',
+      });
+      return;
+    }
+
+    try {
+      const outcome = correctWorkPeriod(
+        {
+          periodId,
+          validFrom: parsed.validFrom,
+          weeklyHours: parsed.weeklyHours,
+          workSchedule: parsed.workSchedule,
+          reason: parsed.reason,
+        },
+        { dryRun: false, createdBy: req.session.user!.id }
+      );
+
+      // T-13-25: ausschließlich Zahlen und Datumsangaben — keine Namen, keine Begründung.
+      logger.info(
+        {
+          periodId,
+          validFrom: parsed.validFrom,
+          balanceDelta: outcome.preview.balanceDelta,
+          adminId: req.session.user!.id,
+        },
+        'Stammdaten-Korrektur gespeichert'
+      );
+
+      res.json({ success: true, data: outcome });
+    } catch (error) {
+      if (error instanceof WorkPeriodCorrectionValidationError) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
+      if (error instanceof WorkPeriodConflictError) {
+        res.status(409).json({ success: false, error: error.message });
+        return;
+      }
+      logger.error({ err: error }, 'Failed to save work period correction');
+      res.status(500).json({ success: false, error: 'Failed to save work period correction' });
+    }
+  }
+);
+
+/**
+ * POST /api/work-periods/:id/delete/preview
+ * Berechnet die Vorschau einer Löschung — echter Dry-Run über `deleteWorkPeriod`. Admin only
+ * (D6/T-13-23). `workTimeChangePreviewLimiter` läuft VOR der Rollenprüfung (T-13-24).
+ *
+ * Kein Anfragekörper mit Rechenfeldern nötig — die Löschung hat keine Eingabewerte außer der
+ * (im Trockenlauf nicht geprüften) Begründung.
+ */
+router.post(
+  '/:id/delete/preview',
+  workTimeChangePreviewLimiter,
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<WorkPeriodDeletionPreviewResponse>>) => {
+    const periodId = parsePeriodIdParam(req.params.id);
+    if (periodId === null) {
+      res.status(400).json({ success: false, error: 'Invalid periodId' });
+      return;
+    }
+
+    try {
+      const outcome = deleteWorkPeriod(
+        { periodId, reason: '' },
+        { dryRun: true, createdBy: req.session.user!.id }
+      );
+
+      const previewToken = workTimeChangeTokenModule.issueDeletionPreviewToken({
+        adminId: req.session.user!.id,
+        periodId,
+      });
+
+      res.json({ success: true, data: { ...outcome.preview, previewToken } });
+    } catch (error) {
+      if (error instanceof WorkPeriodDeletionValidationError) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
+      if (error instanceof WorkPeriodConflictError) {
+        res.status(409).json({ success: false, error: error.message });
+        return;
+      }
+      logger.error({ err: error }, 'Failed to preview work period deletion');
+      res.status(500).json({ success: false, error: 'Failed to preview work period deletion' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/work-periods/:id
+ * Löscht (soft) eine Periode und storniert ihre model_change-Buchungen — verlangt ein zuvor
+ * über POST /:id/delete/preview ausgestelltes, noch gültiges `previewToken` (D6/T-13-21). Ein
+ * fehlendes, abgelaufenes oder zu einer anderen Periode ausgestelltes Token führt zu 409 und
+ * schreibt NICHTS.
+ *
+ * Body: { reason, previewToken }.
+ */
+router.delete(
+  '/:id',
+  requireAuth,
+  requireAdmin,
+  (req: Request, res: Response<ApiResponse<WorkPeriodDeletionOutcome>>) => {
+    const periodId = parsePeriodIdParam(req.params.id);
+    if (periodId === null) {
+      res.status(400).json({ success: false, error: 'Invalid periodId' });
+      return;
+    }
+
+    const parsed = parseWorkPeriodDeleteBody(req.body);
+    if (!parsed) {
+      res.status(400).json({ success: false, error: 'Missing or invalid fields' });
+      return;
+    }
+
+    const verification = workTimeChangeTokenModule.verifyDeletionPreviewToken(parsed.previewToken, {
+      adminId: req.session.user!.id,
+      periodId,
+    });
+    if (!verification.valid) {
+      logger.warn(
+        {
+          reason: verification.reason,
+          periodId,
+          adminId: req.session.user!.id,
+        },
+        'previewToken abgelehnt — Löschung nicht gespeichert'
+      );
+      res.status(409).json({
+        success: false,
+        error: 'PREVIEW_STALE: Die Vorschau ist nicht mehr aktuell.',
+      });
+      return;
+    }
+
+    try {
+      const outcome = deleteWorkPeriod(
+        { periodId, reason: parsed.reason },
+        { dryRun: false, createdBy: req.session.user!.id }
+      );
+
+      logger.info(
+        {
+          periodId,
+          balanceDelta: outcome.preview.balanceDelta,
+          reversalCount: outcome.reversalTransactionIds.length,
+          adminId: req.session.user!.id,
+        },
+        'Periode gelöscht'
+      );
+
+      res.json({ success: true, data: outcome });
+    } catch (error) {
+      if (error instanceof WorkPeriodDeletionValidationError) {
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
+      if (error instanceof WorkPeriodConflictError) {
+        res.status(409).json({ success: false, error: error.message });
+        return;
+      }
+      logger.error({ err: error }, 'Failed to delete work period');
+      res.status(500).json({ success: false, error: 'Failed to delete work period' });
     }
   }
 );
