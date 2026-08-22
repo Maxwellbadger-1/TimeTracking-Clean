@@ -1,4 +1,5 @@
 import { formatHours } from '../../utils/timeUtils';
+import type { OvertimeTransactionRow } from '../../hooks/useWorkTimeAccounts';
 
 /**
  * Reine Formatierhilfen des Ueberstunden-Kontoauszugs.
@@ -58,4 +59,114 @@ export function documentedDeltaToneClass(delta: number | undefined): string {
   const value = delta ?? 0;
   if (!Number.isFinite(value) || value === 0) return 'text-gray-600 dark:text-gray-400';
   return value > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+}
+
+/**
+ * Phase 13 (REQ-31, DD-25/DD-41/DD-43): Zustand, Klartextbezug und Beleg-Chip-Auswahl des
+ * Storno-Paars im Kontoauszug. Reine Funktionen, damit sie ohne Renderer per `npx tsx` +
+ * `node:assert` pruefbar sind (13-UI-SPEC.md Abschnitt 5, Zustaende 26-28).
+ */
+
+/** DD-41: 'storniert' auf der stornierten Originalzeile, 'Storno' auf der Gegenbuchung, sonst null. */
+export function reversalStateLabel(
+  row: Pick<OvertimeTransactionRow, 'reversalOf' | 'reversedBy'>
+): 'storniert' | 'Storno' | null {
+  if (row.reversedBy) return 'storniert';
+  if (row.reversalOf) return 'Storno';
+  return null;
+}
+
+/** DD-43: Zielzeile des Beleg-Chips — die Id der jeweils anderen Zeile des Storno-Paars. */
+export function reversalPartnerId(
+  row: Pick<OvertimeTransactionRow, 'reversalOf' | 'reversedBy'>
+): number | null {
+  return row.reversalOf ?? row.reversedBy ?? null;
+}
+
+/**
+ * Zweite Beschreibungszeile des Storno-Paars.
+ *
+ * Originalzeile: Das Datum ist `reversedAt` — der Zeitstempel der Gegenbuchung
+ * (`overtime_transactions.createdAt`, server/src/services/overtimeLiveCalculationService.ts:527),
+ * dasselbe Spaltenformat wie `createdAt`. Deshalb ueber `formatCreatedAtDe()` formatiert,
+ * NICHT ueber `new Date(iso + 'T12:00:00')`: Jenes Muster ist fuer reine Datumsstrings
+ * (YYYY-MM-DD) gedacht — bei einem UTC-Zeitstempel waere es exakt der Timezone-Bug, den
+ * `formatCreatedAtDe()` oben in diesem Modul dokumentiert behebt (`.claude/CLAUDE.md`
+ * verbietet genau diese Fehlerklasse — UTC-Zeitstempel per Substring als Ortstag
+ * behandeln — ausdruecklich).
+ *
+ * Gegenbuchung: Das Datum ist `row.date` — ein reines Datumsfeld (der Stichtag der Periode,
+ * den beide Zeilen des Paares teilen, 13-UI-SPEC.md „Welches Datum die Storno-Zeile
+ * traegt"). Dafuer ist `new Date(iso + 'T12:00:00').toLocaleDateString('de-DE')` das im
+ * Projekt etablierte Muster fuer Datumsstrings ohne Uhrzeit (OvertimeTransactions.tsx:230,
+ * WorkTimePeriodList.tsx:46 u.a.).
+ */
+export function reversedNoteLine(
+  row: Pick<
+    OvertimeTransactionRow,
+    'reversalOf' | 'reversedBy' | 'reversedAt' | 'reversedByName' | 'referenceId' | 'date'
+  >
+): string | null {
+  if (row.reversedBy) {
+    const dateStr = row.reversedAt ? formatCreatedAtDe(row.reversedAt) : '';
+    const namePart = row.reversedByName ? ` von ${row.reversedByName}` : '';
+    return `Storniert am ${dateStr}${namePart} · Beleg #${row.referenceId}`;
+  }
+  if (row.reversalOf) {
+    const dateStr = new Date(`${row.date}T12:00:00`).toLocaleDateString('de-DE');
+    return `Gleicht die Buchung vom ${dateStr} aus · Beleg #${row.referenceId}`;
+  }
+  return null;
+}
+
+/** DD-43: Sichtbarer Text des Beleg-Chips, identisch auf beiden Zeilen des Paares. */
+export function receiptChipLabel(referenceId: number | undefined): string {
+  return `Beleg #${referenceId}`;
+}
+
+/** DD-43: `aria-label` des Beleg-Chips, je nach Rolle der Zeile im Storno-Paar. */
+export function receiptChipAriaLabel(isOriginalRow: boolean): string {
+  return isOriginalRow
+    ? 'Zugehörige Storno-Buchung anzeigen'
+    : 'Zugehörige Ursprungsbuchung anzeigen';
+}
+
+/**
+ * DD-43: Auswahl unter den drei Fehlfaellen des Beleg-Chip-Klicks plus dem Erfolgsfall
+ * (13-UI-SPEC.md Abschnitt 5, Zustaende 26-28). Reihenfolge bindend: Abschneidegrenze wird
+ * VOR dem Zeitraumfilter geprueft, weil eine volle Liste den wahren Grund verdeckt.
+ */
+export function resolveReceiptJumpOutcome(args: {
+  partnerFound: boolean;
+  loadedCount: number;
+  limit?: number;
+  month?: number;
+  year?: number;
+}): { kind: 'jump' } | { kind: 'toast'; message: string } {
+  if (args.partnerFound) return { kind: 'jump' };
+
+  if (args.limit !== undefined && args.loadedCount >= args.limit) {
+    return {
+      kind: 'toast',
+      message: `Die zugehörige Buchung ist in dieser Ansicht nicht geladen — angezeigt werden nur die letzten ${args.limit} Buchungen. Wählen Sie einen engeren Zeitraum.`,
+    };
+  }
+
+  if (args.month !== undefined && args.year !== undefined) {
+    // Tag 15: identisch zum Muster in WorkTimeChangeModal.tsx (Monatsname aus einem
+    // Datum ableiten, ohne Monatsgrenzen-Verschiebung durch Zeitzonen zu riskieren).
+    const monthLabel = new Date(args.year, args.month - 1, 15).toLocaleDateString('de-DE', {
+      month: 'long',
+      year: 'numeric',
+    });
+    return {
+      kind: 'toast',
+      message: `Die zugehörige Buchung liegt außerhalb des gewählten Zeitraums (${monthLabel}).`,
+    };
+  }
+
+  return {
+    kind: 'toast',
+    message: `Die zugehörige Buchung liegt außerhalb des gewählten Zeitraums (${args.year}).`,
+  };
 }
