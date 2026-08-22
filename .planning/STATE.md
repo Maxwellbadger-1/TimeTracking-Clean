@@ -4,13 +4,13 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Completed 11-08-PLAN.md
-last_updated: "2026-08-22T05:49:28.517Z"
+last_updated: "2026-08-22T05:53:02.495Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 20
   percent: 29
 ---
 
@@ -164,6 +164,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase ?]: Namensraum-Import fuer createWorkPeriodContext in overtimeTransactionRebuildService.ts, damit grep genau eine Aufrufstelle zeigt — 11-05
 - [Phase 11-datumsabh-ngige-berechnung]: validateScenario() nutzt stubWorkPeriodContext() statt createWorkPeriodContext() fuer synthetische Testnutzer ohne DB-Periode
 - [Phase 11-datumsabh-ngige-berechnung]: Produktionsschutz in migrateOvertimeToTransactions.ts nachgeruestet (T-11-27), da das Skript zuvor ungeschuetzt Ueberstundentransaktionen schrieb
+- [Phase 11-datumsabh-ngige-berechnung]: 11-11: create-admin.ts von fest verdrahtetem Pfad (server/database.db) auf DATABASE_PATH-bewusste geteilte Verbindung aus dist/database/connection.js umgestellt (Rule 3) - Skript ignorierte DATABASE_PATH zuvor vollstaendig
+- [Phase 11-datumsabh-ngige-berechnung]: 11-11: Alle acht Skripte, die Nutzer per direktem INSERT INTO users anlegen, rufen jetzt ensureInitialWorkPeriod() auf - kein Nutzer im Projekt entsteht mehr ohne Arbeitszeitperiode (REQ-23)
 
 ## Quick Tasks Completed
 
@@ -215,6 +217,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 11-datumsabh-ngige-berechnung P06 | 65min | 3 tasks | 5 files |
 | Phase 11-datumsabh-ngige-berechnung P05 | 25min | 2 tasks | 4 files |
 | Phase 11-datumsabh-ngige-berechnung P08 | 35min | 3 tasks | 7 files |
+| Phase 11-datumsabh-ngige-berechnung P11 | 105min | 3 tasks | 9 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -251,7 +254,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 8 of 11
+Plan: 9 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
