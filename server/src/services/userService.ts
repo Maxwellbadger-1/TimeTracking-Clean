@@ -252,6 +252,44 @@ export function getUserById(id: number): UserPublic | undefined {
 }
 
 /**
+ * WR-11: Nutzer laden, EINSCHLIESSLICH soft-gelöschter.
+ *
+ * `getUserById()` filtert `WHERE id = ? AND deletedAt IS NULL` — richtig für jeden
+ * laufenden Betriebsfall, falsch für den DATEV-/Historien-Export. Dessen Nutzerabfrage
+ * wählt ausdrücklich OHNE `deletedAt`-Filter aus ("including deleted for historical
+ * accuracy"), lud die vollständigen Daten danach aber über `getUserById()` — und
+ * übersprang damit jeden soft-gelöschten Nutzer mit einer Warnung. Seine Zeiteinträge und
+ * Abwesenheiten fehlten im Export, der für Finanzamt und Betriebsprüfung gedacht ist
+ * (GoBD, Aufbewahrungsfrist im Metadatenblock). Die Datei sah dabei vollständig aus —
+ * stiller Datenverlust.
+ *
+ * Diese Funktion ist AUSSCHLIESSLICH für historische Auswertungen gedacht. Für jeden
+ * laufenden Betriebsfall bleibt `getUserById()` die richtige Wahl.
+ */
+export function getUserByIdIncludingDeleted(id: number): UserPublic | undefined {
+  try {
+    const stmt = db.prepare(`
+      SELECT id, username, email, firstName, lastName, role,
+             department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
+             CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive
+      FROM users
+      WHERE id = ?
+    `);
+
+    const user = stmt.get(id) as UserRow | undefined;
+    if (!user) return undefined;
+
+    return {
+      ...user,
+      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
+      // WR-09: s. Begründung zum `unknown`-Zwischenschritt in getAllUsers().
+    } as unknown as UserPublic;
+  } catch (error) {
+    logger.error({ err: error, userId: id }, '❌ Error getting user by ID (including deleted)');
+    throw error;
+  }
+}
+/**
  * Create new user
  */
 export async function createUser(data: UserCreateInput): Promise<UserPublic> {

@@ -17,7 +17,7 @@ import type { User, TimeEntry, AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { format } from 'date-fns';
 import { getDailyTargetHours, MissingWorkPeriodError } from '../utils/workingDays.js';
-import { getUserById } from './userService.js';
+import { getUserByIdIncludingDeleted } from './userService.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
 
 /**
@@ -116,8 +116,14 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
     const periods = createWorkPeriodContext();
 
     for (const user of users) {
-      // Get full user object with workSchedule for accurate daily target hours
-      const fullUser = getUserById(user.id);
+      // WR-11: `getUserByIdIncludingDeleted()` statt `getUserById()`.
+      //
+      // Die Abfrage oben wählt ausdrücklich OHNE `deletedAt`-Filter aus ("including
+      // deleted for historical accuracy"); `getUserById()` filtert soft-gelöschte Nutzer
+      // dagegen weg (`WHERE id = ? AND deletedAt IS NULL`). Jeder soft-gelöschte Nutzer
+      // wurde deshalb mit einer Warnung übersprungen — seine Zeiteinträge und
+      // Abwesenheiten fehlten im DATEV-Export, obwohl die Datei vollständig aussah.
+      const fullUser = getUserByIdIncludingDeleted(user.id);
       if (!fullUser) {
         logger.warn({ userId: user.id }, '⚠️ User not found, skipping');
         continue;
