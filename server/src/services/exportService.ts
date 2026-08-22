@@ -21,6 +21,51 @@ import { getUserById } from './userService.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
 
 /**
+ * Gefährliche Anfangszeichen einer Formelinjektion (CSV Injection). Ein Feld, das mit
+ * `=`, `+`, `-`, `@`, Tabulator oder Wagenrücklauf beginnt, wertet Excel/LibreOffice beim
+ * Öffnen als FORMEL aus — `=HYPERLINK("http://…"&A1,"ok")` oder `=cmd|'/c calc'!A1` führt
+ * beim Empfänger (Steuerberater, Betriebsprüfung) Code aus bzw. schleust Daten ab. Auslösen
+ * kann das jeder Mitarbeitende mit Zeiterfassungsrecht über eine Bemerkung.
+ */
+const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+/**
+ * Eine reine Zahl in deutscher oder englischer Schreibweise, mit optionalem Minus. Diese
+ * Felder dürfen NICHT mit einem Apostroph entwertet werden: Der Export trägt echte negative
+ * Werte (Überstunden `-3,50`), und ein vorangestelltes `'` würde sie für DATEV zu Text
+ * machen — die Maßnahme gegen die Injektion würde damit den Export beschädigen.
+ */
+const CSV_PLAIN_NUMBER = /^-?\d+(?:[.,]\d+)?$/;
+
+/**
+ * CR-05: Die EINE Maskierfunktion für jedes CSV-Feld dieses Moduls.
+ *
+ * Vorher entstanden alle Zeilen durch reines `join(';')` über ungeprüfte Freitextfelder
+ * (`notes`, `reason`, `activity`, `location`, `firstName`/`lastName`). Zwei Folgen:
+ *
+ * 1. STRUKTURBRUCH: Ein Semikolon oder ein Zeilenumbruch in einer Bemerkung verschob alle
+ *    folgenden Spalten bzw. erzeugte eine zusätzliche Datenzeile. Für einen Export an
+ *    Steuerberater und Betriebsprüfung (GoBD) ist eine still verschobene Spalte kein
+ *    Schönheitsfehler.
+ * 2. FORMELINJEKTION: siehe `CSV_FORMULA_PREFIX`.
+ *
+ * Reihenfolge: erst entwerten, dann quoten — das Apostroph steht dadurch INNERHALB der
+ * Anführungszeichen und bleibt beim Einlesen erhalten.
+ */
+function csvField(value: unknown): string {
+  let s = value === null || value === undefined ? '' : String(value);
+
+  if (CSV_FORMULA_PREFIX.test(s) && !CSV_PLAIN_NUMBER.test(s)) {
+    s = `'${s}`;
+  }
+
+  if (/[";\n\r]/.test(s)) {
+    s = `"${s.replace(/"/g, '""')}"`;
+  }
+
+  return s;
+}
+/**
  * DATEV CSV Export
  * Format: Semicolon-separated, UTF-8 with BOM
  *
@@ -116,7 +161,7 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
           entry.startTime || '',
           entry.endTime || '',
           entry.notes || ''
-        ].join(';'));
+        ].map(csvField).join(';'));
       }
 
       // Add absences
@@ -139,12 +184,12 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
           '',
           '',
           absence.reason || ''
-        ].join(';'));
+        ].map(csvField).join(';'));
       }
     }
 
     // Create CSV with UTF-8 BOM (for Excel/DATEV compatibility)
-    const csv = '\uFEFF' + header.join(';') + '\n' + rows.join('\n');
+    const csv = '\uFEFF' + header.map(csvField).join(';') + '\n' + rows.join('\n');
 
     logger.info({ rowCount: rows.length }, '✅ DATEV export generated');
 
@@ -334,10 +379,10 @@ export function historicalExportToCSV(data: HistoricalExportData): string {
 
     // Metadata
     lines.push('EXPORT METADATA');
-    lines.push(`Export Date;${data.metadata.exportDate}`);
-    lines.push(`Start Date;${data.metadata.startDate}`);
-    lines.push(`End Date;${data.metadata.endDate}`);
-    lines.push(`Retention Period;${data.metadata.retentionPeriod}`);
+    lines.push(['Export Date', data.metadata.exportDate].map(csvField).join(';'));
+    lines.push(['Start Date', data.metadata.startDate].map(csvField).join(';'));
+    lines.push(['End Date', data.metadata.endDate].map(csvField).join(';'));
+    lines.push(['Retention Period', data.metadata.retentionPeriod].map(csvField).join(';'));
     lines.push('');
 
     // Users
@@ -358,7 +403,7 @@ export function historicalExportToCSV(data: HistoricalExportData): string {
         user.endDate || '',
         user.status,
         user.deletedAt || ''
-      ].join(';'));
+      ].map(csvField).join(';'));
     }
     lines.push('');
 
@@ -377,7 +422,7 @@ export function historicalExportToCSV(data: HistoricalExportData): string {
         entry.activity || '',
         entry.location,
         entry.notes || ''
-      ].join(';'));
+      ].map(csvField).join(';'));
     }
     lines.push('');
 
@@ -394,17 +439,17 @@ export function historicalExportToCSV(data: HistoricalExportData): string {
         absence.days,
         absence.status,
         absence.reason || ''
-      ].join(';'));
+      ].map(csvField).join(';'));
     }
     lines.push('');
 
     // Statistics
     lines.push('STATISTICS');
-    lines.push(`Total Users;${data.statistics.totalUsers}`);
-    lines.push(`Total Time Entries;${data.statistics.totalTimeEntries}`);
-    lines.push(`Total Absences;${data.statistics.totalAbsences}`);
-    lines.push(`Total Working Hours;${data.statistics.totalWorkingHours.toFixed(2)}`);
-    lines.push(`Total Overtime;${data.statistics.totalOvertime.toFixed(2)}`);
+    lines.push(['Total Users', data.statistics.totalUsers].map(csvField).join(';'));
+    lines.push(['Total Time Entries', data.statistics.totalTimeEntries].map(csvField).join(';'));
+    lines.push(['Total Absences', data.statistics.totalAbsences].map(csvField).join(';'));
+    lines.push(['Total Working Hours', data.statistics.totalWorkingHours.toFixed(2)].map(csvField).join(';'));
+    lines.push(['Total Overtime', data.statistics.totalOvertime.toFixed(2)].map(csvField).join(';'));
 
     return '\uFEFF' + lines.join('\n');
   } catch (error) {
