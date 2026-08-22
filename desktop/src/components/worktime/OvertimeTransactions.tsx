@@ -1,12 +1,20 @@
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { Receipt, TrendingUp, TrendingDown, AlertCircle, FileText, Info } from 'lucide-react';
+import { Receipt, TrendingUp, TrendingDown, AlertCircle, FileText, Info, Link2 } from 'lucide-react';
 import { formatHours } from '../../utils/timeUtils';
-import { useOvertimeTransactions } from '../../hooks/useWorkTimeAccounts';
+import { useOvertimeTransactions, type OvertimeTransactionRow } from '../../hooks/useWorkTimeAccounts';
 import {
   documentedDeltaToneClass,
   formatCreatedAtDe,
   formatDocumentedDelta,
+  receiptChipAriaLabel,
+  receiptChipLabel,
+  resolveReceiptJumpOutcome,
+  reversalPartnerId,
+  reversalStateLabel,
+  reversedNoteLine,
 } from './overtimeTransactionFormat';
 
 interface OvertimeTransactionsProps {
@@ -31,6 +39,51 @@ interface OvertimeTransactionsProps {
  */
 export function OvertimeTransactions({ userId, year, month, limit = 50 }: OvertimeTransactionsProps) {
   const { data, isLoading, error } = useOvertimeTransactions(userId, year, month, limit);
+
+  // DD-43/Barrierefreiheit: Sprungmarke des Storno-Paar-Beleg-Chips. Die Map wird ausschliesslich
+  // ueber Zeilen mit gesetzter `id` befuellt (nur `model_change`-Zeilen tragen eine) — Hooks
+  // muessen laut Rules of Hooks vor jedem fruehen Return dieser Komponente stehen.
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleReceiptChipClick = (transaction: OvertimeTransactionRow) => {
+    const partnerId = reversalPartnerId(transaction);
+    if (partnerId === null || !data) return; // Chip wird nur gerendert, wenn partnerId != null
+    const partnerRow = rowRefs.current.get(partnerId);
+    const outcome = resolveReceiptJumpOutcome({
+      partnerFound: !!partnerRow,
+      loadedCount: data.transactions.length,
+      limit,
+      month,
+      year,
+    });
+
+    if (outcome.kind === 'jump') {
+      if (!partnerRow) return; // kann laut resolveReceiptJumpOutcome nicht eintreten
+      partnerRow.scrollIntoView({ block: 'center' });
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+      setHighlightedId(partnerId);
+      highlightTimeoutRef.current = window.setTimeout(() => {
+        setHighlightedId(null);
+        highlightTimeoutRef.current = null;
+      }, 2000);
+      partnerRow.focus();
+    } else {
+      // DD-43: kein stiller Klick ins Leere — einer der drei Textbuch-Toasts erklaert den Fall.
+      toast.info(outcome.message);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -221,27 +274,51 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {data.transactions.map((transaction, index) => (
+            {data.transactions.map((transaction, index) => {
+              const stateLabel = reversalStateLabel(transaction);
+              const noteLine = reversedNoteLine(transaction);
+              const partnerId = reversalPartnerId(transaction);
+              return (
               <tr
                 key={`${transaction.date}-${transaction.type}-${index}`}
-                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                ref={(el) => {
+                  // Sprungmarke (DD-43): nur `model_change`-Zeilen tragen eine `id`.
+                  if (transaction.id === undefined) return;
+                  if (el) rowRefs.current.set(transaction.id, el);
+                  else rowRefs.current.delete(transaction.id);
+                }}
+                tabIndex={-1}
+                className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                  transaction.id !== undefined && highlightedId === transaction.id
+                    ? 'ring-2 ring-inset ring-gray-400 dark:ring-gray-500'
+                    : ''
+                }`}
               >
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                   {new Date(transaction.date + 'T12:00:00').toLocaleDateString('de-DE')}
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  <div className="group relative inline-block">
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium cursor-help ${getTypeBadgeColor(
-                        transaction.type
-                      )}`}
-                    >
-                      {getTypeLabel(transaction.type)}
-                    </span>
-                    {getTypeDescription(transaction.type) && (
-                      <div className="absolute left-0 top-8 w-64 p-2 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        {getTypeDescription(transaction.type)}
-                      </div>
+                  <div className="flex items-center gap-2">
+                    <div className="group relative inline-block">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium cursor-help ${getTypeBadgeColor(
+                          transaction.type
+                        )}`}
+                      >
+                        {getTypeLabel(transaction.type)}
+                      </span>
+                      {getTypeDescription(transaction.type) && (
+                        <div className="absolute left-0 top-8 w-64 p-2 bg-gray-900 dark:bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                          {getTypeDescription(transaction.type)}
+                        </div>
+                      )}
+                    </div>
+                    {/* DD-41: Zustands-Badge des Storno-Paars — kein neuer case in getTypeBadgeColor,
+                        Farbe ist nie alleiniger Traeger (Badge-Text traegt die Aussage). */}
+                    {stateLabel && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        {stateLabel}
+                      </span>
                     )}
                   </div>
                 </td>
@@ -257,6 +334,22 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
                         ` · eingetragen am ${formatCreatedAtDe(transaction.createdAt)}`}
                       {transaction.adminName ? ` von ${transaction.adminName}` : ''}
                     </p>
+                  )}
+                  {/* Phase 13 (REQ-31, DD-43): zweite Beschreibungszeile des Storno-Paars,
+                      zusaetzlich zur bestehenden model_change-Zeile darueber. */}
+                  {noteLine && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{noteLine}</p>
+                  )}
+                  {partnerId !== null && (
+                    <button
+                      type="button"
+                      onClick={() => handleReceiptChipClick(transaction)}
+                      aria-label={receiptChipAriaLabel(!!transaction.reversedBy)}
+                      className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 underline decoration-dotted hover:text-gray-700 dark:hover:text-gray-200 focus:ring-2 focus:ring-blue-500 rounded"
+                    >
+                      <Link2 className="w-3 h-3" />
+                      {receiptChipLabel(transaction.referenceId)}
+                    </button>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-right">
@@ -315,7 +408,8 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
