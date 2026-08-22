@@ -5,8 +5,8 @@ status: revised-2
 shadcn_initialized: false
 preset: none
 created: 2026-08-21
-revised: 2026-08-21
-revision: 3
+revised: 2026-08-22
+revision: 4
 ---
 
 # Phase 12 — UI Design Contract
@@ -29,8 +29,23 @@ Behoben in *Formulargrenzen im verschachtelten Baum* (Abschnitt 1) und Abschnitt
 eingearbeitet: Index-Guard in `popModal`, Abgrenzung zu `PrivacyPolicyModal`, der betroffene
 E2E-Test, korrigierte Zahlwörter bei den `console.log` und der Wertvergleich im Sync-Effekt.
 
+**Revision 4 (22.08.2026) — Vertragsdrift nachgezogen, kein neuer Entwurf.** Der UI-Audit
+(`12-UI-REVIEW.md`, Befund C-4) hat festgestellt, dass Abschnitt 5 die Journalzeile noch so
+beschreibt, wie sie **vor** dem Server-Code-Review geplant war: „ein echter Stundenwert mit
+Vorzeichen, Trendpfeil und `font-bold`, genau wie `earned` und `correction`". Server-CR-01 hat
+die Zeile seither bewusst zu einer **Dokumentationszeile ohne Rechenwirkung** gemacht
+(`hours: 0` plus ein eigenes Feld `documentedDelta`), weil die Wirkung der Umstellung schon in
+den neu gerechneten Tageszeilen steckt — eine mitsummierende Journalzeile hätte den Betrag ein
+zweites Mal gezählt, und die Summe der angezeigten Zeilen läge um genau diesen Betrag über dem
+daneben stehenden Saldo. Der Vertrag wird deshalb auf den umgesetzten Stand gebracht: betroffen
+sind der Abschnitt „Kontoauszug (Überstunden-Journal)" im Textbuch, die Semantik-Palette und
+Abschnitt 5. **Es ist keine Neuplanung, sondern die Angleichung des Vertrags an eine bereits
+getroffene und begründete fachliche Entscheidung** — Phase 13 plant sonst gegen eine überholte
+Zusage.
+
 Alle Zeilenangaben auf Bestandscode wurden am 21.08.2026 an den echten Dateien nachgeprüft
-(Zero-Hallucination-Policy, `.claude/CLAUDE.md`).
+(Zero-Hallucination-Policy, `.claude/CLAUDE.md`). Die Angaben der Revision 4 wurden am
+22.08.2026 an `OvertimeTransactions.tsx` und `overtimeTransactionFormat.ts` nachgeprüft.
 
 ---
 
@@ -152,8 +167,8 @@ zählen nicht gegen die 10-%-Akzentquote, weil sie ausschließlich zustandsgebun
 
 | Bedeutung | Hell / Dunkel | Wo genau in dieser Phase |
 |-----------|---------------|--------------------------|
-| Gutschrift / positiver Saldo | green-600 / green-400 | positive Stundenwerte in Vorschau und Journalzeile, `TrendingUp`-Icon, Erfolgs-Toast |
-| Belastung / negativer Saldo | red-600 / red-400 | negative Stundenwerte, `TrendingDown`-Icon |
+| Gutschrift / positiver Saldo | green-600 / green-400 | positive Stundenwerte in Vorschau und Journalzeile, `TrendingUp`-Icon (Vorschaupanel und summierende Journalzeilen — **nicht** die `model_change`-Zeile, siehe Abschnitt 5), Erfolgs-Toast |
+| Belastung / negativer Saldo | red-600 / red-400 | negative Stundenwerte, `TrendingDown`-Icon (gleiche Einschränkung) |
 | Fehler | red-600 / red-400 auf `bg-red-50` / `bg-red-900/20`, Rahmen `border-red-200` / `border-red-800` | Feldfehler (`Input error`-Prop), Vorschau-Fehlerbanner, Speicher-Fehlerbanner |
 | Warnung / Tragweite | amber-600 / amber-400 auf `bg-amber-50` / `bg-amber-900/20`, Rahmen `border-amber-200` / `border-amber-800` | Vorschau-Panel bei **rückwirkendem** Stichtag, `ConfirmDialog variant="warning"` |
 | Modellwechsel (neu) | teal-100/teal-700 hell, teal-900/30 + teal-300 dunkel | **nur** das Typ-Badge „Modellwechsel" im Überstunden-Kontoauszug |
@@ -281,6 +296,9 @@ Kombination aus Größe, Gewicht und Farbe tragen.
 | Typ-Tooltip (`getTypeDescription`) | Saldodifferenz aus einer rückwirkenden Umstellung des Arbeitszeitmodells |
 | Beschreibung | Stundenwechsel ab {TT.MM.JJJJ}: {X,X} → {Y,Y} h/Woche (Grund: {Begründung}) |
 | Zweite Zeile unter der Beschreibung (`text-xs`, gray-500/400) | Periode ab {TT.MM.JJJJ} · eingetragen am {TT.MM.JJJJ} von {Admin-Name} |
+| Beschriftung über dem Betrag der `model_change`-Zeile (`text-xs`, gray-500/400) — **Revision 4** | dokumentierte Differenz |
+| Betrag der `model_change`-Zeile — **Revision 4** | {±H:MMh}, bei Nulldifferenz **± 0:00h** |
+| Fußnote unter der Tabelle, nur wenn mindestens eine `model_change`-Zeile sichtbar ist (`text-xs`, gray-500/400) — **Revision 4** | Zeilen vom Typ „Modellwechsel" dokumentieren die Differenz, die eine Umstellung des Arbeitszeitmodells bewirkt hat. Der Betrag zählt **nicht** zusätzlich zum Saldo — er steckt bereits in den neu gerechneten Tageszeilen ab dem Stichtag. |
 
 Die Begründung ist Freitext eines Menschen und wird **unverändert** durchgereicht — kein Trimmen,
 kein Umformatieren von Datumsmustern darin. Das ist die Regel, die `VacationTransactions.tsx` in
@@ -685,8 +703,33 @@ Erweiterung der bestehenden Komponente, kein neues Bauteil:
 - Neuer Typ `model_change` in `getTypeLabel` → „Modellwechsel", in `getTypeDescription` →
   „Saldodifferenz aus einer rückwirkenden Umstellung des Arbeitszeitmodells", in
   `getTypeBadgeColor` → `bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300`.
-- `isAbsenceType` bleibt unberührt — die Zeile zeigt einen echten Stundenwert mit Vorzeichen,
-  Trendpfeil und `font-bold`, genau wie `earned` und `correction`.
+- `isAbsenceType` bleibt unberührt.
+- **Die Zeile ist eine Dokumentationszeile ohne Rechenwirkung (Revision 4, nachgezogen aus
+  Server-CR-01).** Sie kommt mit `hours: 0` und trägt ihren Betrag in einem eigenen Feld
+  `documentedDelta`. Begründung: Die Wirkung der Umstellung steckt bereits in den neu
+  gerechneten Tageszeilen ab dem Stichtag. Ein zusätzlich summierender Journalbetrag würde
+  denselben Betrag ein zweites Mal zählen — die Summe der angezeigten Zeilen läge dann um
+  genau diesen Betrag über dem daneben angezeigten Saldo.
+- Daraus folgt für die Darstellung der Stundenspalte dieser Zeile — verbindlich:
+  - **Kein Trendpfeil.** `TrendingUp`/`TrendingDown` bleiben den summierenden Zeilen
+    vorbehalten. Richtung und Bedeutung tragen Vorzeichen und Farbe; die Farbe ist damit nie
+    alleiniger Träger.
+  - **Eigene Beschriftung** `dokumentierte Differenz` in `text-xs text-gray-500
+    dark:text-gray-400` unmittelbar über dem Betrag. „0,0 h" wäre für den Leser falsch — die
+    Umstellung **hat** einen Betrag bewirkt, er steht nur nicht in dieser Zeile.
+  - **Betrag** in `font-bold` (700 bleibt also am vorzeichenbehafteten Stundenwert, wie in der
+    Gewichtetabelle zugesagt), dreiwegig gefärbt über `documentedDeltaToneClass()`:
+    green-600/400 bei > 0, red-600/400 bei < 0, gray-600/400 bei 0. Nulldifferenz wird als
+    **± 0:00h** ausgegeben (`formatDocumentedDelta()`) — dasselbe Muster wie im Vorschaupanel
+    des Wechsel-Dialogs.
+  - **Fußnote unter der Tabelle**, sichtbar nur, wenn mindestens eine `model_change`-Zeile in
+    der Liste steht (Wortlaut im Textbuch, Abschnitt „Kontoauszug").
+  - Beide Formatierfunktionen liegen in `desktop/src/components/worktime/overtimeTransactionFormat.ts`
+    und sind dort ohne Vite mit `npx tsx` + `node:assert` prüfbar.
+- **Verhältnis zu REQ-27** („die Zahl in der Vorschau ist dieselbe, die danach im Kontoauszug
+  steht"): unverändert erfüllt. Die Vorschau zeigt die Saldoänderung, die Journalzeile zeigt
+  denselben Wert als `documentedDelta` — gleiche Zahl, gleiches Format, gleiche Farbe. Nur der
+  Trendpfeil entfällt, und die Zeile sagt ausdrücklich dazu, dass sie nicht mitsummiert.
 - Die Spalte **Datum** trägt den **Stichtag** der Periode, nicht den Eintragungstag. Die Liste ist
   nach `createdAt DESC, id DESC` sortiert (Phase-8-Entscheidung); deshalb bekommt die
   Beschreibungszelle eine zweite Zeile in `text-xs text-gray-500 dark:text-gray-400` mit
@@ -868,7 +911,10 @@ Phase und bleibt unangetastet — vermerkt, damit es nicht als neu eingeführter
   `ConfirmDialog` X-Button → „Abbrechen" (heute ohne Namen).
 - Farbe ist nie der alleinige Träger: Zukunft/Vergangenheit unterscheiden sich zusätzlich durch
   Badge-Text, Icon und Zeitraumsatz; positive/negative Stunden zusätzlich durch Vorzeichen und
-  Trendpfeil; der Zustand „nichts zu tun" durch eigenen Text und eigenes Icon.
+  Trendpfeil; der Zustand „nichts zu tun" durch eigenen Text und eigenes Icon. In der
+  `model_change`-Zeile des Kontoauszugs tritt an die Stelle des Trendpfeils das Vorzeichen
+  zusammen mit der Beschriftung „dokumentierte Differenz" (Revision 4, Abschnitt 5) — auch dort
+  trägt die Farbe die Bedeutung nicht allein.
 - Alle Bedienelemente im Dialog sind über die Tabulatortaste in Lesereihenfolge erreichbar; der
   Einstiegs-Button in `EditUserModal` steht im Tab-Fluss unmittelbar nach dem schreibgeschützten
   Feld, auf das er sich bezieht.
