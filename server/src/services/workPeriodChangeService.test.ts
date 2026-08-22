@@ -576,6 +576,80 @@ describe('applyWorkTimeChange — Validierung (kein Schreibvorgang bei Ablehnung
     }
   });
 
+  it('CR-04: Tagesplan ausserhalb 0..24 und Tagesplansumme ueber 60 werden abgewiesen, keine Schreibwirkung', () => {
+    const userId = createEmployee('tagesplan-grenzen', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+
+      const periodsBefore = countPeriods(userId);
+      const transactionsBefore = countTransactions(userId);
+      const validFrom = firstOfMonthOffset(today, -1);
+
+      const unzulaessig = [
+        // negativ — erzeugte vor dem Fix eine negative Soll-Summe und damit einen frei
+        // waehlbaren, beliebig grossen balanceDelta als schreibende Gutschrift
+        { monday: -100, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+        // ueber 24 Stunden an einem Kalendertag
+        { monday: 25, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+        // absurd gross
+        { monday: 8.5e15, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+        // jeder Tag fuer sich zulaessig (<= 24), die Wochensumme aber 168 > 60
+        { monday: 24, tuesday: 24, wednesday: 24, thursday: 24, friday: 24, saturday: 24, sunday: 24 },
+      ];
+
+      for (const workSchedule of unzulaessig) {
+        const input: WorkTimeChangeInput = {
+          userId,
+          validFrom,
+          weeklyHours: 40,
+          workSchedule,
+          reason: 'Unzulaessiger Tagesplan darf nicht gespeichert werden',
+        };
+        expect(() => applyWorkTimeChange(input, { dryRun: false, createdBy: adminId })).toThrow(
+          WorkTimeChangeValidationError
+        );
+        expect(() => applyWorkTimeChange(input, { dryRun: true, createdBy: adminId })).toThrow(
+          WorkTimeChangeValidationError
+        );
+      }
+
+      expect(countPeriods(userId)).toBe(periodsBefore);
+      expect(countTransactions(userId)).toBe(transactionsBefore);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
+  it('CR-04 Gegenprobe: ein zulaessiger Tagesplan (Summe 30 h, jeder Tag <= 24) wird angenommen', () => {
+    const userId = createEmployee('tagesplan-zulaessig', 40, '2020-01-01');
+    try {
+      insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
+      const validFrom = firstOfMonthOffset(today, -1);
+
+      const input: WorkTimeChangeInput = {
+        userId,
+        validFrom,
+        weeklyHours: 30,
+        workSchedule: {
+          monday: 8,
+          tuesday: 8,
+          wednesday: 8,
+          thursday: 6,
+          friday: 0,
+          saturday: 0,
+          sunday: 0,
+        },
+        reason: 'Zulaessiger Tagesplan mit 30 Wochenstunden zu Testzwecken',
+      };
+
+      const outcome = applyWorkTimeChange(input, { dryRun: false, createdBy: adminId });
+      expect(outcome.period).not.toBeNull();
+      expect(outcome.period!.weeklyHours).toBe(30);
+    } finally {
+      cleanupEmployee(userId);
+    }
+  });
+
   it('Leere Begruendung im Speicherpfad wirft WorkTimeChangeValidationError, keine Schreibwirkung', () => {
     const userId = createEmployee('leere-begruendung', 40, '2020-01-01');
     try {

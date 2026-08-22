@@ -22,6 +22,10 @@ import {
   WorkTimeChangeValidationError,
 } from '../services/workPeriodChangeService.js';
 import * as workTimeChangeTokenModule from '../services/workTimeChangeToken.js';
+// CR-04/IN-01: EIN Tagesplan-Typwächter für Route und Service. Vorher lag hier eine
+// wortgleiche, ebenso lückenhafte Kopie — eine Verschärfung wäre nur an einer der beiden
+// Stellen angekommen.
+import { isWorkSchedule } from '../utils/workSchedule.js';
 import type {
   ApiResponse,
   UserWorkPeriod,
@@ -32,25 +36,6 @@ import type {
 import logger from '../utils/logger.js';
 
 const router = Router();
-
-const WEEKDAY_KEYS: readonly (keyof WorkSchedule)[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];
-
-/** Typwächter: prüft, dass alle sieben Wochentagsschlüssel vorhanden und endliche Zahlen sind. */
-function isWorkSchedule(value: unknown): value is WorkSchedule {
-  if (typeof value !== 'object' || value === null) return false;
-  const record = value as Record<string, unknown>;
-  return WEEKDAY_KEYS.every(
-    (key) => typeof record[key] === 'number' && Number.isFinite(record[key])
-  );
-}
 
 /** Die vier Felder, die jede der beiden Schreib-Routen mindestens braucht. */
 interface WorkTimeChangeRequestBody {

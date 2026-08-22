@@ -58,6 +58,13 @@ import { getOvertimeBalance } from './overtimeTransactionService.js';
 import { createTransaction } from './overtimeTransactionManager.js';
 import { getTodayString, formatDate } from '../utils/timezone.js';
 import { isRealCalendarDate } from '../utils/validation.js';
+import {
+  WEEKDAY_KEYS,
+  MAX_DAILY_HOURS,
+  MAX_WEEKLY_HOURS,
+  isWorkSchedule,
+  sumWorkScheduleHours,
+} from '../utils/workSchedule.js';
 import logger from '../utils/logger.js';
 import type {
   UserPublic,
@@ -67,16 +74,6 @@ import type {
   WorkTimeChangeOutcome,
   WorkTimeChangePreview,
 } from '../types/index.js';
-
-const WEEKDAY_KEYS: readonly (keyof WorkSchedule)[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];
 
 /**
  * Fehlerklasse für alle serverseitigen Validierungsfehler dieses Vorgangs — Muster aus
@@ -112,15 +109,6 @@ function toGermanDate(dateStr: string): string {
 /** "30,0" statt "30.0" — Komma als Dezimaltrennzeichen für die Journal-Beschreibung. */
 function formatWeeklyHoursDe(hours: number): string {
   return hours.toFixed(1).replace('.', ',');
-}
-
-/** Typwächter: prüft, dass alle sieben Wochentagsschlüssel vorhanden und endliche Zahlen sind. */
-function isWorkSchedule(value: unknown): value is WorkSchedule {
-  if (typeof value !== 'object' || value === null) return false;
-  const record = value as Record<string, unknown>;
-  return WEEKDAY_KEYS.every(
-    (key) => typeof record[key] === 'number' && Number.isFinite(record[key])
-  );
 }
 
 /** Wertvergleich zweier Tagespläne — keine Objektidentität. */
@@ -211,10 +199,25 @@ function validateInput(input: WorkTimeChangeInput, user: UserPublic, dryRun: boo
     throw new WorkTimeChangeValidationError('Wochenstunden müssen zwischen 0 und 60 liegen');
   }
 
+  // CR-04: Der Tagesplan gewinnt gegen weeklyHours (`.claude/CLAUDE.md`: "workSchedule
+  // existiert → weeklyHours wird IGNORIERT!"). Ohne Wertebereichsprüfung ist die
+  // 0-bis-60-Grenze oben deshalb umgehbar — negative Tagessollstunden erzeugen einen frei
+  // wählbaren, beliebig großen balanceDelta als schreibende Gutschrift.
   if (input.workSchedule !== null && !isWorkSchedule(input.workSchedule)) {
     throw new WorkTimeChangeValidationError(
-      'Der Tagesplan muss entweder leer sein oder für alle sieben Wochentage eine endliche Zahl enthalten.'
+      `Der Tagesplan muss entweder leer sein oder für alle sieben Wochentage eine Zahl ` +
+      `zwischen 0 und ${MAX_DAILY_HOURS} enthalten.`
     );
+  }
+
+  if (input.workSchedule !== null) {
+    const scheduleSum = sumWorkScheduleHours(input.workSchedule);
+    if (scheduleSum > MAX_WEEKLY_HOURS) {
+      throw new WorkTimeChangeValidationError(
+        `Die Summe des Tagesplans (${formatWeeklyHoursDe(scheduleSum)} h) darf ` +
+        `${MAX_WEEKLY_HOURS} Stunden pro Woche nicht überschreiten.`
+      );
+    }
   }
 
   if (input.validFrom < user.hireDate) {
