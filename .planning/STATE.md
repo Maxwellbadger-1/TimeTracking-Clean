@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 11-01-PLAN.md (Ausgangszustand, Snapshot A, Aufrufer-Checkliste)
-last_updated: "2026-08-22T05:11:05.489Z"
+stopped_at: Completed 11-03-PLAN.md (Startperiode bei Nutzeranlage/-aenderung, ensureInitialWorkPeriod, 14 neue Tests)
+last_updated: "2026-08-22T05:13:47.614Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 13
+  completed_plans: 14
   percent: 29
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 11-01-PLAN.md (Ausgangszustand, Snapshot A, Aufrufer-Checkliste)
+- **Stopped at:** Completed 11-03-PLAN.md (Startperiode bei Nutzeranlage/-aenderung, ensureInitialWorkPeriod, 14 neue Tests)
 
 ## Phase Progress
 
@@ -154,6 +154,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 11-datumsabh-ngige-berechnung]: [11-02] resolveWorkPeriodIn ersetzt die SQL-WHERE-Bedingung in resolveWorkPeriodAt vollständig — die Intervall-Semantik existiert projektweit nur noch einmal — D1/D2: workPeriodContext.ts cached per Closure je Berechnungslauf (kein modul-globales Map), directWorkPeriodLookup ist der ungecachte Fallback fuer Einzelabfragen
 - [Phase 11-datumsabh-ngige-berechnung]: [11-01] Testdatei-Treffer der vier Grep-Laeufe je Datei zu einer Sammelzeile zusammengefasst statt 1:1 explodiert, weil sie keine eigenstaendigen Berechnungswege sind, aber wegen D3 dennoch Compiler-Fehler ausloesen
 - [Phase 11-datumsabh-ngige-berechnung]: [11-01] tsc-Fehler und 5 zusaetzliche rote Tests beim Baseline-Lauf stammen aus der parallel laufenden TDD-RED-Phase von Plan 11-02 (Commit 8a3ae3b), nicht aus Plan 11-01 - verbindliche Referenz fuer Plan 11-10 bleiben die 3 tatsaechlich vorbestehenden roten Tests
+- [Phase 11-datumsabh-ngige-berechnung]: [11-03] createUser()/updateUser() legen Startperiode bzw. spiegeln Stammdatenaenderung atomar per db.transaction() - ensureInitialWorkPeriod(user, createdBy?) exportiert und idempotent fuer Seed-Skripte (Plan 11-08); createdBy der Startperiode bleibt null (keine Admin-ID in der createUser-Signatur verfuegbar), note traegt die Nachvollziehbarkeit
+- [Phase 11-datumsabh-ngige-berechnung]: [11-03] Rule 1: createUser() ohne hireDate verletzte users.hireDate NOT NULL bereits vor Phase 11 (schema.ts:45, DEFAULT wird durch explizit gebundenes NULL nicht ausgeloest) - behoben, hireDate und Perioden-validFrom teilen jetzt denselben resolveInitialValidFrom()-Ersatzwert
+- [Phase 11-datumsabh-ngige-berechnung]: [11-03] UPDATE user_work_periods bewusst direkt in userService.ts statt workPeriodService.ts (Plan 11-02 arbeitete in derselben Welle parallel an dieser Datei) - Phase 12 fuehrt den Schreibzugriff zusammen
 
 ## Quick Tasks Completed
 
@@ -200,6 +203,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 10-perioden-fundament P06 | 30min | 4 tasks | 16 files |
 | Phase 11-datumsabh-ngige-berechnung P02 | 45min | 2 tasks | 4 files |
 | Phase 11-datumsabh-ngige-berechnung P01 | 20min | 3 tasks | 4 files |
+| Phase 11-datumsabh-ngige-berechnung P03 | 55min | 3 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -236,7 +240,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 11 (Datumsabhängige Berechnung) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
