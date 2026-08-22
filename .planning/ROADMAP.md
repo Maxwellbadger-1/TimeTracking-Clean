@@ -400,6 +400,45 @@ Plans:
 
 **Abhängigkeit:** Phase 13
 
+**Plans:** 11 Pläne (8 Wellen)
+
+Plans:
+
+**Welle 1**
+
+- [ ] 14-01-PLAN.md — REQ-32: die fünf Wechselfälle einzeln nachweisen, den einen fehlenden Fall (Erhöhung mit rückwirkendem Stichtag) schließen
+- [ ] 14-02-PLAN.md — WR-07 schließen: `PUT /api/users/:id` ändert Wochenstunden nicht mehr an der Perioden-Historie vorbei (Entscheidung: vor dem Produktionslauf)
+- [ ] 14-03-PLAN.md — Abnahmesitzung vorbereiten: die 86 gesammelten Punkte nach Prüfweg gruppieren, Dubletten zusammenführen, Ablauf mit Zeitschätzung
+
+**Welle 2** *(blocked on Welle 1)*
+
+- [ ] 14-04-PLAN.md — Produktionskopie ziehen, Migrationsstand der Produktion messen, Migrationsfolge auf der Kopie fahren und ihre Nullwirkung belegen
+
+**Welle 3** *(blocked on Welle 2)*
+
+- [ ] 14-05-PLAN.md — Generalprobe: Zwei-Stufen-Umstellungsskript und der maschinelle Vorher/Nachher-Saldenvergleich (D3, D5 — REQ-33)
+
+**Welle 4** *(blocked on Welle 3)*
+
+- [ ] 14-06-PLAN.md — Rückweg erproben und als Runbook festschreiben (D8)
+- [ ] 14-07-PLAN.md — Urteil zu Phase 9.1, Backfill-Werkzeug bauen und auf einer Produktionskopie proben
+
+**Welle 5** *(blocked on Welle 4 — Produktionsfenster, wartet auf Freigabe)*
+
+- [ ] 14-08-PLAN.md — Freigabe, Sicherung, Auslieferung, Migrationsverifikation auf der Produktion (D1, D2)
+
+**Welle 6** *(blocked on Welle 5 — wartet auf Freigabe)*
+
+- [ ] 14-09-PLAN.md — Der reale Umstellungsfall (D6): Werte erfragen, Trockenlauf, Schreiblauf, Verifikation
+
+**Welle 7** *(blocked on Welle 6 — wartet auf Freigabe)*
+
+- [ ] 14-10-PLAN.md — Journal-Backfill der Phase 9.1 als zweiter gated Schritt im selben Fenster
+
+**Welle 8** *(blocked on Welle 7)*
+
+- [ ] 14-11-PLAN.md — Release v1.9.0, `latest.json` plattformweise prüfen, Dokumentation nachziehen (D7)
+
 ---
 
 ## Phasen (abgeschlossen)
@@ -445,7 +484,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
-| 14. Absicherung und Auslieferung | v3.0 | 0/? | Nicht begonnen | — |
+| 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
 
 ---
 
