@@ -227,13 +227,13 @@ npm run validate:overtime -- --userId=X
 npm test -- workingDays
 
 # Backend vs Frontend Compare
-sqlite3 server/database.db "SELECT * FROM overtime_balance WHERE userId=X"
+sqlite3 server/database/development.db "SELECT * FROM overtime_balance WHERE userId=X"
 curl http://localhost:3000/api/reports/overtime/user/X?year=YYYY&month=MM
 ```
 
 ## 🗄️ Database Rules
 
-1. **One Database:** Production at `/home/ubuntu/databases/production.db`, locally `server/database.db`
+1. **One Database:** Production at `/home/ubuntu/databases/production.db`, lokal `server/database/development.db`
 
    ⚠️ **KEIN Symlink mehr auf dem Server** (entfernt 20.08.2026). `server/database.db` existiert
    dort nicht — jedes Skript MUSS `DATABASE_PATH` explizit setzen:
@@ -250,7 +250,12 @@ curl http://localhost:3000/api/reports/overtime/user/X?year=YYYY&month=MM
    Ohne `DATABASE_PATH` legt ein Skript jetzt eine leere Datenbank an und fällt sofort mit
    0 Datensätzen auf — statt still die Produktion zu gefährden.
    - `DATABASE_PATH=/home/ubuntu/databases/production.db` (server PM2 config)
-   - Local: `DATABASE_PATH=./database.db` (server/.env.development)
+   - Local: `DATABASE_PATH=./database/development.db` (server/.env.development)
+
+   ⚠️ **`server/database.db` ist NICHT die Arbeitsdatenbank.** Die Datei existiert lokal noch als
+   unmigrierter Altbestand (Stand April 2026, ohne `user_work_periods`). Wer sie öffnet, sieht ein
+   Schema von vor Milestone v3.0 und zieht falsche Schlüsse. Maßgeblich ist ausschließlich der Pfad
+   aus `server/.env.development`.
 2. **WAL Mode:** `db.pragma('journal_mode = WAL')` für Multi-User
 3. **Prepared Statements:** SQL Injection Schutz (PFLICHT!)
 4. **Soft Delete:** `UPDATE ... SET deletedAt = NOW()` statt `DELETE`
@@ -351,7 +356,7 @@ curl -s http://129.159.8.19:3000/api/health | jq
 1. Read: PROJECT_SPEC.md (Requirements für Feature)
 2. Read: ARCHITECTURE.md (Tech Patterns, ADRs)
 3. Plan erstellen → User Review
-4. Implementieren & Lokal testen (localhost:3000 + server/database.db)
+4. Implementieren & Lokal testen (localhost:3000 + server/database/development.db)
 5. Push zu main branch → Auto-Deploy Blue Server (Production)
 6. Verify: curl http://129.159.8.19:3000/api/health
 7. Optional: Use Green Server (/green) for isolated testing before main push
@@ -499,7 +504,7 @@ rm -rf desktop/src-tauri/target node_modules desktop/node_modules server/node_mo
 ## Production Deployment (2-Tier Workflow)
 
 **Code-Flow:** Local -> `main` branch -> Blue Server:3000 (auto-deploy via deploy-server.yml)
-**Data-Flow:** Production DB -> `npm run sync-dev-db` -> Local `server/database.db`
+**Data-Flow:** Production DB -> `npm run sync-dev-db` -> Local `server/database/development.db`
 
 ### Deployment Steps
 
@@ -571,7 +576,7 @@ curl -s http://129.159.8.19:3000/api/health
 - ❌ `console.log` in Production → Entfernen vor Commit
 
 ## Database & Date Handling
-- ❌ Neue DB-Files erstellen → Nur `server/database.db`!
+- ❌ Neue DB-Files erstellen → Nur die Datenbank aus `DATABASE_PATH` (`server/database/development.db`)!
 - ❌ SQL Injection → IMMER Prepared Statements
 - ❌ Hard Delete → Soft Delete (`deletedAt`)
 - ❌ `toISOString().split('T')[0]` → Timezone bugs! Use `formatDate(date, 'yyyy-MM-dd')`
@@ -669,7 +674,7 @@ npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
 npx tsc --noEmit                                 # TypeScript check
 
 # Database
-sqlite3 database.db "SELECT * FROM overtime_balance WHERE userId=X"
+sqlite3 server/database/development.db "SELECT * FROM overtime_balance WHERE userId=X"
 
 # Production
 ssh ubuntu@129.159.8.19
