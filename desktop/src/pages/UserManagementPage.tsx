@@ -48,20 +48,6 @@ export function UserManagementPage() {
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'inactive'>('active');
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
-  if (!currentUser || currentUser.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-red-600 dark:text-red-400 text-center">
-              Zugriff verweigert. Nur Administratoren können Benutzer verwalten.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Get unique departments
   const departments = useMemo(() => {
     if (!users) return [];
@@ -126,6 +112,25 @@ export function UserManagementPage() {
       inactive: users.filter(u => !u.isActive).length,
     };
   }, [users]);
+
+  // CR-01 (Code-Review Phase 12): Die Berechtigungspruefung steht BEWUSST hinter allen
+  // Hooks. Stand sie davor (Rules-of-Hooks-Verletzung), rendert derselbe montierte
+  // Komponentenknoten nach einem Rollen- oder Sessionwechsel nur noch 8 statt 11 Hooks —
+  // React bricht dann mit "Rendered fewer hooks than expected" ab (weisser Bildschirm statt
+  // sauberer Weiterleitung). Alle Hooks laufen jetzt unabhaengig von der Rolle.
+  if (!currentUser || currentUser.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-red-600 dark:text-red-400 text-center">
+              Zugriff verweigert. Nur Administratoren können Benutzer verwalten.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleDeleteClick = (userId: number, userName: string) => {
     if (userId === currentUser.id) {
