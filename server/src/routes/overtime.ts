@@ -62,9 +62,16 @@ router.get(
 
       const allOvertime = await getAllUsersOvertimeSummary(year, month);
 
+      // WR-03 (Code-Review Phase 11, Durchlauf 2): `data` bleibt die Zeilenliste — die
+      // Antwortstruktur ändert sich für bestehende Clients nicht. `dataQuality` kommt
+      // additiv daneben und nur dann, wenn ein Nutzer wegen eines Datendefekts
+      // übersprungen wurde. Ohne dieses Feld war die Liste stillschweigend unvollständig:
+      // Der übersprungene Mitarbeiter erscheint mit 0/0/0 und ist von einem, der
+      // tatsächlich nichts gearbeitet hat, nicht zu unterscheiden.
       res.json({
         success: true,
-        data: allOvertime,
+        data: allOvertime.users,
+        ...(allOvertime.dataQuality ? { dataQuality: allOvertime.dataQuality } : {}),
       });
     } catch (error) {
       console.error('Error getting all users overtime:', error);
@@ -114,9 +121,12 @@ router.get(
 
       const aggregatedStats = await getAggregatedOvertimeStats(year, month);
 
+      // WR-03: siehe Begründung bei /all-users. `data` trägt unverändert die vier
+      // Kennzahlen; `dataQuality` weist aus, welche Nutzer NICHT in der Summe stecken.
       res.json({
         success: true,
-        data: aggregatedStats,
+        data: aggregatedStats.stats,
+        ...(aggregatedStats.dataQuality ? { dataQuality: aggregatedStats.dataQuality } : {}),
       });
     } catch (error) {
       console.error('Error getting aggregated overtime stats:', error);

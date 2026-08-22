@@ -109,6 +109,26 @@ export interface ApiResponse<T = unknown> {
     hasMore: boolean;
     cursor?: number | null; // For cursor-based pagination
   };
+  /**
+   * WR-03 (Code-Review Phase 11, Durchlauf 2): Hinweis darauf, dass die Antwort NICHT
+   * über alle Nutzer geht.
+   *
+   * Sammelauswertungen überspringen seit der WR-03-Vereinzelung einen Nutzer mit
+   * Datendefekt, statt für alle abzubrechen. Ohne dieses Feld war das Ergebnis
+   * stillschweigend falsch: Der übersprungene Mitarbeiter erschien mit 0/0/0 und war in
+   * der Oberfläche nicht von einem zu unterscheiden, der tatsächlich nichts gearbeitet
+   * hat; die Gesamtsumme fiel entsprechend zu klein aus. Für eine Kennzahl, die als
+   * Grundlage für Auszahlung und Abbau dient, ist eine stillschweigend falsche Zahl
+   * schlechter als eine ausbleibende.
+   *
+   * Bewusst NEBEN `data` und nicht darin: Bestehende Aufrufer lesen `data` unverändert
+   * weiter, das Feld ist rein additiv. Fehlt es, ist die Antwort vollständig.
+   */
+  dataQuality?: {
+    skippedUserIds: number[];
+    reason: 'missing_work_period';
+    message: string;
+  };
 }
 
 // Time Entry Types

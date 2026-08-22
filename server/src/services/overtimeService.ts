@@ -511,8 +511,24 @@ export async function ensureDailyOvertimeTransactions(
  * Fehler fliegt unverändert weiter. Den Bestand vorab durchsuchen kann
  * `checkAllPeriodChains()` (workPeriodService.ts) — die Vereinzelung ersetzt den
  * Bestands-Check nicht, sie verhindert nur den Totalausfall.
+ *
+ * WR-03 (Durchlauf 2): Der übersprungene Nutzer wird jetzt in `skippedUserIds`
+ * ZURÜCKGEMELDET, nicht nur protokolliert. Vorher lief die Abfrage danach unverändert
+ * weiter: Der `LEFT JOIN` mit `COALESCE(..., 0)` lieferte für diesen Nutzer 0/0/0 — in
+ * der Oberfläche nicht von einem Mitarbeiter zu unterscheiden, der tatsächlich nichts
+ * gearbeitet hat —, und `getAggregatedOvertimeStats()` gab eine Gesamtsumme aus, in der
+ * ein Mitarbeiter fehlte, ohne dass die API-Antwort ein Feld dafür hatte. Die
+ * Vereinzelung selbst war richtig; die fehlende Rückmeldung war der Mangel.
+ *
+ * @param skippedUserIds Sammelbehälter des Aufrufers. Wird um `userId` ergänzt, wenn der
+ *   Nutzer wegen eines Datendefekts übersprungen wurde. Doppelte Einträge sind
+ *   ausgeschlossen (`Set`), weil derselbe Nutzer in einem Lauf mehrfach anlaufen kann.
  */
-async function ensureOvertimeBalanceEntriesIsolated(userId: number, month: string): Promise<void> {
+async function ensureOvertimeBalanceEntriesIsolated(
+  userId: number,
+  month: string,
+  skippedUserIds: Set<number>
+): Promise<void> {
   try {
     await ensureOvertimeBalanceEntries(userId, month);
   } catch (err) {
@@ -521,6 +537,7 @@ async function ensureOvertimeBalanceEntriesIsolated(userId: number, month: strin
         { userId, month, err },
         'Datendefekt: Nutzer ohne Arbeitszeitperiode — in dieser Sammelauswertung übersprungen (D4, WR-03)'
       );
+      skippedUserIds.add(userId);
       return;
     }
     throw err;
@@ -528,10 +545,43 @@ async function ensureOvertimeBalanceEntriesIsolated(userId: number, month: strin
 }
 
 /**
+ * WR-03: Gemeinsame Form des Datenqualitäts-Hinweises für beide Sammelauswertungen.
+ * `null`, wenn kein Nutzer übersprungen wurde — die Antwort ist dann vollständig und das
+ * Feld erscheint gar nicht erst in der HTTP-Antwort.
+ */
+export interface OvertimeDataQuality {
+  skippedUserIds: number[];
+  reason: 'missing_work_period';
+  message: string;
+}
+
+function buildDataQuality(skippedUserIds: Set<number>): OvertimeDataQuality | null {
+  if (skippedUserIds.size === 0) {
+    return null;
+  }
+
+  const ids = [...skippedUserIds].sort((a, b) => a - b);
+  return {
+    skippedUserIds: ids,
+    reason: 'missing_work_period',
+    message:
+      `Unvollständige Auswertung: ${ids.length} Nutzer ohne lückenlose Arbeitszeitperiode ` +
+      `(Datendefekt D4) konnten nicht berechnet werden und erscheinen mit 0 Stunden — ` +
+      `Nutzer-IDs: ${ids.join(', ')}. Die ausgewiesenen Summen sind entsprechend zu klein. ` +
+      'Betroffene Ketten prüfen: GET /api/admin/period-chains bzw. `npm run check:period-chains`.',
+  };
+}
+
+/**
  * Get overtime for all users (Admin dashboard)
  * Calculates cumulative overtime from start of year UP TO CURRENT MONTH (inclusive)
  * This gives the CURRENT balance, not future projection
  * IMPORTANT: Only counts months from employee's hire date onwards!
+ *
+ * WR-03 (Durchlauf 2): Liefert `{ users, dataQuality }` statt nur der Zeilenliste. Die
+ * Zeilenliste ist unverändert; `dataQuality` ist `null`, solange kein Nutzer übersprungen
+ * wurde. Der Aufrufer (`routes/overtime.ts`) reicht sie NEBEN `data` weiter, damit die
+ * bestehende Antwortstruktur (`data` = Array) für alle Clients gleich bleibt.
  */
 export async function getAllUsersOvertimeSummary(year: number, month?: string) {
   const today = getCurrentDate();
@@ -539,6 +589,8 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
 
   // First, ensure all users have complete overtime_balance entries
   const users = db.prepare('SELECT id FROM users WHERE deletedAt IS NULL').all() as Array<{ id: number }>;
+
+  const skippedUserIds = new Set<number>();
 
   // Determine date range based on parameters (monthly or yearly)
   let startMonth: string;
@@ -551,7 +603,7 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
 
     // Ensure overtime_balance exists for this month
     for (const user of users) {
-      await ensureOvertimeBalanceEntriesIsolated(user.id, month);
+      await ensureOvertimeBalanceEntriesIsolated(user.id, month, skippedUserIds);
     }
   } else {
     // Yearly report: Full year or up to current month
@@ -561,7 +613,7 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
       : `${year}-12`;
 
     for (const user of users) {
-      await ensureOvertimeBalanceEntriesIsolated(user.id, endMonth);
+      await ensureOvertimeBalanceEntriesIsolated(user.id, endMonth, skippedUserIds);
     }
   }
 
@@ -584,7 +636,7 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
     ORDER BY totalOvertime DESC
   `;
 
-  return db.prepare(query).all(startMonth, endMonth) as Array<{
+  const users_ = db.prepare(query).all(startMonth, endMonth) as Array<{
     userId: number;
     firstName: string;
     lastName: string;
@@ -593,12 +645,23 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
     actualHours: number;
     totalOvertime: number;
   }>;
+
+  // WR-03: Die Zeilenliste bleibt unverändert; der Hinweis auf übersprungene Nutzer
+  // reist getrennt mit. Ein übersprungener Nutzer steht in `users_` mit 0/0/0 —
+  // `dataQuality` ist das Einzige, was ihn von einem echten Nullwert unterscheidet.
+  return { users: users_, dataQuality: buildDataQuality(skippedUserIds) };
 }
 
 /**
  * Get aggregated overtime statistics for all users (Admin dashboard)
  * Returns total sums for Soll, Ist, and Überstunden
  * Best Practice: Used for "Alle Mitarbeiter" view in reports
+ *
+ * WR-03 (Durchlauf 2): Liefert `{ stats, dataQuality }`. Die Kennzahlen in `stats` sind
+ * unverändert; `dataQuality` benennt die Nutzer, die wegen eines Datendefekts NICHT in der
+ * Summe stecken. Ohne dieses Feld war eine zu kleine Gesamtsumme von einer richtigen nicht
+ * zu unterscheiden — für eine Zahl, die Auszahlung und Abbau begründet, der schwerere
+ * Fehler.
  */
 export async function getAggregatedOvertimeStats(year: number, month?: string) {
   const today = getCurrentDate();
@@ -607,10 +670,12 @@ export async function getAggregatedOvertimeStats(year: number, month?: string) {
   // Ensure all users have complete overtime_balance entries
   const users = db.prepare('SELECT id FROM users WHERE deletedAt IS NULL').all() as Array<{ id: number }>;
 
+  const skippedUserIds = new Set<number>();
+
   const targetMonth = month || formatDate(today, 'yyyy-MM');
 
   for (const user of users) {
-    await ensureOvertimeBalanceEntriesIsolated(user.id, targetMonth);
+    await ensureOvertimeBalanceEntriesIsolated(user.id, targetMonth, skippedUserIds);
   }
 
   // Query for monthly aggregation
@@ -637,10 +702,13 @@ export async function getAggregatedOvertimeStats(year: number, month?: string) {
     // IMPORTANT: overtime_balance.actualHours ALREADY includes corrections!
     // DON'T add them again (would be double-counting)
     return {
-      totalTargetHours: baseStats.totalTargetHours || 0,
-      totalActualHours: baseStats.totalActualHours || 0,
-      totalOvertime: baseStats.totalOvertime || 0,
-      userCount: baseStats.userCount || 0,
+      stats: {
+        totalTargetHours: baseStats.totalTargetHours || 0,
+        totalActualHours: baseStats.totalActualHours || 0,
+        totalOvertime: baseStats.totalOvertime || 0,
+        userCount: baseStats.userCount || 0,
+      },
+      dataQuality: buildDataQuality(skippedUserIds),
     };
   }
 
@@ -674,10 +742,13 @@ export async function getAggregatedOvertimeStats(year: number, month?: string) {
   // IMPORTANT: overtime_balance.actualHours ALREADY includes corrections!
   // DON'T add them again (would be double-counting)
   return {
-    totalTargetHours: baseStats.totalTargetHours || 0,
-    totalActualHours: baseStats.totalActualHours || 0, // ✅ NO double-counting
-    totalOvertime: baseStats.totalOvertime || 0, // ✅ NO double-counting
-    userCount: baseStats.userCount || 0,
+    stats: {
+      totalTargetHours: baseStats.totalTargetHours || 0,
+      totalActualHours: baseStats.totalActualHours || 0, // ✅ NO double-counting
+      totalOvertime: baseStats.totalOvertime || 0, // ✅ NO double-counting
+      userCount: baseStats.userCount || 0,
+    },
+    dataQuality: buildDataQuality(skippedUserIds),
   };
 }
 
