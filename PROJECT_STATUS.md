@@ -246,32 +246,32 @@ Shell environment variables OVERRIDE all .env files!
 
 | Restposten | Schwere | Auswirkung | Status |
 |------------|---------|------------|--------|
-| **`PUT /api/users/:id` umgeht den Perioden-Schreibweg** | 🟡 Medium | Übergangsweg aus Phase 11 | 🔓 OFFEN |
+| **`PUT /api/users/:id` umgeht den Perioden-Schreibweg** | 🟡 Medium | Übergangsweg aus Phase 11 | 🔒 GESCHLOSSEN (Phase 14, Plan 14-02) |
 
-**Was:** `userService.updateUser()` spiegelt eine geänderte `weeklyHours`/`workSchedule`
-weiterhin per `updateWorkPeriodValues()` in die offene Periode. Über die API lässt sich damit
-das erreichen, was `PUT /api/work-periods/:id` seit Phase 13 unter Vorschau-Token,
+**Was:** `userService.updateUser()` spiegelte eine geänderte `weeklyHours`/`workSchedule`
+per `updateWorkPeriodValues()` in die offene Periode. Über die API ließ sich damit
+erreichen, was `PUT /api/work-periods/:id` seit Phase 13 unter Vorschau-Token,
 Pflichtbegründung, Kettenprüfung, Rebuild, Journalzeile und `audit_log`-Eintrag stellt — nur
 ohne all das.
 
-**Wie erreichbar:** Nur über die API. Die eigene Oberfläche nutzt den Weg nicht mehr
-(`EditUserModal.handleSubmit` schickt `weeklyHours` unverändert), und die Spiegelung greift
-ausschliesslich bei `data.weeklyHours !== existingUser.weeklyHours` bzw. einem geänderten
-Tagesplan.
+**Erledigt:** Der komplette Spiegelungszweig ist aus `userService.updateUser()` entfernt. Eine
+tatsächliche Wertänderung an `weeklyHours` oder `workSchedule` wirft jetzt `WorkPeriodBypassError`
+— **vor** jedem Lese-/Schreibzugriff der Funktion, sodass nachweislich nichts geschrieben wird.
+`server/src/routes/users.ts` bildet den Fehler auf **HTTP 400** ab, die Meldung nennt beide
+Ersatzwege wörtlich: `POST /api/work-periods/change` (Stundenwechsel ab Stichtag) und
+`PUT /api/work-periods/:id` (Stammdaten korrigieren). Die Abweisung greift ausschließlich bei
+einer **Wertänderung**, nicht bei bloßer Anwesenheit des Feldes — `EditUserModal.handleSubmit`
+schickt `weeklyHours` unverändert mit und funktioniert unverändert weiter (Gegenprobe-Test
+`mirror-noop`). Belegt durch 18/18 grüne Tests in
+`server/src/services/userWorkPeriodProvisioning.test.ts` (10 Erwähnungen von
+`WorkPeriodBypassError`, davon 6 `it`-Blöcke, die den Fehler und die unveränderten
+Nachweisdaten — `users`, Periode, `overtime_transactions` — prüfen). Die vier Pflichtgates
+(Server-`tsc`, Desktop-`tsc`, `vitest run` mit unveränderten 3 bekannten roten Tests,
+Desktop `check:rules`) sind grün. Entscheidung, Vorher-Wortlaut und Gate-Protokoll stehen in
+`.planning/phases/14-absicherung-und-auslieferung/14-WR07-ENTSCHEIDUNG.md`.
 
-**Bereits behoben (Code-Review Phase 13, WR-07):** Die Spiegelung liess `overtime_balance`
-mit den alten Sollstunden stehen. Die betroffenen Aggregatzeilen werden jetzt in derselben
-Transaktion verworfen und beim nächsten Zugriff neu gerechnet — die Saldo-Inkonsistenz ist
-weg. Der falsche Kommentar in `userService.ts`, der den Weg als „durch Phase 13 ersetzt"
-beschrieb, ist richtiggestellt.
-
-**Noch zu tun:** Den Spiegelungszweig entfernen und `weeklyHours`/`workSchedule` in
-`UpdateUserInput` verwerfen (400 mit Verweis auf `POST /api/work-periods/change` und
-`PUT /api/work-periods/:id`). Das ist eine Vertragsänderung an `updateUser()` und berührt
-`userWorkPeriodProvisioning.test.ts` — bewusst nicht im Rahmen des Phase-13-Code-Reviews
-erledigt.
-
-**Quelle:** `.planning/phases/13-korrigieren-und-r-ckg-ngig-machen/13-REVIEW.md`, WR-07
+**Quelle:** `.planning/phases/13-korrigieren-und-r-ckg-ngig-machen/13-REVIEW.md`, WR-07 (Befund B-1) —
+geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 
 ---
 

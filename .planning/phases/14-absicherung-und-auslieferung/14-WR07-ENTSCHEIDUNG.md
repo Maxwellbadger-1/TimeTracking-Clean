@@ -97,7 +97,8 @@ sich gegenüber dem gespeicherten Wert tatsächlich ändern.
 
 ## Gates nach Plan 14-02
 
-Vier Pflichtprüfungen, wörtlich protokolliert nach Abschluss aller Tasks:
+Vier Pflichtprüfungen, ausgeführt nach Abschluss aller Codeänderungen (Tasks 1+2), wörtlich
+protokolliert:
 
 ### 1. `cd server && npx tsc --noEmit`
 
@@ -114,20 +115,37 @@ Vier Pflichtprüfungen, wörtlich protokolliert nach Abschluss aller Tasks:
 ### 3. `cd server && npx vitest run`
 
 ```
-Tests  3 failed | 492 passed (495)
+Test Files  2 failed | 34 passed (36)
+     Tests  3 failed | 493 passed (496)
 ```
 
-Die drei roten Titel sind wörtlich identisch mit `11-AUSGANGSZUSTAND.md`:
-- `src/services/unifiedOvertimeService.test.ts:285`
-- `src/services/unifiedOvertimeService.test.ts:340`
-- `src/services/vacationBackfillService.test.ts:138`
+Die drei roten Titel sind wörtlich identisch mit dem in `<test_baseline>` des Ausführungsauftrags
+benannten Bestand (Referenz: `11-AUSGANGSZUSTAND.md`):
+- `src/services/unifiedOvertimeService.test.ts:285` — `expected 40 to be 10`
+- `src/services/unifiedOvertimeService.test.ts:340` — `expected 40 to be 10`
+- `src/services/vacationBackfillService.test.ts:138` — `expected true to be false`
 
-Kein vierter roter Titel, kein geänderter Titel — kein Abbruchgrund.
+Kein vierter roter Titel, kein geänderter Titel — kein Abbruchgrund. Die Zunahme von 491
+(Baseline vor Plan 14-01) auf 493 grüne Tests erklärt sich durch den einen REQ-32-Testfall aus
+Plan 14-01 und den einen zusätzlichen Nachweistest (`WR-07: die Fehlermeldung nennt beide
+Ersatzwege woertlich`) aus diesem Plan; die 18 statt vorher 17 Tests in
+`userWorkPeriodProvisioning.test.ts` liefern den Rest der Differenz.
 
 ### 4. `cd desktop && npm run check:rules`
 
 ```
-(alle PASS-Zeilen — Exit 0)
+(alle PASS-Zeilen, insgesamt 4 Prüfskripte — Exit 0)
 ```
 
 Alle vier Gates bestanden. WR-07 ist damit vor dem Produktionslauf geschlossen.
+
+---
+
+## Nachtrag: Audit der verbleibenden Schreibpfade (Sicherheits-Scope dieses Plans)
+
+Nach der Änderung erneut gegen `server/src` geprüft (siehe SUMMARY.md für den vollständigen
+Befund): Der einzige verbleibende `UPDATE users`-Aufruf, der `weeklyHours`/`workSchedule`
+betrifft, ist die jetzt entfernte Stelle — `grep -rn "weeklyHours|workSchedule"` mit
+`update|insert|set ` als Filter liefert außerhalb von Migrationen, Seed-Skripten und dem
+mandatory-reason-Pfad (`workPeriodService.ts`, `workPeriodChangeService.ts`,
+`workPeriodCorrectionService.ts`) keinen Treffer mehr. Details siehe SUMMARY.md.
