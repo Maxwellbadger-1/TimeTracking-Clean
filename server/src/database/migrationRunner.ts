@@ -57,13 +57,7 @@ export async function runMigrations(db: Database.Database): Promise<void> {
       logger.info(`⏳ Running migration: ${migration.name}`);
 
       try {
-        // Run migration in transaction
-        const runMigration = db.transaction(() => {
-          migration.up(db);
-          recordMigration(db, migration.name);
-        });
-
-        runMigration();
+        await applyMigration(db, migration);
         logger.info(`✅ Migration completed: ${migration.name}`);
       } catch (error) {
         logger.error({ error }, `❌ Migration failed: ${migration.name}`);
@@ -79,9 +73,24 @@ export async function runMigrations(db: Database.Database): Promise<void> {
 }
 
 /**
+ * Führt Schritt 5 des Migrationslaufs für genau eine Migration aus (reine Extraktion aus
+ * der vorherigen Schleife in `runMigrations`, verhaltensgleich — noch OHNE den CR-01-Fix aus
+ * 10-06-PLAN.md). Exportiert, damit `migrationRunner.failure.test.ts` den Fehlerpfad direkt
+ * gegen diesen Läufer nachweisen kann, ohne Dateisystem-Migrationen zu benötigen.
+ */
+export async function applyMigration(db: Database.Database, migration: Migration): Promise<void> {
+  const runMigration = db.transaction(() => {
+    migration.up(db);
+    recordMigration(db, migration.name);
+  });
+
+  runMigration();
+}
+
+/**
  * Ensure migrations table exists (using prepare() to avoid security hook false positive)
  */
-function ensureMigrationsTable(db: Database.Database): void {
+export function ensureMigrationsTable(db: Database.Database): void {
   // Check if table exists
   const tableExists = db
     .prepare(
