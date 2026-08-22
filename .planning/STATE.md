@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 13-07-PLAN.md
-last_updated: "2026-08-22T20:01:06.769Z"
+stopped_at: Completed 13-08-PLAN.md
+last_updated: "2026-08-22T20:18:38.917Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 42
-  completed_plans: 38
+  completed_plans: 39
   percent: 57
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 13-07-PLAN.md
+- **Stopped at:** Completed 13-08-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -214,6 +214,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase ?]: [Phase 13-korrigieren-und-r-ckg-ngig-machen]: 13-05: HTTP-Autorisierungstest (workPeriods.authorization.test.ts) nach dem Muster von vacationTransactionRoutes.test.ts — echte express-App mit app.listen(0) + fetch, weil ein Test der die Service-Funktion direkt aufruft die Rollenpruefung in der Route nicht erfasst
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-07] tsconfig exclude um src/**/*.check.ts ergänzt — node:assert-basierte Prüfskripte ohne .test.ts-Namen brechen sonst tsc --noEmit (typeRoots ist auf das leere desktop/node_modules/@types beschränkt)
 - [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-07] WorkPeriodCorrectionOutcome.period referenziert den bestehenden Desktop-Typ WorkTimePeriod statt einer dritten Periodenform mit deletedAt/deletedBy — dieselbe Vereinfachung wie beim Server (UserWorkPeriodListItem vs. UserWorkPeriod)
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-08] CR-03-Tagesplan-Validierung (0-24h je Tag) bleibt in WorkTimePeriodEditModal.tsx, nicht in workTimePeriodEditRules.ts — keine der vier im Plan benannten Entscheidungen, betrifft den WorkScheduleEditor-Teilbaum
+- [Phase 13-korrigieren-und-r-ckg-ngig-machen]: [13-08] isForbiddenMessage() prueft auf den Praefix 'Forbidden' (Server: requireAdmin liefert 'Forbidden - Admin access required') statt auf 'FORBIDDEN' — das ist der Sondertext nur fuer useWorkPeriods()/GET
 
 ## Quick Tasks Completed
 
@@ -284,6 +286,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13 P04 | 50min | 2 tasks | 2 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P05 | 50min | 3 tasks | 4 files |
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P07 | 50min | 3 tasks | 8 files |
+| Phase 13 P08 | ~55min | 3 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -320,7 +323,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 13 (korrigieren-und-r-ckg-ngig-machen) — EXECUTING
-Plan: 8 of 11
+Plan: 9 of 11
 Status: Ready to execute
 Last activity: 2026-08-22
 
