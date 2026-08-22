@@ -94,3 +94,10 @@ None - no external service configuration required.
 ---
 *Phase: 14-absicherung-und-auslieferung*
 *Completed: 2026-08-23*
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/14-absicherung-und-auslieferung/14-REQ32-NACHWEIS.md
+- FOUND: server/src/services/workPeriodChangeService.test.ts
+- FOUND: .planning/phases/14-absicherung-und-auslieferung/14-01-SUMMARY.md
+- FOUND: af74db0, 02d06e0, 4f522d6, 94f8476 (all commits present in git log)
