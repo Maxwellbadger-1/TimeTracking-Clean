@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-08-22T00:06:08.330Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-08-22T00:08:41.519Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 14
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:discuss-phase 9` — Kontext für „Ein Maßstab, ein Weg" sammeln, oder `/gsd:plan-phase 9` direkt planen.
 - **Last completed:** Milestone v2.0 abgeschlossen und archiviert (Tag `milestone-v2.0`)
-- **Stopped at:** Completed 10-04-PLAN.md
+- **Stopped at:** Completed 10-02-PLAN.md
 
 ## Phase Progress
 
@@ -143,6 +143,10 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - [Phase 10-perioden-fundament]: 10-03: Selbstverifikation der Migration 009 vergleicht ALLE Perioden (nicht nur neu eingefuegte) gegen aktuelle users-Werte - Skip-Test fuer D7 musste weeklyHours/workSchedule der manuell vorab eingefuegten Periode identisch zum Nutzer halten
 - [Phase 10-perioden-fundament]: Fehlertext für Überlappungs-Konflikte nennt das Substantiv Überlappung statt der Verbform, damit der geforderte Wortlaut aus dem Plan exakt getroffen wird
 - [Phase 10-perioden-fundament]: Trigger-Bypass fuer den checkPeriodChain-Luecken-Test laeuft ausschliesslich innerhalb einer einzigen atomaren db.transaction() mit wortgleicher Wiederherstellung der Trigger-DDL aus Migration 008
+- [Phase 10-perioden-fundament]: Identisches validFrom wirft Ueberlappung, nicht UNIQUE constraint failed - Insert-Trigger laeuft vor Constraint-Pruefung, UNIQUE-Index bleibt Verteidigung in der Tiefe
+- [Phase 10-perioden-fundament]: Insert-Trigger-Entfernungsexperiment zweifach durchgefuehrt: dauerhafter automatisierter Test plus einmaliger manueller Versuch an der echten Migrationsdatei, danach per Bearbeitung (nicht git checkout) zurueckgenommen
+- [Phase 10-perioden-fundament]: Migration 009 aus Plan 10-03 war beim Migrationslauf bereits zusammengefuehrt (Dev-Server wendet Migrationen automatisch an); user_work_periods zeigte 20 statt 0 Zeilen - dokumentierter Erwartungsfall, kein Fehlschlag
+- [Phase 10-perioden-fundament]: Zusaetzliche synthetische Vor-008-Kopie gebaut, um zu belegen dass migrate:copy tatsaechlich neue Migrationen anwendet, nicht nur eine vollstaendige Datenbank bestaetigt
 
 ## Quick Tasks Completed
 
@@ -184,6 +188,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 | Phase 10-perioden-fundament P01 | 45min | 2 tasks | 5 files |
 | Phase 10-perioden-fundament P03 | 35min | 2 tasks | 2 files |
 | Phase 10-perioden-fundament P04 | 25min | 2 tasks | 2 files |
+| Phase 10-perioden-fundament P02 | 55min | 2 tasks | 4 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -220,7 +225,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 ## Current Position
 
 Phase: 10 (Perioden-Fundament) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-22
 
