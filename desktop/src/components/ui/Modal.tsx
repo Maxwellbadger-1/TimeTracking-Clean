@@ -1,9 +1,8 @@
-import { ReactNode, useEffect, useId, useRef } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { ReactNode, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button';
-import * as modalStack from './modalStack';
+import { useModalLayer } from './useModalLayer';
 
 interface ModalProps {
   isOpen: boolean;
@@ -14,9 +13,6 @@ interface ModalProps {
   zIndexClass?: string;
 }
 
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 export function Modal({
   isOpen,
   onClose,
@@ -25,60 +21,10 @@ export function Modal({
   size = 'md',
   zIndexClass = 'z-50',
 }: ModalProps) {
-  const idRef = useRef(Symbol('modal'));
-  const onCloseRef = useRef(onClose);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const previouslyFocusedRef = useRef<Element | null>(null);
+  // WR-15/CR-02: Stack-Teilnahme, ESC, Anfangsfokus, Fokusrueckgabe und Tab-Ring liegen in
+  // `useModalLayer` — eine Fassung fuer `Modal` und `ConfirmDialog`.
+  const { panelRef, handlePanelKeyDown } = useModalLayer(isOpen, onClose, 'modal');
   const titleId = useId();
-
-  onCloseRef.current = onClose;
-
-  // Stack-Teilnahme + Scroll-Lock. Abhaengigkeit ausschliesslich [isOpen] —
-  // onClose ist bei den Aufrufern eine Inline-Funktion und wuerde bei jedem
-  // Render eine neue Registrierung ausloesen.
-  useEffect(() => {
-    if (!isOpen) return;
-
-    modalStack.pushModal(idRef.current);
-
-    return () => {
-      modalStack.popModal(idRef.current);
-    };
-  }, [isOpen]);
-
-  // ESC schliesst nur die oberste Instanz.
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && modalStack.isTopModal(idRef.current)) {
-        e.stopPropagation();
-        onCloseRef.current();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen]);
-
-  // Fokusrueckgabe: merkt sich beim Oeffnen das zuvor fokussierte Element und
-  // gibt den Fokus beim Schliessen dorthin zurueck, sofern es noch im
-  // Dokument haengt.
-  useEffect(() => {
-    if (!isOpen) return;
-
-    previouslyFocusedRef.current = document.activeElement;
-
-    return () => {
-      const el = previouslyFocusedRef.current;
-      if (el instanceof HTMLElement && document.body.contains(el)) {
-        el.focus();
-      }
-    };
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -87,31 +33,6 @@ export function Modal({
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
-  };
-
-  const handlePanelKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Tab' || !modalStack.isTopModal(idRef.current)) return;
-
-    const panel = panelRef.current;
-    if (!panel) return;
-
-    const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-    ).filter((el) => el.offsetParent !== null);
-    if (focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else if (document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
   };
 
   return createPortal(
