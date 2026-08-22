@@ -291,7 +291,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 12-03-PLAN.md — Wechsel-Service mit echtem Trockenlauf und signiertem `previewToken` (D2, D3, D4, D7)
+- [x] 12-03-PLAN.md — Wechsel-Service mit echtem Trockenlauf und signiertem `previewToken` (D2, D3, D4, D7)
 - [ ] 12-04-PLAN.md — Desktop-Datenschicht: Hooks und Periodenliste
 
 **Wave 3** *(blocked on Wave 2 completion)*
