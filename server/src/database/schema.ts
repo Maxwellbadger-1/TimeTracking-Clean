@@ -519,11 +519,12 @@ export function initializeDatabase(db: Database.Database): void {
         'overtime_comp_credit', 'special_credit', 'unpaid_deduction',
         'holiday_credit', 'weekend_credit', 'carry_over', 'payout',
         'correction', 'initial_balance', 'year_end_balance',
-        'earned', 'compensation', 'carryover', 'unpaid_adjustment'
+        'earned', 'compensation', 'carryover', 'unpaid_adjustment',
+        'model_change'
       )),
       hours REAL NOT NULL,
       description TEXT,
-      referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system')),
+      referenceType TEXT CHECK(referenceType IN ('time_entry', 'absence', 'manual', 'system', 'work_period')),
       referenceId INTEGER,
       createdAt TEXT DEFAULT (datetime('now')),
       createdBy INTEGER,
