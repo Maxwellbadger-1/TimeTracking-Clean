@@ -32,6 +32,18 @@ jemand auslöst. Ein konkreter Umstellungsfall steht an (Stand 21.08.2026).
 Details: `.planning/REQUIREMENTS.md` (REQ-17 bis REQ-33), `.planning/ROADMAP.md` (Phasen 9–14),
 Entscheidungsgrundlage: `.planning/notes/arbeitszeitmodelle-historisierung.md`
 
+**Stand der Umsetzung (22.08.2026):** Phasen 9 bis 12 sind ausgeführt. Mit Phase 12 ist die
+dritte Zielfunktion erreicht — ein Admin trägt einen Stundenwechsel ab Stichtag ein, auch
+rückwirkend, sieht vorher serverseitig berechnet was er bewirkt, und die entstehende Differenz
+erscheint als eigene, begründete Zeile im Kontoauszug (REQ-26 bis REQ-29, verifiziert 20/20).
+Der angesparte Saldo wird dabei nicht umgerechnet. Offen sind Phase 13 (Korrigieren und
+rückgängig machen, REQ-30/31) und Phase 14 (Absicherung und Auslieferung, REQ-32/33).
+
+**Menschliche Abnahme ist gebündelt:** Auf Verfügung des Anwenders findet die UAT dieses
+Milestones nicht phasenweise statt, sondern gesammelt in Phase 14. Die Liste wächst in
+`.planning/phases/14-absicherung-und-auslieferung/14-UAT-SAMMLUNG.md` und steht nach Phase 12
+bei 51 Punkten.
+
 **Zuletzt ausgeliefert:** Milestone v2.0 am 21.08.2026 — Server in Produktion, Desktop-Release
 v1.8.0. Das Urlaubskonto führt seither ein Journal.
 
@@ -158,4 +170,4 @@ Dieses Dokument entwickelt sich bei Phase-Übergängen und Milestone-Abschlüsse
 4. Entscheidungen zu loggen? → Key Decisions
 
 ---
-*Last updated: 2026-08-21 — nach Abschluss von Milestone v2.0 (Urlaubskonto: Korrektheit & Nachvollziehbarkeit)*
+*Last updated: 2026-08-22 — nach Abschluss von Phase 12 (Stundenwechsel bedienen) im Milestone v3.0*
