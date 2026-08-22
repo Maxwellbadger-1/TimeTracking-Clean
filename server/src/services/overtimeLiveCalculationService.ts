@@ -520,19 +520,30 @@ export function calculateLiveOvertimeTransactions(
     const dateCompare = b.date.localeCompare(a.date);
     if (dateCompare !== 0) return dateCompare;
 
-    // If same date, sort by type priority (holidays first, then earned, then absences, then corrections)
+    // If same date, sort by type priority (holidays first, then the daily booking, then
+    // absence credits, then corrections, then the model change journal line).
+    //
+    // WR-06 (Code-Review Phase 12): Die Tabelle kannte 'earned' und 'unpaid_adjustment' —
+    // beides Typen, die DIESE Funktion nie erzeugt — und ausgerechnet 'time_entry' und
+    // 'unpaid_deduction' nicht. Beide fielen auf den Ersatzwert 99 und sortierten dadurch
+    // HINTER das in Phase 12 ergaenzte 'model_change: 4'; am Stichtag stand die
+    // Modellwechsel-Zeile also ueber der Tagesbuchung desselben Tages, entgegen der hier
+    // beschriebenen Absicht ("dann Korrekturen", also zuletzt).
+    //
+    // Zusaetzlich verdeckte `|| 99` einen echten Nullwert: Prioritaet 0 ('feiertag') fiel
+    // durch den falsy-Test ebenfalls auf 99. Deshalb `??` statt `||`.
     const typePriority: Record<string, number> = {
       feiertag: 0,
-      earned: 1,
+      time_entry: 1,
       vacation_credit: 2,
       sick_credit: 2,
       overtime_comp_credit: 2,
       special_credit: 2,
-      unpaid_adjustment: 2,
+      unpaid_deduction: 2,
       correction: 3,
       model_change: 4,
     };
-    return (typePriority[a.type] || 99) - (typePriority[b.type] || 99);
+    return (typePriority[a.type] ?? 99) - (typePriority[b.type] ?? 99);
   });
 
   logger.debug({ userId, transactionCount: transactions.length }, '✅ Live transactions calculated');
