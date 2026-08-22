@@ -252,6 +252,37 @@ braucht.
   kein bekannter Blocker, aber ein Punkt für die nächste Verifikation gegen eine frisch
   synchronisierte `development.db`.
 
+### Nachtrag: Punkte aus dem Code-Review von Phase 13 und seinen 15 Korrekturen
+
+Das Code-Review (`13-REVIEW.md`) lief nach Plan 13-11 und fand 2 kritische und 13
+Warnungs-Befunde; alle 15 wurden in eigenen `fix(13-review)`-Commits behoben. Die
+Zahlenangaben im Abschnitt oben („Server-Testsuite 478/481") stammen von vor diesen
+Korrekturen; der Stand nach den Korrekturen ist **486 grün / 3 rot** bei unveränderter
+roter Menge, `tsc` weiterhin Exit 0 für Server und Desktop. Die folgenden Punkte kommen
+durch die Korrekturen neu hinzu.
+
+| # | Prüfung | Erwartung | Warum ein Mensch |
+|---|---|---|---|
+| 13-U14 | Migration 015 (eindeutiger Index auf `reversalOf`) beim nächsten Serverstart anwenden lassen und danach `PRAGMA integrity_check` sowie `foreign_key_check` laufen lassen | Migration läuft ohne Fehler durch, Index ist eindeutig, keine Datensatzverluste; auf einer Kopie der Produktionsdatenbank zuerst | Migration 015 wurde bewusst **nicht** auf `development.db` angewendet — `runMigrations()` holt das beim nächsten Serverstart nach. Gegen Produktionsdaten ist das ein Mensch-Schritt. |
+| 13-U15 | Den ehemals tödlichen Ablauf von Hand nachstellen: Stundenwechsel 40→32 eintragen, per Korrektur auf 40 zurück (ohne `validFrom` zu verschieben), danach die Periode löschen | Das Löschen gelingt. Vor dem Fix `03ac2af` endete genau diese Folge deterministisch in einem 500er und die Periode war dauerhaft unlöschbar. | Regressionstests decken es ab, aber der Ablauf ist der wahrscheinlichste echte Bedienweg und verdient eine Bestätigung an der echten Oberfläche. |
+| 13-U16 | Eine Korrektur ohne Saldowirkung speichern (z. B. Tagesplan umverteilen bei gleicher Wochensumme) und danach den Kontoauszug ansehen | Es erscheint eine Journalzeile mit Begründung, obwohl sich der Saldo nicht ändert. Vor dem Fix `049c1b3` versprach der Dialog dauerhafte Sichtbarkeit, schrieb aber nichts. | Prüft ein Versprechen der Oberfläche gegen das, was der Kontoauszug wirklich zeigt. |
+| 13-U17 | Die Drosselung der drei Vorschau-Routen unter realer Bedienung prüfen: im Korrektur-Dialog zügig mehrere Felder des 7-Feld-Tagesplans ändern | Kein `429` bei normalem Bedientempo. Die Eimer sind seit `74a8be6` je Route und je Nutzer statt einem gemeinsamen IP-Eimer; auch die Speicherpfade sind jetzt gedrosselt. | Ob die gewählten Grenzen für echtes Tipptempo passen, lässt sich nur bedienend beurteilen. |
+| 13-U18 | Fehlerfall `PREVIEW_STALE` in der Löschbestätigung auslösen (Vorschau veralten lassen, dann bestätigen) | Ein lesbarer deutscher Satz erscheint, nicht der interne Code `PREVIEW_STALE` (Fix `8f12eb4`). | Sichtprüfung des Fehlertexts an der Oberfläche. |
+| 13-U19 | Ein Storno-Paar mit einem Datum in der Zukunft anlegen und den Kontoauszug ansehen | Beide Zeilen sind sichtbar. Vor dem Fix `d3015e1` fiel ein zukunftsdatiertes Paar aus der Liste. | Erfordert eine gezielt konstruierte Zukunftsperiode am laufenden Server. |
+
+### Offener Restposten aus dem Code-Review (WR-07)
+
+`PUT /api/users/:id` spiegelt `weeklyHours` weiterhin ohne Token, ohne Pflichtbegründung,
+ohne Rebuild und ohne Journalzeile in die offene Periode. Behoben wurde in `b23d41d` nur
+der sachlich falsche Kommentar in `userService.ts` sowie der handfeste Teil: die
+`overtime_balance`-Zeilen blieben nach der Spiegelung auf den alten Sollstunden stehen und
+werden jetzt in derselben Transaktion verworfen und beim nächsten Lesen neu berechnet.
+Der verbleibende Umbau berührt `updateUser()` und die Testdatei einer anderen Phase
+(`userWorkPeriodProvisioning.test.ts`, 17 Tests) und ist als „Offene Restposten" in
+`PROJECT_STATUS.md` festgehalten. **Für die Abnahme:** entscheiden, ob dieser zweite
+Schreibweg vor der Auslieferung geschlossen werden muss oder ob er als bekannter
+Restposten mitgeht.
+
 ---
 
 ## Phase 14 — Absicherung und Auslieferung
