@@ -6,12 +6,20 @@ files_reviewed: 32
 sub_reports:
   - 12-REVIEW-SERVER.md
   - 12-REVIEW-DESKTOP.md
+fix_reports:
+  - 12-REVIEW-FIXES-SERVER.md
+  - 12-REVIEW-FIXES-DESKTOP.md
+resolved:
+  critical: 11
+  warning: 31
+  info: 0
+  note: "Info-Befunde bewusst ausserhalb des Korrekturumfangs belassen"
 findings:
   critical: 11
   warning: 31
   info: 14
   total: 56
-status: issues_found
+status: resolved
 ---
 
 # Phase 12: Code-Review — Sammelübersicht
@@ -63,3 +71,73 @@ Beide Reviewer haben die tragenden Zusagen der Phase gegengeprüft, nicht angeno
 - Prepared Statements durchgehend, kein `toISOString().split('T')[0]` im Produktivcode,
   Produktionsschutz im Prüfskript, HMAC-Token mit `timingSafeEqual` und Längenvorprüfung,
   alle Desktop-Aufrufe über `apiClient` → `universalFetch`.
+
+---
+
+## Stand nach den Korrekturen
+
+Alle **11 Critical** und alle **31 Warning** wurden behoben — Server in 15, Desktop in 16
+atomaren Commits. Die 14 Info-Befunde blieben bewusst ausserhalb des Korrekturumfangs.
+
+| Gate | Vor den Korrekturen | Nach den Korrekturen |
+|---|---|---|
+| `server && npx tsc --noEmit` | Exit 0 | Exit 0 |
+| `desktop && npx tsc --noEmit` | Exit 0 | Exit 0 |
+| `server && npx vitest run` | 403 gruen / 3 rot | **418 gruen / 3 rot** |
+
+Die drei roten sind unveraendert die drei vorbestehenden aus
+`11-AUSGANGSZUSTAND.md` (2x `unifiedOvertimeService.test.ts`,
+1x `vacationBackfillService.test.ts`). Keine neue Regression.
+
+**Die Schaerfe der neuen Tests wurde gemessen, nicht behauptet.** Beide Fixer haben
+gezielte Ruecknahmen ihrer eigenen Korrektur vorgenommen und belegt, dass die jeweils neue
+Zusicherung daraufhin rot wird — u. a. `hours: 0` in der Journalzeile
+(`expected 152 to be +0`), der Filter in `getAggregatedOvertimeStats()`
+(`totalUsers: 18` statt `17`), der deaktivierte Anfangsfokus
+(`... liegt aber auf trigger`) und die fehlende Tagesstundenbegrenzung (`war 88`).
+Alle Verfaelschungen wurden anschliessend zurueckgenommen.
+
+### Die zwei tragenden Korrekturen
+
+**Server CR-01/CR-02** — `model_change` ist jetzt konsequent eine *Journalzeile ohne eigene
+Rechenwirkung*. Die Buchung bleibt (D4), faellt aber aus allen sechs
+`SUM(hours)`-/Laufsaldo-Pfaden heraus und wird mit `hours: 0` plus dem neuen, nicht
+summierten Feld `documentedDelta` ausgeliefert. Damit gilt die geforderte Invariante
+wieder: die Summe der angezeigten Zeilen entspricht dem angezeigten Saldo. Die
+REQ-29-Abdeckung wurde auf alle betroffenen Lesepfade ausgedehnt.
+
+**Desktop CR-01** — die drei `useMemo` in `UserManagementPage.tsx` standen hinter einer
+fruehen Rueckgabe. Bei einem Rollen- oder Sessionwechsel haette derselbe Knoten 8 statt 11
+Hooks gerendert und React waere abgebrochen.
+
+### Folgeaenderung im Desktop
+
+Die `model_change`-Zeile im Kontoauszug zeigt nicht mehr `0,0 h`, sondern die beschriftete
+Angabe „dokumentierte Differenz +2:30h" (bzw. „± 0:00h" bei Nulldifferenz), ohne Trendpfeil
+und mit einer Fussnote, die klarstellt, dass der Betrag nicht zusaetzlich in den Saldo
+zaehlt.
+
+### Bewusste Abweichungen von den Korrekturvorschlaegen
+
+Beide Fixer sind an einzelnen Stellen begruendet vom Vorschlag des Reviews abgewichen; die
+Begruendungen stehen in den beiden Fix-Berichten. Nennenswert:
+
+- **Desktop WR-12** — der vorgeschlagene `aria-label={`Bearbeiten: ${…}`}` haette die Tests
+  nicht repariert (exakter Attributvergleich). Umgesetzt wurde beides: Textselektor in den
+  Tests plus aria-label fuer die Barrierefreiheit. Es waren **sieben** Fundstellen, nicht
+  sechs.
+- **Desktop WR-21** — das Review leitete die abgedeckten Jahre aus den gelieferten Daten ab
+  und verwechselte damit „Jahr ohne Feiertagstreffer" mit „Jahr nicht geladen". Geprueft
+  wird jetzt gegen das Fenster selbst.
+- **Desktop WR-09** — nur als Zwischenloesung behoben (benannte Konstanten mit
+  Quellenzeiger). Ein maschinenlesbarer Fehlercode verlangt eine Vertragsaenderung ueber
+  `ApiResponse`, `apiClient.request()`, die Hooks und den Server; das gehoert in eine
+  eigene, geplante Aenderung.
+
+### Neuer Nebenbefund, nicht behoben
+
+Die Typ-Union in `desktop/src/hooks/useWorkTimeAccounts.ts` stimmt nicht mit dem ueberein,
+was der Server liefert: deklariert sind `earned | compensation | carryover |
+unpaid_adjustment`, geliefert werden auch `time_entry` und `unpaid_deduction`. Die
+Spalte „Typ" zeigt fuer gewoehnliche Tageszeilen vermutlich den Rohwert statt einer deutschen
+Bezeichnung. Als UAT-Punkt fuer Phase 14 aufgenommen.
