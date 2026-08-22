@@ -1,4 +1,12 @@
-import { useState, useMemo, FormEvent, useEffect, useRef, type ReactNode } from 'react';
+import {
+  useState,
+  useMemo,
+  FormEvent,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
 import { Modal } from '../ui/Modal';
@@ -194,8 +202,45 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
    *  der Fokus nach dem Schliessen zurueckkehrt. */
   const [correctionTrigger, setCorrectionTrigger] = useState<'block' | 'row' | null>(null);
   const blockCorrectButtonRef = useRef<HTMLButtonElement>(null);
-  const rowCorrectButtonRef = useRef<HTMLButtonElement>(null);
-  const rowDeleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * WR-13 (Code-Review Phase 13): EIN Ref-Objekt JE ZEILE, nicht eines für alle.
+   *
+   * Vorher bekam jede Zeile über `renderActions` DIESELBEN beiden Ref-Objekte mit. React weist
+   * Ref-Objekte beim Mounten der Reihe nach zu — nach dem Rendern zeigte `current` auf die
+   * Schaltfläche der ZULETZT gerenderten Zeile. Die Zusicherung DD-39 („der Aufrufer gibt den
+   * Fokus an genau den Knopf zurück, der ihn geöffnet hat") war damit nicht eingelöst: der
+   * Fokus landete immer auf der letzten Zeile.
+   *
+   * Die Map hält je Perioden-Id ein stabiles Ref-Objekt. Sie wird während des Renderns
+   * befüllt; das ist unbedenklich, weil `getRowRef()` für dieselbe Id immer dasselbe Objekt
+   * zurückgibt (kein neues Objekt je Render, sonst verlöre React die Zuordnung). Die Map ist
+   * durch die Anzahl der Perioden EINES Nutzers begrenzt und lebt nur so lange wie dieser
+   * Dialog.
+   */
+  const rowCorrectButtonRefs = useRef(new Map<number, RefObject<HTMLButtonElement | null>>());
+  const rowDeleteButtonRefs = useRef(new Map<number, RefObject<HTMLButtonElement | null>>());
+
+  function getRowRef(
+    store: Map<number, RefObject<HTMLButtonElement | null>>,
+    periodId: number
+  ): RefObject<HTMLButtonElement | null> {
+    const existing = store.get(periodId);
+    if (existing) return existing;
+    const created: RefObject<HTMLButtonElement | null> = { current: null };
+    store.set(periodId, created);
+    return created;
+  }
+
+  /** Fokussiert einen Knopf nur, wenn er noch im Dokument hängt. Nach dem Löschen ist die
+   *  Zeile weg — dann bleibt die Fokusrückgabe von `useModalLayer` die einzige Zuständige,
+   *  statt ins Leere zu greifen. */
+  function focusIfPresent(ref: RefObject<HTMLButtonElement | null> | undefined): void {
+    const node = ref?.current;
+    if (node && document.body.contains(node)) {
+      node.focus();
+    }
+  }
 
   // Löschbestätigung (DD-38): laedt ihre Vorschau beim Oeffnen, der Bestaetigungsknopf bleibt
   // gesperrt, bis sie vorliegt.
@@ -254,11 +299,15 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     }, 8000);
   }
 
-  function focusCorrectionTrigger(trigger: 'block' | 'row' | null) {
+  /** WR-13: `periodId` bestimmt, WELCHE Zeile den Fokus zurückbekommt — nicht mehr „die
+   *  zuletzt gerenderte". */
+  function focusCorrectionTrigger(trigger: 'block' | 'row' | null, periodId: number | null) {
     if (trigger === 'block') {
-      blockCorrectButtonRef.current?.focus();
-    } else {
-      rowCorrectButtonRef.current?.focus();
+      focusIfPresent(blockCorrectButtonRef);
+      return;
+    }
+    if (periodId !== null) {
+      focusIfPresent(rowCorrectButtonRefs.current.get(periodId));
     }
   }
 
@@ -275,13 +324,15 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
   function closeCorrectionDialog() {
     const trigger = correctionTrigger;
+    const periodId = correctionPeriod?.id ?? null;
     setCorrectionPeriod(null);
     setCorrectionTrigger(null);
-    focusCorrectionTrigger(trigger);
+    focusCorrectionTrigger(trigger, periodId);
   }
 
   function handleCorrectionSaved(outcome: WorkPeriodCorrectionOutcome) {
     const trigger = correctionTrigger;
+    const periodId = correctionPeriod?.id ?? null;
     setCorrectionPeriod(null);
     setCorrectionTrigger(null);
     if (outcome.period) {
@@ -296,7 +347,7 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         ? `Korrektur gespeichert — Saldoänderung ${formatOvertimeHours(outcome.preview.balanceDelta)} steht im Kontoauszug`
         : 'Korrektur gespeichert'
     );
-    focusCorrectionTrigger(trigger);
+    focusCorrectionTrigger(trigger, periodId);
   }
 
   function runDeletionPreview(periodId: number) {
@@ -326,13 +377,15 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
   function closeDeletionDialog() {
     if (deleteM.isPending) return;
+    const closedPeriodId = deletionPeriod?.id ?? null;
     setDeletionPeriod(null);
     setDeletionPreview(null);
     setDeletionPreviewFailed(false);
     setDeletionReason('');
     setDeletionError('');
     setDeletionStaleFailureCount(0);
-    rowDeleteButtonRef.current?.focus();
+    // WR-13: der Loeschknopf GENAU DIESER Zeile, nicht der der zuletzt gerenderten.
+    focusIfPresent(closedPeriodId === null ? undefined : rowDeleteButtonRefs.current.get(closedPeriodId));
   }
 
   async function handleConfirmDeletion() {
@@ -362,7 +415,11 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
         );
       }
       toast.success('Periode gelöscht — Storno steht im Kontoauszug');
-      rowDeleteButtonRef.current?.focus();
+      // WR-13: KEIN manueller focus() nach erfolgreichem Loeschen. Die Zeile verschwindet
+      // mit dem naechsten Refetch — das Ref zeigte danach auf einen Knopf, den es nicht
+      // mehr gibt. Die Fokusrueckgabe uebernimmt useModalLayer (es merkt sich beim Oeffnen
+      // das zuvor fokussierte Element und stellt es nur wieder her, wenn es noch im
+      // Dokument haengt).
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
       if (isForbiddenPeriodMessage(message)) {
@@ -817,8 +874,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
                         onCorrect={openCorrectionFromRow}
                         onDelete={openDeletion}
                         isDeleting={deleteM.isPending && deletionPeriod?.id === period.id}
-                        correctButtonRef={rowCorrectButtonRef}
-                        deleteButtonRef={rowDeleteButtonRef}
+                        correctButtonRef={getRowRef(rowCorrectButtonRefs.current, period.id)}
+                        deleteButtonRef={getRowRef(rowDeleteButtonRefs.current, period.id)}
                       />
                     )
                   : undefined

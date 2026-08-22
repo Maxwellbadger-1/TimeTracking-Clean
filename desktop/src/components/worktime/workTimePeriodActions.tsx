@@ -31,8 +31,17 @@ interface WorkTimePeriodActionsProps {
   onDelete: (period: WorkTimePeriod) => void;
   /** Laeuft das Loeschen fuer DIESE Zeile (Zustand 21 der 13-UI-SPEC.md). */
   isDeleting: boolean;
-  /** DD-39: eigenes Ref je Zeilenaktion — der Aufrufer gibt den Fokus nach dem Schliessen des
-   *  jeweiligen Dialogs an genau den Knopf zurueck, der ihn geoeffnet hat. */
+  /**
+   * DD-39: eigenes Ref je Zeilenaktion — der Aufrufer gibt den Fokus nach dem Schliessen des
+   * jeweiligen Dialogs an genau den Knopf zurueck, der ihn geoeffnet hat.
+   *
+   * VERTRAG AN DEN AUFRUFER (WR-13, Code-Review Phase 13): Jede ZEILE muss ihre EIGENEN
+   * Ref-Objekte uebergeben. Gibt der Aufrufer allen Zeilen dieselben mit, weist React sie
+   * beim Mounten der Reihe nach zu und `current` zeigt am Ende auf die Schaltflaeche der
+   * ZULETZT gerenderten Zeile — die Zusicherung oben ist dann nicht eingeloest, der Fokus
+   * landet immer auf der letzten Zeile. `EditUserModal` haelt dafuer eine
+   * `Map<periodId, RefObject>`.
+   */
   correctButtonRef?: RefObject<HTMLButtonElement | null>;
   deleteButtonRef?: RefObject<HTMLButtonElement | null>;
 }
