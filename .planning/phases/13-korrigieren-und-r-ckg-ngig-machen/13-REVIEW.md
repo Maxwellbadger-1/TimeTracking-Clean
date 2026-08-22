@@ -55,7 +55,13 @@ findings:
   warning: 13
   info: 4
   total: 19
-status: issues_found
+status: fixed
+fixed:
+  critical: 2
+  warning: 13
+  info: 0
+  remaining: 4
+fix_commits: 03ac2af 049c1b3 9b1e99c 8f12eb4 31af9d6 a5f59d3 7094797 74a8be6 b23d41d c517d51 83a6b3a d3015e1 e2db113 bf2416a 21b7a3a
 ---
 
 # Phase 13: Code Review Report
