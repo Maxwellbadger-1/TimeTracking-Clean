@@ -403,10 +403,25 @@ export function correctWorkPeriod(
       affectedMonths,
     };
 
-    // 11. Die eine Journalbuchung (DD-12) — nur beim tatsächlichen Speichern und nur, wenn
-    //     überhaupt eine Differenz entstanden ist.
+    // 11. Die eine Journalbuchung (DD-12) — beim tatsächlichen Speichern, UNBEDINGT.
+    //
+    //     CR-01 (Code-Review Phase 13): Die Zeile wurde früher nur bei `balanceDelta !== 0`
+    //     geschrieben. Der Bestätigungsdialog sagt dem Admin aber genau im Gegenteil zu
+    //     („Die Korrektur wird trotzdem als eigener Eintrag festgehalten." /
+    //     „Korrektur und Begründung bleiben im Kontoauszug dauerhaft sichtbar."), und der
+    //     Fall ist alles andere als exotisch: eine Tagesplanänderung mit gleicher
+    //     Wochensumme, eine Verschiebung von validFrom über Tage ohne Sollstunden und jede
+    //     Korrektur einer reinen Zukunftsperiode liefern `balanceDelta === 0`. Ohne Zeile
+    //     überlebte die Pflichtbegründung ausschließlich in `audit_log.changes`, das keine
+    //     Oberfläche darstellt — eine rückwirkende Stammdatenänderung ohne sichtbare Spur,
+    //     also genau der Zustand, den REQ-30/D7 verhindern sollen.
+    //
+    //     Rechenneutral bleibt die Zeile dabei per Konstruktion: `model_change` fliegt aus
+    //     jedem Summenpfad (EXCLUDE_JOURNAL_ONLY_TYPES), die Anzeige liefert `hours: 0` und
+    //     einen NICHT summierten `documentedDelta`. Eine Zeile mit `hours = 0` verschiebt
+    //     ohnehin nichts.
     let transactionId: number | null = null;
-    if (!options.dryRun && balanceDelta !== 0) {
+    if (!options.dryRun) {
       const description =
         `Periode ab ${toGermanDate(input.validFrom)} korrigiert: ` +
         `${formatWeeklyHoursDe(period.weeklyHours)} → ${formatWeeklyHoursDe(input.weeklyHours)} h/Woche ` +

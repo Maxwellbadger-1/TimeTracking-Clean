@@ -540,6 +540,80 @@ describe('correctWorkPeriod — Pflichtbegruendung, Rebuild-Grenze, Lueckenschlu
       cleanupEmployee(userId);
     }
   });
+
+  it(
+    'CR-01 (Code-Review Phase 13): eine Korrektur mit balanceDelta === 0 schreibt trotzdem ' +
+      'eine Journalzeile — der Bestaetigungsdialog sagt genau das zu ("Die Korrektur wird ' +
+      'trotzdem als eigener Eintrag festgehalten." / "Korrektur und Begruendung bleiben im ' +
+      'Kontoauszug dauerhaft sichtbar."). Die Zeile bleibt rechenneutral (hours === 0).',
+    () => {
+      const hireDate = firstOfMonthOffset(today, -3);
+      const futureStart = firstOfMonthOffset(today, 2);
+      const userId = createEmployee('cr01-nulldelta', 40, hireDate);
+      try {
+        insertTestWorkPeriod(userId, {
+          validFrom: hireDate,
+          validTo: futureStart,
+          weeklyHours: 40,
+          workSchedule: null,
+        });
+        const futurePeriod = insertTestWorkPeriod(userId, {
+          validFrom: futureStart,
+          weeklyHours: 32,
+          workSchedule: null,
+        });
+        insertWeekdayTimeEntries(userId, hireDate, today, 8);
+        rebuildOvertimeTransactionsForMonth(userId, hireDate.slice(0, 7));
+        rebuildOvertimeTransactionsForMonth(userId, today.slice(0, 7));
+
+        const balanceBefore = getOvertimeBalance(userId);
+        const reason = 'Die 32 h waren von jeher falsch — vertraglich sind 20 h vereinbart';
+
+        const outcome = correctWorkPeriod(
+          {
+            periodId: futurePeriod.id,
+            validFrom: futurePeriod.validFrom,
+            weeklyHours: 20,
+            workSchedule: null,
+            reason,
+          },
+          { dryRun: false, createdBy: adminId }
+        );
+
+        // Eine reine Zukunftsperiode kann den heutigen Saldo nicht verschieben — genau der
+        // Fall, in dem frueher gar keine Zeile entstand.
+        expect(outcome.preview.balanceDelta).toBe(0);
+        expect(getOvertimeBalance(userId)).toBe(balanceBefore);
+
+        // Die Zusage der Oberflaeche wird eingehalten: es gibt eine Zeile, sie traegt die
+        // Pflichtbegruendung, und sie zeigt auf die korrigierte Periode.
+        expect(outcome.transactionId).not.toBeNull();
+        const rows = db
+          .prepare(
+            `SELECT id, hours, description, date FROM overtime_transactions
+             WHERE userId = ? AND type = 'model_change'
+               AND referenceType = 'work_period' AND referenceId = ?`
+          )
+          .all(userId, futurePeriod.id) as Array<{
+          id: number;
+          hours: number;
+          description: string;
+          date: string;
+        }>;
+        expect(rows.length).toBe(1);
+        expect(rows[0].id).toBe(outcome.transactionId);
+        expect(rows[0].date).toBe(futurePeriod.validFrom);
+        expect(rows[0].description).toContain(reason);
+
+        // KRITISCHER FALLSTRICK: die Zeile darf keine eigene Rechenwirkung haben. Bei
+        // balanceDelta === 0 ist hours per Konstruktion 0 — der Saldo bleibt unveraendert.
+        expect(rows[0].hours).toBe(0);
+        expect(getOvertimeBalance(userId)).toBe(balanceBefore);
+      } finally {
+        cleanupEmployee(userId);
+      }
+    }
+  );
 });
 
 describe('Aufraeumnachweis (13-03)', () => {
