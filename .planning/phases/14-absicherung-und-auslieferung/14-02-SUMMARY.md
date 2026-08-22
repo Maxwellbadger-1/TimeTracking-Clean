@@ -196,4 +196,10 @@ Keine.
 - `cd server && npx vitest run src/services/userWorkPeriodProvisioning.test.ts` → 18 Tests,
   `0 failed`. ✅
 
-## Self-Check
+## Self-Check: PASSED
+
+Alle sechs behaupteten Dateien vorhanden (`server/src/services/userService.ts`,
+`server/src/routes/users.ts`, `server/src/services/userWorkPeriodProvisioning.test.ts`,
+`PROJECT_STATUS.md`, `.planning/phases/14-absicherung-und-auslieferung/14-WR07-ENTSCHEIDUNG.md`,
+diese Datei). Alle vier zitierten Commit-Hashes (`e7187ff`, `eb43167`, `c8f86d0`, `4af3562`) im
+Git-Log gefunden.
