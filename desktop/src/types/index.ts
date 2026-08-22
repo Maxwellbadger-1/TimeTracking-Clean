@@ -138,8 +138,21 @@ export interface GDPRDataExport {
 // Spiegelung von server/src/types/index.ts (Plan 12-01). D2: Vorschau und Speichern teilen
 // sich WorkTimeChangePreview, damit im Client keine eigene Rechnung entsteht.
 
-/** Spiegel von UserWorkPeriod (server/src/types/index.ts). */
-export interface WorkTimePeriod {
+/**
+ * Spiegel von `UserWorkPeriod` (server/src/types/index.ts) — die reine Periode OHNE
+ * Listenflags.
+ *
+ * WR-05 (Code-Review Phase 13): Diese Trennung ist spiegelbildlich zur Server-Trennung
+ * `UserWorkPeriod` vs. `UserWorkPeriodListItem`. Nur `GET /api/work-periods`
+ * (`getWorkPeriodsWithFlags()`) liefert `isFirst`/`isCurrent`. Die beiden
+ * Ergebnisverträge `WorkPeriodCorrectionOutcome.period` und `WorkTimeChangeResult.period`
+ * kommen aus `getWorkPeriodById()` bzw. `createWorkPeriod()` und tragen die Flags NICHT —
+ * würden sie den Typ mit Pflichtflags verwenden, versprächen sie Laufzeitwerte, die nie
+ * ankommen, und der Compiler liesse einen Zugriff darauf wortlos durch (`undefined` dort,
+ * wo `boolean` zugesagt ist). Genau die Fehlerklasse, wegen der `isCurrent` überhaupt vom
+ * Client in den Server gewandert ist (DD-35).
+ */
+export interface WorkTimePeriodBase {
   id: number;
   userId: number;
   /** Inklusiv: Erster Geltungstag dieser Periode (YYYY-MM-DD). */
@@ -151,6 +164,11 @@ export interface WorkTimePeriod {
   note: string | null;
   createdAt: string;
   createdBy: number | null;
+}
+
+/** Spiegel von UserWorkPeriodListItem: die Periode MIT den serverseitig gesetzten
+ *  Listenflags. Nur `GET /api/work-periods` liefert diese Form. */
+export interface WorkTimePeriod extends WorkTimePeriodBase {
   /** Phase 13 (13-UI-SPEC.md, „Typerweiterung — ausdrücklich für den Planer"): true für die
    *  erste (früheste, nicht weggenommene) Periode der Kette. Kommt serverseitig von
    *  `getWorkPeriodsWithFlags()` (13-02-PLAN.md DD-6) — bewusst NICHT im Frontend aus der
@@ -213,8 +231,9 @@ export type WorkTimeChangePreviewResponse = WorkTimeChangePreview & { previewTok
 
 /** Ergebnis eines tatsächlichen Speicherns (nicht Dry-Run). */
 export interface WorkTimeChangeResult {
-  /** Die neu angelegte Periode. */
-  period: WorkTimePeriod;
+  /** Die neu angelegte Periode. WR-05: ohne Listenflags — der Server liefert hier das
+   *  Ergebnis von createWorkPeriod(), nicht getWorkPeriodsWithFlags(). */
+  period: WorkTimePeriodBase;
   /** Dieselbe Berechnung, die auch der Vorschau zugrunde lag (D2). */
   preview: WorkTimeChangePreview;
   /** ID der erzeugten model_change-Buchung, oder null, wenn balanceDelta 0 ist (D4). */
@@ -230,13 +249,17 @@ export interface WorkTimeChangeResult {
 // Simplifikation gegenüber dem Server: `WorkPeriodCorrectionOutcome.period` und
 // `WorkPeriodDeletionOutcome.deletedPeriod`/`previousPeriod` referenzieren serverseitig
 // `UserWorkPeriod | null` bzw. Teilausschnitte davon — inklusive `deletedAt`/`deletedBy`
-// (Phase-13-Buchhaltungsfelder aus Migration 013). Die Desktop-Spiegelung dieser Phase
-// verwendet an der einen Stelle, wo eine vollständige Periode zurückkommt
-// (WorkPeriodCorrectionOutcome.period), den bereits bestehenden Desktop-Typ `WorkTimePeriod`
-// (jetzt inkl. isFirst/isCurrent) statt einer dritten Periodenform — dieselbe Vereinfachung,
-// die der Server bereits für UserWorkPeriodListItem vs. UserWorkPeriod vornimmt. `deletedAt`/
-// `deletedBy` sind für die Oberfläche dieser Phase ohne Bedeutung: eine gerade korrigierte
-// Periode ist per Definition nicht gelöscht.
+// (Phase-13-Buchhaltungsfelder aus Migration 013). Die Desktop-Spiegelung verwendet an der
+// einen Stelle, wo eine vollständige Periode zurückkommt (WorkPeriodCorrectionOutcome.period),
+// den Desktop-Typ `WorkTimePeriodBase`. `deletedAt`/`deletedBy` sind für die Oberfläche dieser
+// Phase ohne Bedeutung: eine gerade korrigierte Periode ist per Definition nicht gelöscht.
+//
+// WR-05 (Code-Review Phase 13): Hier steht BEWUSST `WorkTimePeriodBase` und nicht
+// `WorkTimePeriod`. Die Flags isFirst/isCurrent liefert ausschliesslich
+// `GET /api/work-periods` (`getWorkPeriodsWithFlags()`); dieser Ergebnisvertrag kommt aus
+// `getWorkPeriodById()` und trägt sie NICHT. Der frühere Typ versprach damit Laufzeitwerte,
+// die nie ankommen — ein Zugriff auf `outcome.period.isFirst` wäre wortlos durchgegangen und
+// hätte `undefined` geliefert.
 export interface WorkPeriodCorrectionInput {
   periodId: number;
   /** Inklusiv, YYYY-MM-DD — der ggf. verschobene Beginn der korrigierten Periode. */
@@ -298,9 +321,10 @@ export type WorkPeriodCorrectionPreviewResponse = WorkPeriodCorrectionPreview & 
 export interface WorkPeriodCorrectionOutcome {
   /** Dieselbe Berechnung, die auch der Vorschau zugrunde lag. */
   preview: WorkPeriodCorrectionPreview;
-  /** Die korrigierte Periode, oder null im Trockenlauf. Server: UserWorkPeriod | null — siehe
-   *  Simplifikationsvermerk oben. */
-  period: WorkTimePeriod | null;
+  /** Die korrigierte Periode, oder null im Trockenlauf. Server: `getWorkPeriodById()` liefert
+   *  ein reines `UserWorkPeriod` OHNE isFirst/isCurrent — deshalb WorkTimePeriodBase (WR-05,
+   *  siehe Simplifikationsvermerk oben). */
+  period: WorkTimePeriodBase | null;
   /** ID der erzeugten Korrekturbuchung, oder null, wenn balanceDelta 0 ist. */
   transactionId: number | null;
 }
