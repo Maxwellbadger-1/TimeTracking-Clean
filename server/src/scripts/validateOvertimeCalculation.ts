@@ -255,18 +255,24 @@ function validateUser(
       // 'special' ergänzt: fehlte hier zuvor komplett, eine von REQ-19 unabhängige, eigene
       // Abweichung vom kanonischen Kredit-Filter (Plan 09-05, Task 3; in
       // 09-INVENTAR-KREDITIERUNG.md vermerkt statt stillschweigend übernommen).
-      // Calculate credit based on workSchedule or weeklyHours
-      if (user.workSchedule) {
-        credit = calculateAbsenceHoursWithWorkSchedule(
-          userPublic,
-          absence.startDate,
-          absence.endDate,
-          periods
-        );
-      } else {
-        // Standard: daysRequired × (weeklyHours / 5)
-        credit = absence.daysRequired * (user.weeklyHours / 5);
-      }
+      // CR-04 (Phase 11): KEINE Verzweigung über `user.workSchedule` mehr.
+      // Die alte Abfrage fragte den HEUTIGEN Stammdatensatz und erzeugte damit zwei Fehler:
+      // (1) Ein Nutzer, der heute keinen Wochenplan hat, im Abwesenheitszeitraum aber einen
+      //     hatte (oder umgekehrt), landete im else-Zweig — der Perioden-Kontext `periods`
+      //     wurde für ihn nie benutzt.
+      // (2) Der else-Zweig multiplizierte mit `user.weeklyHours` von HEUTE — genau dem
+      //     Maßstab, den REQ-23 abgelöst hat. Bei einem Modellwechsel (40h → 20h) bewertete
+      //     das Werkzeug eine Abwesenheit aus der 40h-Zeit mit 20h und meldete eine
+      //     Abweichung gegen den Service, obwohl der Service richtig rechnete.
+      // `calculateAbsenceHoursWithWorkSchedule()` behandelt beide Fälle bereits über die
+      // Periode (workingDays.ts: `period.workSchedule` sonst `period.weeklyHours / 5`) und
+      // kennt zusätzlich Feiertage und Wochenenden — anders als `daysRequired`.
+      credit = calculateAbsenceHoursWithWorkSchedule(
+        userPublic,
+        absence.startDate,
+        absence.endDate,
+        periods
+      );
       absenceCredits += credit;
     }
 
@@ -503,16 +509,16 @@ function validateScenario(scenarioName: string): void {
       continue;
     }
 
-    if (scenario.user.workSchedule) {
-      absenceCredits += calculateAbsenceHoursWithWorkSchedule(
-        userPublic,
-        absence.startDate,
-        absence.endDate,
-        periods
-      );
-    } else {
-      absenceCredits += absence.daysRequired * (scenario.user.weeklyHours / 5);
-    }
+    // CR-04: dieselbe Regel an genau einer Stelle — hier war die Verzweigung wegen des
+    // selbstgebauten `stubWorkPeriodContext` zwar in sich stimmig, aber sie war die zweite
+    // Kopie derselben Entscheidung. `calculateAbsenceHoursWithWorkSchedule()` deckt den
+    // Fall ohne Wochenplan über `period.weeklyHours / 5` ab.
+    absenceCredits += calculateAbsenceHoursWithWorkSchedule(
+      userPublic,
+      absence.startDate,
+      absence.endDate,
+      periods
+    );
   }
 
   const actualHours = workedHours + absenceCredits;
