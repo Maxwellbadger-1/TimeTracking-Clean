@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 12-08-PLAN.md
-last_updated: "2026-08-22T14:42:36.346Z"
+stopped_at: Completed 12-07-PLAN.md
+last_updated: "2026-08-22T15:02:14.964Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 31
-  completed_plans: 29
+  completed_plans: 30
   percent: 43
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:execute-phase 12` — Stundenwechsel bedienen (REQ-26 bis REQ-29)
 - **Last completed:** Phase 11 vollständig — 11/11 Pläne, Code-Review in 2 Iterationen (33 Korrekturen, Commits 470edf3..09518fb), Verifikation 10/10 Muss-Kriterien
-- **Stopped at:** Completed 12-08-PLAN.md
+- **Stopped at:** Completed 12-07-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -191,6 +191,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 12-06]: previewToken bindet nur Stichtag/Wochenstunden/Tagesplan (nicht die Begruendung) - jede Feldaenderung verwirft preview synchron im selben State-Update, nicht im entprellten Callback (T-12-28)
 - [Phase 12]: WR-12 Weg (b) gewaehlt: Desktop-Client-Kopie periodengetreu gemacht statt neuem Server-Vorschau-Endpunkt — Perioden-Lese-API aus Plan 12-01/12-04 bereits vorhanden; kein bestehender Endpunkt fuer eine Vorschau vor Antragstellung
 - [Phase 12]: Arbeitskopie fuer die Wirksamkeitsmessung aus server/database/development.db gezogen, nicht aus server/database.db — server/database.db ist lokal veraltet/unmigriert (keine user_work_periods-Tabelle)
+- [Phase 12-07]: OvertimeTransactions.tsx haengt am /overtime/transactions/live-Endpunkt, der overtime_transactions bisher NICHT las - model_change waere ohne additiven Merge in overtimeLiveCalculationService.ts nie sichtbar geworden (Rule 1/2 Deviation, empirisch verifiziert)
+- [Phase 12-07]: Reset-Effekt in EditUserModal auf [user.id] statt [user], plus schmaler Sync-Effekt mit Wertvergleich fuer weeklyHours/workSchedule - noetig weil user nach der UserManagementPage-Umstellung bei jedem Refetch ein neues Objekt ist
+- [Phase 12-07]: WorkTimeChangeModal wird als Geschwister NACH </form> gerendert (innerhalb der Kinder von Modal), damit ein Submit im verschachtelten Dialog niemals handleSubmit des aeusseren Formulars erreicht (T-12-38)
 
 ## Quick Tasks Completed
 
@@ -252,6 +255,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 12-stundenwechsel-bedienen P05 | 100min | 2 tasks | 3 files |
 | Phase 12-stundenwechsel-bedienen P06 | 70min | 2 tasks | 1 files |
 | Phase 12 P08 | 35min | 3 tasks | 7 files |
+| Phase 12-stundenwechsel-bedienen P07 | ~55min | 3 tasks | 6 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -288,7 +292,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 12 (stundenwechsel-bedienen) — EXECUTING
-Plan: 8 of 9
+Plan: 9 of 9
 Status: Ready to execute
 Last activity: 2026-08-22
 

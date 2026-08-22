@@ -302,7 +302,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 12-07-PLAN.md — Einbindung in die Stammdaten-Oberfläche und Sichtbarkeit im Kontoauszug (D1, REQ-29)
+- [x] 12-07-PLAN.md — Einbindung in die Stammdaten-Oberfläche und Sichtbarkeit im Kontoauszug (D1, REQ-29)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
