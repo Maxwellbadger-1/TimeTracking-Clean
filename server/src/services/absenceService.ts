@@ -1,5 +1,5 @@
 import { db } from '../database/connection.js';
-import type { AbsenceRequest } from '../types/index.js';
+import type { AbsenceRequest, UserPublic } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName, calculateAbsenceHoursWithWorkSchedule } from '../utils/workingDays.js';
 import { validateDateString } from '../utils/validation.js';
@@ -9,6 +9,7 @@ import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
 import { calculateCarryover, calculateProRataVacationDays, upsertVacationBalance } from './vacationBalanceService.js';
+import { createWorkPeriodContext, directWorkPeriodLookup } from './workPeriodContext.js';
 
 /**
  * Absence Service
@@ -351,17 +352,20 @@ export function getAbsenceRequestsPaginated(options: {
   const rows = db.prepare(query).all(...params) as AbsenceRequest[];
 
   // ✅ Enrich each absence with calculated hours (Single Source of Truth!)
+  // Ein Kontext für die gesamte Liste (D1/D2, T-11-26): eine Seite kann viele Anträge
+  // desselben Nutzers enthalten, die Perioden werden je Nutzer nur beim ersten Treffer geladen.
+  const periods = createWorkPeriodContext();
   const enrichedRows = rows.map(absence => {
     try {
       const user = getUserById(absence.userId);
       if (!user) return absence;
 
-      // Calculate REAL hours based on workSchedule/weeklyHours
+      // Calculate REAL hours based on the work period valid on each day of the absence (REQ-23)
       const calculatedHours = calculateAbsenceHoursWithWorkSchedule(
+        user,
         absence.startDate,
         absence.endDate,
-        user.workSchedule,
-        user.weeklyHours
+        periods
       );
 
       return {
@@ -750,6 +754,42 @@ export function updateAbsenceRequest(
 }
 
 /**
+ * Nutzer für die overtime_comp-Stundenberechnung auflösen (Genehmigungsvorbehalt UND
+ * Abbuchung, T-11-01/CR-01: beide MÜSSEN denselben Nutzerobjekt-Ursprung benutzen).
+ *
+ * `getUserById()` schließt soft-gelöschte Nutzer aus (`deletedAt IS NULL`,
+ * `userService.ts:110`). Ein bereits gestellter overtime_comp-Antrag kann aber einen
+ * inzwischen soft-gelöschten Nutzer referenzieren — deshalb hier ein Fallback auf eine
+ * gezielte Spaltenliste (T-11-24: kein `SELECT *`, kein Passwort-Hash im Speicher, anders als
+ * die vorherige rohe Abfrage an dieser Stelle).
+ */
+function getUserForOvertimeCompCalculation(userId: number): UserPublic {
+  const user = getUserById(userId);
+  if (user) {
+    return user;
+  }
+
+  const raw = db
+    .prepare(
+      `SELECT id, username, email, firstName, lastName, role, department, position,
+              weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status,
+              privacyConsentAt, createdAt
+       FROM users
+       WHERE id = ?`
+    )
+    .get(userId) as (Omit<UserPublic, 'workSchedule'> & { workSchedule: string | null }) | undefined;
+
+  if (!raw) {
+    throw new Error('User not found');
+  }
+
+  return {
+    ...raw,
+    workSchedule: raw.workSchedule ? JSON.parse(raw.workSchedule) : null,
+  };
+}
+
+/**
  * Approve absence request
  * AUTOMATICALLY deletes conflicting time entries during the absence period
  */
@@ -780,19 +820,16 @@ export async function approveAbsenceRequest(
 
     const account = getWorkTimeAccountWithUser(request.userId);
 
-    // Get user to calculate hours correctly
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(request.userId) as any;
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // Get user to calculate hours correctly (T-11-01/CR-01: derselbe Ursprung wie die Abbuchung unten)
+    const user = getUserForOvertimeCompCalculation(request.userId);
 
     // Import utility function
     const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
     const actualHoursRequired = calculateAbsenceHoursWithWorkSchedule(
+      user,
       request.startDate,
       request.endDate,
-      user.workSchedule ? JSON.parse(user.workSchedule) : null,
-      user.weeklyHours
+      directWorkPeriodLookup
     );
 
     const currentBalance = getOvertimeBalance(request.userId);
@@ -859,12 +896,14 @@ export async function approveAbsenceRequest(
     const { recordOvertimeCompensation } = await import('./overtimeTransactionService.js');
     const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(request.userId) as any;
+    // T-11-01/CR-01: wörtlich derselbe Aufruf wie der Genehmigungsvorbehalt oben —
+    // gleiche Funktion, gleiche Argumentreihenfolge, gleicher Nutzerobjekt-Ursprung.
+    const user = getUserForOvertimeCompCalculation(request.userId);
     const hoursToDeduct = calculateAbsenceHoursWithWorkSchedule(
+      user,
       request.startDate,
       request.endDate,
-      user.workSchedule ? JSON.parse(user.workSchedule) : null,
-      user.weeklyHours
+      directWorkPeriodLookup
     );
 
     recordOvertimeCompensation(
@@ -1172,6 +1211,8 @@ function calculateAbsenceCredits(userId: number, startDate: string, endDate: str
     throw new Error('User not found');
   }
 
+  // Ein Kontext für die gesamte Tagesschleife (D1/D2), statt je Tag neu nachzuschlagen.
+  const periods = createWorkPeriodContext();
   let totalHours = 0;
 
   // Iterate through each day in the period
@@ -1191,8 +1232,8 @@ function calculateAbsenceCredits(userId: number, startDate: string, endDate: str
       continue;
     }
 
-    // Add daily target hours
-    const dailyHours = getDailyTargetHours(user, d);
+    // Add daily target hours (REQ-23: Periode des jeweiligen Tages, nicht der heutige Stammsatz)
+    const dailyHours = getDailyTargetHours(user, d, periods);
     logger.debug({ date: dateStr, dayName: getDayName(d), dailyHours }, '📊 Daily hours');
     totalHours += dailyHours;
   }

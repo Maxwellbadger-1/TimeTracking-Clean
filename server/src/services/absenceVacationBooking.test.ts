@@ -15,6 +15,7 @@ import {
   getVacationTransactions,
 } from './vacationTransactionService.js';
 import { calculateProRataVacationDays } from './vacationBalanceService.js';
+import { getUserById, ensureInitialWorkPeriod } from './userService.js';
 
 /**
  * Regressionstests für REQ-05 / REQ-15 — die Fehler, die diesen Milestone ausgelöst haben.
@@ -47,6 +48,15 @@ describe('absenceService — Urlaubsbuchungen bei jedem Vorgang', () => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run('testadmin_absence_booking', 'absence-booking-admin@test.local', 'Test', 'Admin', 'hash', 'admin', 40, '2020-01-01');
     adminId = admin.lastInsertRowid as number;
+
+    // Phase 11 (D4): Sollstunden-Berechnungen werfen ohne Arbeitszeitperiode
+    // (MissingWorkPeriodError). Dieses Insert läuft am createUser()-Service vorbei, der eine
+    // Periode automatisch anlegt — hier deshalb explizit nachgezogen (ensureInitialWorkPeriod
+    // ist genau für diesen Fall gebaut, s. userService.ts).
+    const testUser = getUserById(userId);
+    if (testUser) ensureInitialWorkPeriod(testUser);
+    const testAdmin = getUserById(adminId);
+    if (testAdmin) ensureInitialWorkPeriod(testAdmin);
   });
 
   afterEach(() => {
