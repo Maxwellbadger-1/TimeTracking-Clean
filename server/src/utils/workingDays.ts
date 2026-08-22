@@ -244,14 +244,43 @@ export function calculateAbsenceHoursWithWorkSchedule(
   periods: WorkPeriodContext
 ): number {
   let totalHours = 0;
-  const start = new Date(startDate + 'T12:00:00');
-  const end = new Date(endDate + 'T12:00:00');
+  // WR-01: Der Schleifenzeiger stand vorher als `new Date(startDate + 'T12:00:00')` in der
+  // PROZESS-Zeitzone, während der Tagesschlüssel eine Zeile weiter unten über
+  // `formatDateBerlin()` gebildet wurde. Damit lief die Schleife über andere Tage, als sie
+  // auswertete, sobald Prozess- und Berliner Zeit auf verschiedene Kalendertage fielen —
+  // gemessen unter `TZ=Pacific/Kiritimati` (UTC+14): Der Zeitraum verschob sich um einen
+  // ganzen Tag, und ein Nutzer bekam 40 statt 36 Stunden gutgeschrieben.
+  //
+  // Jetzt ist der Zeiger UTC-Mittag und der Schlüssel wird mit UTC-Gettern gebildet: eine
+  // Zeitauffassung für Zeiger, Datumsschlüssel und Wochentag. Mittag statt Mitternacht
+  // bleibt als Sicherheitsabstand gegen Sommerzeitsprünge erhalten (bestehendes Muster).
+  // Für `TZ=Europe/Berlin` und `TZ=UTC` — die beiden Zeitzonen, in denen dieses System
+  // tatsächlich läuft — liefert die Umstellung Zeichen für Zeichen dieselben Tage; unten
+  // in `11-REVIEW-FIX.md` gegen die Arbeitskopie nachgemessen.
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+  const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12, 0, 0));
 
   // Iterate through each day in the range
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    // FIX: Use formatDateBerlin() instead of toISOString() to respect Europe/Berlin timezone
-    const dateStr = formatDateBerlin(d, 'yyyy-MM-dd');
-    const dayOfWeek = d.getDay();
+  for (
+    let d = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12, 0, 0));
+    d <= end;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const dateStr = formatDateUtc(d);
+    // WR-01 (Code-Review Phase 11, Durchlauf 2): Hier stand `const dayOfWeek = d.getDay()`
+    // — der Wochentag kam damit aus der PROZESS-Zeitzone, während `dateStr` eine Zeile
+    // darüber aus Europe/Berlin gebildet wird. Datum (Feiertagsabfrage, Periodenauflösung)
+    // und Wochentag (Wochenendfilter, `period.workSchedule[dayName]`) stammten aus zwei
+    // verschiedenen Zeitauffassungen. Das ist exakt dieselbe Fehlerklasse, die WR-01 aus
+    // Durchlauf 1 in `getDailyTargetHours()` beseitigt hat (Begründung dort ausführlich,
+    // Auslöserlage: PM2-Neustart ohne `TZ=Europe/Berlin`), und die Funktion ist kein
+    // Randweg — sie bestimmt die Stundenzahl jeder genehmigten Abwesenheit und jeder
+    // overtime_comp-Abbuchung (`absenceService.ts:846`, `:920`).
+    //
+    // Gleiche Lösung, gleiche Hilfsfunktion: Der Wochentag wird ausschließlich aus
+    // `dateStr` abgeleitet — eine Quelle für Datum und Wochentag.
+    const dayOfWeek = dayIndexFromDateString(dateStr);
     const dayName = DAY_NAMES[dayOfWeek];
 
     // Skip weekends
@@ -368,19 +397,43 @@ function getPublicHolidays(year: number, dbInstance?: BetterSqlite3.Database): s
 
 /**
  * Check if a date is a public holiday
+ *
+ * WR-01 (Code-Review Phase 11, Durchlauf 2): Der Datumsschlüssel wird jetzt über die
+ * UTC-Getter gebildet, passend zur UTC-Konstruktion der beiden einzigen Aufrufer.
+ *
+ * WARUM: `countWorkingDaysBetween()` (Zeile 438) und `countWorkingDaysForUser()`
+ * (Zeile 619) bauen ihre Tagesobjekte ausdrücklich als UTC-Mitternacht
+ * (`new Date(Date.UTC(...))`, Kommentar dort: "Use UTC dates to avoid DST issues") und
+ * lesen den Wochentag konsequent mit `getUTCDay()`. Der Feiertagsschlüssel dagegen kam
+ * über das lokale `formatDate()` — also aus der PROZESS-Zeitzone. Unter einer Zeitzone
+ * mit negativem Versatz (z. B. `TZ=America/New_York`, oder schlicht kein `TZ` auf einem
+ * Server außerhalb Europas) liefert `new Date(Date.UTC(2026, 0, 1)).getFullYear()/
+ * getMonth()/getDate()` den 31.12.2025: Der Feiertagsvergleich liegt einen Tag daneben,
+ * Neujahr wird als Arbeitstag gezählt und die Sollstunden steigen.
+ *
+ * Dieselbe Fehlerklasse wie die Wochentagsquelle in `getDailyTargetHours()` und
+ * `calculateAbsenceHoursWithWorkSchedule()`: eine Zeitauffassung pro Rechnung, nicht zwei.
  */
 function isPublicHoliday(date: Date, holidays: string[]): boolean {
-  const dateStr = formatDate(date);
+  const dateStr = formatDateUtc(date);
   return holidays.includes(dateStr);
 }
 
 /**
- * Format date to 'YYYY-MM-DD' string
+ * Format a UTC-constructed date to its 'YYYY-MM-DD' key.
+ *
+ * WR-01: Vorher hieß diese Funktion `formatDate()` und benutzte die LOKALEN Getter
+ * (`getFullYear`/`getMonth`/`getDate`). Der neue Name macht die Zeitauffassung an jeder
+ * Aufrufstelle sichtbar — und verhindert eine Verwechslung mit `formatDate()` aus
+ * `utils/timezone.ts`, das absichtlich Europe/Berlin abbildet.
+ *
+ * Nur für `Date`-Objekte gedacht, die als UTC-Mitternacht konstruiert wurden. Für alles
+ * andere ist `formatDateBerlin()` (Import oben) die richtige Wahl.
  */
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+function formatDateUtc(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
