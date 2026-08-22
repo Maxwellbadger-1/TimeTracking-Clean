@@ -14,6 +14,7 @@
     "migrate:prod": "tsx scripts/migrate.ts prod",
     "migrate:create": "tsx scripts/migrate.ts create",
     "migrate:copy": "tsx src/scripts/applyMigrationsToCopy.ts",
+    "snapshot:balances": "tsx src/scripts/snapshotBalances.ts",
     "validate:schema": "tsx scripts/validateSchema.ts",
     "migrate:overtime": "tsx src/scripts/migrateOvertimeToTransactions.ts",
     "sync:worktime": "tsx src/scripts/syncWorkTimeAccounts.ts",
