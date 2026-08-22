@@ -23,15 +23,28 @@
  *   - POST /:id/delete/preview  — Loesch-Vorschau (Trockenlauf ueber `deleteWorkPeriod`)
  *   - DELETE /:id                — Loeschen und stornieren (verlangt ebenfalls ein gueltiges
  *                                  previewToken)
- * Alle vier tragen requireAuth + requireAdmin; beide Vorschauen zusaetzlich den bereits
- * bestehenden `workTimeChangePreviewLimiter` VOR der Rollenpruefung (T-13-24) — beide sind
- * echte Rebuilds in einer exklusiven Schreibtransaktion, kein billiger Lesezugriff.
+ * Alle vier tragen requireAuth + requireAdmin.
+ *
+ * DROSSELUNG (WR-06, Code-Review Phase 13): Jede Vorschau- und jede Schreibroute hat einen
+ * EIGENEN Eimer, dessen Schluessel die angemeldete Sitzung ist — deshalb wird er NACH
+ * `requireAuth` eingehaengt, nicht davor. Frueher teilten sich alle drei Vorschauen einen
+ * IP-basierten Eimer von 30/min, der bereits vor der Anmeldung zaehlte: zwei Admins hinter
+ * derselben NAT-Adresse behinderten einander, und ein Durchgang durch den Tagesplan-Editor
+ * (sieben Felder, entprellte Vorschau je Aenderung) konnte die Aktion fuer eine Minute
+ * komplett sperren. Der schmale `workPeriodUnauthenticatedGuardLimiter` steht weiterhin VOR
+ * `requireAuth`, zaehlt aber ausschliesslich unauthentifizierte Anfragen (`skip` fuer
+ * angemeldete Sitzungen). Die drei Schreibpfade tragen jetzt ueberhaupt einen Limiter — sie
+ * fuehren denselben doppelten Rebuild aus wie die Vorschau, plus die Schreibvorgaenge.
  */
 
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
-import { workTimeChangePreviewLimiter } from '../middleware/rateLimits.js';
+import {
+  workPeriodUnauthenticatedGuardLimiter,
+  createWorkPeriodPreviewLimiter,
+  createWorkPeriodWriteLimiter,
+} from '../middleware/rateLimits.js';
 import {
   getWorkPeriodsWithFlags,
   WorkPeriodConflictError,
@@ -67,6 +80,16 @@ import type {
 import logger from '../utils/logger.js';
 
 const router = Router();
+
+// WR-06: Je Route ein eigener Eimer. Die Fabriken legen bei jedem Aufruf eine neue
+// Limiter-Instanz mit eigenem Speicher an — eine intensiv bediente Korrekturvorschau sperrt
+// damit nicht mehr die Loeschvorschau oder den Stundenwechsel.
+const changePreviewLimiter = createWorkPeriodPreviewLimiter();
+const correctPreviewLimiter = createWorkPeriodPreviewLimiter();
+const deletePreviewLimiter = createWorkPeriodPreviewLimiter();
+const changeWriteLimiter = createWorkPeriodWriteLimiter();
+const correctWriteLimiter = createWorkPeriodWriteLimiter();
+const deleteWriteLimiter = createWorkPeriodWriteLimiter();
 
 /** Die vier Felder, die jede der beiden Schreib-Routen mindestens braucht. */
 interface WorkTimeChangeRequestBody {
@@ -280,10 +303,12 @@ router.get(
  */
 router.post(
   '/preview',
-  // WR-03: eigener, enger Limiter VOR der Rollenprüfung — der Trockenlauf ist ein echter
-  // Schreib-Rebuild in einer exklusiven SQLite-Schreibtransaktion, nicht ein billiger Lesezugriff.
-  workTimeChangePreviewLimiter,
+  // WR-03/WR-06: Der Trockenlauf ist ein echter Schreib-Rebuild in einer exklusiven
+  // SQLite-Schreibtransaktion, kein billiger Lesezugriff. Vor der Anmeldung zählt nur der
+  // schmale Vor-Limiter; der eigentliche, nutzerbezogene Eimer hängt hinter requireAuth.
+  workPeriodUnauthenticatedGuardLimiter,
   requireAuth,
+  changePreviewLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkTimeChangePreviewResponse>>) => {
     const parsed = parseWorkTimeChangeRequestBody(req.body);
@@ -336,6 +361,7 @@ router.post(
 router.post(
   '/change',
   requireAuth,
+  changeWriteLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkTimeChangeOutcome>>) => {
     const parsed = parseWorkTimeChangeSaveRequestBody(req.body);
@@ -420,17 +446,18 @@ router.post(
  * POST /api/work-periods/:id/correct/preview
  * Berechnet die Vorschau einer Stammdaten-Korrektur — echter Dry-Run über `correctWorkPeriod`
  * (D2/DD-19, keine zweite Rechenbahn). Admin only (D6/T-13-23): die Vorschau legt Sollstunden
- * und Saldo eines fremden Nutzers offen. `workTimeChangePreviewLimiter` läuft VOR der
- * Rollenprüfung (T-13-24) — der Trockenlauf ist ein echter Schreib-Rebuild in einer exklusiven
- * Schreibtransaktion.
+ * und Saldo eines fremden Nutzers offen. Die Drosselung ist nutzerbezogen und läuft hinter
+ * `requireAuth`, aber VOR der Rollenprüfung (T-13-24, angepasst durch WR-06) — der Trockenlauf
+ * ist ein echter Schreib-Rebuild in einer exklusiven Schreibtransaktion.
  *
  * Body: { validFrom, weeklyHours, workSchedule }. Die Begründung wird im Trockenlauf nicht
  * geprüft und ist auch nicht Teil des ausgestellten Tokens.
  */
 router.post(
   '/:id/correct/preview',
-  workTimeChangePreviewLimiter,
+  workPeriodUnauthenticatedGuardLimiter,
   requireAuth,
+  correctPreviewLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkPeriodCorrectionPreviewResponse>>) => {
     const periodId = parsePeriodIdParam(req.params.id);
@@ -493,6 +520,7 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
+  correctWriteLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkPeriodCorrectionOutcome>>) => {
     const periodId = parsePeriodIdParam(req.params.id);
@@ -575,15 +603,16 @@ router.put(
 /**
  * POST /api/work-periods/:id/delete/preview
  * Berechnet die Vorschau einer Löschung — echter Dry-Run über `deleteWorkPeriod`. Admin only
- * (D6/T-13-23). `workTimeChangePreviewLimiter` läuft VOR der Rollenprüfung (T-13-24).
+ * (D6/T-13-23). Die Drosselung ist nutzerbezogen und haengt hinter `requireAuth` (WR-06).
  *
  * Kein Anfragekörper mit Rechenfeldern nötig — die Löschung hat keine Eingabewerte außer der
  * (im Trockenlauf nicht geprüften) Begründung.
  */
 router.post(
   '/:id/delete/preview',
-  workTimeChangePreviewLimiter,
+  workPeriodUnauthenticatedGuardLimiter,
   requireAuth,
+  deletePreviewLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkPeriodDeletionPreviewResponse>>) => {
     const periodId = parsePeriodIdParam(req.params.id);
@@ -631,6 +660,7 @@ router.post(
 router.delete(
   '/:id',
   requireAuth,
+  deleteWriteLimiter,
   requireAdmin,
   (req: Request, res: Response<ApiResponse<WorkPeriodDeletionOutcome>>) => {
     const periodId = parsePeriodIdParam(req.params.id);
