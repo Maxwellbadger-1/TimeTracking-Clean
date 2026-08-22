@@ -6,31 +6,44 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, TrendingDown, TrendingUp } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { WorkScheduleEditor } from '../users/WorkScheduleEditor';
-import { useWorkPeriods } from '../../hooks/useWorkTimeChange';
-import type { User, WorkSchedule } from '../../types';
+import {
+  useWorkPeriods,
+  usePreviewWorkTimeChange,
+  useSaveWorkTimeChange,
+} from '../../hooks/useWorkTimeChange';
+import { formatHours } from '../../utils/timeUtils';
+import type { User, WorkSchedule, WorkTimeChangePreviewResponse, WorkTimeChangeResult } from '../../types';
 
 /**
- * Der Wechsel-Dialog (Phase 12, D1/REQ-26/REQ-27). `12-UI-SPEC.md` Abschnitt 2 ist der
- * bindende Designvertrag: Textbuch, Panelvarianten, Zustandsliste 1-15.
+ * Der Wechsel-Dialog (Phase 12, D1/D2/REQ-26/REQ-27/REQ-28). `12-UI-SPEC.md` Abschnitt 2 und
+ * 3 sind der bindende Designvertrag: Textbuch, Panelvarianten, Zustandsliste 1-15.
  *
- * Task 1 liefert Geruest, Formular, Vorbelegung und Validierung (Zustaende 1-3, 8, 9). Der
- * Vorschauteil aus Zustand 8 vergleicht hier ausschliesslich die eigenen Eingaben gegen die
- * bereits geladene, aktuell gueltige Periode (`currentPeriod`) — das ist eine reine
- * Gleichheitspruefung, keine Berechnung einer Zahl (Sollstunden/Saldo bleiben D2-pflichtig
- * dem Server vorbehalten und kommen in Task 2 über `usePreviewWorkTimeChange` hinzu).
+ * Task 1 lieferte Geruest, Formular, Vorbelegung und Validierung (Zustaende 1-3, 8, 9). Task 2
+ * baut das Vorschaupanel zum vollstaendigen, serverseitig gespeisten Baustein aus (Zustaende
+ * 4-7, 10-15): automatische, entprellte Vorschau (siehe PREVIEW_DEBOUNCE_MS) ueber
+ * `usePreviewWorkTimeChange`, ein
+ * synchron mit jeder Feldaenderung verworfenes `previewToken`, die Bestaetigung bei
+ * rueckwirkendem Stichtag und der Speicherpfad ueber `useSaveWorkTimeChange`. Zustand 8
+ * ("nichts umzustellen") wird ab hier ausschliesslich aus `preview.isNoOp` gelesen — die
+ * client-seitige Naeherung aus Task 1 entfaellt, damit im Dialog nichts mehr selbst
+ * verglichen oder gerechnet wird (D2).
  */
+
+const PREVIEW_DEBOUNCE_MS = 400;
 
 interface WorkTimeChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
+  onSaved?: (result: WorkTimeChangeResult) => void;
 }
 
 interface FieldErrors {
@@ -38,6 +51,8 @@ interface FieldErrors {
   weeklyHours?: string;
   reason?: string;
 }
+
+type PreviewPanelState = 'placeholder' | 'loading' | 'error' | 'noop' | 'future' | 'past';
 
 /** Zeitzonensicheres YYYY-MM-DD von "heute" — kein UTC-Split-Verfahren auf einem
  *  ISO-String (`.claude/CLAUDE.md`), Muster aus `WorkTimePeriodList.tsx`. */
@@ -48,6 +63,14 @@ function formatDateLocal(date: Date): string {
 /** Anzeige eines ISO-Datums im deutschen Format — niemals über ein UTC-Split-Verfahren. */
 function formatGermanDate(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE');
+}
+
+function formatGermanDayMonth(iso: string): string {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
+function formatGermanMonthYear(iso: string): string {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
 }
 
 function formatWeeklyHoursDe(hours: number): string {
@@ -63,22 +86,18 @@ function parseWeeklyHoursValue(value: string): number | null {
   return num;
 }
 
-function workScheduleEquals(a: WorkSchedule | null, b: WorkSchedule | null): boolean {
-  if (a === null && b === null) return true;
-  if (a === null || b === null) return false;
-  return (
-    a.monday === b.monday &&
-    a.tuesday === b.tuesday &&
-    a.wednesday === b.wednesday &&
-    a.thursday === b.thursday &&
-    a.friday === b.friday &&
-    a.saturday === b.saturday &&
-    a.sunday === b.sunday
-  );
+/** Vorzeichenbehaftete Stundenanzeige. Randfall Differenz = 0: "± 0:00h" statt "+0:00h" —
+ *  eine unveraenderte Groesse ist weder Gutschrift noch Belastung. */
+function formatSignedHours(value: number): string {
+  if (value === 0) return '± 0:00h';
+  return `${value > 0 ? '+' : ''}${formatHours(value)}`;
 }
 
-export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeModalProps) {
+export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved }: WorkTimeChangeModalProps) {
   const periodsQuery = useWorkPeriods(isOpen ? user.id : null);
+  const previewM = usePreviewWorkTimeChange();
+  const saveM = useSaveWorkTimeChange();
+  const isSaving = saveM.isPending;
 
   const [validFrom, setValidFrom] = useState('');
   const [weeklyHours, setWeeklyHours] = useState('');
@@ -86,13 +105,15 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
   const [reason, setReason] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
+  const [preview, setPreview] = useState<WorkTimeChangePreviewResponse | null>(null);
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
+  const [staleFailureCount, setStaleFailureCount] = useState(0);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const validFromRef = useRef<HTMLInputElement>(null);
   const weeklyHoursRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const prefillAppliedRef = useRef(false);
-
-  const isSaving = false; // Task 2 ersetzt dies durch useSaveWorkTimeChange().isPending.
 
   const todayStr = useMemo(() => formatDateLocal(new Date()), []);
 
@@ -121,6 +142,10 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
     setReason('');
     setFieldErrors({});
     setFormError('');
+    setPreview(null);
+    setPreviewErrorMessage(null);
+    setStaleFailureCount(0);
+    setShowConfirm(false);
     prefillAppliedRef.current = false;
     validFromRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,25 +165,74 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
   }, [isOpen, periodsQuery.isLoading, currentPeriod]);
 
   const weeklyHoursNum = parseWeeklyHoursValue(weeklyHours);
-  const isReadyForPreview = validFrom !== '' && weeklyHoursNum !== null;
-  const isNoOpClient =
-    isReadyForPreview &&
-    currentPeriod !== null &&
-    currentPeriod.weeklyHours === weeklyHoursNum &&
-    workScheduleEquals(currentPeriod.workSchedule, workSchedule);
+  const workScheduleKey = useMemo(() => JSON.stringify(workSchedule), [workSchedule]);
+
+  /** Ruft die Vorschau serverseitig ab (D2) — die Antwort wird unveraendert in `preview`
+   *  abgelegt, es wird nichts im Client nachgerechnet. */
+  function requestPreview(vFrom: string, wHours: number, schedule: WorkSchedule | null) {
+    setPreviewErrorMessage(null);
+    previewM.mutate(
+      { userId: user.id, validFrom: vFrom, weeklyHours: wHours, workSchedule: schedule },
+      {
+        onSuccess: (data) => {
+          if (!data) return;
+          setPreview(data);
+          setFormError('');
+        },
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+          if (message.includes('existiert bereits eine Periode')) {
+            setFieldErrors((prev) => ({ ...prev, validFrom: message }));
+          } else {
+            setPreviewErrorMessage(
+              'Die Vorschau konnte nicht berechnet werden. Ohne Vorschau lässt sich der Wechsel nicht speichern.'
+            );
+          }
+        },
+      }
+    );
+  }
+
+  // Automatische, entprellte Vorschau (PREVIEW_DEBOUNCE_MS), sobald Stichtag und Wochenstunden gueltig sind.
+  // Die Begruendung loest keine Neuberechnung aus (sie ist nicht Teil dieser Abhaengigkeit).
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!validFrom || weeklyHoursNum === null) return;
+
+    const timer = setTimeout(() => {
+      requestPreview(validFrom, weeklyHoursNum, workSchedule);
+    }, PREVIEW_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, validFrom, weeklyHours, workScheduleKey]);
 
   function handleValidFromChange(e: ChangeEvent<HTMLInputElement>) {
     setValidFrom(e.target.value);
+    // Verwerfen von Vorschau und Token im selben State-Update wie die Feldaenderung (nicht im
+    // entprellten Callback) — sonst bliebe ein Zeitfenster mit veraltetem Token offen.
+    setPreview(null);
+    setPreviewErrorMessage(null);
+    setStaleFailureCount(0);
+    setFormError('');
     setFieldErrors((prev) => ({ ...prev, validFrom: undefined }));
   }
 
   function handleWeeklyHoursChange(e: ChangeEvent<HTMLInputElement>) {
     setWeeklyHours(e.target.value);
+    setPreview(null);
+    setPreviewErrorMessage(null);
+    setStaleFailureCount(0);
+    setFormError('');
     setFieldErrors((prev) => ({ ...prev, weeklyHours: undefined }));
   }
 
   function handleWorkScheduleChange(schedule: WorkSchedule | null) {
     setWorkSchedule(schedule);
+    setPreview(null);
+    setPreviewErrorMessage(null);
+    setStaleFailureCount(0);
+    setFormError('');
   }
 
   function handleReasonChange(e: ChangeEvent<HTMLTextAreaElement>) {
@@ -217,6 +291,10 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
     setReason('');
     setFieldErrors({});
     setFormError('');
+    setPreview(null);
+    setPreviewErrorMessage(null);
+    setStaleFailureCount(0);
+    setShowConfirm(false);
   }
 
   function handleClose() {
@@ -225,13 +303,118 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
     onClose();
   }
 
+  /** Speichert unter Bezug auf das gebundene `previewToken` (T-12-24). Zustand 13/14. */
+  async function performSave() {
+    if (!preview) return;
+    const savedWeeklyHours = Number(weeklyHours);
+    try {
+      setFormError('');
+      const result = await saveM.mutateAsync({
+        userId: user.id,
+        validFrom,
+        weeklyHours: savedWeeklyHours,
+        workSchedule,
+        reason: reason.trim(),
+        previewToken: preview.previewToken,
+      });
+      setStaleFailureCount(0);
+      resetForm();
+      if (result) {
+        onSaved?.(result);
+      }
+      onClose();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      if (message.startsWith('PREVIEW_STALE')) {
+        const nextFailureCount = staleFailureCount + 1;
+        setStaleFailureCount(nextFailureCount);
+        if (nextFailureCount >= 2) {
+          // Zustand 14, zweiter Fehlschlag in Folge: keine weitere automatische
+          // Neuberechnung, Rueckfall in Zustand 5.
+          setPreview(null);
+          setPreviewErrorMessage(
+            'Die Vorschau konnte nicht in einen speicherbaren Zustand gebracht werden. Bitte berechnen Sie sie erneut.'
+          );
+        } else {
+          // Zustand 14, erster Fehlschlag: Banner + automatische Neuberechnung.
+          setFormError(
+            'Die Vorschau ist nicht mehr aktuell. Sie wird gerade neu berechnet — bitte prüfen Sie danach die Werte und speichern Sie erneut.'
+          );
+          setPreview(null);
+          requestPreview(validFrom, savedWeeklyHours, workSchedule);
+        }
+      } else {
+        // Zustand 13.
+        setFormError(`Der Stundenwechsel wurde nicht gespeichert. Es wurde nichts verändert. ${message}`);
+      }
+    }
+  }
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     e.stopPropagation();
     if (isSaving) return;
     if (!validateForm()) return;
-    // Task 2 ergaenzt hier den Vorschau-/Speicherpfad (previewToken-Kopplung, Bestaetigung).
+    if (!preview || preview.isNoOp) return;
+    if (preview.isRetroactive) {
+      setShowConfirm(true);
+      return;
+    }
+    void performSave();
   }
+
+  function handleConfirmRetroactive() {
+    setShowConfirm(false);
+    void performSave();
+  }
+
+  function buildConfirmMessage(): string {
+    if (!preview) return '';
+    const name = `${user.firstName} ${user.lastName}`;
+    const fromDate = formatGermanDate(preview.rangeStart);
+    if (preview.balanceDelta === 0) {
+      return `Für ${name} wird der Zeitraum vom ${fromDate} bis heute neu gerechnet. Der Überstundensaldo bleibt dabei unverändert. Die Periode wird trotzdem als eigener Eintrag festgehalten.`;
+    }
+    return `Für ${name} wird der Zeitraum vom ${fromDate} bis heute neu gerechnet. Der Überstundensaldo ändert sich dabei um ${formatSignedHours(preview.balanceDelta)} — von ${formatSignedHours(preview.balanceBefore)} auf ${formatSignedHours(preview.balanceAfter)}. Buchung und Begründung bleiben im Kontoauszug dauerhaft sichtbar.`;
+  }
+
+  function getPreviewPanelState(): PreviewPanelState {
+    if (previewM.isPending) return 'loading';
+    if (previewErrorMessage) return 'error';
+    if (!validFrom || weeklyHoursNum === null || !preview) return 'placeholder';
+    if (preview.isNoOp) return 'noop';
+    return preview.isRetroactive ? 'past' : 'future';
+  }
+
+  const previewPanelState = getPreviewPanelState();
+
+  const previewPanelVariantClasses: Record<PreviewPanelState, string> = {
+    placeholder: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    loading: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+    noop: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    future: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+    past: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+  };
+
+  function renderPreviewIcon(state: PreviewPanelState) {
+    if (state === 'future') {
+      return <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />;
+    }
+    if (state === 'past') {
+      return <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />;
+    }
+    if (state === 'error') {
+      return <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />;
+    }
+    if (state === 'noop') {
+      return <Info className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />;
+    }
+    return null;
+  }
+
+  const primaryButtonDisabled = !preview || preview.isNoOp || isSaving;
+  const primaryButtonLabel = preview?.isRetroactive ? 'Rückwirkend speichern' : 'Stundenwechsel speichern';
 
   return (
     <Modal
@@ -342,23 +525,138 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
           )}
         </div>
 
-        {/* 6. Vorschaupanel — Zustand 3 (Platzhalter) und Zustand 8 (nichts zu tun) aus Task 1;
-            Task 2 baut diesen Bereich zum vollstaendigen, serverseitig gespeisten Panel aus. */}
-        <div className="rounded-lg border p-4 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-          {isNoOpClient && currentPeriod ? (
-            <div className="flex items-start gap-2">
-              <Info className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Die eingegebenen Werte entsprechen der aktuell gültigen Periode ab{' '}
-                {formatGermanDate(currentPeriod.validFrom)}. Es gibt nichts umzustellen — ändern
-                Sie die Wochenstunden oder den Tagesplan.
-              </p>
-            </div>
-          ) : (
+        {/* 6. Vorschaupanel (REQ-27) — Zustaende 3-8, 10 */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy={previewM.isPending}
+          className={`rounded-lg border p-4 space-y-3 ${previewPanelVariantClasses[previewPanelState]}`}
+        >
+          <div className="flex items-center gap-2">
+            {renderPreviewIcon(previewPanelState)}
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Was diese Umstellung bewirkt
+            </h3>
+            {previewPanelState === 'future' && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                Keine Rückwirkung
+              </span>
+            )}
+            {previewPanelState === 'past' && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                Rückwirkend
+              </span>
+            )}
+          </div>
+
+          {previewPanelState === 'placeholder' && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Die Vorschau erscheint, sobald Stichtag und neue Wochenstunden gesetzt sind.
             </p>
           )}
+
+          {previewPanelState === 'loading' && (
+            <div className="flex items-center gap-2">
+              <LoadingSpinner size="sm" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Vorschau wird berechnet …
+              </span>
+            </div>
+          )}
+
+          {previewPanelState === 'error' && (
+            <div className="space-y-3">
+              <p className="text-sm text-red-900 dark:text-red-100">{previewErrorMessage}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  weeklyHoursNum !== null && requestPreview(validFrom, weeklyHoursNum, workSchedule)
+                }
+              >
+                Vorschau erneut berechnen
+              </Button>
+            </div>
+          )}
+
+          {previewPanelState === 'noop' && preview && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Die eingegebenen Werte entsprechen der aktuell gültigen Periode ab{' '}
+              {formatGermanDate(preview.currentPeriod?.validFrom ?? preview.validFrom)}. Es gibt nichts umzustellen — ändern Sie die Wochenstunden oder den Tagesplan.
+            </p>
+          )}
+
+          {(previewPanelState === 'future' || previewPanelState === 'past') && preview && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {previewPanelState === 'future'
+                  ? `Wirksam ab ${formatGermanDate(preview.validFrom)}. Bis dahin ändert sich keine Minute.`
+                  : `Neu gerechnet wird vom ${formatGermanDate(preview.rangeStart)} bis heute (${formatGermanDate(preview.rangeEnd)}) — ${preview.workingDaysInRange} Arbeitstage. Alles vor dem ${formatGermanDate(preview.rangeStart)} bleibt unverändert.`}
+              </p>
+
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Sollstunden im Zeitraum
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">bisher</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {formatSignedHours(preview.targetHoursBefore)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">neu</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {formatSignedHours(preview.targetHoursAfter)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Differenz</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {formatSignedHours(preview.targetHoursDelta)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Überstundensaldo heute {formatSignedHours(preview.balanceBefore)} → nach der
+                Umstellung {formatSignedHours(preview.balanceAfter)}
+              </p>
+
+              <div className="flex items-center gap-2">
+                {preview.balanceDelta >= 0 ? (
+                  <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
+                )}
+                <span
+                  className={`text-lg font-bold ${
+                    preview.balanceDelta >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  Änderung des Überstundensaldos: {formatSignedHours(preview.balanceDelta)}
+                </span>
+              </div>
+
+              {preview.midMonthEffective && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Der Stichtag liegt innerhalb des Monats {formatGermanMonthYear(preview.validFrom)}.
+                  Für {formatGermanDayMonth(preview.validFrom)} bis Monatsende gilt bereits das neue
+                  Modell, davor das alte.
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Der bereits angesparte Saldo wird nicht umgerechnet — Stunden bleiben Stunden. Die
+            Änderung entsteht allein daraus, dass im neu gerechneten Zeitraum ein anderes
+            Tagessoll gilt.
+          </p>
         </div>
 
         {/* 7. Aktionszeile */}
@@ -366,11 +664,30 @@ export function WorkTimeChangeModal({ isOpen, onClose, user }: WorkTimeChangeMod
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSaving}>
             Abbrechen
           </Button>
-          <Button type="submit" variant="primary" disabled={!isReadyForPreview || isNoOpClient}>
-            Stundenwechsel speichern
+          <Button type="submit" variant="primary" disabled={primaryButtonDisabled}>
+            {isSaving ? (
+              <>
+                <LoadingSpinner size="sm" className="mr-2" />
+                Wird gespeichert …
+              </>
+            ) : (
+              primaryButtonLabel
+            )}
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleConfirmRetroactive}
+        title="Rückwirkende Umstellung bestätigen"
+        message={buildConfirmMessage()}
+        confirmText="Ja, rückwirkend umstellen"
+        cancelText="Zurück zur Vorschau"
+        variant="warning"
+        zIndexClass="z-[70]"
+      />
     </Modal>
   );
 }
