@@ -7,11 +7,15 @@ import type { DayName, WorkSchedule } from '../../types';
  * (`workTimePeriodEditRules.check.ts`, `npx tsx` + `node:assert`).
  *
  * DD-34 (13-08-PLAN.md): Arbeitstage, Sollstunden und Saldodifferenz werden NIE hier bestimmt —
- * die kommen ausschliesslich aus der Server-Vorschau. Die vier Funktionen dieser Datei sind
- * reine Formularvalidierung/-Steuerung (Pflichtfelder, Wertebereiche, Nachbarschaftsgrenzen,
- * Knopfbeschriftung, "rueckwirkend ja/nein" als reiner Zeichenkettenvergleich fuer die
- * Panel-/Knopfsteuerung) — laut DD-34 ausdruecklich als Bequemlichkeit erlaubt; der eigentliche
+ * die kommen ausschliesslich aus der Server-Vorschau. Die Funktionen dieser Datei sind reine
+ * Formularvalidierung/-Steuerung (Pflichtfelder, Wertebereiche, Nachbarschaftsgrenzen,
+ * Knopfbeschriftung) — laut DD-34 ausdruecklich als Bequemlichkeit erlaubt; der eigentliche
  * Riegel steht im Service (Plan 13-03).
+ *
+ * AUSNAHME seit M-1 (UI-Review Phase 13): "rueckwirkend ja/nein" ist KEINE reine
+ * Formularsteuerung. Die Aussage kommt aus der Vorschau (`resolveIsRetroactive()`); der
+ * Zeichenkettenvergleich `isRetroactivePeriod()` traegt nur noch den Zustand "noch keine
+ * Vorschau" und bildet dort dasselbe Minimum wie der Server.
  */
 
 /** Die sieben Tagesschluessel in fester Reihenfolge — Gegenstueck zu `WEEKDAY_KEYS` im Server
@@ -58,6 +62,55 @@ export function sumWorkScheduleHours(schedule: WorkSchedule): number {
  *  (Beginn == heute) gilt NICHT als rueckwirkend. */
 export function isRetroactivePeriod(validFrom: string, today: string): boolean {
   return validFrom < today;
+}
+
+export interface ResolveIsRetroactiveArgs {
+  /** `preview.isRetroactive` aus der Server-Vorschau, oder `null`, solange keine vorliegt. */
+  previewIsRetroactive: boolean | null;
+  /** Der aktuell im Formular stehende Beginn (kann leer sein, wenn das Feld geleert wurde). */
+  validFrom: string;
+  /** Der Beginn der Periode VOR der Korrektur — die zweite Haelfte des Minimums, das der
+   *  Server bildet. */
+  originalValidFrom: string;
+  today: string;
+}
+
+/**
+ * „rueckwirkend ja/nein" — DIE EINE Wahrheit fuer Panelfarbe, Badge, Knopfbeschriftung und
+ * vor allem fuer die Frage, ob der Bestaetigungsschritt stattfindet.
+ *
+ * M-1 (UI-Review Phase 13, BLOCKER, REQ-30): Hier stand vorher `isRetroactivePeriod(validFrom,
+ * today)` direkt in der Komponente — also eine Clientrechnung auf dem NEUEN Beginn allein. Der
+ * Server bildet den neu zu rechnenden Bereich dagegen aus dem MINIMUM von altem und neuem
+ * Beginn (`server/src/services/workPeriodCorrectionService.ts`):
+ *
+ *     const rangeStart = input.validFrom < period.validFrom ? input.validFrom : period.validFrom;
+ *     const isRetroactive = rangeStart < today;
+ *
+ * Verschiebt ein Admin den Beginn einer VERGANGENEN Periode in die ZUKUNFT — laut Hilfstext
+ * des Feldes „Gueltig ab" ausdruecklich vorgesehen —, dann sagte der Client „keine
+ * Rueckwirkung" (blaues Panel, Badge „Keine Rueckwirkung", Knopf „Korrektur speichern", KEIN
+ * Bestaetigungsschritt), waehrend der Server die Vergangenheit ab dem alten Beginn neu
+ * rechnete. Im selben Panel stand aus derselben Vorschau der widersprechende Satz „Neu
+ * gerechnet wird vom {alter Beginn} bis heute". Genau an dieser Stelle entfiel der einzige
+ * Schutz, den REQ-30 fordert.
+ *
+ * Aufloesung wie im Nachbardialog aus Phase 12 (`WorkTimeChangeModal.tsx` liest an allen drei
+ * Stellen `preview.isRetroactive`): Liegt eine Vorschau vor, ist die Serverantwort die
+ * Wahrheit. Nur solange keine vorliegt, entscheidet die Vorab-Weiche — und die bildet
+ * dasselbe Minimum wie der Server, damit auch der Wartezustand zwischen Eingabe und
+ * entprellter Antwort (400 ms) nicht kurz das Gegenteil behauptet. Ohne Vorschau ist der
+ * Primaerknopf ohnehin gesperrt (`isPrimaryDisabled`), der Bestaetigungsschritt kann also nie
+ * mit dem geschaetzten Wert entscheiden.
+ */
+export function resolveIsRetroactive(args: ResolveIsRetroactiveArgs): boolean {
+  if (args.previewIsRetroactive !== null) return args.previewIsRetroactive;
+  // Leeres Feld: der alte Beginn ist der einzige bekannte Wert — nicht '' vergleichen.
+  const rangeStart =
+    args.validFrom !== '' && args.validFrom < args.originalValidFrom
+      ? args.validFrom
+      : args.originalValidFrom;
+  return isRetroactivePeriod(rangeStart, args.today);
 }
 
 /** Knopfbeschriftung des Primaerbuttons — wortgleich aus dem Textbuch (13-UI-SPEC.md). */

@@ -18,7 +18,7 @@ import { useCorrectWorkPeriodPreview, useCorrectWorkPeriod } from '../../hooks/u
 import { formatHours } from '../../utils/timeUtils';
 import { getTodayDate } from '../../utils';
 import {
-  isRetroactivePeriod,
+  resolveIsRetroactive,
   primaryButtonLabel,
   isPrimaryDisabled,
   validateCorrectionForm,
@@ -216,12 +216,21 @@ export function WorkTimePeriodEditModal({
   const workScheduleKey = useMemo(() => JSON.stringify(workSchedule), [workSchedule]);
 
   /**
-   * "rückwirkend ja/nein" für Panel-/Knopfsteuerung: reiner Zeichenkettenvergleich auf den
-   * aktuell eingegebenen Beginn (`isRetroactivePeriod()`, `workTimePeriodEditRules.ts`) — die
-   * BUSINESS-Zahlen (Arbeitstage, Sollstunden, Saldo) kommen unverändert aus der Vorschau
-   * (DD-34); diese boolesche Weiche ist reine Formularsteuerung.
+   * "rückwirkend ja/nein" für Panelfarbe, Badge, Knopfbeschriftung und den Bestätigungsschritt.
+   *
+   * M-1 (UI-Review Phase 13, BLOCKER, REQ-30): Diese Weiche rechnete früher selbst
+   * (`isRetroactivePeriod(validFrom, todayStr)`) und sah dabei nur den NEUEN Beginn, während
+   * der Server das Minimum aus altem und neuem Beginn nimmt. Sie ist damit keine reine
+   * Formularsteuerung, sondern trägt eine fachliche Aussage — und die kommt jetzt aus der
+   * Vorschau, wie im Nachbardialog aus Phase 12. Begründung und Fallback:
+   * `resolveIsRetroactive()` in `workTimePeriodEditRules.ts`.
    */
-  const isRetroactive = isRetroactivePeriod(validFrom, todayStr);
+  const isRetroactive = resolveIsRetroactive({
+    previewIsRetroactive: preview ? preview.isRetroactive : null,
+    validFrom,
+    originalValidFrom: period.validFrom,
+    today: todayStr,
+  });
 
   /** Ruft die Vorschau serverseitig ab — die Antwort wird unverändert in `preview` abgelegt. */
   function requestPreview(vFrom: string, wHours: number, schedule: WorkSchedule | null) {
