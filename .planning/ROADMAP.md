@@ -234,6 +234,23 @@ Plans:
 **Risiko:** Der eigentliche Eingriff ins Rechenwerk. Läuft zuerst vollständig auf einer Kopie
 der Produktionsdatenbank.
 
+**Plans:** 11 plans in 5 Wellen (Welle 1: 11-01, 11-02, 11-03 · Welle 2: 11-04 · Welle 3: 11-05,
+11-06, 11-07, 11-08, 11-11 · Welle 4: 11-09 · Welle 5: 11-10)
+
+Plans:
+
+- [ ] 11-01-PLAN.md — Ausgangszustand messen: Arbeitskopie, Salden-Snapshot vorher, Aufrufer-Checkliste
+- [ ] 11-02-PLAN.md — `workPeriodContext`: Perioden je Lauf vorladen, durchreichen statt global halten (D1, D2)
+- [ ] 11-03-PLAN.md — Lückenlose Periodenkette im Betrieb: Startperiode bei der Nutzeranlage, Spiegelung bei Änderung
+- [ ] 11-04-PLAN.md — Der Eingriff: `getDailyTargetHours` löst über die Periode auf, Pflichtparameter ohne Vorgabewert (D3, D4)
+- [ ] 11-05-PLAN.md — Kanonischer Überstundenweg und Rebuild periodenbewusst
+- [ ] 11-06-PLAN.md — Legacy-Pfad und Live-Anzeige, D7-Nachweis
+- [ ] 11-07-PLAN.md — Abwesenheiten, Überstundenausgleich und DATEV-Export
+- [ ] 11-08-PLAN.md — Validierungs- und Migrationswerkzeuge periodenbewusst (REQ-25)
+- [ ] 11-11-PLAN.md — Nutzeranlegende Skripte legen die Startperiode mit an; `create-admin.ts` gesondert geprüft
+- [ ] 11-09-PLAN.md — Vollständigkeits- und Idempotenz-Nachweis, Desktop-Disposition, Gesamtgrün (REQ-23, REQ-24)
+- [ ] 11-10-PLAN.md — Nullwirkungs- und Wirkungsnachweis auf echten Daten (D5, D6, REQ-25)
+
 ---
 
 ### Phase 12: Stundenwechsel bedienen
