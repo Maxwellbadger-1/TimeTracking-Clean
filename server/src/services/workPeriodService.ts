@@ -452,3 +452,63 @@ export function checkPeriodChain(userId: number): PeriodChainCheckResult {
 
   return { ok: findings.length === 0, findings };
 }
+
+export interface PeriodChainIssue {
+  userId: number;
+  findings: string[];
+}
+
+/**
+ * WR-03: Sammel-Check über ALLE nicht gelöschten Nutzer.
+ *
+ * `checkPeriodChain()` arbeitet je Nutzer und hatte bis hierhin keinen Aufrufer über den
+ * gesamten Bestand. D4 sagt zu: "eine fehlende Periode muss auffallen" — ohne einen
+ * Sammel-Check war das nur die halbe Zusage. Sie fiel auf, aber erst als Ausfall, nämlich
+ * wenn ein Admin-Report, eine Aggregat-Statistik oder der DATEV-Export über den defekten
+ * Nutzer stolperte. Diese Funktion findet denselben Defekt VORHER.
+ *
+ * Drei Befundarten, die `checkPeriodChain()` allein nicht liefert:
+ * 1. Nutzer GANZ OHNE Periode — `checkPeriodChain()` meldet für eine leere Liste
+ *    strukturell `ok: true` (keine Überlappung, keine Lücke zwischen null Perioden),
+ *    obwohl genau dieser Nutzer bei jeder Berechnung wirft.
+ * 2. Kette beginnt NACH `hireDate` — die Tage dazwischen haben keine Periode; die
+ *    D4-Ausnahme greift dort nicht, weil sie nur für Daten VOR `hireDate` gilt.
+ * 3. Alles, was `checkPeriodChain()` ohnehin findet (Lücke, Überlappung, zwei offene
+ *    Perioden) — unverändert über dieselbe Funktion, keine zweite Kopie der Regel.
+ *
+ * Liefert nur die auffälligen Nutzer; ein leeres Ergebnis heißt "Bestand in Ordnung".
+ */
+export function checkAllPeriodChains(): PeriodChainIssue[] {
+  const users = db
+    .prepare(`SELECT id, hireDate FROM users WHERE deletedAt IS NULL ORDER BY id`)
+    .all() as Array<{ id: number; hireDate: string | null }>;
+
+  const issues: PeriodChainIssue[] = [];
+
+  for (const user of users) {
+    const findings = [...checkPeriodChain(user.id).findings];
+    const periods = getWorkPeriods(user.id);
+
+    if (periods.length === 0) {
+      findings.push(
+        `Nutzer ${user.id} hat keine einzige Arbeitszeitperiode — jede Sollstunden-` +
+        `Berechnung für ihn wirft MissingWorkPeriodError (D4).`
+      );
+    } else if (
+      typeof user.hireDate === 'string' &&
+      DATE_FORMAT.test(user.hireDate) &&
+      periods[0].validFrom > user.hireDate
+    ) {
+      findings.push(
+        `Kette beginnt erst am ${periods[0].validFrom}, das Eintrittsdatum ist aber ` +
+        `${user.hireDate} (userId ${user.id}) — die Tage dazwischen haben keine Periode.`
+      );
+    }
+
+    if (findings.length > 0) {
+      issues.push({ userId: user.id, findings });
+    }
+  }
+
+  return issues;
+}

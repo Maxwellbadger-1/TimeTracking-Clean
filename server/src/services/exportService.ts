@@ -16,7 +16,7 @@ import db from '../database/connection.js';
 import type { User, TimeEntry, AbsenceRequest } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { format } from 'date-fns';
-import { getDailyTargetHours } from '../utils/workingDays.js';
+import { getDailyTargetHours, MissingWorkPeriodError } from '../utils/workingDays.js';
 import { getUserById } from './userService.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
 
@@ -65,6 +65,7 @@ function csvField(value: unknown): string {
 
   return s;
 }
+
 /**
  * DATEV CSV Export
  * Format: Semicolon-separated, UTF-8 with BOM
@@ -141,50 +142,71 @@ export function generateDATEVExport(startDate: string, endDate: string): string 
         ORDER BY startDate
       `).all(user.id, endDate, startDate) as AbsenceRequest[];
 
-      // Add time entries
-      for (const entry of timeEntries) {
-        // CRITICAL: Use getDailyTargetHours() to respect individual work schedules
-        // For part-time employees with unequal distribution (Mo 8h, Fr 2h), this gives correct daily target
-        const dailyTargetHours = getDailyTargetHours(fullUser, entry.date, periods);
-        const overtime = entry.hours - dailyTargetHours;
+      // WR-03: Vereinzelung — ein Nutzer ohne Arbeitszeitperiode (Datendefekt, D4) darf
+      // den Export ALLER anderen nicht töten. Vorher lief `getDailyTargetHours()` hier
+      // ungeschützt; ein einziger defekter Nutzer beendete den gesamten DATEV-Export mit
+      // einem 500er. Der Defekt wird laut protokolliert, der Nutzer übersprungen; jeder
+      // andere Fehler fliegt unverändert weiter.
+      // Zeilen erst sammeln, dann anhängen: Wirft die Berechnung mitten im Nutzer, bleiben
+      // keine halben Nutzerdaten in der Ausgabedatei stehen (alles-oder-nichts je Nutzer).
+      const userRows: string[] = [];
+      try {
+        // Add time entries
+        for (const entry of timeEntries) {
+          // CRITICAL: Use getDailyTargetHours() to respect individual work schedules
+          // For part-time employees with unequal distribution (Mo 8h, Fr 2h), this gives correct daily target
+          const dailyTargetHours = getDailyTargetHours(fullUser, entry.date, periods);
+          const overtime = entry.hours - dailyTargetHours;
 
-        rows.push([
-          user.id.toString(),
-          user.lastName,
-          user.firstName,
-          format(new Date(entry.date), 'dd.MM.yyyy'),
-          dailyTargetHours.toFixed(2).replace('.', ','),
-          entry.hours.toFixed(2).replace('.', ','),
-          overtime.toFixed(2).replace('.', ','),
-          entry.breakMinutes?.toString() || '0',
-          '', // No absence
-          entry.startTime || '',
-          entry.endTime || '',
-          entry.notes || ''
-        ].map(csvField).join(';'));
-      }
+          userRows.push([
+            user.id.toString(),
+            user.lastName,
+            user.firstName,
+            format(new Date(entry.date), 'dd.MM.yyyy'),
+            dailyTargetHours.toFixed(2).replace('.', ','),
+            entry.hours.toFixed(2).replace('.', ','),
+            overtime.toFixed(2).replace('.', ','),
+            entry.breakMinutes?.toString() || '0',
+            '', // No absence
+            entry.startTime || '',
+            entry.endTime || '',
+            entry.notes || ''
+          ].map(csvField).join(';'));
+        }
 
-      // Add absences
-      for (const absence of absences) {
-        const absenceType = absence.type === 'vacation' ? 'Urlaub'
-          : absence.type === 'sick' ? 'Krank'
-          : absence.type === 'overtime_comp' ? 'Überstundenausgleich'
-          : 'Unbezahlt';
+        // Add absences
+        for (const absence of absences) {
+          const absenceType = absence.type === 'vacation' ? 'Urlaub'
+            : absence.type === 'sick' ? 'Krank'
+            : absence.type === 'overtime_comp' ? 'Überstundenausgleich'
+            : 'Unbezahlt';
 
-        rows.push([
-          user.id.toString(),
-          user.lastName,
-          user.firstName,
-          format(new Date(absence.startDate), 'dd.MM.yyyy') + ' - ' + format(new Date(absence.endDate), 'dd.MM.yyyy'),
-          '0,00',
-          '0,00',
-          '0,00',
-          '0',
-          absenceType,
-          '',
-          '',
-          absence.reason || ''
-        ].map(csvField).join(';'));
+          userRows.push([
+            user.id.toString(),
+            user.lastName,
+            user.firstName,
+            format(new Date(absence.startDate), 'dd.MM.yyyy') + ' - ' + format(new Date(absence.endDate), 'dd.MM.yyyy'),
+            '0,00',
+            '0,00',
+            '0,00',
+            '0',
+            absenceType,
+            '',
+            '',
+            absence.reason || ''
+          ].map(csvField).join(';'));
+        }
+
+        rows.push(...userRows);
+      } catch (err) {
+        if (err instanceof MissingWorkPeriodError) {
+          logger.error(
+            { userId: user.id, err },
+            'Datendefekt: Nutzer ohne Arbeitszeitperiode — im DATEV-Export übersprungen (D4, WR-03)'
+          );
+          continue;
+        }
+        throw err;
       }
     }
 

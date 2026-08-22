@@ -1,5 +1,5 @@
 import { db } from '../database/connection.js';
-import { getDailyTargetHours } from '../utils/workingDays.js';
+import { getDailyTargetHours, MissingWorkPeriodError } from '../utils/workingDays.js';
 import logger from '../utils/logger.js';
 import {
   getCurrentDate,
@@ -897,6 +897,35 @@ export async function ensureDailyOvertimeTransactions(
 }
 
 /**
+ * WR-03: Vereinzelung für die Sammelauswertungen.
+ *
+ * D4 macht die fehlende Periode zum harten Fehler — richtig für eine Einzelberechnung,
+ * falsch für eine Schleife über ALLE Nutzer. `MissingWorkPeriodError` wurde im gesamten
+ * Server nirgends gefangen; ein einziger Nutzer mit Datendefekt (Alt-Import, gescheitertes
+ * Seed) legte damit Admin-Report, Aggregat-Statistik und DATEV-Export für ALLE Nutzer lahm
+ * — mit einem 500er und deutschem Rohtext.
+ *
+ * Hier wird der Defekt laut protokolliert und der eine Nutzer übersprungen; jeder andere
+ * Fehler fliegt unverändert weiter. Den Bestand vorab durchsuchen kann
+ * `checkAllPeriodChains()` (workPeriodService.ts) — die Vereinzelung ersetzt den
+ * Bestands-Check nicht, sie verhindert nur den Totalausfall.
+ */
+async function ensureOvertimeBalanceEntriesIsolated(userId: number, month: string): Promise<void> {
+  try {
+    await ensureOvertimeBalanceEntries(userId, month);
+  } catch (err) {
+    if (err instanceof MissingWorkPeriodError) {
+      logger.error(
+        { userId, month, err },
+        'Datendefekt: Nutzer ohne Arbeitszeitperiode — in dieser Sammelauswertung übersprungen (D4, WR-03)'
+      );
+      return;
+    }
+    throw err;
+  }
+}
+
+/**
  * Get overtime for all users (Admin dashboard)
  * Calculates cumulative overtime from start of year UP TO CURRENT MONTH (inclusive)
  * This gives the CURRENT balance, not future projection
@@ -920,7 +949,7 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
 
     // Ensure overtime_balance exists for this month
     for (const user of users) {
-      await ensureOvertimeBalanceEntries(user.id, month);
+      await ensureOvertimeBalanceEntriesIsolated(user.id, month);
     }
   } else {
     // Yearly report: Full year or up to current month
@@ -930,7 +959,7 @@ export async function getAllUsersOvertimeSummary(year: number, month?: string) {
       : `${year}-12`;
 
     for (const user of users) {
-      await ensureOvertimeBalanceEntries(user.id, endMonth);
+      await ensureOvertimeBalanceEntriesIsolated(user.id, endMonth);
     }
   }
 
@@ -979,7 +1008,7 @@ export async function getAggregatedOvertimeStats(year: number, month?: string) {
   const targetMonth = month || formatDate(today, 'yyyy-MM');
 
   for (const user of users) {
-    await ensureOvertimeBalanceEntries(user.id, targetMonth);
+    await ensureOvertimeBalanceEntriesIsolated(user.id, targetMonth);
   }
 
   // Query for monthly aggregation

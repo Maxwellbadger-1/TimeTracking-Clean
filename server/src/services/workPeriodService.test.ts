@@ -8,6 +8,7 @@ import {
   createWorkPeriod,
   closeWorkPeriod,
   checkPeriodChain,
+  checkAllPeriodChains,
   WorkPeriodConflictError,
 } from './workPeriodService.js';
 import type { UserWorkPeriod, WorkSchedule } from '../types/index.js';
@@ -405,6 +406,43 @@ describe('checkPeriodChain — Service-Check ergänzt die Trigger, ersetzt sie n
   });
 });
 
+describe('checkAllPeriodChains — Bestands-Check über alle Nutzer (WR-03)', () => {
+  let userId: number;
+
+  afterEach(() => {
+    deleteTestUser(userId);
+  });
+
+  it('meldet einen Nutzer GANZ OHNE Periode — checkPeriodChain allein tut das nicht', () => {
+    userId = createTestUser('allchains-noperiod');
+
+    // Belegt die Lücke, die diese Funktion schließt: für eine leere Periodenliste findet
+    // checkPeriodChain() strukturell nichts zu beanstanden.
+    expect(checkPeriodChain(userId)).toEqual({ ok: true, findings: [] });
+
+    const issues = checkAllPeriodChains();
+    const own = issues.find((i) => i.userId === userId);
+    expect(own).toBeDefined();
+    expect(own!.findings.some((msg) => msg.includes('keine einzige Arbeitszeitperiode'))).toBe(true);
+  });
+
+  it('meldet eine Kette, die erst nach dem hireDate beginnt', () => {
+    userId = createTestUser('allchains-late');
+    // createTestUser setzt hireDate = 2020-01-01.
+    createWorkPeriod({ userId, validFrom: '2021-03-01', weeklyHours: 40, workSchedule: null, note: TEST_NOTE_MARKER });
+
+    const own = checkAllPeriodChains().find((i) => i.userId === userId);
+    expect(own).toBeDefined();
+    expect(own!.findings.some((msg) => msg.includes('2021-03-01') && msg.includes('2020-01-01'))).toBe(true);
+  });
+
+  it('meldet einen Nutzer mit lückenloser Kette ab hireDate NICHT', () => {
+    userId = createTestUser('allchains-ok');
+    createWorkPeriod({ userId, validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null, note: TEST_NOTE_MARKER });
+
+    expect(checkAllPeriodChains().some((i) => i.userId === userId)).toBe(false);
+  });
+});
 describe('workPeriodService — Aufräumnachweis', () => {
   it('hinterlässt nach dem Lauf keine Periode eines Testnutzers dieser Datei', () => {
     const totalCount = (
