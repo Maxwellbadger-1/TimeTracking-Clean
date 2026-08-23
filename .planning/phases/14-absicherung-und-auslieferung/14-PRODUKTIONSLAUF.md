@@ -527,3 +527,149 @@ Vollständiger Bericht: [`14-VERGLEICH-VORHERSAGE.md`](14-VERGLEICH-VORHERSAGE.m
 **Bedeutung:** Die Nullwirkung der Migrationen 008–015 ist damit nicht nur auf der älteren
 Kopie aus Plan 14-04 belegt, sondern auf **exakt dem Datenstand, der gleich migriert wird** —
 und zwar, bevor der Push ausgelöst wurde.
+
+---
+
+## Task 2, Schritt C — Aufrufreihenfolge im Deploy-Workflow korrigiert (T-14-42)
+
+Der Schritt „Fix overtime calculations" stand in `.github/workflows/deploy-server.yml` an
+Zeile 116-121 — unmittelbar nach `validate:schema` und **vor** dem PM2-Start. Er wurde
+mitsamt seinen Echo-Zeilen hinter den PM2-Start **und** hinter den Health-Check des Workflows
+verschoben. An seiner alten Stelle steht ein Verweis, damit die Verschiebung beim Lesen des
+Workflows nicht als Verlust erscheint.
+
+Über dem verschobenen Schritt steht die Begründung als Kommentar; sie nennt `runMigrations`,
+`server/src/server.ts:215`, `user_work_periods`, `ensureOvertimeBalanceEntries`,
+`getDailyTargetHours()` und den Befund WR-05 der Phase 9.
+
+**Prüfung über die Zeilennummern, wie im Akzeptanzkriterium verlangt:**
+
+```
+$ grep -n "pm2 save" .github/workflows/deploy-server.yml
+164:            pm2 save
+
+$ grep -n "fix-overtime.ts" .github/workflows/deploy-server.yml
+122:            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
+124:            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
+192:            # scripts/fix-overtime.ts importiert seit Plan 09-05 `ensureOvertimeBalanceEntries`,
+201:            # nicht abbrechen (fix-overtime.ts hat laut Befund WR-05 der Phase 9 keine
+206:            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
+
+$ grep -n "runMigrations\|user_work_periods" .github/workflows/deploy-server.yml
+190:            # beim Serverstart ueber `runMigrations(db)` in server/src/server.ts:215.
+195:            # `user_work_periods` auf. Diese Tabelle entsteht erst durch Migration 008/009.
+197:            # in der `user_work_periods` noch nicht existiert, und schreibt dabei per UPSERT
+```
+
+**Die ausführende Zeile steht auf 206, `pm2 save` auf 164 — 206 > 164, das Kriterium ist
+erfüllt.** Die Treffer auf 122 und 124 sind der Cron-Eintrag, an dem auftragsgemäß nichts
+geändert wurde; 192 und 201 sind Kommentarzeilen.
+
+**Das `||`-Konstrukt ist erhalten geblieben** — der Schritt darf das Deployment weiterhin
+nicht abbrechen. Zusätzlich wurde ein ausdrückliches `cd /home/ubuntu/TimeTracking-Clean/server`
+über den Schritt gesetzt: Die Shell steht an dieser Stelle zwar bereits dort (Zeile 89
+`cd server`, danach kein weiterer Verzeichniswechsel), aber der Schritt hat seine Position
+gewechselt und soll nicht stillschweigend von einem Zustand abhängen, den ein späterer Umbau
+verändern könnte.
+
+**T-14-44 mitbestätigt** — `DATABASE_PATH` ist in jedem datenberührenden Schritt gesetzt:
+Zeile 50 (`export DATABASE_PATH=/home/ubuntu/databases/production.db`), 104 (`migrate:prod`),
+113 (`validate:schema`), 158 (PM2-Start) und 206 (`fix-overtime.ts` an seiner neuen Stelle).
+
+---
+
+## Task 2, Schritt D — Die vier Gates vor dem Push
+
+### Gate 1 — `cd server && npx tsc --noEmit`
+
+```
+$ cd server && npx tsc --noEmit
+EXIT=0
+```
+
+Keine Ausgabe, Exit 0.
+
+### Gate 2 — `cd desktop && npx tsc --noEmit`
+
+```
+$ cd desktop && npx tsc --noEmit
+EXIT=0
+```
+
+Keine Ausgabe, Exit 0.
+
+### Gate 3 — `cd server && npx vitest run`
+
+```
+$ cd server && npx vitest run
+
+ FAIL  src/services/unifiedOvertimeService.test.ts > UnifiedOvertimeService > REGRESSION TESTS: Corrections and Hire Date (User 6 & 7 Bug) > should respect hire date and not include pre-employment months
+AssertionError: expected 40 to be 10 // Object.is equality
+
+ FAIL  src/services/unifiedOvertimeService.test.ts > UnifiedOvertimeService > REGRESSION TESTS: Corrections and Hire Date (User 6 & 7 Bug) > REGRESSION: User hired on 1st of month should calculate correctly
+AssertionError: expected 40 to be 10 // Object.is equality
+
+ FAIL  src/services/vacationBackfillService.test.ts > vacationBackfillService > erkennt einen bereits gelaufenen Backfill
+AssertionError: expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed | 36 passed (38)
+      Tests  3 failed | 527 passed (530)
+   Duration  15.64s
+```
+
+**Genau 3 rote Tests, die drei bekannten Titel wörtlich unverändert** gegenüber
+`11-AUSGANGSZUSTAND.md` und `14-REQ32-NACHWEIS.md`. Kein vierter roter Test, keine
+Titeländerung. Die grüne Zahl ist von 492 auf 527 gestiegen — das sind die in den Plänen
+14-01 bis 14-07 hinzugekommenen Tests; die Zahl der Testdateien ist von 36 auf 38 gewachsen.
+
+### Gate 4 — `cd desktop && npm run check:rules`
+
+```
+$ cd desktop && npm run check:rules
+[…]
+PASS: isDeleteConfirmDisabled deckt alle acht Kombinationen korrekt ab
+
+19 Tests bestanden.
+EXIT=0
+```
+
+Ausschließlich `PASS:`-Zeilen, kein `FAIL`, Exit 0.
+
+### Zustand des Arbeitsverzeichnisses vor dem Push
+
+```
+$ git status --short
+ M .github/workflows/deploy-server.yml
+?? .planning/phases/10-perioden-fundament/10-REVIEW.md
+
+$ git diff --stat .github/workflows/deploy-server.yml
+ .github/workflows/deploy-server.yml | 38 +++++++++++++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 6 deletions(-)
+```
+
+Sauber bis auf die in diesem Plan geänderte Datei und das nicht versionierte Planungsdokument
+aus Phase 10, das keine Codewirkung hat.
+
+### T-14-SC — keine neue Abhängigkeit
+
+Die im Bedrohungsregister geforderte Prüfung vor dem Push, ob die Auslieferung eine neue
+Abhängigkeit einführt:
+
+```
+$ git show origin/main:server/package.json | node -e "… gibt dependencies und devDependencies aus …"
+ALT deps:    {"@types/bcrypt":"^6.0.0","@types/better-sqlite3":"^7.6.13","@types/express-session":"^1.18.2","@types/jsonwebtoken":"^9.0.10","@types/ws":"^8.18.1","bcrypt":"^6.0.0","better-sqlite3":"^12.4.1","cors":"^2.8.5","date-fns":"^3.6.0","date-fns-tz":"^3.2.0","express":"^4.18.2","express-rate-limit":"^8.2.1","express-session":"^1.18.2","helmet":"^8.1.0","jsonwebtoken":"^9.0.3","node-cron":"^4.2.1","node-fetch":"^2.7.0","pino":"^10.1.0","pino-pretty":"^13.1.2","ws":"^8.18.3"}
+ALT devDeps: {"@types/cors":"^2.8.17","@types/express":"^4.17.21","@types/node":"^20.11.5","@types/node-cron":"^3.0.11","@typescript-eslint/eslint-plugin":"^6.21.0","@typescript-eslint/parser":"^6.21.0","@vitest/ui":"^4.0.8","@yao-pkg/pkg":"^6.10.1","eslint":"^8.56.0","tsx":"^4.7.0","typescript":"^5.7.2","vitest":"^4.0.8"}
+
+$ node -e "… dasselbe fuer HEAD …"
+NEU deps:    (byteidentisch mit ALT deps)
+NEU devDeps: (byteidentisch mit ALT devDeps)
+```
+
+**Der Unterschied in `server/package.json` zwischen `origin/main` und `HEAD` besteht
+ausschließlich aus neuen `scripts`-Einträgen** — sechs neue Werkzeugaufrufe (`migrate:copy`,
+`snapshot:balances`, `apply:model-change`, `backfill:overtime-journal`, `seed:model-change`,
+`verify:period-nulleffect`, `validate:overtime:paths`, `repro:overtime-comp`,
+`check:period-chains`), alle auf bereits im Repository liegende TypeScript-Dateien. **Keine
+einzige neue Abhängigkeit.** Das serverseitige `npm install --legacy-peer-deps` im Deployment
+zieht damit nichts, was es nicht schon vorher gezogen hätte.

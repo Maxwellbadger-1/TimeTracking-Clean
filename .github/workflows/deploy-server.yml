@@ -113,12 +113,9 @@ jobs:
             DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run validate:schema || true
             echo "✅ Schema validation completed"
 
-            # Fix overtime calculations (ensure all months exist)
-            echo "📊 Fixing overtime calculations..."
-            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
-              echo "⚠️  Overtime fix had issues, but continuing deployment..."
-            }
-            echo "✅ Overtime calculations updated"
+            # HINWEIS: Der Schritt "Fix overtime calculations" stand frueher an dieser Stelle.
+            # Er ist bewusst hinter den PM2-Start und den Health-Check verschoben worden —
+            # Begruendung dort.
 
             # Setup automatic daily cron job (runs at 3 AM every day)
             echo "⏰ Setting up automatic daily overtime recalculation..."
@@ -181,6 +178,35 @@ jobs:
               pm2 logs timetracking-server --lines 50
               exit 1
             fi
+
+            # Fix overtime calculations (ensure all months exist)
+            #
+            # STELLUNG IM ABLAUF IST NICHT BELIEBIG (Plan 14-08, Befund aus 14-URTEIL-PHASE-9.1.md):
+            # Dieser Schritt MUSS nach dem PM2-Start und nach dem Health-Check laufen, nicht davor.
+            #
+            # Grund: Die TypeScript-Migrationen 008-015 laufen NICHT in "Running database
+            # migrations" — `npm run migrate:prod` (scripts/migrate.ts) filtert auf `.sql` und
+            # liest nur aus server/database/migrations. Die TypeScript-Migrationen laufen erst
+            # beim Serverstart ueber `runMigrations(db)` in server/src/server.ts:215.
+            #
+            # scripts/fix-overtime.ts importiert seit Plan 09-05 `ensureOvertimeBalanceEntries`,
+            # das ueber unifiedOvertimeService.calculateMonthlyOvertime() je Tag
+            # getDailyTargetHours() ruft — und das loest seit Phase 11 ueber die Tabelle
+            # `user_work_periods` auf. Diese Tabelle entsteht erst durch Migration 008/009.
+            # An der alten Position lief das Skript also gegen eine halbmigrierte Datenbank,
+            # in der `user_work_periods` noch nicht existiert, und schreibt dabei per UPSERT
+            # in `overtime_balance`.
+            #
+            # Das `||`-Konstrukt bleibt erhalten: der Schritt darf das Deployment weiterhin
+            # nicht abbrechen (fix-overtime.ts hat laut Befund WR-05 der Phase 9 keine
+            # Fehlerisolierung je Nutzer — ein Fehler beim ersten Nutzer bricht den ganzen
+            # Lauf ab).
+            echo "📊 Fixing overtime calculations..."
+            cd /home/ubuntu/TimeTracking-Clean/server
+            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
+              echo "⚠️  Overtime fix had issues, but continuing deployment..."
+            }
+            echo "✅ Overtime calculations updated"
 
       - name: Verify DB path post-deploy
         uses: appleboy/ssh-action@v1.0.3
