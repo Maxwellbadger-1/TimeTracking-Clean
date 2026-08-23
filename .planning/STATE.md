@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
+status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
 stopped_at: Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert
-last_updated: "2026-08-23T08:04:43.308Z"
+last_updated: "2026-08-23T10:07:41.178Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 53
-  completed_plans: 49
+  completed_plans: 50
   percent: 71
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Phase:** 14
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Entscheidung des Anwenders zu Plan 14-10 (Teilaufbau / Vollaufbau / verschieben, s. Blockers) und Freigabe des Produktionsfensters fuer 14-08. Die autonomen Plaene der Phase 14 sind mit 14-07 abgeschlossen.
+- **Next action:** ENTSCHEIDUNG DES ANWENDERS zum Befund aus Plan 14-08: fix-overtime.ts hat beim Deployment 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben. Stand bestehen lassen oder Rueckweg B? Erst danach 14-09 (braucht zusaetzlich die vier D6-Werte und einen NEU erhobenen Ausgangsstand — der Stand von 11:15:41 taugt nicht mehr). Details in 14-PRODUKTIONSLAUF.md.
 - **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert
+- **Stopped at:** Plan 14-08 ABGEBROCHEN nach Task 3 Schritt E — Deployment erfolgreich (41c9c09 auf der Produktion, Migrationen 008-015 angewendet, integrity_check ok), aber Blockerbefund bei den Stundenstaenden. Task 3 Schritt F (Funktionstest) und G (Ausgangsstand fuer 14-09) nicht ausgefuehrt.
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -395,3 +395,4 @@ auf zwei davon.
 ### Blockers
 
 - Plan 14-10 blockiert: Der Journal-Backfill bewegt den fuer Mitarbeiter sichtbaren Saldo (overtime_balance) bei 8 von 20 Nutzern der Produktionskopie um bis zu 84 Stunden. Der in 14-10 vorgesehene Teilaufbau ist zudem der messbar schlechtere Weg (2 Nutzer besser, 3 schlechter gegenueber dem kanonischen Rechenweg; Vollaufbau: 13 von 15 deckungsgleich, keiner schlechter). Entscheidung des Anwenders noetig: (a) Teilaufbau, (b) Vollaufbau mit --all-months, (c) verschieben. Messwerte in 14-URTEIL-PHASE-9.1.md Abschnitt 8.
+- Plan 14-08 nach Task 3 Schritt E abgebrochen: Deployment (Lauf 32632007657, success) hat die Migrationen 008-015 angewendet — diese bewegen nachweislich keine Zahl (Vorhersagemessung vor dem Push: 0 Differenzen). Aber fix-overtime.ts hat danach 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben (Summe -98,5 h; groesste Einzelbewegung -84 h bei userId 16 Benedikt Jochem). Das verletzt die Zusicherung des Anwenders, dass sich an den Stundenstaenden nichts aendert. Richtung gemessen: 13 von 15 aktiven Nutzern stimmen jetzt exakt mit dem kanonischen Rechenweg ueberein (vorher 7 von 15), kein Nutzer steht schlechter — zahlengleich der Zustand, den der Anwender fuer 14-10 (Vollaufbau) gewaehlt hat. Nichts verloren: Journal, Zeiteintraege, Urlaub, Stammdaten unveraendert. Entscheidung noetig: (a) Stand bestehen lassen, (b) Rueckweg B (Daten UND Code, nimmt den gesamten v3.0-Milestone zurueck). Geprueft Sicherung production.PRE-14-08_20260823_111541.db liegt doppelt vor. Zahlen in 14-PRODUKTIONSLAUF.md und 14-VERGLEICH-VOR-NACH.md.

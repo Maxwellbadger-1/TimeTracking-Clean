@@ -1230,3 +1230,105 @@ den Phasen 9 bis 13 aufgebaut und geprüft wurde. Sie sind nicht „falsch", son
 Tabelle oben ist diese Liste. Ob die neuen Werte übernommen werden oder zurückgerollt wird,
 ist eine fachliche Entscheidung über die Stundenkonten von acht Mitarbeitern und wird hier
 nicht getroffen.
+
+---
+
+## Nachtrag zum Blockerbefund — wohin sich die Zahlen bewegt haben
+
+Der Befund oben stellt fest, **dass** sich 99 Werte bewegt haben. Diese Frage ist damit
+beantwortet. Die zweite, für die Entscheidung des Anwenders wesentliche Frage — **wohin** sie
+sich bewegt haben — wurde anschließend gemessen, weil eine Zahlenbewegung ohne Richtung keine
+Entscheidungsgrundlage ist.
+
+### Der bestehende Blocker in `STATE.md` nennt dieselben Kennzahlen
+
+Aus `STATE.md`, Abschnitt „Blockers", eingetragen durch Plan 14-07:
+
+> „Plan 14-10 blockiert: Der Journal-Backfill bewegt den fuer Mitarbeiter sichtbaren Saldo
+> (overtime_balance) bei **8 von 20 Nutzern** der Produktionskopie um **bis zu 84 Stunden**."
+
+Gemessen wurde hier: 8 betroffene Nutzer, größte Einzelbewegung 84 h (userId 16, Benedikt
+Jochem). Das ist keine Ähnlichkeit, sondern derselbe Effekt aus derselben Ursache: Sowohl der
+Journal-Backfill als auch `fix-overtime.ts` schreiben `overtime_balance` mit dem neuen,
+periodenbasierten Rechenwerk neu. Was Plan 14-07 auf einer Kopie für den Backfill gemessen
+hat, hat `fix-overtime.ts` jetzt auf der Produktion herbeigeführt.
+
+### Die neuen Werte sind die kanonisch gerechneten
+
+Gegenübergestellt wurden der gespeicherte Aggregatwert (`SUM(overtime)` über alle
+`overtime_balance`-Monate) und der kanonische Rechenweg
+(`unifiedOvertimeService.calculatePeriodOvertime()`, erhoben in
+`14-SNAPSHOT-VORHERSAGE-NACH-MIGRATION.users.json`, `asOf=2026-08-21`):
+
+| ID | Name | kanonisch | Aggregat VORHER | Aggregat NACHHER | Abweichung vorher | Abweichung nachher | |
+|---|---|---|---|---|---|---|---|
+| 1 | System Administrator | 0 | 0 | 0 | 0 | 0 | deckungsgleich |
+| 2 | Karin Jochem | 10 | 6 | **10** | 4 | **0** | deckungsgleich |
+| 3 | Christine Glas | 4,77 | −46,43 | −15,23 | 51,2 | **20** | besser |
+| 16 | Benedikt Jochem | 20 | 104 | **20** | 84 | **0** | deckungsgleich |
+| 17 | Carmen Rothemund | −1,26 | −46,06 | −45,26 | 44,8 | **44** | besser |
+| 18 | Silvia Lachner | 11,5 | −4,5 | **11,5** | 16 | **0** | deckungsgleich |
+| 19 | Ute Stock | 12,41 | 10,41 | **12,41** | 2 | **0** | deckungsgleich |
+| 20 | Hans Schauer | −15,8 | −15,8 | −15,8 | 0 | 0 | deckungsgleich |
+| 21 | Maria Schauer | −14 | −14 | −14 | 0 | 0 | deckungsgleich |
+| 22 | Beate Walleiter | 47,5 | 47,5 | 47,5 | 0 | 0 | deckungsgleich |
+| 23 | Sepp Wasensteiner | 0 | 0 | 0 | 0 | 0 | deckungsgleich |
+| 24 | Kathrin Leeb | 201,5 | 249,5 | **201,5** | 48 | **0** | deckungsgleich |
+| 25 | Heidemarie Tretter | −236,15 | −236,15 | −236,15 | 0 | 0 | deckungsgleich |
+| 27 | Reinhold Merl | 0 | 0 | 0 | 0 | 0 | deckungsgleich |
+| 29 | Christina Wasensteiner | 65,28 | 85,78 | **65,28** | 20,5 | **0** | deckungsgleich |
+
+**Ergebnis:**
+
+- **Vorher** stimmte das Aggregat bei **7 von 15** aktiven Nutzern mit dem kanonischen
+  Rechenweg überein.
+- **Nachher** stimmt es bei **13 von 15** exakt überein.
+- Die verbleibenden zwei (userId 3 Christine Glas, userId 17 Carmen Rothemund) sind
+  **näher** an den kanonischen Wert gerückt, nicht weiter weg.
+- **Kein einziger Nutzer steht schlechter als vorher.**
+
+### Das ist zahlengleich der Zustand, den der Anwender für Plan 14-10 gewählt hat
+
+`14-URTEIL-PHASE-9.1.md`, Abschnitt 7.6, misst für die Variante **Vollaufbau** auf der
+Produktionskopie:
+
+> „Nach dem Vollaufbau stimmt das Aggregat bei **13 von 15** aktiven Nutzern EXAKT mit dem
+> kanonischen Rechenweg überein (vorher: **7 von 15**). **Kein Nutzer steht danach schlechter
+> als vorher.**"
+
+Die dort tabellierten Zielwerte — userId 2 → 10,00; 16 → 20,00; 18 → 11,50; 19 → 12,41;
+24 → 201,50; 29 → 65,28 — sind **wertgleich** mit dem, was jetzt in der Produktion steht.
+
+**Der Anwender hat für Plan 14-10 die Variante Vollaufbau (`--all-months`) gewählt.** Das
+Aggregat `overtime_balance` steht damit bereits auf dem Stand, den diese Wahl herbeiführen
+sollte.
+
+### Was dadurch NICHT vorweggenommen wurde
+
+Ausdrücklich festgehalten, damit daraus kein Freibrief wird:
+
+- **Das Journal ist unangetastet.** `overtime_transactions` steht unverändert bei 2671 Zeilen
+  mit `SUM(hours)` = −372,68. Plan 14-10 (Journal-Backfill, +995 Zeilen beim Vollaufbau) ist
+  **nicht** erledigt und bleibt offen.
+- **Die Reihenfolge aus Teil 2 des Urteils ist verletzt.** Dort steht, der Backfill laufe „in
+  **jedem** Fall erst **nach** der Verifikation aus Plan 14-09, weil er genau die Größen
+  bewegt, über die diese Verifikation urteilt." Genau diese Größen hat `fix-overtime.ts` jetzt
+  vor Plan 14-09 bewegt. Plan 14-09 muss seinen Ausgangsstand deshalb neu erheben — der Stand
+  von 11:15:41 taugt nicht mehr als Bezugspunkt.
+- **Die Auflage des Anwenders bleibt verletzt.** Er wollte jede Bewegung vorher sehen. Er sieht
+  sie jetzt nachher. Dass die Richtung günstig ist, ändert daran nichts.
+
+### Was das für die Entscheidung bedeutet
+
+Die Lage ist damit anders, als der reine Blockerbefund nahelegt:
+
+- **Rückweg B** nähme nicht nur die Änderung zurück, sondern den gesamten v3.0-Milestone —
+  und stellte einen Aggregatstand wieder her, der bei 8 von 15 aktiven Nutzern **nicht** mit
+  dem kanonischen Rechenweg übereinstimmt.
+- **Bestehenlassen** akzeptiert eine Bewegung, die der Anwender vorher hätte sehen wollen, die
+  aber zahlengleich dem Zustand entspricht, den er für Plan 14-10 bereits gewählt hat.
+
+Diese Abwägung wird hier **nicht** entschieden. Sie betrifft die Stundenkonten von acht
+Mitarbeitern und gehört dem Anwender. Die Zahlen, die er dafür sehen wollte, stehen in den
+beiden Tabellen dieses Abschnitts und in `14-PROD-IST-VOR-DEPLOYMENT.md` gegen
+`14-PROD-IST-NACH-MIGRATION.md`.

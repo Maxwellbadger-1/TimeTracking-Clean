@@ -143,6 +143,41 @@ Sachlich ist das **keine Datenzerstörung**, sondern die Materialisierung des ne
 den abgeleiteten Monatssalden. Die Zusicherung des Anwenders lautete jedoch, dass sich an den
 Stundenständen nichts ändern darf und jede Bewegung ein Blocker ist. **Deshalb Abbruch.**
 
+## Wohin sich die Zahlen bewegt haben
+
+Eine Zahlenbewegung ohne Richtung ist keine Entscheidungsgrundlage. Deshalb wurde zusaetzlich
+gemessen, wohin die 99 Werte gewandert sind — gegen den kanonischen Rechenweg
+(`unifiedOvertimeService.calculatePeriodOvertime()`, `asOf=2026-08-21`):
+
+| | vorher | nachher |
+|---|---|---|
+| Aktive Nutzer, deren Aggregat **exakt** dem kanonischen Rechenweg entspricht | **7 von 15** | **13 von 15** |
+| Nutzer, die schlechter stehen | — | **keiner** |
+
+Die verbleibenden zwei (userId 3 Christine Glas, userId 17 Carmen Rothemund) sind naeher an
+den kanonischen Wert gerueckt, nicht weiter weg.
+
+**Das ist zahlengleich der Zustand, den der Anwender fuer Plan 14-10 gewaehlt hat.**
+`14-URTEIL-PHASE-9.1.md` Abschnitt 7.6 misst fuer die Variante **Vollaufbau** auf der
+Produktionskopie wortgleich `13 von 15` (vorher `7 von 15`) und `kein Nutzer steht danach
+schlechter`, mit denselben Zielwerten (2 → 10,00; 16 → 20,00; 18 → 11,50; 19 → 12,41;
+24 → 201,50; 29 → 65,28). Der bestehende Blocker in `STATE.md` nennt fuer den
+Journal-Backfill ebenfalls `8 von 20 Nutzern` und `bis zu 84 Stunden` — derselbe Effekt aus
+derselben Ursache.
+
+**Was dadurch nicht vorweggenommen wurde:**
+- Das **Journal** ist unangetastet (2671 Zeilen, SUM −372,68). Plan 14-10 bleibt offen.
+- Die Reihenfolge aus Teil 2 des Urteils ist **verletzt**: Der Backfill sollte erst nach der
+  Verifikation aus 14-09 laufen, weil er genau diese Groessen bewegt. `fix-overtime.ts` hat
+  sie vorher bewegt. **Plan 14-09 muss seinen Ausgangsstand neu erheben.**
+- Die Auflage des Anwenders bleibt verletzt: Er wollte jede Bewegung **vorher** sehen. Dass
+  die Richtung guenstig ist, aendert daran nichts.
+
+**Folge fuer die Abwaegung:** Rueckweg B naehme nicht nur die Aenderung zurueck, sondern den
+gesamten v3.0-Milestone — und stellte einen Aggregatstand wieder her, der bei 8 von 15 aktiven
+Nutzern **nicht** mit dem kanonischen Rechenweg uebereinstimmt. Diese Abwaegung wird hier
+nicht entschieden.
+
 ## Abweichungen vom Plan
 
 ### 1. [Zusatzauflage des Anwenders] Namentlicher Ist-Stand vor und nach dem Deployment
