@@ -156,6 +156,14 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
 > vorher laufen. Der Produktionsschreibzugriff bedarf der ausdrücklichen Freigabe des
 > Anwenders (siehe Phase 14, Entscheidung D2).
 
+**Einordnung nach Plan 14-07:** Diese Phase ist **aufgeteilt**. Der Journal-Backfill läuft im
+Produktionsfenster der Phase 14 mit, und zwar als zweiter, eigens freigegebener Schritt NACH
+der Verifikation aus Plan 14-09 — er bewegt sowohl `overtime_transactions` als auch
+`overtime_balance` und damit genau die Größen, über die diese Verifikation urteilt. Die
+Code-Härtung WR-02 bis WR-05 bleibt in Phase 9.1; WR-07 hat Plan 14-02 bereits geschlossen.
+Begründung mit Codebelegen und Probelaufprotokoll:
+[`14-URTEIL-PHASE-9.1.md`](phases/14-absicherung-und-auslieferung/14-URTEIL-PHASE-9.1.md).
+
 **Warum als eigene Phase statt in Phase 9:** D2 (`09-CONTEXT.md`) weist einen Backfill über
 Bestandsdaten ausdrücklich einer eigenen Phase zu, sobald er über eine reine Codeänderung
 hinausgeht — genau der hier vorliegende Fall. D5 verbietet den nötigen
@@ -479,7 +487,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 7. Saldo aus Buchungen + Backfill | v2.0 | 3/3 | Complete | 2026-08-19 |
 | 8. Kontoauszug | v2.0 | 5/5 | Complete | 2026-08-20 |
 | 9. Ein Maßstab, ein Weg | v3.0 | 5/5 | Complete | 2026-08-22 |
-| 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/? | **Nicht begonnen — Ausführung im Produktionsfenster der Phase 14** | — |
+| 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/? | **Aufgeteilt (Plan 14-07): Backfill läuft in Plan 14-10 mit, Code-Härtung WR-02–WR-05 bleibt offen** | — |
 | 10. Perioden-Fundament | v3.0 | 0/? | Nicht begonnen | — |
 | 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
