@@ -249,3 +249,129 @@ describe('Plan 11-05: Periodenbewusster Rebuild (D1, REQ-24)', () => {
     }
   });
 });
+
+/**
+ * GLEICHLAUF DER BEIDEN RECHENWEGE BEI overtime_comp UND unpaid
+ *
+ * WARUM DIESE TESTS EXISTIEREN (Befund
+ * .planning/debug/dual-calculation-overtime-comp-unpaid.md):
+ * `.planning/phases/14-absicherung-und-auslieferung/14-URTEIL-PHASE-9.1.md`, Abschnitt 7.6,
+ * fuehrte die zwei nach dem Vollaufbau verbliebenen Abweichungen (userId 3 und 17) darauf
+ * zurueck, dass `updateOvertimeBalanceForMonth()` und
+ * `unifiedOvertimeService.calculateDailyOvertime()` `overtime_comp` und `unpaid`
+ * UNTERSCHIEDLICH behandelten. Die Nachmessung hat das widerlegt: Beide Wege behandeln alle
+ * Abwesenheitsarten identisch (Zeile fuer Zeile verglichen, zusaetzlich Tag fuer Tag
+ * auf der Produktionskopie nachgerechnet — dort war die Differenz an JEDEM Tag exakt 0,00).
+ * Die tatsaechliche Ursache lag woanders (veraltetes Aggregat des laufenden Monats).
+ *
+ * Diese Tests halten den widerlegten Verdacht als Regressionsnetz fest: Sie sind heute
+ * gruen und werden rot, sobald einer der beiden Wege bei `overtime_comp` oder `unpaid`
+ * ausschert. Massstab ist .claude/CLAUDE.md → Ueberstunden-Berechnung:
+ *   - Krankheit/Urlaub/Sonderurlaub: zaehlen als gearbeitet (Ist-Gutschrift, Soll bleibt).
+ *   - Unbezahlter Urlaub: REDUZIERT das Soll auf 0, gibt KEINE Ist-Gutschrift.
+ *   - Ueberstundenausgleich: zehrt den Saldo ab (Soll bleibt, KEINE Ist-Gutschrift).
+ *
+ * NICHT geprueft wird 'special': Der Code kennt die Art (getCreditType/getAbsenceCredit),
+ * die CHECK-Beschraenkung auf absence_requests.type laesst sie aber nicht zu
+ * ("type IN ('vacation', 'sick', 'unpaid', 'overtime_comp')"). Ein Testdatensatz mit
+ * 'special' wird von der Datenbank abgewiesen — die Art ist heute nicht erreichbar.
+ *
+ * Juni 2026 ist der Pruefmonat: vollstaendig vergangen (kein Beschnitt auf heute) und ohne
+ * gesetzlichen Feiertag in Bayern, damit die Sollstunden nicht durch Feiertage verdeckt
+ * werden.
+ */
+describe('Gleichlauf Aggregat/kanonischer Weg bei allen Abwesenheitsarten (Befund dual-calculation)', () => {
+  const MONTH = '2026-06';
+  let testUserId: number;
+
+  const approveAbsence = (type: string, date: string): void => {
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, 'approved', 1)
+    `).run(testUserId, type, date, date);
+  };
+
+  beforeEach(() => {
+    const result = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role, weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('testuser_gleichlauf', 'test@gleichlauf.com', 'Test', 'Gleichlauf', 'hash', 'employee', 25, '2020-01-01');
+    testUserId = result.lastInsertRowid as number;
+    insertTestWorkPeriod(testUserId, { validFrom: '2020-01-01', weeklyHours: 25 });
+  });
+
+  afterEach(() => {
+    db.prepare('DELETE FROM users WHERE id = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_transactions WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM absence_requests WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM time_entries WHERE userId = ?').run(testUserId);
+  });
+
+  /** Liest das vom Rebuild geschriebene Monatsaggregat. */
+  const aggregate = (): { targetHours: number; actualHours: number } => {
+    const row = db
+      .prepare('SELECT targetHours, actualHours FROM overtime_balance WHERE userId = ? AND month = ?')
+      .get(testUserId, MONTH) as { targetHours: number; actualHours: number } | undefined;
+    return { targetHours: row?.targetHours ?? 0, actualHours: row?.actualHours ?? 0 };
+  };
+
+  it.each([
+    ['vacation', '2026-06-10'],
+    ['sick', '2026-06-11'],
+    ['overtime_comp', '2026-06-15'],
+    ['unpaid', '2026-06-16'],
+  ])('Aggregat und kanonischer Weg stimmen bei Abwesenheitsart %s ueberein', (type, date) => {
+    approveAbsence(type, date);
+
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+
+    const agg = aggregate();
+    const canonical = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, MONTH);
+
+    expect(agg.targetHours).toBeCloseTo(canonical.targetHours, 2);
+    expect(agg.actualHours).toBeCloseTo(canonical.actualHours, 2);
+    expect(agg.actualHours - agg.targetHours).toBeCloseTo(canonical.overtime, 2);
+  });
+
+  it('alle Abwesenheitsarten gleichzeitig im selben Monat: beide Wege bleiben deckungsgleich', () => {
+    approveAbsence('vacation', '2026-06-10');
+    approveAbsence('sick', '2026-06-11');
+    approveAbsence('overtime_comp', '2026-06-15');
+    approveAbsence('unpaid', '2026-06-16');
+
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+
+    const agg = aggregate();
+    const canonical = unifiedOvertimeService.calculateMonthlyOvertime(testUserId, MONTH);
+
+    expect(agg.targetHours).toBeCloseTo(canonical.targetHours, 2);
+    expect(agg.actualHours).toBeCloseTo(canonical.actualHours, 2);
+  });
+
+  it('unbezahlter Urlaub senkt das Soll um genau einen Arbeitstag und gibt keine Ist-Gutschrift (CLAUDE.md)', () => {
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+    const ohne = aggregate();
+
+    approveAbsence('unpaid', '2026-06-16'); // Dienstag, Werktag
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+    const mit = aggregate();
+
+    // 25h/Woche / 5 Werktage = 5h Soll an diesem Tag; Soll faellt weg, Ist bleibt unveraendert.
+    expect(ohne.targetHours - mit.targetHours).toBeCloseTo(5, 2);
+    expect(mit.actualHours).toBeCloseTo(ohne.actualHours, 2);
+  });
+
+  it('Ueberstundenausgleich laesst das Soll stehen und gibt keine Ist-Gutschrift — der Tag zehrt den Saldo ab (REQ-19)', () => {
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+    const ohne = aggregate();
+
+    approveAbsence('overtime_comp', '2026-06-15'); // Montag, Werktag
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+    const mit = aggregate();
+
+    expect(mit.targetHours).toBeCloseTo(ohne.targetHours, 2); // Soll unveraendert
+    expect(mit.actualHours).toBeCloseTo(ohne.actualHours, 2); // keine Gutschrift
+  });
+});
