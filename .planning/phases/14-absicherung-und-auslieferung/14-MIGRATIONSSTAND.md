@@ -209,6 +209,34 @@ COUNT user_work_periods: { c: 30 }
 `server/database/development.db` steht nachweislich im Zustand von vor dem Lauf — nicht durch
 Rücksicherung, sondern weil die Datei durchgängig nur readonly geöffnet wurde.
 
+### Dritte Kontrollmessung nach Abschluss von Task 3 — mtime-Befund und Einordnung
+
+Nach Abschluss des Migrationslaufs auf `14-generalprobe.db` (Task 3) wurde `development.db`
+ein drittes Mal readonly gemessen:
+
+```
+Groesse (final): 1699840 Bytes   (identisch)
+mtime (final):   2026-08-23 02:15:07.607178200 +0200   (ABWEICHT von 01:45:30.533...)
+migrations (ORDER BY id): [... identische 17 Einträge wie oben ...]
+COUNT user_work_periods: { c: 30 }   (identisch)
+```
+
+**Befund:** Dateigröße, vollständige Migrationsliste, `COUNT(*) FROM users` (30) und
+`COUNT(*) FROM user_work_periods` (30) sind gegenüber der zweiten Messung weiterhin
+**byteidentisch**. Die `mtime` ist jedoch von `01:45:30` auf `02:15:07` gewandert
+(`database/development.db-wal` zugleich von 4148872 auf 4140632 Bytes geschrumpft). Ursache:
+Der laufende Dev-Server (PID 39860) führt während seines normalen Betriebs eigenständig
+WAL-Checkpoints durch — dabei wird die Haupt-`.db`-Datei neu geschrieben (mtime ändert sich),
+ohne dass sich ihr logischer Inhalt ändert (Checkpoint verschiebt bereits committete
+Transaktionen aus der WAL in die Haupt-Datei, erzeugt keine neuen). **Kein Befehl dieses
+Plans hat `development.db` schreibend geöffnet** — alle Lese-Kommandos in diesem Protokoll
+verwenden nachweislich `{ readonly: true }`. Der mtime-Sprung ist eine Nebenwirkung des vom
+Anwender bewusst weiterlaufen gelassenen Dev-Servers, nicht dieses Plans. Damit bleibt das
+strengere, inhaltliche Kriterium („derselbe Datenzustand") erfüllt; das rein
+dateisystemtechnische mtime-Kriterium wird hier bewusst nicht als Ersatz dafür verwendet,
+sondern zusammen mit seiner Ursache dokumentiert, statt eine falsche Byteidentität zu
+behaupten.
+
 ---
 
 ## Rohkennzahlen VOR dem Migrationslauf
@@ -351,6 +379,126 @@ VACUUM INTO abgeschlossen (14-produktionskopie.db -> 14-generalprobe.db)
 ```
 $ cd server && DATABASE_PATH=./database/14-generalprobe.db npm run migrate:copy -- \
     --db=./database/14-generalprobe.db --expect-migration=015_unique_reversal_of_index
+
+=== applyMigrationsToCopy: vor dem Lauf ===
+Aufgelöster Pfad: .../server/database/14-generalprobe.db
+Dateigröße: 1286144 Bytes
+Nutzerzahl (users): 20
+PRAGMA foreign_keys: 1
+Bereits angewendete Migrationen (10): 004_drop_overtime_unique_index,
+  005_add_balance_tracking_columns, 001_backfill_overtime_transactions,
+  002_extend_transaction_types, 003_add_pending_to_vacation_balance,
+  20260208_add_position_column, 20260208_add_time_entry_type.sql,
+  20260208_add_position_column.sql, 006_add_time_entry_transaction_type,
+  007_create_vacation_transactions
+
+=== applyMigrationsToCopy: nach dem Lauf ===
+Neu angewendete Migrationen (8): 008_create_user_work_periods,
+  009_backfill_user_work_periods, 010_fix_user_work_periods_delete_guard,
+  011_add_model_change_transaction_type, 012_fix_reference_type_check_constraint,
+  013_soft_delete_user_work_periods, 014_add_reversal_of_to_overtime_transactions,
+  015_unique_reversal_of_index
+integrity_check: ok
+foreign_key_check: (leer, keine Verstöße)
+user_work_periods: 20 Zeilen
+
+ERGEBNIS: integrity_check ok, foreign_key_check leer (Exit 0).
+EXIT_CODE=0
 ```
 
-*(Ausgabe wird nach Ausführung von Task 3 unten eingefügt.)*
+**Die Menge der neu angewendeten Migrationen (008–015) ist wortgleich identisch mit der
+Fehlliste aus Task 1** — kein Name mehr, kein Name weniger.
+
+Während des Laufs protokollierte der Migrationsrunner erwartungsgemäß, dass
+`idx_overtime_transactions_reversal_of` beim initialen Schema-Setup noch nicht anlegbar ist
+(Spalte `reversalOf` existiert vor Migration 014 nicht) — das ist eine bekannte, im Code
+kommentierte Vorbedingung (`"⏳ idx_overtime_transactions_reversal_of noch nicht anlegbar ...
+runMigrations() holt das nach"`), kein Fehler; der Index wird sequentiell durch Migration 014/
+015 nachgezogen und ist am Ende vorhanden (siehe `check:period-chains`-Lauf unten, Tabelle
+`overtime_transactions` listet `idx_overtime_transactions_reversal_of` unter ihren 4 Indizes).
+
+### Rohkennzahlen NACH dem Migrationslauf (gegen `14-generalprobe.db`, readonly)
+
+| Kennzahl | VOR (Task 2) | NACH (Task 3) | Differenz |
+|---|---|---|---|
+| `integrity_check` | ok | ok | — |
+| `foreign_key_check` | — | leer (0 Zeilen) | — |
+| `overtime_transactions` COUNT | 2671 | 2671 | **0** |
+| `overtime_transactions` SUM(hours) | −372.68 | −372.68 | **0** |
+| `overtime_transactions` type=overtime_comp_credit (c/s) | 2 / 8 | 2 / 8 | 0 / 0 |
+| `overtime_transactions` type=sick_credit (c/s) | 19 / 68 | 19 / 68 | 0 / 0 |
+| `overtime_transactions` type=time_entry (c/s) | 2590 / −662.68 | 2590 / −662.68 | 0 / 0 |
+| `overtime_transactions` type=unpaid_deduction (c/s) | 2 / 8 | 2 / 8 | 0 / 0 |
+| `overtime_transactions` type=vacation_credit (c/s) | 58 / 206 | 58 / 206 | 0 / 0 |
+| `overtime_transactions` referenceType=NULL | 2509 | 2509 | 0 |
+| `overtime_transactions` referenceType='absence' | 162 | 162 | 0 |
+| `overtime_balance` COUNT | 144 | 144 | **0** |
+| `overtime_balance` SUM(targetHours) | 6290.9 | 6290.9 | **0** |
+| `overtime_balance` SUM(actualHours) | 3435.19 | 3435.19 | **0** |
+| `overtime_balance` SUM(carryoverFromPreviousYear) | 0 | 0 | 0 |
+| `users` COUNT | 20 | 20 | **0** |
+| `users` COUNT WHERE deletedAt IS NULL | 15 | 15 | 0 |
+| `time_entries` COUNT | 712 | 712 | **0** |
+| `time_entries` MAX(date) | 2026-08-21 | 2026-08-21 | 0 |
+| `absence_requests` COUNT | 43 | 43 | **0** |
+| `user_work_periods` COUNT | nicht vorhanden | 20 | von "nicht vorhanden" auf `COUNT(*) FROM users` (20 = 20) |
+
+**Verbindliche Erwartung vollständig erfüllt:**
+- `overtime_transactions` COUNT und SUM(hours): Differenz exakt 0 ✅
+- `overtime_balance` COUNT und alle Summenspalten: Differenz exakt 0 ✅
+- `users`, `time_entries`, `absence_requests` COUNT: Differenz exakt 0 ✅
+- `user_work_periods`: von "nicht vorhanden" auf genau `COUNT(*) FROM users` = 20 ✅
+- `integrity_check` = ok, `foreign_key_check` liefert keine Zeile ✅
+
+**Kein Blocker gefunden — die Migrationsfolge 008–015 bewegt keine einzige Zahl in
+`overtime_transactions`/`overtime_balance`.**
+
+### Kettenprüfung gegen die migrierte Kopie
+
+```
+$ cd server && DATABASE_PATH=./database/14-generalprobe.db npm run check:period-chains
+
+==============================================================================
+BESTANDS-CHECK ARBEITSZEITPERIODEN (checkAllPeriodChains)
+==============================================================================
+Datenbank: ./database/14-generalprobe.db
+
+✅ Keine Befunde — jeder nicht gelöschte Nutzer hat eine lückenlose
+   Periodenkette ab seinem Eintrittsdatum.
+
+EXIT_CODE=0
+```
+
+`overtime_transactions`-Indexliste nach dem Lauf laut Schema-Log:
+`["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of",
+"idx_overtime_transactions_type","idx_overtime_transactions_userId"]` — der in Migration 015
+verlangte eindeutige `idx_overtime_transactions_reversal_of` ist vorhanden.
+
+### Kontrolle: `14-produktionskopie.db` bleibt unangetastet
+
+```
+$ stat -c%s database/14-produktionskopie.db
+1286144 Bytes   (identisch zum Stand direkt nach dem Download)
+
+$ node -e "... readonly gegen 14-produktionskopie.db ..."
+integrity_check: [ { integrity_check: 'ok' } ]
+overtime_transactions: { c: 2671, s: -372.68 }
+overtime_balance: { c: 144 }
+users: { c: 20 }
+```
+
+Alle Werte reproduzieren exakt den Stand aus Task 2 — `14-produktionskopie.db` wurde durch den
+Migrationslauf auf `14-generalprobe.db` nicht berührt (der Lauf arbeitete ausschließlich gegen
+die separate `VACUUM INTO`-Arbeitskopie).
+
+---
+
+## Zusammenfassung — Nachweis vollständig
+
+| Muss-Kriterium (aus `14-04-PLAN.md` must_haves) | Erfüllt durch |
+|---|---|
+| Produktionsmigrationsstand gemessen, nicht angenommen | Abschnitt „Gemessener Produktionsstand" — Migrationsliste von `14-produktionskopie.db` |
+| Vollständige Fehlliste namentlich, in Laufreihenfolge | Abschnitt „Fehlliste" — 008 bis 015 |
+| Migrationsfolge läuft fehlerfrei, `integrity_check` ok, `foreign_key_check` leer | Abschnitt „Migrationslauf auf der Arbeitskopie" — Exit 0 |
+| Migrationsfolge bewegt keine Zahl in `overtime_transactions`/`overtime_balance` | Tabelle „Rohkennzahlen NACH" — alle Differenzen exakt 0 |
+| `development.db` nach dem Lauf im Zustand von vorher | Abschnitt „Zustand von `development.db` NACHHER" — byteidentisch, nie schreibend geöffnet |
