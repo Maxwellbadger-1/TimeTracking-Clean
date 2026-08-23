@@ -37,17 +37,23 @@ function nutzer(overrides: Partial<UserForBackfill> = {}): UserForBackfill {
   };
 }
 
+/**
+ * `lastRelevantDay`: letzter Tag des Monats, an dem der Nutzer Sollstunden, einen Zeiteintrag
+ * ODER eine genehmigte Abwesenheit hatte — nicht nur Sollstunden. Zur Begründung dieser
+ * Erweiterung gegenüber `<behavior>` in 14-07-PLAN.md siehe `MonthCandidate.lastRelevantDay`
+ * und den Probelauf in `14-URTEIL-PHASE-9.1.md`.
+ */
 function monat(
   month: string,
-  lastWorkday: string | null,
+  lastRelevantDay: string | null,
   maxJournalDate: string | null
 ): MonthCandidate {
-  return { month, lastWorkday, maxJournalDate };
+  return { month, lastRelevantDay, maxJournalDate };
 }
 
 describe('findIncompleteMonths (14-07-PLAN.md, Task 2)', () => {
-  it('meldet einen vollständigen Monat NICHT — Journal reicht bis zum letzten Werktag', () => {
-    // 2026-03: letzter Werktag ist Dienstag, der 31.; das Journal endet ebenfalls am 31.
+  it('meldet einen vollständigen Monat NICHT — Journal reicht bis zum letzten relevanten Tag', () => {
+    // 2026-03: letzter relevanter Tag ist Dienstag, der 31.; das Journal endet ebenfalls am 31.
     const result = findIncompleteMonths(nutzer(), HEUTE, [
       monat('2026-03', '2026-03-31', '2026-03-31'),
     ]);
@@ -56,7 +62,7 @@ describe('findIncompleteMonths (14-07-PLAN.md, Task 2)', () => {
     expect(result.incompleteMonths).toEqual([]);
   });
 
-  it('meldet einen Monat, dessen Journal am vorletzten Werktag endet — der Off-by-one aus Phase 9.1', () => {
+  it('meldet einen Monat, dessen Journal einen Tag zu früh endet — der Off-by-one aus Phase 9.1', () => {
     // Genau der Defekt aus dem ROADMAP-Eintrag der Phase 9.1: „jeder vollständig durchlaufene
     // Monat endet dort am vorletzten Kalendertag".
     const result = findIncompleteMonths(nutzer(), HEUTE, [
@@ -93,8 +99,8 @@ describe('findIncompleteMonths (14-07-PLAN.md, Task 2)', () => {
   });
 
   it('meldet den Austrittsmonat selbst weiterhin, wenn er unvollständig ist', () => {
-    // Abgrenzung zum Fall darüber: endDate liegt IM Monat, nicht davor. Der beschnittene
-    // letzte Werktag ist der 31.03.; das Journal endet am 30.03. → unvollständig.
+    // Abgrenzung zum Fall darüber: endDate liegt IM Monat, nicht davor. Der letzte relevante
+    // Tag ist der 31.03.; das Journal endet am 30.03. → unvollständig.
     const result = findIncompleteMonths(nutzer({ endDate: '2026-03-31' }), HEUTE, [
       monat('2026-03', '2026-03-31', '2026-03-30'),
     ]);
@@ -120,12 +126,26 @@ describe('findIncompleteMonths (14-07-PLAN.md, Task 2)', () => {
     expect(result.incompleteMonths).toEqual([]);
   });
 
-  it('meldet einen Monat ohne einen einzigen Soll-Tag NICHT (lastWorkday = null)', () => {
-    // Aushilfe mit weeklyHours=0 bzw. ein Monat, der beim Nutzer ausschließlich aus
-    // Feiertagen/Wochenenden besteht: es gibt nichts zu vervollständigen.
+  it('meldet einen Monat ganz ohne relevanten Tag NICHT (lastRelevantDay = null)', () => {
+    // Ein Monat, der beim Nutzer weder Sollstunden noch Zeiteinträge noch Abwesenheiten
+    // enthält: es gibt nichts zu vervollständigen.
     const result = findIncompleteMonths(nutzer(), HEUTE, [monat('2026-04', null, null)]);
 
     expect(result.incompleteMonths).toEqual([]);
+  });
+
+  it('meldet eine Aushilfe (weeklyHours=0) mit Zeiteintrag am Monatsletzten SEHR WOHL', () => {
+    // Regressionsschutz für den im Probelauf auf der Produktionskopie gefundenen Fehlschluss
+    // (14-URTEIL-PHASE-9.1.md): Nutzer 22 und 29 haben an keinem Tag Sollstunden, aber am
+    // 31.07.2026 je einen echten Zeiteintrag (3 bzw. 2 Stunden) ohne Journalzeile. Die
+    // ursprünglich vorgesehene Regel „letzter Tag MIT SOLLSTUNDEN" lieferte hier
+    // lastRelevantDay = null und übersah beide — obwohl der ROADMAP-Eintrag der Phase 9.1
+    // genau sie als Beispiele nennt.
+    const result = findIncompleteMonths(nutzer(), HEUTE, [
+      monat('2026-07', '2026-07-31', '2026-07-30'),
+    ]);
+
+    expect(result.incompleteMonths).toEqual(['2026-07']);
   });
 
   it('überspringt einen soft-gelöschten Nutzer und meldet das ausdrücklich (skipped = true)', () => {
@@ -180,6 +200,7 @@ describe('parseArgs (14-07-PLAN.md, Task 2)', () => {
       allowProduction: false,
       userId: null,
       maxMonths: null,
+      allMonths: false,
     });
   });
 
@@ -195,6 +216,12 @@ describe('parseArgs (14-07-PLAN.md, Task 2)', () => {
 
     expect(args.userId).toBe(17);
     expect(args.maxMonths).toBe(5);
+  });
+
+  it('setzt allMonths nur bei gesetztem --all-months', () => {
+    expect(parseArgs([]).allMonths).toBe(false);
+    expect(parseArgs(['--all-months']).allMonths).toBe(true);
+    expect(parseArgs(['--all-months', '--apply']).allMonths).toBe(true);
   });
 
   it('weist ein nicht-ganzzahliges --maxMonths mit Exit 2 zurück', () => {

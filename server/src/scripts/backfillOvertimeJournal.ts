@@ -86,6 +86,31 @@ export interface ParsedBackfillArgs {
   allowProduction: boolean;
   userId: number | null;
   maxMonths: number | null;
+  /**
+   * `--all-months`: nicht nur die als unvollständig erkannten Monate neu aufbauen, sondern
+   * JEDEN vollständig vergangenen Monat ab `hireDate`. Vorgabe: `false`.
+   *
+   * WARUM ES DIESEN SCHALTER GIBT (Probelauf Plan 14-07, s. `14-URTEIL-PHASE-9.1.md`):
+   * `rebuildOvertimeTransactionsForMonth()` schreibt nicht nur das Journal, sondern über
+   * STEP 7 auch das Monatsaggregat `overtime_balance` — und aus dem liest
+   * `getOvertimeBalance()` den Saldo, den der Mitarbeiter sieht. Werden nur EINZELNE Monate
+   * neu aufgebaut, mischen sich im Aggregat zwei Rechenstände: die neu gebauten Monate nach
+   * heutigem Code, die übrigen nach altem. Auf der Produktionskopie rückte der Saldo dadurch
+   * bei 2 Nutzern näher an den kanonischen Rechenweg heran und bei 3 Nutzern weiter weg
+   * (userId 18: 16 h Abweichung vorher, 44 h nachher).
+   *
+   * Mit `--all-months` verschwindet die Mischung: nach dem Vollaufbau aller 100 Monate der
+   * Produktionskopie stimmte das Aggregat bei 13 von 15 aktiven Nutzern EXAKT mit
+   * `unifiedOvertimeService.calculatePeriodOvertime()` überein (userId 16: 104 h → 20 h =
+   * kanonisch; userId 24: 249,5 h → 201,5 h = kanonisch). Die verbliebenen zwei (userId 3
+   * und 17) sind das bekannte Dual-Calculation-Problem aus `.claude/CLAUDE.md` und NICHT
+   * durch diesen Schalter zu lösen.
+   *
+   * Der Schalter ist bewusst NICHT die Vorgabe: welcher der beiden Wege in Produktion
+   * gefahren wird, ist eine Entscheidung des Anwenders (D2) und in Plan 14-10 zu treffen,
+   * nicht hier vorwegzunehmen.
+   */
+  allMonths: boolean;
 }
 
 function printUsageAndExit(message?: string): never {
@@ -97,11 +122,14 @@ function printUsageAndExit(message?: string): never {
     '  DATABASE_PATH=<pfad> npx tsx src/scripts/backfillOvertimeJournal.ts \\'
   );
   console.error(
-    '    [--userId=<id>] [--maxMonths=<n>] [--apply] [--allow-production]'
+    '    [--userId=<id>] [--maxMonths=<n>] [--all-months] [--apply] [--allow-production]'
   );
   console.error('');
   console.error('  --userId beschränkt den Lauf auf einen Nutzer, sonst laufen alle.');
   console.error('  --maxMonths begrenzt die Zahl der im Schreiblauf verarbeiteten Monate.');
+  console.error(
+    '  --all-months baut JEDEN vergangenen Monat neu auf, nicht nur die unvollständigen.'
+  );
   process.exit(2);
 }
 
@@ -118,12 +146,15 @@ export function parseArgs(argv: string[]): ParsedBackfillArgs {
   let allowProduction = false;
   let userId: number | null = null;
   let maxMonths: number | null = null;
+  let allMonths = false;
 
   for (const arg of argv) {
     if (arg === '--apply') {
       apply = true;
     } else if (arg === '--allow-production') {
       allowProduction = true;
+    } else if (arg === '--all-months') {
+      allMonths = true;
     } else if (arg.startsWith('--userId=')) {
       userId = parsePositiveInteger(arg.slice('--userId='.length), 'userId');
     } else if (arg.startsWith('--maxMonths=')) {
@@ -133,7 +164,7 @@ export function parseArgs(argv: string[]): ParsedBackfillArgs {
     }
   }
 
-  return { apply, allowProduction, userId, maxMonths };
+  return { apply, allowProduction, userId, maxMonths, allMonths };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -156,12 +187,28 @@ export interface MonthCandidate {
   /** YYYY-MM */
   month: string;
   /**
-   * Letzter Tag in diesem Monat (bereits auf hireDate/endDate/Monatsgrenzen beschnitten), an
-   * dem der Nutzer nach seinem Arbeitszeitmodell Sollstunden hatte. `null`, wenn es in diesem
-   * Monat für diesen Nutzer keinen solchen Tag gibt (z. B. Monat vollständig außerhalb der
-   * Beschäftigung oder ausschließlich Feiertage/Wochenenden).
+   * Letzter Tag in diesem Monat (bereits auf hireDate/Monatsgrenzen beschnitten), an dem der
+   * Nutzer etwas hatte, was im Journal stehen muss: **Sollstunden nach seinem
+   * Arbeitszeitmodell, einen Zeiteintrag oder eine genehmigte Abwesenheit.** `null`, wenn es
+   * in diesem Monat für diesen Nutzer keinen solchen Tag gibt — dann ist nichts zu
+   * vervollständigen.
+   *
+   * WARUM NICHT NUR „letzter Tag mit Sollstunden" (Abweichung von `<behavior>` in
+   * 14-07-PLAN.md, belegt im Probelauf, s. `14-URTEIL-PHASE-9.1.md`): Nutzer mit
+   * `weeklyHours = 0` (Aushilfen) haben an KEINEM Tag Sollstunden, buchen aber sehr wohl
+   * Zeiteinträge. Auf der Produktionskopie fehlte den Nutzern 22 und 29 die Journalzeile zum
+   * 31.07.2026 mit 3 bzw. 2 tatsächlich gearbeiteten Stunden — genau der Off-by-one aus
+   * Phase 9.1, und genau zwei der Nutzer, die der ROADMAP-Eintrag der Phase 9.1 als Beispiele
+   * nennt. Die reine Sollstunden-Regel hätte beide übersehen.
+   *
+   * WARUM NICHT „letzter Tag des Monats" (also der Rebuild 1:1 gespiegelt):
+   * `rebuildOvertimeTransactionsForMonth()` schreibt für JEDEN Kalendertag des Zeitraums eine
+   * Zeile, auch für Tage ganz ohne Soll, Zeiteintrag und Abwesenheit (Betrag dann 0). Diese
+   * Regel meldete auf der Produktionskopie 100 statt 40 Monate — 60 davon rein rechnerisch
+   * wirkungslos. Der Backfill soll fehlende Buchungen nachtragen, nicht das Journal um
+   * Nullzeilen aufblähen.
    */
-  lastWorkday: string | null;
+  lastRelevantDay: string | null;
   /**
    * Höchstdatum der vorhandenen `earned`-Zeilen (`type IN ('time_entry', 'earned')`, s.
    * `overtimeTransactionService.ts:753-754` — beide Bezeichner sind semantisch identisch) des
@@ -221,14 +268,18 @@ export function findIncompleteMonths(
       continue;
     }
 
-    // Kein Tag mit Sollstunden in diesem Monat für diesen Nutzer (z. B. der Monat liegt
-    // vollständig außerhalb der Beschäftigung innerhalb des Kalendermonats, oder ausschließlich
-    // Feiertage/Wochenenden) — nichts zu vervollständigen.
-    if (candidate.lastWorkday === null) {
+    // Kein Tag mit Sollstunden, Zeiteintrag oder genehmigter Abwesenheit in diesem Monat
+    // (z. B. der Monat liegt innerhalb des Kalendermonats vollständig außerhalb der
+    // Beschäftigung, oder er besteht für diesen Nutzer ausschließlich aus Feiertagen und
+    // Wochenenden ohne jede Buchung) — nichts zu vervollständigen.
+    if (candidate.lastRelevantDay === null) {
       continue;
     }
 
-    if (candidate.maxJournalDate === null || candidate.maxJournalDate < candidate.lastWorkday) {
+    if (
+      candidate.maxJournalDate === null ||
+      candidate.maxJournalDate < candidate.lastRelevantDay
+    ) {
       incompleteMonths.push(candidate.month);
     }
   }
@@ -312,6 +363,7 @@ async function main(): Promise<void> {
   }
 
   const findings: UserFinding[] = [];
+  const allMonthJobs: Array<{ userId: number; months: string[] }> = [];
   let skippedUsers = 0;
 
   for (const userId of userIds) {
@@ -351,10 +403,10 @@ async function main(): Promise<void> {
     const periods: WorkPeriodContext = createWorkPeriodContext();
     const candidates: MonthCandidate[] = candidateMonths.map((month) => ({
       month,
-      lastWorkday: computeLastWorkday(
+      lastRelevantDay: computeLastRelevantDay(
+        db,
         user,
         userForBackfill.hireDate,
-        userForBackfill.endDate,
         month,
         getDailyTargetHours,
         periods
@@ -369,6 +421,19 @@ async function main(): Promise<void> {
         name: `${user.firstName} ${user.lastName}`,
         incompleteMonths: result.incompleteMonths,
       });
+    }
+
+    // --all-months: der Schreiblauf nimmt JEDEN vollständig vergangenen Monat, nicht nur die
+    // unvollständigen. Die Fundliste oben bleibt davon unberührt — sie sagt weiterhin, was
+    // TATSAECHLICH unvollständig ist. Begründung: s. ParsedBackfillArgs.allMonths.
+    if (args.allMonths) {
+      const alle = candidates
+        .filter((c) => monthEndDate(c.month) < today && monthEndDate(c.month) >= userForBackfill.hireDate)
+        .filter((c) => userForBackfill.endDate === null || monthStartDate(c.month) <= userForBackfill.endDate)
+        .map((c) => c.month);
+      if (alle.length > 0) {
+        allMonthJobs.push({ userId, months: alle });
+      }
     }
   }
 
@@ -387,6 +452,12 @@ async function main(): Promise<void> {
   console.log(
     `Summe: ${findings.length} betroffene Nutzer, ${totalIncompleteMonths} unvollständige Monate. Übersprungene (soft-gelöschte) Nutzer: ${skippedUsers}.`
   );
+  if (args.allMonths) {
+    const alleMonate = allMonthJobs.reduce((sum, j) => sum + j.months.length, 0);
+    console.log(
+      `--all-months gesetzt: der Schreiblauf verarbeitet stattdessen ALLE ${alleMonate} vergangenen Monate über ${allMonthJobs.length} Nutzer.`
+    );
+  }
   console.log('');
 
   const countBefore = getTransactionCount(db);
@@ -405,9 +476,17 @@ async function main(): Promise<void> {
   // Schritt 5: Schreiblauf — Einzeleinheit ist der Monat, nicht der Lauf (Fallstrick aus
   // migrateOvertimeToTransactions.ts).
   const jobs: Array<{ userId: number; month: string }> = [];
-  for (const finding of findings) {
-    for (const month of finding.incompleteMonths) {
-      jobs.push({ userId: finding.userId, month });
+  if (args.allMonths) {
+    for (const j of allMonthJobs) {
+      for (const month of j.months) {
+        jobs.push({ userId: j.userId, month });
+      }
+    }
+  } else {
+    for (const finding of findings) {
+      for (const month of finding.incompleteMonths) {
+        jobs.push({ userId: finding.userId, month });
+      }
     }
   }
 
@@ -497,26 +576,35 @@ function monthsInRange(startMonth: string, endMonthInclusive: string): string[] 
 }
 
 /**
- * Letzter Tag des Monats, an dem `targetUser` nach seinem Arbeitszeitmodell Sollstunden
- * hatte — bereits auf `hireDate`/`endDate` und die Monatsgrenzen beschnitten.
+ * Letzter Tag des Monats, an dem `targetUser` etwas hatte, was im Journal stehen muss:
+ * Sollstunden nach seinem Arbeitszeitmodell, einen Zeiteintrag oder eine genehmigte
+ * Abwesenheit. Bereits auf `hireDate` und die Monatsgrenzen beschnitten. Siehe die
+ * ausführliche Begründung der Regel an `MonthCandidate.lastRelevantDay`.
+ *
+ * KEIN BESCHNITT AUF `endDate`: `rebuildOvertimeTransactionsForMonth()` beschneidet den
+ * Zeitraum nur auf `hireDate`, `monthEnd` und (im laufenden Monat) heute — `endDate` kommt
+ * dort nicht vor (`overtimeTransactionRebuildService.ts:104-121`). Würde hier auf `endDate`
+ * beschnitten, bliebe eine Lücke zwischen Austritt und Monatsende unentdeckt, obwohl der
+ * Rebuild sie füllen würde. Ganze Monate NACH dem Austritt schließt `findIncompleteMonths()`
+ * weiterhin aus.
  *
  * `targetUser` ist der volle `TargetHoursUser`-Ausschnitt aus
  * `userService.getUserByIdIncludingDeleted()` und wird unverändert an `getDailyTargetHours()`
- * durchgereicht — kein Cast, kein zweiter, engerer Nutzerbegriff (WR-04/`.claude/CLAUDE.md`:
- * kein `any`, keine unbelegte Zusicherung). Seit Phase 11 (REQ-23) liest
- * `getDailyTargetHours()` aus diesem Ausschnitt zur Laufzeit nur noch `id` und `hireDate`; die
- * Sollstunden kommen aus `user_work_periods` (`workingDays.ts:59-82`, `:195`). Der Parameter
- * bleibt trotzdem der vollständige Typ, damit diese Datei keine Annahme über das Innere jener
- * Funktion festschreibt.
+ * durchgereicht — kein Cast, kein zweiter, engerer Nutzerbegriff (`.claude/CLAUDE.md`: kein
+ * `any`, keine unbelegte Zusicherung). Seit Phase 11 (REQ-23) liest `getDailyTargetHours()`
+ * aus diesem Ausschnitt zur Laufzeit nur noch `id` und `hireDate`; die Sollstunden kommen aus
+ * `user_work_periods` (`workingDays.ts:59-82`, `:195`). Der Parameter bleibt trotzdem der
+ * vollständige Typ, damit diese Datei keine Annahme über das Innere jener Funktion
+ * festschreibt.
  *
- * `hireDate`/`endDate` kommen separat, weil sie hier den Beschnitt des Suchbereichs steuern —
- * dieselbe Quelle wie in `findIncompleteMonths()`, aber eine andere Aufgabe als die
- * Periodenauflösung.
+ * Zeiteinträge und Abwesenheiten werden je Monat mit EINER Abfrage geholt, nicht je Tag —
+ * dieselbe Überlegung wie beim vorgeladenen `WorkPeriodContext` (D1, Plan 11-05): eine
+ * Tagesschleife über mehrere Jahre soll nicht drei Abfragen pro Tag absetzen.
  */
-function computeLastWorkday(
+function computeLastRelevantDay(
+  db: import('better-sqlite3').Database,
   targetUser: TargetHoursUser,
   hireDate: string,
-  endDate: string | null,
   month: string,
   getDailyTargetHoursFn: (
     user: TargetHoursUser,
@@ -533,30 +621,51 @@ function computeLastWorkday(
   const hireDateObj = new Date(hy, hm - 1, hd);
   const rangeStart = monthStart < hireDateObj ? hireDateObj : monthStart;
 
-  let rangeEnd = monthEnd;
-  if (endDate !== null) {
-    const [ey, em, ed] = endDate.split('-').map(Number);
-    const endDateObj = new Date(ey, em - 1, ed);
-    if (endDateObj < rangeEnd) {
-      rangeEnd = endDateObj;
-    }
-  }
-
-  if (rangeStart > rangeEnd) {
+  if (rangeStart > monthEnd) {
     return null;
   }
 
-  let lastWorkday: string | null = null;
-  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+  const monthFirstDay = monthStartDate(month);
+  const monthLastDay = monthEndDate(month);
+
+  const timeEntryDates = new Set(
+    (
+      db
+        .prepare(
+          'SELECT DISTINCT date FROM time_entries WHERE userId = ? AND date BETWEEN ? AND ?'
+        )
+        .all(targetUser.id, monthFirstDay, monthLastDay) as Array<{ date: string }>
+    ).map((r) => r.date)
+  );
+
+  const absenceRanges = db
+    .prepare(
+      `SELECT startDate, endDate FROM absence_requests
+       WHERE userId = ? AND status = 'approved' AND startDate <= ? AND endDate >= ?`
+    )
+    .all(targetUser.id, monthLastDay, monthFirstDay) as Array<{
+    startDate: string;
+    endDate: string;
+  }>;
+
+  let lastRelevantDay: string | null = null;
+  for (let d = new Date(rangeStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const dateStr = `${yyyy}-${mm}-${dd}`;
-    if (getDailyTargetHoursFn(targetUser, dateStr, periods) > 0) {
-      lastWorkday = dateStr;
+
+    const hasTarget = getDailyTargetHoursFn(targetUser, dateStr, periods) > 0;
+    const hasTimeEntry = timeEntryDates.has(dateStr);
+    const hasAbsence = absenceRanges.some(
+      (a) => a.startDate <= dateStr && a.endDate >= dateStr
+    );
+
+    if (hasTarget || hasTimeEntry || hasAbsence) {
+      lastRelevantDay = dateStr;
     }
   }
-  return lastWorkday;
+  return lastRelevantDay;
 }
 
 function computeMaxJournalDate(
