@@ -416,7 +416,7 @@ Plans:
 
 **Welle 3** *(blocked on Welle 2)*
 
-- [ ] 14-05-PLAN.md — Generalprobe: Zwei-Stufen-Umstellungsskript und der maschinelle Vorher/Nachher-Saldenvergleich (D3, D5 — REQ-33)
+- [x] 14-05-PLAN.md — Generalprobe: Zwei-Stufen-Umstellungsskript und der maschinelle Vorher/Nachher-Saldenvergleich (D3, D5 — REQ-33)
 
 **Welle 4** *(blocked on Welle 3)*
 

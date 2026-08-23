@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed Phase 14 Plan 04 (Migrationsstand messen und Generalprobe fahren)
-last_updated: "2026-08-23T00:21:49.271Z"
+stopped_at: Completed Phase 14 Plan 05 (Generalprobe gegen die migrierte Produktionskopie)
+last_updated: "2026-08-23T00:37:15.880Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 53
-  completed_plans: 46
+  completed_plans: 47
   percent: 71
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:plan-phase 14` — Absicherung und Auslieferung (14-CONTEXT.md liegt vor)
 - **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Completed Phase 14 Plan 04 (Migrationsstand messen und Generalprobe fahren)
+- **Stopped at:** Completed Phase 14 Plan 05 (Generalprobe gegen die migrierte Produktionskopie)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -233,6 +233,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14-absicherung-und-auslieferung]: 14-04: npm run sync-dev-db nicht ausgefuehrt (laufender Dev-Server PID 39860 haelt development.db offen) — Produktionskopie stattdessen per readonly VACUUM INTO + scp direkt nach 14-produktionskopie.db gezogen, development.db durchgehend nur readonly geoeffnet und an drei Messpunkten als inhaltlich unveraendert belegt
 - [Phase 14-absicherung-und-auslieferung]: 14-04: Gemessener Produktionsstand bestaetigt die Vorab-Erwartung deckungsgleich — Migrationen 001-007 vorhanden, 008-015 fehlen (acht Migrationen, nicht nur 011-015); Migrationsfolge auf Produktionskopie gefahren bewegt nachweislich keine Zahl in overtime_transactions/overtime_balance (alle Differenzen exakt 0)
 - [Phase 14-absicherung-und-auslieferung]: 14-04: requirements.mark-complete fuer REQ-33 nicht anwendbar (not_found) - REQUIREMENTS.md dieses Milestones nutzt kein Checkbox-/Pending-Complete-Format, nur eine Phasenzuordnungstabelle (wie bereits bei Phase 10/12 dokumentiert); Abdeckung bleibt ueber die Phase-14-Plaene dokumentiert
+- [Phase 14-absicherung-und-auslieferung]: 14-05: DATABASE_PATH-Pruefung laeuft in main() vor parseArgs() (nicht wie im Plantext beschrieben) - noetig fuer das woertliche Abnahmekriterium ohne Argumente/ohne DATABASE_PATH
+- [Phase 14-absicherung-und-auslieferung]: 14-05: Generalprobenfall ist userId 2 (Karin Jochem) - kleinste id, die die vier Auswahlbedingungen erfuellt; Stichtag 2026-06-01, Zielwert 3h/Woche, createdBy=1, alle hergeleitet
+- [Phase 14-absicherung-und-auslieferung]: 14-05: D5-Diff zeigt genau einen bewegten Nutzer (userId 2, +19.6h), identisch mit dem im Skript gedruckten balanceDelta; die drei benannten Rauschquellen (User 30, 31, Antrag 73) byteidentisch unveraendert
 
 ## Quick Tasks Completed
 
@@ -311,6 +314,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14-absicherung-und-auslieferung P02 | ~10min | 3 tasks | 5 files |
 | Phase 14-absicherung-und-auslieferung P03 | ~90min | 2 tasks | 2 files |
 | Phase 14-absicherung-und-auslieferung P04 | 12min | 3 tasks | 1 files |
+| Phase 14-absicherung-und-auslieferung P05 | ~25min | 3 tasks | 7 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -347,7 +351,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14 (absicherung-und-auslieferung) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-08-23
 
