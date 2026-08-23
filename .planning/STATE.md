@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed Phase 14 Plan 02 (WR-07 geschlossen)
-last_updated: "2026-08-22T23:50:01.560Z"
-last_activity: 2026-08-22
+stopped_at: Completed Phase 14 Plan 03 (UAT-Sitzungsplan)
+last_updated: "2026-08-23T00:08:01.445Z"
+last_activity: 2026-08-23
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 53
-  completed_plans: 44
+  completed_plans: 45
   percent: 71
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:plan-phase 14` — Absicherung und Auslieferung (14-CONTEXT.md liegt vor)
 - **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Completed Phase 14 Plan 02 (WR-07 geschlossen)
+- **Stopped at:** Completed Phase 14 Plan 03 (UAT-Sitzungsplan)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -226,6 +226,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14-absicherung-und-auslieferung]: Kein Codefix in workPeriodChangeService.ts fuer den Erhoehungsfall noetig - Erhoehung/Reduzierung werden bereits symmetrisch behandelt, die REQ-32-Luecke war reine Testabdeckung — Test lief beim ersten Lauf gruen; balanceDelta-Vorzeichen kehrt sich bei Erhoehung korrekt um
 - [Phase 14-absicherung-und-auslieferung]: WR-07 vor dem Produktionslauf geschlossen: updateUser() wirft WorkPeriodBypassError bei tatsaechlicher weeklyHours/workSchedule-Aenderung statt sie zu spiegeln — Schreibweg an der Perioden-Historie vorbei ohne Vorschau-Token/Pflichtbegruendung/Journalzeile; EditUserModal sendet weeklyHours bereits unveraendert, Risiko beherrschbar
 - [Phase 14-absicherung-und-auslieferung]: mirrorUserToWorkPeriod() (Seed-Skript-Helfer in userService.ts) bleibt unangetastet — nicht ueber die API erreichbar (einziger Aufrufer: scripts/seedTestUsers.ts), mirrort Stammdaten in die Periode statt Admin-Eingabe ohne Nachweis
+- [Phase 14-absicherung-und-auslieferung]: 14-03: 11-F1 bis 11-F3 sind laut Kontrollsummen-Arithmetik im Bestand (6+51+29=86) nicht Teil der 86 Bestandspunkte, obwohl inhaltlich Festlegungen wie 13-F1-10 -- als separater Zusatz mit Pruefweg D gefuehrt statt die Kontrollsumme 86 zu verfaelschen
+- [Phase 14-absicherung-und-auslieferung]: 14-03: Von acht vorgeprueften Dublettenkandidaten wurden zwei vollstaendig verworfen (Migration 011 vs. 015 -- unterschiedliche Migrationen trotz gleichem Pruefweg) und zwei nur teilweise bestaetigt (Kontrast-Kandidat enthielt zwei Responsive-Layout-Punkte, Fokus-Kandidat enthielt eine offene Entscheidungsfrage statt eines Verhaltenstests)
+- [Phase 14-absicherung-und-auslieferung]: 14-03: Punkt 48 (Playwright-E2E-Suite) laeuft in der Sitzung als manueller Nachvollzug des Bedienpfads statt als automatisierter Lauf -- Playwright ist in dieser Umgebung nicht installiert und die Installation ist nicht autorisiert
+- [Phase 14-absicherung-und-auslieferung]: 14-03: Fuenf zusaetzliche Punktgruppen aus dem Ausfuehrungsauftrag (Phase-13-UI-Fixes, Phase-12-UI-Fixes, B-2-Sicherheitsfix, REQ-32-Nachweis, WR-07-Oberflaechenwirkung) als 14-U5 bis 14-U9 aufgenommen, gemessene Zaehlungen aus den Quelldateien uebernommen (5 bzw. 6 Befunde), nicht geschaetzt
 
 ## Quick Tasks Completed
 
@@ -302,6 +306,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 13-korrigieren-und-r-ckg-ngig-machen P11 | 70min | 2 tasks | 1 files |
 | Phase 14-absicherung-und-auslieferung P01 | 20min | 3 tasks | 2 files |
 | Phase 14-absicherung-und-auslieferung P02 | ~10min | 3 tasks | 5 files |
+| Phase 14-absicherung-und-auslieferung P03 | ~90min | 2 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -338,9 +343,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14 (absicherung-und-auslieferung) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
-Last activity: 2026-08-22
+Last activity: 2026-08-23
 
 ## Operator Next Steps
 
