@@ -412,7 +412,7 @@ Plans:
 
 **Welle 2** *(blocked on Welle 1)*
 
-- [ ] 14-04-PLAN.md — Produktionskopie ziehen, Migrationsstand der Produktion messen, Migrationsfolge auf der Kopie fahren und ihre Nullwirkung belegen
+- [x] 14-04-PLAN.md — Produktionskopie ziehen, Migrationsstand der Produktion messen, Migrationsfolge auf der Kopie fahren und ihre Nullwirkung belegen
 
 **Welle 3** *(blocked on Welle 2)*
 
