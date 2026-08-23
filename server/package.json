@@ -15,6 +15,7 @@
     "migrate:create": "tsx scripts/migrate.ts create",
     "migrate:copy": "tsx src/scripts/applyMigrationsToCopy.ts",
     "snapshot:balances": "tsx src/scripts/snapshotBalances.ts",
+    "apply:model-change": "tsx src/scripts/applyModelChange.ts",
     "seed:model-change": "tsx src/scripts/seedModelChangeUser.ts",
     "verify:period-nulleffect": "tsx src/scripts/verifyPeriodNullEffect.ts",
     "validate:schema": "tsx scripts/validateSchema.ts",
