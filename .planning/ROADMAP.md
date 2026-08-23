@@ -429,7 +429,7 @@ Plans:
 **Welle 4** *(blocked on Welle 3)*
 
 - [x] 14-06-PLAN.md — Rückweg erproben und als Runbook festschreiben (D8)
-- [ ] 14-07-PLAN.md — Urteil zu Phase 9.1, Backfill-Werkzeug bauen und auf einer Produktionskopie proben
+- [x] 14-07-PLAN.md — Urteil zu Phase 9.1, Backfill-Werkzeug bauen und auf einer Produktionskopie proben
 
 **Welle 5** *(blocked on Welle 4 — Produktionsfenster, wartet auf Freigabe)*
 

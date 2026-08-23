@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed Phase 14 Plan 06 (Rueckweg erprobt und Rollback-Runbook geschrieben)
-last_updated: "2026-08-23T00:49:22.507Z"
+stopped_at: Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert
+last_updated: "2026-08-23T08:04:43.308Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 53
-  completed_plans: 48
+  completed_plans: 49
   percent: 71
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Phase:** 14
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** `/gsd:plan-phase 14` — Absicherung und Auslieferung (14-CONTEXT.md liegt vor)
+- **Next action:** Entscheidung des Anwenders zu Plan 14-10 (Teilaufbau / Vollaufbau / verschieben, s. Blockers) und Freigabe des Produktionsfensters fuer 14-08. Die autonomen Plaene der Phase 14 sind mit 14-07 abgeschlossen.
 - **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Completed Phase 14 Plan 06 (Rueckweg erprobt und Rollback-Runbook geschrieben)
+- **Stopped at:** Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -239,6 +239,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14-absicherung-und-auslieferung]: 14-06: Rueckweg-Erprobung schaedigt gezielt den Generalprobenfall (userId 2, 194 Journalzeilen + juengste Periode) statt einer leeren Datenbank, damit die Wiederherstellung am bekannten Saldo (29,6 h) aus Plan 14-05 nachpruefbar ist
 - [Phase 14-absicherung-und-auslieferung]: 14-06: Rueckspielen schreibt immer in eine NEUE Datei statt ueber die beschaedigte/laufende Datei - identisches Muster lokal (14-rollback-probe.db) und im Runbook fuer den Ernstfall (production.RESTORED_<TIMESTAMP>.db)
 - [Phase 14-absicherung-und-auslieferung]: 14-06: git revert als Alternative zu Rueckweg B geprueft und verworfen (337 Commits, kein sinnvoll pruefbarer Zwischenzustand) - Force-Push auf den gemessenen origin/main-Stand 0f2a03e vor Plan 14-08 bleibt die einzige im Ernstfall nachvollziehbare Option
+- [Phase 14]: Phase 9.1 aufgeteilt (Plan 14-07): Journal-Backfill laeuft im Produktionsfenster der Phase 14 mit, aber strikt NACH der Verifikation aus Plan 14-09; Code-Haertung WR-02 bis WR-05 bleibt in Phase 9.1
+- [Phase 14]: Die Planannahme 'der Backfill kann die D5-Zahlen nicht bewegen' ist widerlegt: rebuildOvertimeTransactionsForMonth schreibt ueber STEP 7 auch overtime_balance, und snapshotBalances.ts liest daraus — der D5-Diff zeigte 164 Zeilen bei 8 von 20 Nutzern
+- [Phase 14]: Findelogik des Backfills korrigiert: massgeblich ist der letzte Tag mit Sollstunden ODER Zeiteintrag ODER genehmigter Abwesenheit — die Planregel uebersah zwei Aushilfen (weeklyHours=0) mit echten, nicht gebuchten Arbeitsstunden am 31.07.2026
+- [Phase 14]: backfillOvertimeJournal.ts erhaelt den Schalter --all-months (Vorgabe aus); die Wahl zwischen Teilaufbau (2 Nutzer besser, 3 schlechter) und Vollaufbau (13 von 15 deckungsgleich, keiner schlechter) gehoert nach D2 dem Anwender und wird in Plan 14-10 getroffen
 
 ## Quick Tasks Completed
 
@@ -319,6 +323,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14-absicherung-und-auslieferung P04 | 12min | 3 tasks | 1 files |
 | Phase 14-absicherung-und-auslieferung P05 | ~25min | 3 tasks | 7 files |
 | Phase 14-absicherung-und-auslieferung P06 | 15min | 2 tasks | 1 files |
+| Phase 14 P07 | 35min | 3 tasks | 9 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -355,8 +360,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14 (absicherung-und-auslieferung) — EXECUTING
-Plan: 7 of 11
-Status: Ready to execute
+Plan: 8 of 11
+Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
+        brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
+        der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
 Last activity: 2026-08-23
 
 ## Operator Next Steps
@@ -384,3 +391,7 @@ Acht offene Debug-Sessions in `.planning/debug/`:
 Vier der acht betreffen die Überstundenberechnung und werden in Milestone v3.0
 (Historisierte Arbeitszeitmodelle) aufgegriffen — REQ-19 des Entwurfs verweist bereits
 auf zwei davon.
+
+### Blockers
+
+- Plan 14-10 blockiert: Der Journal-Backfill bewegt den fuer Mitarbeiter sichtbaren Saldo (overtime_balance) bei 8 von 20 Nutzern der Produktionskopie um bis zu 84 Stunden. Der in 14-10 vorgesehene Teilaufbau ist zudem der messbar schlechtere Weg (2 Nutzer besser, 3 schlechter gegenueber dem kanonischen Rechenweg; Vollaufbau: 13 von 15 deckungsgleich, keiner schlechter). Entscheidung des Anwenders noetig: (a) Teilaufbau, (b) Vollaufbau mit --all-months, (c) verschieben. Messwerte in 14-URTEIL-PHASE-9.1.md Abschnitt 8.
