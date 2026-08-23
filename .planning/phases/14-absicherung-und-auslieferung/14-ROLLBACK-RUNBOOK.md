@@ -9,7 +9,316 @@ Dokuments (Task 2).
 
 ---
 
-## Erprobung des Rückwegs (Plan 14-06)
+## Erwartungswerte aus der lokalen Erprobung (Plan 14-06, Task 1)
+
+Gemessen gegen eine ≈1,3-MB-Datenbank (20 Nutzer, 712 Zeiteinträge, 2682 Journalzeilen —
+größenordnungsmäßig identisch mit der echten `production.db`, siehe `14-MIGRATIONSSTAND.md`:
+`server/database/14-produktionskopie.db` lag bei 1.286.144 Bytes). Vollständiges Protokoll
+mit allen Befehlen im Abschnitt „Erprobung des Rückwegs (Plan 14-06)" weiter unten.
+
+| Operation | Dauer (lokal gemessen) | Dateigröße |
+|---|---|---|
+| Sicherung (`VACUUM INTO`) | 15 ms | 1.331.200 Bytes (≈ 1,3 MB) |
+| Zurückspielen (`VACUUM INTO`) | 13 ms | 1.331.200 Bytes (≈ 1,3 MB) |
+
+**Einordnung für den Ernstfall:** Ein Sicherungs- oder Rückspiellauf gegen die echte
+`production.db`, der mehrere Sekunden statt Millisekunden braucht, ist ein Hinweis auf einen
+hängenden Lauf oder eine ungewöhnlich groß gewordene Datenbank — dann nachsehen (`ls -la` auf
+dem Server, laufender Prozess?), nicht einfach abwarten. SSH-Overhead (Verbindungsaufbau,
+Netzwerklatenz Windows-PC ↔ Oracle Cloud Frankfurt) kommt bei den Server-Befehlen zusätzlich
+hinzu und ist in diesen Werten nicht enthalten — als Erwartung für die reine `VACUUM INTO`-
+Operation auf dem Server gelten dieselben Millisekundenwerte, für den Gesamtablauf inklusive
+SSH/`scp` eher ein bis wenige Sekunden.
+
+---
+
+## Ablauf für den Produktionsernstfall (Plan 14-06, Task 2)
+
+Sechs Abschnitte: Sicherung vor dem Push, Abbruchkriterien, Rückweg A (nur Daten), Rückweg B
+(Daten und Code), Verifikation nach dem Rückweg, was der Rückweg nicht zurücknimmt. Jeder
+Befehl vollständig, mit explizitem `DATABASE_PATH` — kein „analog zu oben", kein Platzhalter
+ohne Erklärung.
+
+### Abschnitt 1 — Sicherung vor dem Push (Pflichtschritt von Plan 14-08)
+
+**Warum eine eigene Sicherung nötig ist, obwohl der Deploy-Workflow bereits eine anlegt:**
+`.github/workflows/deploy-server.yml`, Zeile 62-65:
+
+```
+mkdir -p /home/ubuntu/databases/backups
+cp /home/ubuntu/databases/production.db \
+   /home/ubuntu/databases/backups/production.predeploy_$(date +%Y%m%d_%H%M%S).db || true
+```
+
+Diese Sicherung ist als alleiniger Rückweg **nicht ausreichend**, aus zwei Gründen:
+1. Sie nutzt `cp` statt `VACUUM INTO`. Bei einer WAL-aktiven Datei kann ein reiner Datei-Kopiervorgang
+   die jüngsten, noch nicht in die Haupt-Datenbankdatei geschriebenen Transaktionen verlieren
+   (`.planning/debug/db-stabilisierung-20260818.md`, Abschnitt „Zwei verwaiste WAL-Dateien").
+2. Sie trägt `|| true` — **nicht fehlerabbrechend**. Scheitert das Kopieren (volle Platte,
+   Rechteproblem), läuft das Deployment trotzdem weiter, ohne dass irgendjemand es bemerkt.
+
+Die eigene Sicherung vor dem Push ersetzt diese Predeploy-Sicherung nicht (sie bleibt als
+zusätzliches Netz bestehen), sondern kommt **zusätzlich** und ist die einzige, auf die sich
+dieses Runbook verlässt.
+
+**Befehl — Sicherung per `VACUUM INTO` über den absoluten `better-sqlite3`-Modulpfad**
+(dasselbe Muster wie `scripts/sync-dev-db.sh` Schritt [3/6]):
+
+```bash
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "DATABASE_PATH=/home/ubuntu/databases/production.db node << 'EOF'
+const D = require('/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3');
+const db = new D('/home/ubuntu/databases/production.db', { readonly: true });
+db.exec(\"VACUUM INTO '/home/ubuntu/databases/backups/production.PRE-14-08_${TIMESTAMP}.db'\");
+db.close();
+EOF"
+```
+
+**Dateigröße prüfen** (muss > 0 sein):
+
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "ls -la /home/ubuntu/databases/backups/production.PRE-14-08_${TIMESTAMP}.db"
+```
+
+**`integrity_check` gegen die Sicherung fahren** (nicht gegen die laufende Produktion — die
+Sicherungsdatei selbst muss geprüft werden, bevor auf sie gebaut wird):
+
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "DATABASE_PATH=/home/ubuntu/databases/production.db node -e \"
+const D = require('/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3');
+const db = new D('/home/ubuntu/databases/backups/production.PRE-14-08_${TIMESTAMP}.db', { readonly: true });
+console.log(JSON.stringify(db.pragma('integrity_check')));
+db.close();
+\""
+```
+
+Erwartete Ausgabe: `[{"integrity_check":"ok"}]`. Alles andere: Sicherung verwerfen, Lauf
+wiederholen — eine ungeprüfte Sicherung ist keine Sicherung.
+
+**Sicherung per `scp` auf den Arbeitsrechner holen.** Eine Sicherung, die nur auf demselben
+Server liegt, überlebt einen Ausfall dieses Servers nicht:
+
+```bash
+mkdir -p ./database-backups-lokal
+scp -i .ssh/oracle_server.key -o StrictHostKeyChecking=no \
+  ubuntu@129.159.8.19:/home/ubuntu/databases/backups/production.PRE-14-08_${TIMESTAMP}.db \
+  ./database-backups-lokal/production.PRE-14-08_${TIMESTAMP}.db
+```
+
+### Abschnitt 2 — Abbruchkriterien
+
+Wann wird zurückgerollt statt nachgebessert — jedes Kriterium mit dem Befehl, der es
+feststellt:
+
+**1. Der Health-Check antwortet nach dem Deployment nicht mit `status: ok`.**
+```bash
+curl -s http://129.159.8.19:3000/api/health | jq
+```
+Erwartet: `{"status":"ok","database":"connected",...}`. Jede andere Antwort (inkl. Timeout,
+HTTP != 200, fehlendes `status`-Feld) löst Abbruch/Rückweg aus.
+
+**2. `pm2 logs timetracking-server` zeigt einen Fehler aus `runMigrations`.**
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "pm2 logs timetracking-server --lines 200 --nostream | grep -i 'runMigrations\|Migration.*failed\|Migration.*abgebrochen'"
+```
+Jeder Treffer ist ein Abbruchkriterium — `migrationRunner.ts` markiert eine Migration bei
+einem Fehler in `up()` ausdrücklich NICHT als angewendet (siehe `14-PATTERNS.md`, Abschnitt 6),
+die Datenbank bleibt dabei im vorherigen, konsistenten Zustand; der Fehler zeigt aber, dass
+der Server nicht produktiv lauffähig ist.
+
+**3. `PRAGMA integrity_check` auf der Produktion liefert etwas anderes als `ok`.**
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "DATABASE_PATH=/home/ubuntu/databases/production.db node -e \"
+const D = require('/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3');
+const db = new D('/home/ubuntu/databases/production.db', { readonly: true });
+console.log(JSON.stringify(db.pragma('integrity_check')));
+console.log(JSON.stringify(db.pragma('foreign_key_check')));
+db.close();
+\""
+```
+Erwartet: `[{"integrity_check":"ok"}]` und eine leere `foreign_key_check`-Liste `[]`.
+
+**4. Der Vorher/Nachher-Vergleich zeigt einen Nutzer mit Differenz ungleich null, der nicht
+der Umstellungsfall ist.**
+```bash
+diff 14-SNAPSHOT-PROD-VORHER.users.json 14-SNAPSHOT-PROD-NACHHER.users.json
+```
+Muster aus `14-VORHER-NACHHER.md` (D5): Jede Zeile im Diff wird namentlich einem `userId`
+zugeordnet (`grep -n '"userId"' 14-SNAPSHOT-PROD-VORHER.users.json`). Jeder Name außer dem
+bestätigten D6-Umstellungsfall ist ein Blocker, kein Hinweis — Rückweg auslösen, nicht
+weiterprüfen.
+
+### Abschnitt 3 — Rückweg A: nur Daten
+
+**Anwendbar,** solange der Code noch nicht ausgeliefert ist oder unverändert bleibt (Abbruch
+vor `git push` oder ein Abbruchkriterium schlägt an, ohne dass zwischenzeitlich Migrationen
+gelaufen sind).
+
+**Reihenfolge:**
+
+**1. Server stoppen:**
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 "pm2 stop timetracking-server"
+```
+
+**2. Sicherung per `VACUUM INTO` in eine NEUE Datei zurückschreiben** (nicht direkt über
+`production.db` schreiben — dieselbe Logik wie in der lokalen Erprobung, Schritt 5):
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "DATABASE_PATH=/home/ubuntu/databases/production.db node << 'EOF'
+const D = require('/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3');
+const backup = new D('/home/ubuntu/databases/backups/production.PRE-14-08_${TIMESTAMP}.db', { readonly: true });
+backup.exec(\"VACUUM INTO '/home/ubuntu/databases/production.RESTORED_${TIMESTAMP}.db'\");
+backup.close();
+EOF"
+```
+
+**3. Alte `production.db` samt `-wal` und `-shm` beiseiteschieben** (umbenennen, nicht
+löschen — die alte Datei bleibt als Nachweis erhalten, für den Fall, dass der Rückweg selbst
+untersucht werden muss):
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "mv /home/ubuntu/databases/production.db /home/ubuntu/databases/production.db.PRE-ROLLBACK_${TIMESTAMP}
+   mv /home/ubuntu/databases/production.db-wal /home/ubuntu/databases/production.db-wal.PRE-ROLLBACK_${TIMESTAMP} 2>/dev/null || true
+   mv /home/ubuntu/databases/production.db-shm /home/ubuntu/databases/production.db-shm.PRE-ROLLBACK_${TIMESTAMP} 2>/dev/null || true"
+```
+
+**4. Neue Datei an die Stelle der alten setzen:**
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "mv /home/ubuntu/databases/production.RESTORED_${TIMESTAMP}.db /home/ubuntu/databases/production.db"
+```
+
+**5. `pm2 start` mit vollständiger Umgebungszeile** — wörtlich aus `deploy-server.yml:161`:
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "cd /home/ubuntu/TimeTracking-Clean/server
+   pm2 delete timetracking-server || true
+   SESSION_SECRET=\$(grep '^SESSION_SECRET=' .env | head -1 | cut -d= -f2)
+   TZ=Europe/Berlin NODE_ENV=production DATABASE_PATH=/home/ubuntu/databases/production.db SESSION_SECRET=\$SESSION_SECRET ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420' \
+     pm2 start dist/server.js --name timetracking-server --cwd /home/ubuntu/TimeTracking-Clean/server --time --update-env
+   pm2 save"
+```
+
+**Ausdrücklich vermerkt:** **Nur `pm2 start` mit gesetztem `DATABASE_PATH`.** Ohne die
+Variable legt der Server eine leere Datenbank an (`server/database.db` existiert seit
+20.08.2026 nicht mehr als Symlink, siehe `.claude/CLAUDE.md` „Database Rules"); ohne
+`TZ=Europe/Berlin` rechnet er in UTC — beides bereits einmal produktionswirksam gewesen
+(`.planning/debug/db-stabilisierung-20260818.md`).
+
+**6. Health-Check:**
+```bash
+curl -s http://129.159.8.19:3000/api/health | jq
+```
+
+**7. Funktionstest:** Anmeldung als ein bekannter Nutzer (Desktop-App oder
+`curl -s -c cookies.txt -X POST http://129.159.8.19:3000/api/auth/login -H "Content-Type: application/json" -d '{"username":"<user>","password":"<pw>"}'`),
+danach ein Kontoauszug-Aufruf desselben Nutzers.
+
+### Abschnitt 4 — Rückweg B: Daten und Code
+
+**Anwendbar,** sobald `runMigrations()` gelaufen ist — nach `git push origin main`, unabhängig
+davon, ob der Server bereits neu gestartet wurde.
+
+**Begründung:** Ein reines Zurückspielen der Daten (Rückweg A) ist in diesem Fall
+**wirkungslos**, weil der nächste PM2-Neustart die Migrationen 008–015 (bzw. jede weitere,
+mit Plan 14-08 hinzugekommene Migration) über `runMigrations()` erneut anwendet
+(`server/src/server.ts:215`) — die Datenbank würde sofort wieder auf den neuen Stand
+vorrücken. Code und Daten müssen deshalb **gemeinsam** zurückgenommen werden.
+
+**Reihenfolge:**
+
+**1. Veröffentlichten Stand auf den Commit vor Plan 14-08 zurücksetzen.** Der Commit-Hash
+`0f2a03e` ist der Stand, auf dem `origin/main` vor Plan 14-08 stand (gemessen per
+`git ls-remote origin main` am 23.08.2026 — Ergebnis:
+`0f2a03efba0d5c7880407290be2c4caf9a88184d refs/heads/main`):
+```bash
+git push origin +0f2a03e:main
+```
+**Ausdrücklich als Historienumschreibung gekennzeichnet:** Dieser Befehl schreibt die
+Historie von `origin/main` um (Force-Push) und wird **nur im Ernstfall** ausgeführt, nicht
+routinemäßig. Die Alternative `git revert` wurde geprüft und verworfen: Bei über 337 Commits
+zwischen einem Revert-Ziel und `HEAD` erzeugt ein einzelner `git revert <merge-commit>` oder
+eine Kette von Einzel-Reverts keinen sinnvoll prüfbaren Zustand (Merge-Konflikte über
+Dutzende Dateien, kein Weg, das Ergebnis vor dem Deployment manuell zu verifizieren) — ein
+direktes Zurücksetzen auf einen bekannten guten Commit ist die einzige Option, die in der
+verfügbaren Zeit eines Ernstfalls nachvollziehbar bleibt.
+
+**2. Deploy-Workflow abwarten und prüfen:**
+```bash
+gh run list --workflow="deploy-server.yml" --limit 1
+```
+Erwartung: `status: completed`, `conclusion: success`. Bei `failure`:
+`gh run view <run-id> --log` und danach trotzdem mit Schritt 3 fortfahren — der Code-Stand
+auf `origin/main` ist bereits zurückgesetzt, die Datenbank muss unabhängig davon konsistent
+gemacht werden.
+
+**3. Danach Rückweg A für die Daten** (Abschnitt 3, Schritte 1–7 vollständig, mit demselben
+oder einem neuen `${TIMESTAMP}`, falls seit Schritt 1 dieses Abschnitts Zeit vergangen ist).
+
+**4. Health-Check und Funktionstest** wie in Rückweg A, Schritte 6–7.
+
+### Abschnitt 5 — Verifikation nach dem Rückweg
+
+**1. Health-Check:**
+```bash
+curl -s http://129.159.8.19:3000/api/health | jq
+```
+
+**2. Echter Funktionstest** — nicht nur der Health-Check: Anmeldung eines bekannten Nutzers
+und Aufruf seines Kontoauszugs (Desktop-App gegen die Produktions-URL oder `curl` mit
+Session-Cookie, siehe Abschnitt 3 Schritt 7).
+
+**3. `PRAGMA integrity_check`:**
+```bash
+ssh -i .ssh/oracle_server.key -o StrictHostKeyChecking=no ubuntu@129.159.8.19 \
+  "DATABASE_PATH=/home/ubuntu/databases/production.db node -e \"
+const D = require('/home/ubuntu/TimeTracking-Clean/node_modules/better-sqlite3');
+const db = new D('/home/ubuntu/databases/production.db', { readonly: true });
+console.log(JSON.stringify(db.pragma('integrity_check')));
+db.close();
+\""
+```
+
+**4. Kennzahlenvergleich gegen die zurückgespielte Sicherung** — dieselbe Kennzahlentabelle
+wie in der lokalen Erprobung (Schritt 6 dieses Dokuments): `integrity_check`,
+`foreign_key_check`, Migrationsliste, `overtime_transactions`/`overtime_balance`
+COUNT/SUM, `users`/`time_entries`/`absence_requests` COUNT, `user_work_periods` COUNT.
+Jede Differenz zur Sicherung außerhalb der bewusst zurückgenommenen Änderung ist ein neuer
+Blocker.
+
+**Ausdrücklich vermerkt:** Frische Daten sind wegen WAL per direktem Dateizugriff nicht
+sichtbar (`14-CONTEXT.md`, „Existing Code Insights") — die Prüfung läuft deshalb über die API
+(`curl .../api/health`, Funktionstest) oder `pm2 logs timetracking-server`, nicht über ein
+direktes Lesen der `.db`-Datei während der Server läuft. Die `PRAGMA`-Befehle in diesem
+Abschnitt laufen bewusst bei **gestopptem** Server (Rückweg A/B, Schritt 1) bzw. gegen die
+bereits zurückgespielte, vom laufenden Server verwaltete Datei — nicht als Live-Abfrage
+gegen einen aktiven WAL-Schreibprozess.
+
+### Abschnitt 6 — Was der Rückweg nicht zurücknimmt
+
+**Ein bereits veröffentlichtes Desktop-Release (Plan 14-11) lässt sich nicht zurückziehen,**
+sobald Anwender es über die Auto-Update-Funktion gezogen haben. Deshalb liegt das Release in
+der Planreihenfolge **nach** der Produktionsverifikation und nicht davor (D7,
+`14-CONTEXT.md`) — ein Rückweg, der vor dem Release stattfindet, trifft keine
+Anwender-Clients; ein Rückweg nach dem Release kann die Server-Seite zurücknehmen, aber
+nicht die bereits installierte Desktop-Version.
+
+**Zeiteinträge, die Anwender nach der Sicherung und vor dem Rückspielen erfassen, gehen beim
+Rückweg verloren.** Das ist eine technische Grenze, keine Nachlässigkeit: Der Rückweg ersetzt
+die Datenbankdatei durch den Stand der Sicherung, jede Schreibung danach ist im
+zurückgespielten Stand nicht enthalten. Daraus folgt die Empfehlung, das Produktionsfenster
+für Plan 14-08/14-09 außerhalb der Arbeitszeit der Stiftung zu legen und die Zeitspanne
+zwischen Sicherung und der Entscheidung „zurückrollen oder nicht" so kurz wie möglich zu
+halten (Abbruchkriterien, Abschnitt 2, sofort nach dem Deployment prüfen, nicht erst am
+nächsten Tag).
+
+---
 
 **Zielobjekt:** `server/database/14-generalprobe.db` — die migrierte Arbeitskopie aus Plan
 14-04, die in Plan 14-05 bereits einen echten Modellwechsel (Generalprobenfall userId 2,
