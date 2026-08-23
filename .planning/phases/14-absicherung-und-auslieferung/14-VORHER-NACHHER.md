@@ -301,5 +301,183 @@ Stand. Der laufende Dev-Server (PID 39860, Port 3000) und der Tauri-Prozess (PID
 
 ---
 
-<!-- Der folgende Abschnitt wird in Task 3 ergänzt: Diff-Auswertung, „Ergebnis der
-Generalprobe", „Erwartetes Rauschen — geprüft", „Was dieser Nachweis nicht abdeckt". -->
+## Diff-Auswertung (Task 3)
+
+### Roher Byte-Diff der beiden `*.users.json`-Dateien
+
+```
+$ diff 14-SNAPSHOT-GP-VORHER.users.json 14-SNAPSHOT-GP-NACHHER.users.json
+134c134
+<       "targetHours": 155,
+---
+>       "targetHours": 135.39999999999966,
+136c136
+<       "overtime": 10,
+---
+>       "overtime": 29.599999999999923,
+183c183
+<         "targetHours": 21,
+---
+>         "targetHours": 12.6,
+185c185
+<         "overtime": 39,
+---
+>         "overtime": 47.4,
+190c190
+<         "targetHours": 23,
+---
+>         "targetHours": 13.8,
+192c192
+<         "overtime": -4.5,
+---
+>         "overtime": 4.699999999999999,
+197c197
+<         "targetHours": 15,
+---
+>         "targetHours": 9,
+199c199
+<         "overtime": -9,
+---
+>         "overtime": -3,
+```
+
+32 Zeilen Diff-Ausgabe gesamt (16 geänderte Werte, je Wert eine `<`- und eine `>`-Zeile).
+Alle 32 Zeilen liegen zwischen Zeile 122 (`"userId": 2,`) und Zeile 227 (`"userId": 3,`) der
+VORHER-Datei (`grep -n '"userId"' 14-SNAPSHOT-GP-VORHER.users.json`) — **jede einzelne
+geänderte Zeile gehört zum Datensatz von userId 2.** Kein anderer Nutzerblock ist im Diff
+vertreten. Die vier geänderten Felder je Block sind `targetHours`/`overtime` des
+Gesamtzeitraums (`overtimePeriod`, Zeilen 134/136) sowie dieselben zwei Felder in den
+`overtimeBalanceRows` für die drei betroffenen Monate 2026-06 (Zeilen 183/185), 2026-07
+(Zeilen 190/192) und 2026-08 (Zeilen 197/199) — exakt die drei Monate aus `affectedMonths` des
+Schreiblaufs in Schritt 4.
+
+### Auswertung je Nutzer (`node -e`-Einzeiler, Vergleich von `overtimePeriod.overtime`)
+
+```javascript
+const fs = require('fs');
+const before = JSON.parse(fs.readFileSync('14-SNAPSHOT-GP-VORHER.users.json', 'utf-8'));
+const after = JSON.parse(fs.readFileSync('14-SNAPSHOT-GP-NACHHER.users.json', 'utf-8'));
+const beforeMap = new Map(before.map(u => [u.userId, u]));
+const afterMap = new Map(after.map(u => [u.userId, u]));
+let diffRows = [], sameErrorCount = 0, comparedCount = 0;
+for (const [userId, b] of beforeMap) {
+  const a = afterMap.get(userId);
+  comparedCount++;
+  if (b.overtimeError !== null && a.overtimeError !== null) {
+    if (b.overtimeError === a.overtimeError) sameErrorCount++;
+    continue; // unveraenderter Fehlertext zaehlt NICHT als Differenz
+  }
+  const bVal = b.overtimePeriod ? b.overtimePeriod.overtime : null;
+  const aVal = a.overtimePeriod ? a.overtimePeriod.overtime : null;
+  const diff = Math.round(((aVal ?? 0) - (bVal ?? 0)) * 100) / 100;
+  if (diff !== 0) diffRows.push({ userId, before: bVal, after: aVal, diff });
+}
+```
+
+**Ergebnis:**
+
+| userId | Name | vorher (h) | nachher (h) | Differenz (h) |
+|--------|------|-----------:|------------:|---------------:|
+| 2 | Karin Jochem | 10 | 29,6 | **+19,6** |
+
+Verglichene Nutzer gesamt: 20. Nutzer mit unverändertem `overtimeError` in beiden Snapshots
+(nicht als Differenz gezählt): 5 (die fünf soft-gelöschten Nutzer der Kopie, siehe
+`overtimeError`-Feld: `"User <id> not found"`).
+
+Die gemessene Differenz **+19,6 h** ist identisch mit dem `balanceDelta: 19.6 h`, das
+`applyModelChange.ts` in Schritt 4 aus der Vorschau von `applyWorkTimeChange()` gedruckt hat
+(6 h vorher → 29,6 h nachher laut Skript-Ausgabe) — zwei unabhängig gemessene Werte
+(Journal-/Balance-Lesepfad im Skript selbst vs. `unifiedOvertimeService.calculatePeriodOvertime()`
+im Snapshot-Werkzeug) stimmen exakt überein.
+
+---
+
+## Ergebnis der Generalprobe
+
+**Genau EIN Nutzer mit Differenz ungleich null: userId 2 (Karin Jochem), Differenz +19,6 h.**
+Das ist exakt der in Task 2 bestimmte **Generalprobenfall** — kein weiterer Name taucht in der
+Diff-Auswertung auf. Kein Blocker.
+
+- Verglichene Nutzer gesamt: 20
+- Nutzer mit Differenz ungleich null: 1 (userId 2)
+- Nutzer mit unverändertem `overtimeError` (soft-gelöscht, kein Diff): 5
+
+---
+
+## Erwartetes Rauschen — geprüft
+
+Aus `14-CONTEXT.md` („Existing Code Insights"): User 30 „Test Urlaub", User 31 „UAT" und
+Antrag 73 (storniert) sind vorab benanntes Rauschen im Produktionsbestand. Geprüft, ob sich
+einer von ihnen bewegt hat:
+
+**User 30 „Test Urlaub" (id 30):** In der Kopie vorhanden, `deletedAt` gesetzt
+(`2026-08-21 19:06:59`, soft-gelöscht). `overtimeError` in VORHER und NACHHER identisch
+(`"User 30 not found"` — der kanonische Lesepfad löst soft-gelöschte Nutzer nicht auf, siehe
+`snapshotBalances.ts` Kopfkommentar). Der komplette JSON-Datensatz (Stammdaten, Fehlertext,
+`vacationYears` inkl. `transactionsSum`) ist zwischen beiden Snapshots **byteidentisch**
+(`JSON.stringify(vorher) === JSON.stringify(nachher)` → `true`). **Unbewegt.**
+
+**User 31 „UAT" (id 31):** In der Kopie vorhanden, `deletedAt` gesetzt
+(`2026-08-21 19:07:45`, soft-gelöscht). Ebenfalls `overtimeError` identisch
+(`"User 31 not found"`), kompletter JSON-Datensatz byteidentisch. **Unbewegt.**
+
+**Antrag 73 (storniert):** `absence_requests.id = 73` gehört `userId = 30`, `status = 'rejected'`,
+`type = 'vacation'`. Da User 30 vollständig soft-gelöscht ist und sein Datensatz (inklusive
+`vacationYears`, das `vacation_transactions`/`vacation_balance` widerspiegelt) byteidentisch
+bleibt, bewegt sich auch der mit Antrag 73 verknüpfte Bestand nicht. **Unbewegt.**
+
+Keiner der drei vorab benannten Rauschquellen bewegt sich — die einzige Bewegung im gesamten
+Bestand ist der eine Generalprobenfall (userId 2).
+
+---
+
+## Was dieser Nachweis nicht abdeckt
+
+Dieser Nachweis belegt, dass der Zwei-Stufen-Ablauf gegen die migrierte Produktionskopie
+korrekt funktioniert: Der Trockenlauf schreibt nichts, die Erwartungsprüfung verhindert eine
+vertippte `--userId`, und der Schreiblauf bewegt ausschließlich den Saldo des behandelten
+Nutzers — kein anderer Nutzer, auch nicht die drei vorab benannten Rauschquellen.
+
+**Was er NICHT abdeckt: der reale Umstellungsfall aus D6 (`14-CONTEXT.md`).** Die vier Werte
+des tatsächlich anstehenden Umstellungsfalls — welcher Nutzer, ab welchem Stichtag, von wie
+vielen auf wie viele Wochenstunden — sind zum Zeitpunkt dieses Plans **nicht bekannt** und
+wurden hier bewusst **nicht erfunden**. Der hier bewegte Nutzer (userId 2, Karin Jochem) ist
+ein nach fester Regel ausgewählter **Prüfnutzer der Kopie**, keine Vorwegnahme des D6-Falls.
+Sobald der Anwender die vier D6-Werte bestätigt hat, wiederholt Plan 14-09 exakt diesen
+Zwei-Stufen-Ablauf — Trockenlauf, Prüfung, `--apply` — mit den echten Werten gegen die echte
+Produktionsdatenbank, nach ausdrücklicher Freigabe (D2).
+
+---
+
+## Vier Pflichtgates (Task 3)
+
+```
+$ cd server && npx tsc --noEmit
+EXIT_CODE=0
+
+$ cd desktop && npx tsc --noEmit
+EXIT_CODE=0
+
+$ cd server && npx vitest run
+Test Files  2 failed | 35 passed (37)
+     Tests  3 failed | 507 passed (510)
+```
+
+Die drei roten Titel sind wortgleich mit `11-AUSGANGSZUSTAND.md`/`14-01-SUMMARY.md`:
+- `src/services/unifiedOvertimeService.test.ts` → „should respect hire date and not include
+  pre-employment months" (Zeile 285)
+- `src/services/unifiedOvertimeService.test.ts` → „REGRESSION: User hired on 1st of month
+  should calculate correctly" (Zeile 340)
+- `src/services/vacationBackfillService.test.ts` → „erkennt einen bereits gelaufenen Backfill"
+  (Zeile 138)
+
+507 grüne Tests statt der Baseline-Zahl 493 — die Differenz von 14 sind ausschließlich die
+neuen `applyModelChange.test.ts`-Tests aus Task 1 (additiv, keine bestehende Testdatei
+verändert).
+
+```
+$ cd desktop && npm run check:rules
+EXIT_CODE=0
+```
+
+Alle vier Pflichtgates grün bzw. bei der unveränderten 3-rot-Baseline.
