@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed Phase 14 Plan 05 (Generalprobe gegen die migrierte Produktionskopie)
-last_updated: "2026-08-23T00:37:15.880Z"
+stopped_at: Completed Phase 14 Plan 06 (Rueckweg erprobt und Rollback-Runbook geschrieben)
+last_updated: "2026-08-23T00:49:22.507Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 53
-  completed_plans: 47
+  completed_plans: 48
   percent: 71
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Initialized:** 2026-08-18
 - **Next action:** `/gsd:plan-phase 14` — Absicherung und Auslieferung (14-CONTEXT.md liegt vor)
 - **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Completed Phase 14 Plan 05 (Generalprobe gegen die migrierte Produktionskopie)
+- **Stopped at:** Completed Phase 14 Plan 06 (Rueckweg erprobt und Rollback-Runbook geschrieben)
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -236,6 +236,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14-absicherung-und-auslieferung]: 14-05: DATABASE_PATH-Pruefung laeuft in main() vor parseArgs() (nicht wie im Plantext beschrieben) - noetig fuer das woertliche Abnahmekriterium ohne Argumente/ohne DATABASE_PATH
 - [Phase 14-absicherung-und-auslieferung]: 14-05: Generalprobenfall ist userId 2 (Karin Jochem) - kleinste id, die die vier Auswahlbedingungen erfuellt; Stichtag 2026-06-01, Zielwert 3h/Woche, createdBy=1, alle hergeleitet
 - [Phase 14-absicherung-und-auslieferung]: 14-05: D5-Diff zeigt genau einen bewegten Nutzer (userId 2, +19.6h), identisch mit dem im Skript gedruckten balanceDelta; die drei benannten Rauschquellen (User 30, 31, Antrag 73) byteidentisch unveraendert
+- [Phase 14-absicherung-und-auslieferung]: 14-06: Rueckweg-Erprobung schaedigt gezielt den Generalprobenfall (userId 2, 194 Journalzeilen + juengste Periode) statt einer leeren Datenbank, damit die Wiederherstellung am bekannten Saldo (29,6 h) aus Plan 14-05 nachpruefbar ist
+- [Phase 14-absicherung-und-auslieferung]: 14-06: Rueckspielen schreibt immer in eine NEUE Datei statt ueber die beschaedigte/laufende Datei - identisches Muster lokal (14-rollback-probe.db) und im Runbook fuer den Ernstfall (production.RESTORED_<TIMESTAMP>.db)
+- [Phase 14-absicherung-und-auslieferung]: 14-06: git revert als Alternative zu Rueckweg B geprueft und verworfen (337 Commits, kein sinnvoll pruefbarer Zwischenzustand) - Force-Push auf den gemessenen origin/main-Stand 0f2a03e vor Plan 14-08 bleibt die einzige im Ernstfall nachvollziehbare Option
 
 ## Quick Tasks Completed
 
@@ -315,6 +318,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14-absicherung-und-auslieferung P03 | ~90min | 2 tasks | 2 files |
 | Phase 14-absicherung-und-auslieferung P04 | 12min | 3 tasks | 1 files |
 | Phase 14-absicherung-und-auslieferung P05 | ~25min | 3 tasks | 7 files |
+| Phase 14-absicherung-und-auslieferung P06 | 15min | 2 tasks | 1 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -351,7 +355,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14 (absicherung-und-auslieferung) — EXECUTING
-Plan: 6 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-08-23
 
