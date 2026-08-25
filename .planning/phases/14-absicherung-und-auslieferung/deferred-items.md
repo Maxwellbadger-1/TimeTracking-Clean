@@ -156,3 +156,69 @@ Monatsdeckel und ziehen damit Zukunftsmonate ein. Das ist dieselbe Fehlerfamilie
 **Vorschlag:** Bleibt beim Milestone für WR-01 bis WR-10 nach der Auslieferung, wie in D-09
 festgelegt. **Nicht** in Phase 14.1 mitnehmen. Beide Dateien stehen in keinem Commit dieses
 Plans — nachprüfbar über `git log --name-only` der drei Commits von 14.1-01.
+
+---
+
+## Aus Plan 14.1-02 (25.08.2026)
+
+### 1. Nach dem Löschen einer Krankmeldung bleibt `work_time_accounts` auf einem Zwischenstand stehen
+
+**Gefunden:** Beim Führen des BL-02-Nachweises (Plan 14.1-02, Test 2 in
+`server/src/services/absenceDeletionRecalc.test.ts`).
+
+**Befund, in Zahlen gemessen:** Nach dem vollständigen Löschen einer genehmigten Krankmeldung
+(ein Krankheitstag, Tagessoll 8 h) endet `work_time_accounts.currentBalance` bei **−176,00 h**,
+während Journal und `overtime_balance` desselben Nutzers bei **−184,00 h** enden. Restdifferenz:
+**8,00 h**, genau ein Tagessoll.
+
+**Ursache, am Quelltext abgelesen:** `deleteAbsenceRequest()` ruft innerhalb der
+Löschtransaktion `revertBalancesAfterDeletion()` → `deleteSickLeaveTimeEntries()` auf, und dort
+`updateAllOvertimeLevels()` — das ist die einzige Funktion, die `work_time_accounts` schreibt
+(`overtimeService.ts`, Aufruf von `updateWorkTimeAccountBalance`). Zu diesem Zeitpunkt sind die
+Zeiteinträge zwar gelöscht, die Zeile in `absence_requests` steht aber noch (das
+`DELETE FROM absence_requests` folgt erst danach in derselben Transaktion). Der anschließende
+Aufruf von `updateMonthlyOvertime()` läuft nach dem `DELETE` und rechnet richtig, berührt
+`work_time_accounts` aber nicht (Kommentar am Ende von `updateMonthlyOvertime`: „REMOVED: Old
+Work Time Account sync").
+
+**Vorbestehend:** ja — die Reihenfolge innerhalb der Transaktion ist unverändert. Vor dem
+BL-02-Fix war der Befund unsichtbar, weil `work_time_accounts` sich nach einer Löschung
+überhaupt nicht bewegte (der Aufruf warf und wurde weggeloggt). Der Fix macht ihn erst
+messbar — er erzeugt ihn nicht.
+
+**Wirkung:** Der im Zeitkonto angezeigte Kontostand kann nach dem Löschen einer Krankmeldung
+um das Tagessoll der gelöschten Tage vom Journal abweichen, bis irgendetwas anderes
+`updateAllOvertimeLevels()` für diesen Nutzer auslöst (z. B. eine Zeiterfassung oder — sobald
+er wieder läuft — der Nachtlauf).
+
+**Warum nicht in Plan 14.1-02 mitrepariert:** Eigener Befund mit eigener Ursache (Reihenfolge
+innerhalb der Transaktion, nicht der Importstil). D-07 (ein unvermischter Commit-Satz je
+Befund) und D-09 (neue Funde werden vermerkt, nicht nebenbei repariert) verbieten die Mitnahme.
+Der Eingriff ist auch kein Einzeiler: Er berührt eine Klammer, die ausdrücklich als
+Atomaritätsklammer angelegt ist („ATOMICITY: Gegenbuchung und Löschung des Antrags müssen
+gemeinsam gelingen oder gemeinsam scheitern").
+
+**Vorschlag (zwei Wege, Entscheidung des Anwenders):**
+1. **Nachsynchronisieren:** In `deleteAbsenceRequest()` nach dem bereits vorhandenen
+   `updateMonthlyOvertime`-Block einmal `updateWorkTimeAccountBalance(userId,
+   getOvertimeBalance(userId))` aufrufen. Kleinster Eingriff, lässt die Transaktionsklammer
+   unberührt, kostet eine zusätzliche Abfrage je Löschung.
+2. **Neuberechnung aus der Transaktion herausziehen:** `deleteSickLeaveTimeEntries()` löscht
+   innerhalb der Transaktion nur die Zeiteinträge; die Neuberechnung wandert hinter das
+   `DELETE FROM absence_requests`, dorthin, wo der bestehende `updateMonthlyOvertime`-Block
+   schon steht. Sauberer, aber ein Eingriff in die Reihenfolge, der einen eigenen
+   Regressionstest verlangt.
+
+Weg 1 ist der risikoärmere. In beiden Fällen gehört ein Regressionstest dazu;
+`absenceDeletionRecalc.test.ts` misst den Kontostand bereits und lässt sich um die
+Gleichheitsprüfung gegen `overtime_balance` erweitern, sobald der Befund geschlossen ist.
+
+Als Entscheidungspunkt **14.1-U5** in `14-UAT-SAMMLUNG.md` eingetragen; vollständige Herleitung
+in `14.1-NACHWEIS-BL02.md`, Abschnitt 7.
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.1-02 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt sich
+auf `server/src/services/absenceService.ts`; keine der in den Warnungen genannten Dateien steht
+in einem seiner beiden Commits. Der Eintrag oben ist eine **neue** Beobachtung, keine
+WR-Warnung — er wird trotzdem nach demselben Verfahren hier abgelegt.
