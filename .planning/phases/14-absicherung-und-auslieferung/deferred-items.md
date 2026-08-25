@@ -777,3 +777,90 @@ beliebigen Kalendertag umkippen, heisst: die Zusicherung ist nur an bestimmten T
 Die Differenz von 4,00 h entspricht genau einem Tagessoll bei 20 h/Woche. Das gehört nicht in
 diese Phase (Scope Fence — keiner der elf Befunde), aber es gehört gesehen: es ist dieselbe
 Familie wie die Zukunftsdeckelung aus Plan 14.1-01 und Befund F-5.
+
+---
+
+## Aus Plan 14.2-05 (26.08.2026) — F-5
+
+### 1. WR-01/CR-01-Familie: `getOvertimeBalance()` blendet Zukunftsmonate aus, statt sie zu verhindern
+
+**Gefunden:** Plan 14.2-05, beim Lesen des Rechenwerks für F-5.
+**Nicht repariert** (Scope Fence — WR-01/CR-01-Gebiet, ausdrücklich außerhalb dieser Phase).
+
+`server/src/services/overtimeTransactionService.ts:478-484`:
+
+```typescript
+const currentMonth = formatDate(getCurrentDate(), 'yyyy-MM');
+const result = db.prepare(`
+  SELECT COALESCE(SUM(actualHours - targetHours), 0) as balance
+  FROM overtime_balance
+  WHERE userId = ?
+    AND month <= ?
+`).get(userId, currentMonth);
+```
+
+Der Filter `month <= currentMonth` ist der Grund, warum B-4 im Abnahmelauf als **Nebenbefund
+ohne Anzeigewirkung** eingestuft wurde: Die falschen Zukunftszeilen erreichten den Saldo nicht.
+Er ist damit eine **kompensierende Maßnahme, die den Fehler verdeckt hat**, statt ihn zu
+verhindern — vier Monate lang stand in der abgeleiteten Tabelle ein falscher Wert, ohne dass
+irgendetwas Alarm schlug.
+
+Nach dem F-5-Fix sind die Zukunftszeilen 0/0; der Filter ist für diesen Zweck nicht mehr nötig,
+aber er bleibt eine stille Fehlerabsorption für jeden künftigen Schreibweg, der erneut eine
+Zukunftszeile anlegt.
+
+**Vorschlag (nicht entschieden):** Statt zu filtern, in `updateMonthlyOvertime()` eine
+Zusicherung ziehen — eine `overtime_balance`-Zeile für einen Monat nach dem laufenden darf nur
+mit `targetHours = 0` und `actualHours = 0` geschrieben werden; jeder andere Wert wird
+protokolliert. Dann fällt derselbe Fehler beim nächsten Mal sofort auf, statt vier Monate zu
+überdauern. Berührt WR-01-Gebiet und braucht eigene Regressionstests.
+
+### 2. Ein Nutzer mit künftigem Einstellungsdatum behält seine alten Journalzeilen mit Zukunftsdatum
+
+**Gefunden:** Plan 14.2-05, Task 2, bei der Nachher-Messung (`14.2-NACHWEIS-F5.md`,
+Abschnitt 4).
+**Nicht repariert** — die betroffene Wache lässt der Plan ausdrücklich unverändert.
+
+Nach dem F-5-Fix stehen in `development.db` noch **6** wiederaufbaubare Journalzeilen mit
+Zukunftsdatum; alle gehören Nutzer **48719 (`future-hire`, `hireDate = 2026-09-25`)**.
+
+**Ursache, am Quelltext abgelesen:** In `overtimeTransactionRebuildService.ts` steht die Wache
+`if (hireDate > endDate) return;` (`:144`) **vor** dem `DELETE` in STEP 3. Für einen Nutzer,
+dessen Einstellungsdatum in der Zukunft liegt, gilt nach dem Fix `endDate = heute < hireDate` —
+der Rebuild kehrt zurück, bevor er aufräumen kann. Die Zeilen stammen aus einem Lauf mit dem
+alten, ungedeckelten Stand.
+
+**Wirkung auf die Anzeige: keine** (gemessen, `14.2-NACHWEIS-F5.md`, Abschnitt 4):
+`overtime_balance` trägt für den Monat 0/0, und der Kontoauszug deckelt seit WR-10 selbst auf
+heute — `Saldo=0.00 Buchungen=0` für den Zukunftsmonat.
+
+**Vorschlag (nicht entschieden):** Das `DELETE` aus STEP 3 **vor** die `hireDate`-Wache ziehen,
+damit ein Rebuild auch für einen noch nicht eingestellten Nutzer aufräumt. Das ist eine
+Umstellung genau der Reihenfolge, die dieser Plan bewusst nicht anfassen darf; sie gehört in
+einen eigenen Commit-Satz mit eigenem Regressionstest.
+
+### 3. NB-C ist nach diesem Plan neu zu messen
+
+**Gefunden:** Plan 14.2-05, als Folge der eigenen Datenwirkung.
+**Kein Fix** (NB-C ist keiner der elf Befunde, `14.2-CONTEXT.md` stuft ihn als UAT-Punkt ein).
+
+`14-ABNAHME-AUTO.md`, NB-C: „Das abgeleitete Aggregat `overtime_balance` weicht bei 9 von 20
+Nutzern vom kanonischen Wert ab" (gemessen auf der unangetasteten Produktionskopie:
+`userId=2 Differenz=4`, `3 → 30.4`, `16 → −12`, `17 → 52.8`, `18 → −4`, `19 → 2`, `20 → −2.8`,
+`21 → −2`, `25 → −3.2`).
+
+**Warum das hierher gehört:** Der `--rebuild`-Lauf dieses Plans hat **50 Nutzer-Monat-Paare bei
+48 von 62 aktiven Nutzern** über `updateMonthlyOvertime()` neu gerechnet — genau die Ebene, auf
+der NB-C misst. Ein Teil der dort gemeldeten Differenzen kann dadurch verschwunden sein, ein
+anderer nicht. Die NB-C-Zahlen von `14-ABNAHME-AUTO.md` sind ab dem 26.08.2026 **nicht mehr die
+aktuelle Lage**; wer NB-C entscheidet, muss vorher neu messen.
+
+### 4. D-09: Keine WR-Warnung berührt
+
+Plan 14.2-05 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Die Codeänderung
+beschränkt sich auf **eine** Zuweisung in
+`server/src/services/overtimeTransactionRebuildService.ts` (Berechnungsende);
+`unifiedOvertimeService.ts`, `overtimeLiveCalculationService.ts`,
+`desktop/src/hooks/useWorkTimeAccounts.ts` und `workTimeAccountService.ts` stehen in keinem
+seiner Commits. Die Punkte 1 bis 3 oben sind **neue Beobachtungen**, keine WR-Warnungen — sie
+werden trotzdem nach demselben Verfahren hier abgelegt.
