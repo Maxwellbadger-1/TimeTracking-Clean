@@ -27,6 +27,33 @@ import { CreateUserModal } from '../components/users/CreateUserModal';
 import { EditUserModal } from '../components/users/EditUserModal';
 import { ResetPasswordModal } from '../components/users/ResetPasswordModal';
 
+// F-4: Der User-Typ liefert isActive und deletedAt bereits getrennt (types/index.ts, Server
+// userService.getAllUsers berechnet isActive = status='active' AND deletedAt IS NULL). Diese
+// eine Ableitungsstelle wird sowohl von der Statusspalte als auch von der Aktionsspalte
+// verwendet, damit die Unterscheidung "deaktiviert" / "archiviert" nicht mehrfach kopiert wird.
+type UserStatusState = 'active' | 'deactivated' | 'archived';
+
+function getUserStatus(user: User): UserStatusState {
+  if (user.isActive) return 'active';
+  if (user.deletedAt == null) return 'deactivated';
+  return 'archived';
+}
+
+const USER_STATUS_BADGE: Record<UserStatusState, { label: string; className: string }> = {
+  active: {
+    label: 'Aktiv',
+    className: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+  },
+  deactivated: {
+    label: 'Deaktiviert',
+    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
+  },
+  archived: {
+    label: 'Archiviert',
+    className: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400',
+  },
+};
+
 export function UserManagementPage() {
   const { user: currentUser } = useAuthStore();
   // Admin-only page (always enabled)
@@ -46,7 +73,11 @@ export function UserManagementPage() {
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'employee'>('all');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'inactive'>('active');
+  // F-4: Vorgabewert von 'active' auf 'all' geaendert. Ein deaktivierter Nutzer musste sich
+  // bisher ohne Filteraenderung nicht auffinden lassen — der Vorgabewert 'active' machte den
+  // Zustand zu einer Sackgasse (NB-1, E2E-Fehlschlag 1). clearFilters() und beide
+  // "Filter zuruecksetzen"-Sichtbarkeitsbedingungen ziehen mit dieser Aenderung mit.
+  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'inactive'>('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
   // Get unique departments
@@ -170,7 +201,7 @@ export function UserManagementPage() {
   const clearFilters = () => {
     setSearchQuery('');
     setRoleFilter('all');
-    setStatusFilter('active');
+    setStatusFilter('all');
     setDepartmentFilter('all');
   };
 
@@ -318,13 +349,17 @@ export function UserManagementPage() {
               />
 
               {/* Status Filter - Enhanced with Archive view */}
+              {/* F-4: Beschriftungen richtiggestellt — 'inactive' filterte schon immer ueber
+                  !u.isActive (:85-90) und trifft damit sowohl bloss deaktivierte als auch
+                  archivierte Nutzer. Die bisherige Beschriftung "Nur Archiv (Geloescht)"
+                  benannte nur einen der beiden getroffenen Zustaende. */}
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                 options={[
                   { value: 'active', label: 'Nur Aktive' },
-                  { value: 'all', label: 'Alle (inkl. Archiv)' },
-                  { value: 'inactive', label: '🗄️ Nur Archiv (Gelöscht)' },
+                  { value: 'all', label: 'Alle' },
+                  { value: 'inactive', label: 'Nur Inaktive (deaktiviert und archiviert)' },
                 ]}
               />
 
@@ -339,7 +374,7 @@ export function UserManagementPage() {
               />
             </div>
 
-            {(searchQuery || roleFilter !== 'all' || statusFilter !== 'active' || departmentFilter !== 'all') && (
+            {(searchQuery || roleFilter !== 'all' || statusFilter !== 'all' || departmentFilter !== 'all') && (
               <div className="mt-4">
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <Filter className="w-4 h-4 mr-2" />
@@ -394,7 +429,10 @@ export function UserManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredUsers.map((user) => (
+                    {filteredUsers.map((user) => {
+                      const status = getUserStatus(user);
+                      const statusBadge = USER_STATUS_BADGE[status];
+                      return (
                       <tr
                         key={user.id}
                         className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
@@ -436,12 +474,8 @@ export function UserManagementPage() {
                           }) : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            user.isActive
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {user.isActive ? 'Aktiv' : 'Inaktiv'}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusBadge.className}`}>
+                            {statusBadge.label}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
@@ -503,7 +537,8 @@ export function UserManagementPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -513,7 +548,7 @@ export function UserManagementPage() {
                 <p className="text-gray-600 dark:text-gray-400">
                   Keine Benutzer gefunden
                 </p>
-                {(searchQuery || roleFilter !== 'all' || statusFilter !== 'active' || departmentFilter !== 'all') && (
+                {(searchQuery || roleFilter !== 'all' || statusFilter !== 'all' || departmentFilter !== 'all') && (
                   <Button
                     variant="ghost"
                     size="sm"
