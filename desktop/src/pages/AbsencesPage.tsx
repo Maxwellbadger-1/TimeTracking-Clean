@@ -182,11 +182,16 @@ export function AbsencesPage() {
       // ✅ FIX: Use rejectRequest instead of deleteRequest
       // This sets status='rejected' instead of deleting the record
       // → Maintains audit trail and allows re-approval if needed
+      // F-7 / D-09 (Weg A): sourceStatus:'approved' laesst die Erfolgsmeldung „storniert"
+      // statt „abgelehnt" zeigen. Die Datenbank speichert weiterhin status='rejected' — ein
+      // eigener Zustand 'cancelled' waere Weg B und ist eine noch offene fachliche
+      // Entscheidung des Anwenders (UAT-Punkt), keine Aenderung dieses Plans.
       await rejectRequest.mutateAsync({
         id: selectedAbsenceForCancel.id,
         data: {
           rejectedBy: currentUser.id,
           reason: reason,
+          sourceStatus: 'approved',
         }
       });
       console.log('✅ Rejection successful (status set to rejected)');

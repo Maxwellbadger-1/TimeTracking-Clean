@@ -30,6 +30,10 @@ interface ApproveAbsenceData {
 interface RejectAbsenceData {
   rejectedBy: number;
   reason: string;
+  /** Ausgangszustand des Antrags vor dem Vorgang. 'approved' bedeutet Stornierung eines
+   *  bereits genehmigten Antrags — die Erfolgsmeldung lautet dann „storniert". F-7 / D-09
+   *  (Weg A: nur die Meldung, kein eigener Datenbankzustand). */
+  sourceStatus?: 'pending' | 'approved';
 }
 
 interface AbsenceRequestsResponse {
@@ -260,8 +264,10 @@ export function useRejectAbsenceRequest() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: RejectAbsenceData }) => {
       // Transform frontend data format to backend format
-      // Frontend: { rejectedBy, reason }
+      // Frontend: { rejectedBy, reason, sourceStatus? }
       // Backend: { adminNote }
+      // sourceStatus ist ausschliesslich fuer die Client-Meldung (F-7 / D-09, Weg A) — es
+      // erreicht den Server nicht.
       const backendData = {
         adminNote: data.reason,
       };
@@ -321,7 +327,14 @@ export function useRejectAbsenceRequest() {
       queryClient.invalidateQueries({ queryKey: ['absenceRequest', variables.id] });
       // Use centralized invalidation to ensure all affected queries are updated
       await invalidateAbsenceAffectedQueries(queryClient);
-      toast.success('Abwesenheitsantrag abgelehnt');
+      // F-7 / D-09 (Weg A): derselbe Endpunkt, dieselbe Mutation — nur die Meldung folgt dem
+      // Ausgangszustand des Antrags. War er 'approved', ist es eine Stornierung; fehlt
+      // sourceStatus (Bestandsverhalten des Ablehnwegs), bleibt der bisherige Text.
+      toast.success(
+        variables.data.sourceStatus === 'approved'
+          ? 'Abwesenheitsantrag storniert'
+          : 'Abwesenheitsantrag abgelehnt'
+      );
     },
     onError: (_error: Error, variables, context) => {
       // Rollback on error
