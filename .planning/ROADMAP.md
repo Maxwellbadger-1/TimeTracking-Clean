@@ -504,14 +504,17 @@ mit demselben Release ausgeliefert werden, nicht in einem Nachzügler.
 
 - Der Saldo über dem Kontoauszug und die Summe der darunter gezeigten Buchungen stimmen für
   jeden Nutzer überein — an einem Tag, der nicht der Monatsletzte ist
+
 - Kein Journaleintrag und keine Monatszeile trägt ein Datum in der Zukunft
 - Eine neu angelegte Krankmeldung wird weiterhin **ohne Genehmigung** wirksam, löst aber
   sofort dieselbe Neuberechnung aus wie jede andere genehmigte Abwesenheit — die
   `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal, nicht erst nach
   dem nächsten nächtlichen Lauf. Nachweis bei **angehaltenem** Nachtlauf, sonst beweist
   der Test nichts.
+
 - Die Auto-Genehmigung von Krankmeldungen bleibt unverändert bestehen; `approvedBy` und
   `approvedAt` bleiben leer, und die vier Bestandsanträge werden nicht angefasst
+
 - Der Historien-Export enthält weder abgelehnte Anträge noch stillgelegte Konten
 - Das Löschen einer genehmigten Abwesenheit rechnet nachweislich neu
 - Ein genehmigter Überstundenausgleich hinterlässt genau eine Spur, nicht drei
@@ -556,8 +559,8 @@ Plans:
 
 **Welle 6** *(entsperrt — Welle 5 abgeschlossen; die Bereinigung läuft zuletzt und nach dem BL-01-Fix)*
 
-- [ ] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
-
+- [x] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
+      *Abgeschlossen 2026-08-25 — 3 Commits, Gates gruen (557 gruen / 3 rot, rote Menge unveraendert; der Lauf ging gegen die BEREINIGTE Datenbank, kein Test stuetzte sich auf eine Zukunftszeile). **Der einzige Schritt der Phase, der Daten loescht.** Entfernt: **100 Journalzeilen** mit einem Datum nach heute (Nutzer 3 und 17 fuer 2026-09, Nutzer 30 fuer 2026-10) und die **3 zugehoerigen Monatszeilen** in `overtime_balance`; danach liefern beide Pruefabfragen **0**. Der Ablauf aus D-06 lief vollstaendig und in dieser Reihenfolge, **keine Stufe uebersprungen**: (1) Probelauf auf einer Produktionsarbeitskopie — `14-prod-nach-migration.db` nur readonly geoeffnet, Hash vorher = nachher, Saldenvergleich ueber alle Nutzer **0 von 20** mit Differenz ungleich 0,00 h, in zwei Messungen (kanonischer Rechenweg und angezeigter Monatssaldo); (2) Sicherung per `VACUUM INTO` (nicht `cp` — 4,1 MB WAL) nach `server/database/backups/development.PRE-14.1-06_20260825_070544.db`, 1.355.776 Bytes, **gegen die Sicherungsdatei geprueft**: `integrity_check` ok, `foreign_key_check` leer, **20 Kennzahlen mit Differenz 0**; (3) Trockenlauf gegen `development.db` mit **identischem Hash vorher/nachher**; (4) Pruefung der Fundliste vor dem Schreiben — genau Nutzer 3, 17, 30, Testnutzer 15015 in der Ausnahmeliste, **keine book-once-Zeile** in der Fundliste; (5) `--apply` mit beiden Loeschanweisungen in **einer** Transaktion. **Der Wiederherstellungsnachweis ist tatsaechlich gefuehrt, nicht behauptet:** Sicherung readonly geoeffnet, per `VACUUM INTO` in die **neue** Datei `14.1-restore-probe.db` zurueckgespielt, dann **Zeile fuer Zeile UND Feld fuer Feld** verglichen — 100/100 Journalzeilen, 3/3 Monatszeilen, **0 fehlend, 0 ungleich**, Differenzspalte durchgehend 0; dazu die Gegenprobe, dass **keine** dieser 100 ids mehr in `development.db` steht. **Abweichung zur Zahl 59 benannt statt verrechnet:** Der Roadmap-Befund nennt 59 fiktive Journalbuchungen — gemessen sind es **100** Zeilen, davon **50** mit einem Wert ungleich null (130 einschliesslich des ausgenommenen Testnutzers). Die 59 ist mit keiner Abgrenzung deckungsgleich; es wurde **nicht** versucht, ein Praedikat zu konstruieren, das sie trifft. Das Werkzeug `purgeFutureOvertimeRows.ts` druckt die Gegenueberstellung und den Satz „der Trockenlauf ist die massgebliche Zaehlung" bei jedem Lauf selbst. Praedikat festgelegt und begruendet: bewegliches Datum > heute (kein fest verdrahteter Stichtag), elf rebuildbare Typen (der Filter schuetzt book-once-Zeilen, insbesondere `model_change`, die ein Zukunftsdatum tragen DUERFEN — WR-10), Testnutzer 15015 ausgenommen; alle Werte als Prepared-Statement-Parameter. D-08: alle fuenf geschuetzten Tabellen mit Zeilenzahl **und** SHA-256 vorher = nachher. Zusammenfassung: `14.1-06-SUMMARY.md`, Nachweis: `14.1-NACHWEIS-BEREINIGUNG.md`. **Neu aufgekommen, NICHT mitrepariert:** 14.1-U20 (die Roadmap-Zahl 59 ist falsch), 14.1-U21 (Testnutzer 15015 traegt weiterhin 30 Zukunftszeilen), 14.1-U22 (Aufbewahrung von Sicherung und Probekopien), 14.1-U23 (Wiedervorlage von 14.1-U15 — Alt-Abzuege wurden bewusst NICHT mitbereinigt, das waere ein zweiter Befund im selben Vorgang und haette D-07 verletzt), **14.1-U24 (die Produktionsdatenbank ist unbereinigt — sie traegt dieselben 100 + 3 Zeilen; D-13 verbot den Zugriff in dieser Phase)**, 14.1-U25 (Sichtpruefung des Kontoauszugs).*
 
 ---
 
@@ -605,7 +608,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 5/6 | In Arbeit — 14.1-05 (BL-04) abgeschlossen 2026-08-25, Welle 6 entsperrt (Datenbereinigung, D-06) | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 6/6 | **Complete** — BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zukunftszeilen entfernt, Wiederherstellungsnachweis geführt); Gates 557 grün / 3 rot, kein Push (D-13) | 2026-08-25 |
 
 ---
 

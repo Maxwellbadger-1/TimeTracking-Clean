@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Plan 14.1-05 abgeschlossen (BL-04 geschlossen, 3 Commits, Gates gruen). Naechster und letzter Plan der Phase 14.1 ist 14.1-06 (Datenbereinigung der drei Zukunftsmonate, D-06 - zweistufig mit Sicherung und Trockenlauf). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
-last_updated: "2026-08-25T04:54:00.000Z"
-last_activity: 2026-08-25 -- Plan 14.1-05 abgeschlossen, BL-04 geschlossen (Sprung im Saldo nach einer Genehmigung -8,00 h -> 0,00 h; Rueckgabe bei Ablehnung und Loeschung je -8,00 h -> 0,00 h; Weg B bleibt als Pruefnachweis)
+status: verifying
+stopped_at: Plan 14.1-06 abgeschlossen (Datenbereinigung: 100 Journalzeilen und 3 Monatszeilen entfernt, Sicherung geprueft, Wiederherstellungsnachweis Zeile fuer Zeile gefuehrt, 3 Commits, Gates gruen). Alle sechs Plaene der Phase 14.1 sind fertig. Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten. Neu offen: 14.1-U20 bis 14.1-U25, darunter 14.1-U24 (Produktionsdatenbank unbereinigt).
+last_updated: "2026-08-25T05:21:53.569Z"
+last_activity: 2026-08-25 -- Plan 14.1-06 abgeschlossen, Datenbereinigung gefahren (100 + 3 Zeilen entfernt, 0 verblieben; kein Saldo bewegt; Wiederherstellungsnachweis 0 fehlend / 0 ungleich)
 progress:
-  total_phases: 9
-  completed_phases: 5
-  total_plans: 65
-  completed_plans: 55
-  percent: 58
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 59
+  completed_plans: 56
+  percent: 75
 ---
 
 # Project State
@@ -25,15 +25,16 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (5/6 Plänen fertig)
+- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (**6/6 Plänen fertig — alle fünf Blocker geschlossen und die Datenbereinigung gefahren**)
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 14.1-06 (Datenbereinigung der drei Zukunftsmonats-Datenreste) ausführen — Welle 6 ist durch den Abschluss von 14.1-05 entsperrt. Das ist der **einzige** Schritt der Phase, der Daten löscht, und er ist nach D-06 zwingend zweistufig: vorherige Sicherung → Trockenlauf ohne Schreibzugriff → Prüfung der Trockenlauf-Ausgabe → `--apply` → Nachweis, dass die gelöschten Zeilen aus der Sicherung wiederherstellbar sind. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug), die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` zieht weder beim Löschen noch beim Anlegen einer Krankmeldung mit), **14.1-U11** (der Historien-Export trägt weiterhin 102 Zeiteinträge und 1 genehmigten Antrag stillgelegter Konten) sowie neu **14.1-U15** (ob die Datenbereinigung die drei Bestandsausgleiche 25, 56, 64 zusätzlich auf Alt-Abzüge in `overtime_balance` nachmisst — Details in deferred-items.md, Abschnitt „Aus Plan 14.1-05").
-- **Last completed:** Plan 14.1-05 — BL-04 geschlossen. Der handgeschriebene FIFO-Abzug in `overtime_balance` (Weg A) ist samt **beiden** Aufrufern und der Funktionsdefinition ersatzlos entfernt; projektweit 0 Treffer. Die von D-04 verlangte Nachmessung lief **vor** dem Entfernen und förderte zwei Dinge zutage, die der Befund nicht kannte: Weg A hatte zwei Aufrufer (14.1-CONTEXT.md nennt nur einen), und der zweite war seit jeher wirkungslos — er rief den Abzug mit negativem Argument auf, dessen Schleife sofort abbricht; genau deshalb fehlten nach Ablehnung und Löschung je 8,00 h. Gemessen: Sprung zwischen Saldo nach Genehmigung und Saldo nach der nächsten Neuberechnung **−8,00 h → 0,00 h**, `actualHours` des fremden, längst abgeschlossenen Vormonats **244,00 h → 252,00 h**, Rückgabe bei Ablehnung und bei Löschung je **−8,00 h → 0,00 h**. **Entscheidung des Anwenders zu Weg B: `option-a`** — die `compensation`-Journalzeile bleibt als Prüfnachweis, gestützt auf zwei Messwerte (sie überlebt die Neuberechnung: 1 Zeile davor, 1 danach; sie bewegt den Saldo um 0,00 h). Drei Commits (`67647b6` Nachmessung, `24bfb75` fix, `50e8b7b` Zusicherungen), alle vier Gates grün (557 grün / 3 rot bei einem Ausgangsstand von 553/3), D-08-Prüfsummen unverändert, die Anträge 25/56/64 unangetastet, kein Push.
+- **Next action:** Phase 14.1 ist **inhaltlich abgeschlossen** — alle sechs Pläne sind gefahren, alle vier Gates grün (557 grün / 3 rot, `tsc` beidseitig Exit 0, `check:rules` grün). Nächster Schritt ist die Verifikation der Phase und danach die Entscheidung des Anwenders über Plan 14-11 (Release v1.9.0), vor dem Phase 14.1 laut Roadmap laufen sollte. **Sechs Punkte warten auf eine Entscheidung, die neu hinzugekommen sind:** **14.1-U20** (die Roadmap-Zahl 59 ist falsch — gemessen 100 Zeilen, davon 50 mit Wert ungleich null; soll der Roadmap-Text richtiggestellt werden?), **14.1-U21** (Testnutzer 15015 trägt weiterhin 30 Zukunftszeilen — das Erfolgskriterium gilt mit dem Zusatz „15015 ausgenommen"), **14.1-U22** (Aufbewahrung der Sicherung `development.PRE-14.1-06_20260825_070544.db` und der beiden Probekopien), **14.1-U23** (Wiedervorlage von 14.1-U15: Alt-Abzüge in `overtime_balance` — braucht einen eigenen Vorgang nach D-06, wurde in 14.1-06 bewusst nicht mitbereinigt), **14.1-U24** (**die Produktionsdatenbank ist unbereinigt** — sie trägt dieselben 100 + 3 Zeilen; der Probelauf auf der Produktionsarbeitskopie liegt vor und ist unauffällig, D-13 verbot den Zugriff in dieser Phase), **14.1-U25** (Sichtprüfung des Kontoauszugs der Nutzer 3, 17, 30). Unverändert offen daneben: der Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in `overtime_balance` bei 8 Nutzern neu geschrieben), **14.1-U3**, **14.1-U5** und **14.1-U8** (`work_time_accounts`), **14.1-U11** (Historien-Export).
+- **Last completed:** Plan 14.1-06 — die Datenbereinigung, der **einzige** Schritt der Phase, der Daten löscht. **100 fiktive Journalbuchungen** für Tage, die noch nicht stattgefunden haben (Nutzer 3 und 17 für 2026-09, Nutzer 30 für 2026-10), und die **3 zugehörigen Monatszeilen** in `overtime_balance` sind aus `development.db` entfernt; danach liefern beide Prüfabfragen **0**. Der Ablauf aus D-06 lief vollständig und in dieser Reihenfolge, **keine Stufe übersprungen**: Probelauf auf einer Produktionsarbeitskopie (`14-prod-nach-migration.db` nur readonly geöffnet, Hash vorher = nachher) mit Saldenvergleich über alle Nutzer → **0 von 20** mit einer Differenz ungleich 0,00 h; Sicherung per `VACUUM INTO` nach `server/database/backups/development.PRE-14.1-06_20260825_070544.db` (1.355.776 Bytes), **gegen die Sicherungsdatei geprüft** — `integrity_check` ok, `foreign_key_check` leer, **20 Kennzahlen mit Differenz 0**; Trockenlauf gegen `development.db` mit **identischem Hash vorher/nachher**; Prüfung der Fundliste (genau Nutzer 3, 17, 30; Testnutzer 15015 in der Ausnahmeliste; **keine book-once-Zeile** in der Fundliste); `--apply` in **einer** Transaktion. **Der Wiederherstellungsnachweis ist tatsächlich geführt:** Die Sicherung wurde readonly geöffnet, per `VACUUM INTO` in die neue Datei `14.1-restore-probe.db` zurückgespielt und **Zeile für Zeile und Feld für Feld** verglichen — 100/100 Journalzeilen, 3/3 Monatszeilen, **0 fehlend, 0 ungleich**, dazu die Gegenprobe, dass **keine** dieser 100 ids mehr in `development.db` steht. **Die Roadmap-Zahl 59 ist als falsch benannt statt verrechnet:** gemessen 100 Zeilen, davon 50 mit Wert ungleich null (130 einschließlich Testnutzer); das Werkzeug druckt die Gegenüberstellung selbst. Kein Saldo bewegt (0 von 20 auf der Produktionskopie in beiden Messungen, 0 von 30 in `development.db`). D-08: alle fünf geschützten Tabellen mit Zeilenzahl **und** SHA-256 vorher = nachher. Drei Commits (`e49dcd4` Werkzeug ohne Lauf, `043becf` der Lauf mit benannter Sicherung, `01a739a` Wiederherstellungsnachweis und Abschlussgate), alle vier Gates grün (557 grün / 3 rot gegen die **bereinigte** Datenbank — kein Test stützte sich auf eine Zukunftszeile, keiner wurde angepasst), kein Push.
+- **Davor abgeschlossen:** Plan 14.1-05 — BL-04 geschlossen. Der handgeschriebene FIFO-Abzug in `overtime_balance` (Weg A) ist samt **beiden** Aufrufern und der Funktionsdefinition ersatzlos entfernt; projektweit 0 Treffer. Die von D-04 verlangte Nachmessung lief **vor** dem Entfernen und förderte zwei Dinge zutage, die der Befund nicht kannte: Weg A hatte zwei Aufrufer (14.1-CONTEXT.md nennt nur einen), und der zweite war seit jeher wirkungslos — er rief den Abzug mit negativem Argument auf, dessen Schleife sofort abbricht; genau deshalb fehlten nach Ablehnung und Löschung je 8,00 h. Gemessen: Sprung zwischen Saldo nach Genehmigung und Saldo nach der nächsten Neuberechnung **−8,00 h → 0,00 h**, `actualHours` des fremden, längst abgeschlossenen Vormonats **244,00 h → 252,00 h**, Rückgabe bei Ablehnung und bei Löschung je **−8,00 h → 0,00 h**. **Entscheidung des Anwenders zu Weg B: `option-a`** — die `compensation`-Journalzeile bleibt als Prüfnachweis, gestützt auf zwei Messwerte (sie überlebt die Neuberechnung: 1 Zeile davor, 1 danach; sie bewegt den Saldo um 0,00 h). Drei Commits (`67647b6` Nachmessung, `24bfb75` fix, `50e8b7b` Zusicherungen), alle vier Gates grün (557 grün / 3 rot bei einem Ausgangsstand von 553/3), D-08-Prüfsummen unverändert, die Anträge 25/56/64 unangetastet, kein Push.
 - **Davor abgeschlossen:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
 - **Davor abgeschlossen:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
-- **Stopped at:** Plan 14.1-05 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
+- **Stopped at:** Plan 14.1-06 vollständig abgeschlossen — SUMMARY, Nachweisdokument, `deferred-items.md` und `14-UAT-SAMMLUNG.md` geschrieben. Damit sind alle sechs Pläne der Phase 14.1 fertig. Kein Push (D-13); `origin/main` steht unverändert auf `22f9cdc`.
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -259,6 +260,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.1]: BL-05 — die Auto-Genehmigung von Krankmeldungen bleibt unveraendert und wird zusaetzlich durch Regressionstests festgeschrieben (approved, approvedBy/approvedAt NULL, kein audit_log, Abgrenzung zum pending-Urlaubsantrag), damit ein spaeterer Umbau daran scheitert statt still durchzugehen
 - [Phase 14.1]: BL-05 — der work_time_accounts-Block des regulaeren Weges wurde bewusst NICHT mitkopiert (D-05 benennt genau einen Block); die Lage wurde stattdessen gemessen (Kontostand bleibt um ein Tagessoll zurueck) und als 14.1-U8 zur Entscheidung vorgelegt (D-07, D-09)
 - [Phase 14.1]: Erklaerende Kommentare zitieren keine Fundstelle woertlich, die ein Abnahmekriterium per grep zaehlt — sonst zaehlt der Kommentar mit und die Kennzahl weist eine Aenderung aus, die es nicht gibt
+- [Phase 14.1-06]: Das Loeschdatum ist beweglich (date > heute aus formatDate(getCurrentDate())), nicht der fest verdrahtete Monatserste aus dem Befundtext - am Ausfuehrungstag liefern beide dieselbe Menge, aber nur die bewegliche Fassung bleibt ab dem naechsten Monatswechsel richtig
+- [Phase 14.1-06]: Der Typfilter aus REBUILDABLE_TYPES bleibt im Loeschpraedikat, obwohl er heute 0 Zeilen ausnimmt - er schuetzt book-once-Zeilen, insbesondere model_change, die ein Zukunftsdatum tragen DUERFEN (WR-10)
+- [Phase 14.1-06]: Es wurde NICHT versucht, ein Praedikat zu konstruieren, das die Roadmap-Zahl 59 trifft. Gemessen: 100 Zeilen, davon 50 mit Wert ungleich null (130 einschliesslich Testnutzer 15015). Der Trockenlauf ist die massgebliche Zaehlung, die Abweichung ist benannt statt verrechnet
+- [Phase 14.1-06]: 14.1-U15 (moegliche Alt-Abzuege in overtime_balance) wurde NICHT mitbereinigt - ein zweites, sachlich unabhaengiges Loeschpraedikat im selben Lauf waere ein zweiter Befund in demselben Vorgang gewesen und haette D-07 verletzt
 
 ## Quick Tasks Completed
 
@@ -345,6 +350,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.1 P03 (BL-05) | 14min | 2 tasks | 5 files |
 | Phase 14.1 P04 (BL-03) | 25min | 2 tasks | 5 files |
 | Phase 14.1 P05 (BL-04) | 22min | 3 tasks | 5 files |
+| Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P06 | 30min | 3 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -381,17 +387,21 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
-Plan: 4 of 6
-Status: Executing Phase 14.1
-        Plan 14.1-05 ist autonomous: false und haelt in Welle 5 fuer eine Entscheidung
-        des Anwenders zu Weg B (recordOvertimeCompensation) an.
+Plan: 6 of 6
+Status: Phase complete — ready for verification
+        Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
+        tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
+        ist durchgefuehrt und einzeln rueckgaengig machbar; die Sicherung liegt unter
+        server/database/backups/development.PRE-14.1-06_20260825_070544.db.
+        Offen: sechs neue Entscheidungspunkte 14.1-U20 bis 14.1-U25, darunter
+        14.1-U24 (die Produktionsdatenbank ist unbereinigt).
 
 Vorherige Phase: 14 (absicherung-und-auslieferung) — EXECUTING, Plan 8 of 11
 Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-25 -- Plan 14.1-03 (BL-05) abgeschlossen, Welle 4 entsperrt
+Last activity: 2026-08-25 -- Plan 14.1-06 (Datenbereinigung) abgeschlossen, Phase 14.1 inhaltlich fertig
 
 ## Operator Next Steps
 
