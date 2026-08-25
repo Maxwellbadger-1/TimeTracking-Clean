@@ -297,3 +297,76 @@ Plan 14.1-03 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix
 auf `server/src/services/absenceService.ts`; keine der in den Warnungen genannten Dateien steht
 in einem seiner beiden Commits. Eintrag 1 oben ist eine **neue** Beobachtung, keine WR-Warnung —
 er wird trotzdem nach demselben Verfahren hier abgelegt.
+
+---
+
+## Aus Plan 14.1-04 (25.08.2026) — BL-03
+
+### 1. Der Historien-Export trägt weiterhin Datenzeilen stillgelegter Konten
+
+**Gefunden:** Plan 14.1-04, Task 2, bei der Bestandsmessung auf der Produktionsarbeitskopie.
+**Nicht repariert** — bewusst, siehe Begründung unten. Als Entscheidungspunkt **14.1-U11** in
+`14-UAT-SAMMLUNG.md` vorgelegt.
+
+**Befund, gemessen** auf `server/database/14.1-bl03-arbeitskopie.db` (aus
+`14-prod-nach-migration.db` per `VACUUM INTO`), Zeitraum 2025-01-01 bis 2026-12-31, mit dem
+Fix aus Commit `ceb97d5`:
+
+| Messgröße | Wert |
+|---|---:|
+| Zeiteinträge im Export gesamt | 712 |
+| davon von stillgelegten Konten | **102** |
+| genehmigte Anträge im Export gesamt | 28 |
+| davon von stillgelegten Konten | **1** |
+| stillgelegte Konten in der **Nutzerliste** des Exports | **0** (vorher 5) |
+
+Der Fix nimmt die stillgelegten Konten aus der Nutzerliste und aus `overtime_balance` heraus.
+Die Listen `timeEntries` und `absences` der Sammelvariante sind dagegen — wie vor dem Fix —
+**nicht** nach Nutzern gefiltert; sie sind ausschließlich nach Zeitraum eingegrenzt
+(`exportService.ts`, `timeEntriesQuery` und `absencesQuery` in der Variante ohne `userId`).
+Die Ausgabedatei nennt die Konten also nicht mehr, trägt aber 103 Datenzeilen, die über die
+Spalte `userId` auf sie verweisen.
+
+**Warum nicht nebenbei repariert:**
+
+1. D-03 benennt genau drei Fundstellen (`:353`, `:356`, `:370-371`) plus `totalOvertime`
+   (`:425`). Die Zeiteintrags-Abfrage ist keine davon.
+2. Das Bedrohungsregister des Plans (T-14.1-04-01) legt die Gegenmaßnahme ausdrücklich auf
+   `deletedAt IS NULL` **in den beiden Nutzerabfragen** fest.
+3. Der Export ist ein Aufbewahrungsdokument („According to ArbZG (2 years), Tax Law
+   (6 years)"). 103 Datenzeilen daraus zu entfernen, ist keine Fehlerkorrektur, sondern eine
+   fachliche Festlegung darüber, was ein Historien-Export nach dem Ausscheiden eines
+   Mitarbeiters noch enthalten darf — mit derselben Zweckfrage, die den Unterschied zum
+   DATEV-Export begründet. Die Abwägung gehört dem Anwender.
+
+**Zwei Wege, falls entschieden wird zu filtern:**
+
+- **Weg 1 — mitziehen:** `timeEntriesQuery` und `absencesQuery` der Sammelvariante bekommen
+  denselben `userId IN (<Platzhalter>)`-Filter, der bereits über der `overtimeQuery` steht.
+  Kleiner, sofort testbarer Eingriff; die Nutzerliste ist ohnehin schon berechnet. Wirkung:
+  Der Export verliert 103 Zeilen und wird in sich schlüssig (jede Datenzeile verweist auf
+  einen Nutzer, der in der Datei steht).
+- **Weg 2 — bewusst behalten und begründen:** Die Zeilen bleiben, und über beide Abfragen
+  kommt ein Kommentar nach dem Muster der DATEV-Stelle, der festhält, warum die Aufbewahrungs-
+  pflicht schwerer wiegt als die Stilllegung. Dann sollte allerdings die Nutzerliste die
+  betroffenen Konten wieder enthalten — sonst enthält die Datei Verweise ins Leere.
+
+Weg 1 passt zum Wortlaut des Erfolgskriteriums der Phase; Weg 2 passt zum Aufbewahrungszweck.
+Vollständige Herleitung in `14.1-NACHWEIS-BL03.md`, Abschnitt 7.
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.1-04 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt
+sich auf `server/src/services/exportService.ts`; `workTimeAccountService.ts` und
+`overtimeTransactionRebuildService.ts` (WR-01) stehen in keinem seiner Commits.
+
+**Zur Abgrenzung ausdrücklich:** Der in diesem Plan eingeführte Monatsdeckel in
+`exportService.ts` ist **nicht** WR-01. D-03 zählt die Kennzahl `totalOvertime`
+(`exportService.ts:425`) ausdrücklich zu BL-03 („Zum selben Befund gehört die Kennzahl
+`totalOvertime` in `exportService.ts:425`"). Die Abgrenzung steht auch als Kommentar im
+Quelltext über dem Deckel, damit sie beim nächsten Lesen nicht neu erschlossen werden muss.
+
+Zwei vorhandene WR-Vermerke derselben Funktion (WR-09 zum Ergebnistyp, WR-10 zu den
+`yearPlaceholders`) wurden **gelesen und als Muster benutzt**, aber nicht verändert: Der neue
+Nutzerfilter folgt dem `yearPlaceholders`-Muster, der WR-09-Kommentar steht unverändert über
+derselben Zuweisung.
