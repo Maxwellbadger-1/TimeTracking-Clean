@@ -449,6 +449,73 @@ Plans:
 
 ---
 
+### Phase 14.1: Rechenwerk-Blocker aus dem Produktionslauf schließen (INSERTED — DRINGEND)
+
+**Ziel:** Die fünf Blocker, die die breite Fehlersuche nach dem Produktionslauf zutage
+gefördert hat, sind geschlossen — bevor das Release ausgeliefert wird.
+
+**Herkunft:** `.planning/phases/14-absicherung-und-auslieferung/14-WEITERE-BEFUNDE.md`
+(15 Befunde, 5 Blocker, 10 Warnungen). Die zehn Warnungen gehen bewusst **nicht** in diese
+Phase — sie berühren Zeitzonen und Rundung im Kern des Rechenwerks und gehören in einen
+eigenen Milestone nach der Auslieferung.
+
+**Reihenfolge:** Diese Phase läuft **vor Plan 14-11** (Release v1.9.0). Die Blocker sollen
+mit demselben Release ausgeliefert werden, nicht in einem Nachzügler.
+
+**Umfang**
+
+- **BL-01 — Der Saldo über dem Kontoauszug rechnet in die Zukunft, die Liste darunter nicht.**
+  `overtimeLiveCalculationService.ts:712` deckelt nicht auf heute, die Schwesterfunktion
+  `:226-228` schon; der Desktop hat seine eigene Deckelung im Zuge von WR-10 abgegeben.
+  Wirkt heute: Nutzer 17 wird 8,00 h zu niedrig angezeigt.
+
+- **BL-02 — `require()` in einem ES-Modul.** `absenceService.ts:1198` und `:1421`, beide in
+  `try/catch` — die Neuberechnung nach dem Löschen einer genehmigten Abwesenheit läuft nie.
+
+- **BL-03 — Historien-Export filtert weder `status` noch `deletedAt`.**
+  `exportService.ts:353-371`. 15 abgelehnte Anträge und 5 stillgelegte Konten landen im
+  Export. Die DATEV-Schwesterfunktion derselben Datei macht beides richtig und begründet.
+
+- **BL-04 — Überstundenausgleich auf drei Wegen.** `absenceService.ts:1597-1631` schreibt von
+  Hand in `overtime_balance` vergangener Monate; die `compensation`-Journalzeile liest
+  niemand. Im Bestand: 0 solche Zeilen gegen 3 genehmigte Ausgleiche.
+
+- **BL-05 — Krankmeldungen umgehen den Genehmigungsweg.** `absenceService.ts:573-585` setzt
+  `status='approved'`, schreibt aber `approvedBy`/`approvedAt` nicht, und `:1317` stößt
+  keine Neuberechnung an. Vier Anträge im Bestand ohne Genehmigungsspur (46, 60, 68, 70).
+
+- **Datenbereinigung:** 59 fiktive Journalbuchungen für Tage, die noch nicht stattgefunden
+  haben (Nutzer 3 und 17 September 2026, Nutzer 30 Oktober 2026) sowie die drei zugehörigen
+  Zeilen in `overtime_balance`. Nur nach Sicherung und wiederherstellbar.
+
+**Erfolgskriterien**
+
+- Der Saldo über dem Kontoauszug und die Summe der darunter gezeigten Buchungen stimmen für
+  jeden Nutzer überein — an einem Tag, der nicht der Monatsletzte ist
+- Kein Journaleintrag und keine Monatszeile trägt ein Datum in der Zukunft
+- Eine neu angelegte Krankmeldung trägt Genehmiger und Genehmigungszeitpunkt und löst
+  dieselbe Neuberechnung aus wie jede andere genehmigte Abwesenheit
+- Der Historien-Export enthält weder abgelehnte Anträge noch stillgelegte Konten
+- Das Löschen einer genehmigten Abwesenheit rechnet nachweislich neu
+- Ein genehmigter Überstundenausgleich hinterlässt genau eine Spur, nicht drei
+- Jeder Fix hat einen eigenen Commit und ist einzeln rückgängig machbar
+- Keine Zeile in `time_entries`, `absence_requests`, `overtime_corrections`,
+  `vacation_balance` und `vacation_transactions` wird angefasst
+
+**Abhängigkeit:** Phase 14 (Deployment ist erfolgt, die Befunde stammen daraus)
+
+**Risiko:** BL-01 und die Datenbereinigung ändern für Mitarbeiter sichtbare Zahlen. Beides
+zuerst vollständig auf einer Produktionskopie, mit Vorher/Nachher-Vergleich aller Salden.
+
+**Plans:** noch nicht aufgeteilt
+
+Plans:
+
+- [ ] TBD (`/gsd:plan-phase 14.1`)
+
+
+---
+
 ## Phasen (abgeschlossen)
 
 <details>
