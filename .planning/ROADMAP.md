@@ -524,11 +524,35 @@ mit demselben Release ausgeliefert werden, nicht in einem Nachzügler.
 **Risiko:** BL-01 und die Datenbereinigung ändern für Mitarbeiter sichtbare Zahlen. Beides
 zuerst vollständig auf einer Produktionskopie, mit Vorher/Nachher-Vergleich aller Salden.
 
-**Plans:** noch nicht aufgeteilt
+**Plans:** 6 Pläne, 6 Wellen (durchgehend seriell — ein Plan je Befund nach D-07, und alle
+Tests laufen laut `server/vitest.config.ts` mit `fileParallelism: false` gegen dieselbe
+`database/development.db`, zwei parallele Pläne würden sich gegenseitig stören)
 
 Plans:
 
-- [ ] TBD (`/gsd:plan-phase 14.1`)
+**Welle 1**
+
+- [ ] 14.1-01-PLAN.md — BL-01: Saldo über dem Kontoauszug auf heute deckeln, `deletedAt` filtern; dazu die bewusste Änderung des Phase-12-Tests (D-10)
+
+**Welle 2** *(blocked on Welle 1)*
+
+- [ ] 14.1-02-PLAN.md — BL-02: `require()` durch ESM-Import ersetzen, Löschpfad rechnet nachweislich neu; legt den Importstil für 14.1-03 fest
+
+**Welle 3** *(blocked on Welle 2 — gleiche Datei `absenceService.ts`, gleicher Importstil)*
+
+- [ ] 14.1-03-PLAN.md — BL-05: Krankmeldung löst sofort dieselbe Neuberechnung aus; Auto-Genehmigung bleibt unverändert
+
+**Welle 4** *(blocked on Welle 3)*
+
+- [ ] 14.1-04-PLAN.md — BL-03: Historien-Export filtert `status` und `deletedAt`, `totalOvertime` begrenzt
+
+**Welle 5** *(blocked on Welle 4 und 14.1-02 — gleiche Datei, und Weg C ist im Löschpfad erst nach BL-02 erreichbar)*
+
+- [ ] 14.1-05-PLAN.md — BL-04: Nachmessung, Entscheidung des Anwenders zu Weg B (Checkpoint), Weg A samt beiden Aufrufern entfernen
+
+**Welle 6** *(blocked on Welle 5 und 14.1-01 — die Bereinigung läuft zuletzt und nach dem BL-01-Fix)*
+
+- [ ] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
 
 
 ---
