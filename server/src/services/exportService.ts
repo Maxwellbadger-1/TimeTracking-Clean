@@ -18,6 +18,7 @@ import logger from '../utils/logger.js';
 import { format } from 'date-fns';
 import { getDailyTargetHours, MissingWorkPeriodError } from '../utils/workingDays.js';
 import { getUserByIdIncludingDeleted } from './userService.js';
+import { formatDate, getCurrentDate } from '../utils/timezone.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
 
 /**
@@ -348,12 +349,26 @@ export function generateHistoricalExport(
     logger.info({ startDate, endDate, userId }, '📊 Generating historical export');
 
     // Get users (all or specific)
+    //
+    // 14.1 / BL-03: Beide Varianten filtern stillgelegte (soft-geloeschte) Konten heraus.
+    //
+    // Das weicht BEWUSST von der DATEV-Schwesterfunktion derselben Datei ab, die soft-
+    // geloeschte Nutzer ausdruecklich MITNIMMT (Kommentar dort: fuer die historische
+    // Nachweispflicht; WR-11 aus Phase 11). Der Grund fuer den Unterschied liegt im Zweck:
+    // Der DATEV-Export beliefert eine Lohnbuchhaltung, die auch fuer ausgeschiedene
+    // Mitarbeiter vollstaendig sein muss. Der Historien-Export ist ein allgemeiner
+    // Datenexport, der das System verlaesst; das Erfolgskriterium der Phase 14.1 verlangt
+    // ausdruecklich, dass er keine stillgelegten Konten mehr enthaelt (im Bestand betroffen
+    // waren die Konten 15, 26, 28, 30, 31).
+    //
+    // Die beiden Funktionen entscheiden also verschieden, und beide Entscheidungen stehen
+    // jetzt begruendet im Quelltext. Keine der beiden Stellen wird an die andere angeglichen.
     let users: User[];
     if (userId) {
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User | undefined;
+      const user = db.prepare('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL').get(userId) as User | undefined;
       users = user ? [user] : [];
     } else {
-      users = db.prepare('SELECT * FROM users ORDER BY lastName, firstName').all() as User[];
+      users = db.prepare('SELECT * FROM users WHERE deletedAt IS NULL ORDER BY lastName, firstName').all() as User[];
     }
 
     // Get time entries
@@ -366,27 +381,68 @@ export function generateHistoricalExport(
       : db.prepare(timeEntriesQuery).all(startDate, endDate) as TimeEntry[];
 
     // Get absences
+    //
+    // 14.1 / BL-03: Beide Varianten nehmen nur genehmigte Antraege auf — woertlich nach der
+    // Vorlage der DATEV-Schwesterfunktion weiter oben in dieser Datei. Ohne diese Bedingung
+    // war ein abgelehnter Urlaub im Export von einem genehmigten nicht zu unterscheiden; im
+    // Bestand betraf das 15 abgelehnte Antraege, darunter Krankmeldungen. Der Filter ist ein
+    // Literal in der Abfrage, kein neuer Parameter — die Bindungspositionen bleiben
+    // unveraendert, alle Werte bleiben ueber Platzhalter gebunden.
     const absencesQuery = userId
-      ? 'SELECT * FROM absence_requests WHERE userId = ? AND startDate <= date(?) AND endDate >= date(?) ORDER BY startDate'
-      : 'SELECT * FROM absence_requests WHERE startDate <= date(?) AND endDate >= date(?) ORDER BY startDate';
+      ? "SELECT * FROM absence_requests WHERE userId = ? AND status = 'approved' AND startDate <= date(?) AND endDate >= date(?) ORDER BY startDate"
+      : "SELECT * FROM absence_requests WHERE status = 'approved' AND startDate <= date(?) AND endDate >= date(?) ORDER BY startDate";
 
     const absences = userId
       ? db.prepare(absencesQuery).all(userId, endDate, startDate) as AbsenceRequest[]
       : db.prepare(absencesQuery).all(endDate, startDate) as AbsenceRequest[];
 
     // Get overtime balance
-    const overtimeQuery = userId
-      ? 'SELECT * FROM overtime_balance WHERE userId = ? AND month >= ? AND month <= ? ORDER BY month'
-      : 'SELECT * FROM overtime_balance WHERE month >= ? AND month <= ? ORDER BY month';
-
+    //
+    // 14.1 / BL-03: Zwei Einschraenkungen, die hier gefehlt haben und ueber die Kennzahl
+    // `totalOvertime` weiter unten in die Statistik durchgeschlagen sind.
+    //
+    // 1. Nutzerfilter AUCH in der Sammelvariante. Ohne ihn summierte die Kennzahl die
+    //    Monatszeilen genau jener stillgelegten Konten mit, die oben gerade herausgefiltert
+    //    wurden — der Export wies also 15 Nutzer aus und rechnete mit 20. Die Ids kommen als
+    //    `?`-Platzhalter in die Abfrage, nach demselben Muster wie `yearPlaceholders` weiter
+    //    unten (WR-10 aus Phase 11); es wird nichts in die Abfrage hineinformatiert.
+    // 2. Monatsdeckel auf den laufenden Monat. `endDate` darf in der Zukunft liegen, und ein
+    //    kuenftiger Monat traegt Sollstunden ohne Iststunden — er zieht die Kennzahl um das
+    //    volle Restsoll nach unten. Dieselbe Deckelung fuehrt `getOvertimeBalance()` in
+    //    `overtimeTransactionService.ts` aus demselben Grund aus; der Vergleichsmonat kommt
+    //    wie dort aus `formatDate(getCurrentDate(), 'yyyy-MM')` (Europe/Berlin), nicht aus
+    //    SQLites `'now'` (UTC) und nicht aus einer UTC-Zeichenkette des Datumsobjekts — die
+    //    Projektregel verbietet diesen Weg, weil er am Monatsersten den Vormonat liefert.
+    //
+    // Abgrenzung: Dieser Monatsdeckel gehoert laut D-03 zu BL-03. Er ist NICHT WR-01 — die
+    // dort benannten Stellen in `workTimeAccountService.ts` und
+    // `overtimeTransactionRebuildService.ts` bleiben unberuehrt.
     const startMonth = startDate.substring(0, 7);
-    const endMonth = endDate.substring(0, 7);
+    const currentMonth = formatDate(getCurrentDate(), 'yyyy-MM');
+    const requestedEndMonth = endDate.substring(0, 7);
+    const endMonth = requestedEndMonth > currentMonth ? currentMonth : requestedEndMonth;
 
+    const exportedUserIds = users.map(u => u.id);
+    const userIdPlaceholders = exportedUserIds.map(() => '?').join(',');
+
+    const overtimeQuery = `
+      SELECT * FROM overtime_balance
+      WHERE userId IN (${userIdPlaceholders})
+        AND month >= ?
+        AND month <= ?
+      ORDER BY month
+    `;
+
+    // Ohne exportierte Nutzer gibt es nichts zu summieren — und `userId IN ()` waere ein
+    // SQL-Syntaxfehler. Das ist kein theoretischer Fall: Wird der Export fuer genau einen
+    // Nutzer angefordert, dessen Konto stillgelegt ist, ist die Liste seit dieser Aenderung
+    // leer.
+    //
     // WR-09: Ergebnistyp benannt statt später per `as any[]` durchgereicht — die
     // Zieltypen stehen bereits in HistoricalExportData.
-    const overtimeBalance = (userId
-      ? db.prepare(overtimeQuery).all(userId, startMonth, endMonth)
-      : db.prepare(overtimeQuery).all(startMonth, endMonth)) as HistoricalExportData['overtimeBalance'];
+    const overtimeBalance = (exportedUserIds.length === 0
+      ? []
+      : db.prepare(overtimeQuery).all(...exportedUserIds, startMonth, endMonth)) as HistoricalExportData['overtimeBalance'];
 
     // Get vacation balance
     //
@@ -422,6 +478,10 @@ export function generateHistoricalExport(
 
     // Calculate statistics
     const totalWorkingHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0);
+    // 14.1 / BL-03: Der Ausdruck selbst bleibt unveraendert. Er summiert jetzt eine Liste,
+    // die bereits auf die exportierten Nutzer und auf Monate bis einschliesslich des
+    // laufenden begrenzt ist (siehe `overtimeQuery` oben) — dort, und nicht hier, lag der
+    // Fehler.
     const totalOvertime = overtimeBalance.reduce((sum, entry) => sum + entry.overtime, 0);
 
     const data: HistoricalExportData = {
