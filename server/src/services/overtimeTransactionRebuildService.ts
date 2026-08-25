@@ -112,11 +112,34 @@ export function rebuildOvertimeTransactionsForMonth(
     // Start = later of (month start, hire date)
     const startDate = new Date(Math.max(monthStart.getTime(), hireDate.getTime()));
 
-    // End = earlier of (month end, today) if current month, else month end
-    const currentMonth = formatDate(today, 'yyyy-MM');
-    const endDate = (month === currentMonth)
-      ? new Date(Math.min(monthEnd.getTime(), today.getTime()))
-      : monthEnd;
+    // F-5 (Phase 14.2, Plan 14.2-05) — DIE DECKELUNG IST UNBEDINGT, NICHT AN DEN
+    // LAUFENDEN MONAT GEKOPPELT:
+    //
+    // Hier stand eine an den laufenden Monat gekoppelte Bedingung, die nur bei Gleichheit
+    // von `month` und dem laufenden Monat auf `min(monthEnd, today)` deckelte. Fuer jeden
+    // Monat NACH dem laufenden lief die Tagesberechnung damit bis zum Monatsletzten und
+    // buchte fuer jeden kuenftigen Werktag ein volles Tagessoll ohne Ist — September 2026
+    // wies dadurch „Ueberstunden (Zeitraum) -130:00h" aus, obwohl der Monat noch nicht
+    // begonnen hatte.
+    //
+    // 14.1-BL-01 hat exakt dieses Muster bereits an zwei anderen Stellen behoben
+    // (`unifiedOvertimeService.ts:186`, `overtimeLiveCalculationService.ts:227`) — beide
+    // decken unbedingt (`X > today ? today : X`). Diese dritte Stelle lag damals nicht im
+    // Umfang jener Phase und blieb stehen.
+    //
+    // WARUM SIE TROTZDEM SICHTBAR WURDE: `overtimeService.updateMonthlyOvertime()` ruft
+    // diesen Rebuild NACH seinem eigenen, bereits korrekt gedeckelten Schreibvorgang in
+    // `overtime_balance` auf (overtimeService.ts:163, nach dem Upsert bei :144). Der
+    // ungedeckelte Wert von hier ueberschrieb also das richtige Ergebnis von dort.
+    //
+    // Fuer einen reinen Zukunftsmonat gilt danach `endDate = today < startDate`; die
+    // Tagesschleife in collectDailyCalculations() laeuft null Mal, die Summen in
+    // updateOvertimeBalanceForMonth() sind 0/0, und es entsteht keine Journalzeile mit
+    // Zukunftsdatum. Das DELETE in STEP 3 laeuft weiterhin ueber den VOLLEN Monat und
+    // raeumt zuvor faelschlich angelegte Zeilen ab — book-once-Zeilen (u. a.
+    // `model_change`, die ein Zukunftsdatum tragen duerfen, WR-10) bleiben durch den
+    // REBUILDABLE_TYPES-Filter unberuehrt.
+    const endDate = monthEnd > today ? today : monthEnd;
 
     // Skip if user wasn't hired yet
     if (hireDate > endDate) {
