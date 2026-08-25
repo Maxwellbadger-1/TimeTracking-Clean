@@ -222,3 +222,78 @@ Plan 14.1-02 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix
 auf `server/src/services/absenceService.ts`; keine der in den Warnungen genannten Dateien steht
 in einem seiner beiden Commits. Der Eintrag oben ist eine **neue** Beobachtung, keine
 WR-Warnung — er wird trotzdem nach demselben Verfahren hier abgelegt.
+
+---
+
+## Aus Plan 14.1-03 (25.08.2026) — BL-05
+
+### 1. `work_time_accounts` wird beim Anlegen einer Krankmeldung nicht fortgeschrieben
+
+**Gefunden:** Plan 14.1-03, Task 2, bei der Messung zu Abschnitt 4 des Nachweisdokuments.
+**Nicht repariert** (D-05, D-07, D-09) — bewusst außerhalb des Auftrags.
+
+**Gemessen** (Testnutzer 43660, Krankmeldung 10055, ein Krankheitstag am 2026-07-01,
+Kontozeile vorher über `updateAllOvertimeLevels()` hergestellt):
+
+| Messgröße | vor dem Anlegen | nach dem Anlegen |
+|---|---:|---:|
+| `work_time_accounts.currentBalance` | −184,00 h | **−184,00 h** (unverändert) |
+| `overtime_transactions`, `type = 'sick_credit'` | 0 Zeilen | **1 Zeile, +8,00 h** |
+| `overtime_balance`: `targetHours` / `actualHours` | 184 / 0 | 184 / **8** |
+
+Journal und `overtime_balance` ziehen unmittelbar nach — der Kontostand-Cache bleibt um genau
+ein Tagessoll (8,00 h) zurück, bis ihn der nächste Anlass fortschreibt.
+
+**Ursache, am Quelltext abgelesen:** D-05 benennt genau **einen** fehlenden Block — den
+`CRITICAL`-Block, der `updateMonthlyOvertime` je betroffenem Monat ruft. Der
+`work_time_accounts`-Block des regulären Genehmigungsweges (`updateWorkTimeAccountBalance`,
+`absenceService.ts` im Anschluss an den `CRITICAL`-Block) wurde bewusst **nicht** mitkopiert;
+alles darüber hinaus wäre Scope-Ausweitung gewesen. `updateMonthlyOvertime` selbst berührt
+`work_time_accounts` nicht („REMOVED: Old Work Time Account sync").
+
+**Vorbestehend:** ja. Vor dem BL-05-Fix bewegte sich weder das Journal noch der Cache. Der Fix
+bringt das Journal auf Stand und macht den Rückstand des Caches damit erst sichtbar — er
+erzeugt ihn nicht.
+
+**Verwandt mit, aber nicht identisch zu 14.1-U5** (aus Plan 14.1-02): Dort bleibt derselbe
+Cache nach dem **Löschen** einer Krankmeldung um 8,00 h zurück, dort ist die Ursache aber die
+Reihenfolge innerhalb der Löschtransaktion. Beide gehören sinnvollerweise in **eine**
+Entscheidung.
+
+**Vorschlag (zwei Wege, Entscheidung des Anwenders):**
+1. **Nachsynchronisieren:** Im Auto-Genehmigungszweig von `createAbsenceRequest` nach dem neuen
+   `updateMonthlyOvertime`-Block einmal `updateWorkTimeAccountBalance(userId,
+   getOvertimeBalance(userId))` aufrufen — dasselbe Muster wie Weg 1 unter 14.1-U5. Kleinster
+   Eingriff, kostet eine zusätzliche Abfrage je angelegter Krankmeldung.
+2. **Den Cache aus der Fortschreibung nehmen:** `work_time_accounts.currentBalance` bei jeder
+   Abfrage aus dem Journal ableiten statt fortzuschreiben. Sauberer und beseitigt 14.1-U5 und
+   diesen Punkt in einem Zug, aber ein Eingriff in eine Tabelle, die an mehreren Stellen
+   gelesen wird — verlangt eigene Regressionstests.
+
+Weg 1 ist der risikoärmere und passt zu der Entscheidung, die für 14.1-U5 ohnehin ansteht.
+Als Entscheidungspunkt **14.1-U8** in `14-UAT-SAMMLUNG.md` eingetragen; vollständige Herleitung
+in `14.1-NACHWEIS-BL05.md`, Abschnitt 4.
+
+### 2. Aufräumreihenfolge bei Testnutzern — Trigger auf `user_work_periods`
+
+**Gefunden:** Plan 14.1-03, Task 2, beim Abräumen der einmaligen Messsonde.
+**Kein Produktivbefund**, nur eine Falle für künftige Testskripte — hier festgehalten, damit
+sie nicht ein zweites Mal zuschnappt.
+
+Auf `user_work_periods` liegt ein Trigger, der das Löschen der **letzten** Periode eines noch
+bestehenden Nutzers verhindert: `SqliteError: user_work_periods: Löschen würde den Nutzer ohne
+jede Periode zurücklassen` (`SQLITE_CONSTRAINT_TRIGGER`). Ein Aufräumpfad, der erst die
+abhängigen Tabellen und danach `users` löscht, scheitert deshalb still an dieser Stelle und
+lässt den Testnutzer stehen.
+
+**Richtige Reihenfolge — erst `users`, dann die abhängigen Zeilen.** So macht es
+`cleanupEmployee()` in `absenceDeletionRecalc.test.ts` und in `sickLeaveRecalc.test.ts`; beide
+Testdateien sind davon nicht betroffen. Aufgefallen ist es nur, weil die D-08-Nachmessung die
+Testnutzerreste mitzählt — genau dafür ist die Kennzahl da.
+
+### 3. D-09: Keine WR-Warnung berührt
+
+Plan 14.1-03 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt sich
+auf `server/src/services/absenceService.ts`; keine der in den Warnungen genannten Dateien steht
+in einem seiner beiden Commits. Eintrag 1 oben ist eine **neue** Beobachtung, keine WR-Warnung —
+er wird trotzdem nach demselben Verfahren hier abgelegt.
