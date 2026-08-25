@@ -562,7 +562,6 @@ Plans:
 - [x] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
       *Abgeschlossen 2026-08-25 — 3 Commits, Gates gruen (557 gruen / 3 rot, rote Menge unveraendert; der Lauf ging gegen die BEREINIGTE Datenbank, kein Test stuetzte sich auf eine Zukunftszeile). **Der einzige Schritt der Phase, der Daten loescht.** Entfernt: **100 Journalzeilen** mit einem Datum nach heute (Nutzer 3 und 17 fuer 2026-09, Nutzer 30 fuer 2026-10) und die **3 zugehoerigen Monatszeilen** in `overtime_balance`; danach liefern beide Pruefabfragen **0**. Der Ablauf aus D-06 lief vollstaendig und in dieser Reihenfolge, **keine Stufe uebersprungen**: (1) Probelauf auf einer Produktionsarbeitskopie — `14-prod-nach-migration.db` nur readonly geoeffnet, Hash vorher = nachher, Saldenvergleich ueber alle Nutzer **0 von 20** mit Differenz ungleich 0,00 h, in zwei Messungen (kanonischer Rechenweg und angezeigter Monatssaldo); (2) Sicherung per `VACUUM INTO` (nicht `cp` — 4,1 MB WAL) nach `server/database/backups/development.PRE-14.1-06_20260825_070544.db`, 1.355.776 Bytes, **gegen die Sicherungsdatei geprueft**: `integrity_check` ok, `foreign_key_check` leer, **20 Kennzahlen mit Differenz 0**; (3) Trockenlauf gegen `development.db` mit **identischem Hash vorher/nachher**; (4) Pruefung der Fundliste vor dem Schreiben — genau Nutzer 3, 17, 30, Testnutzer 15015 in der Ausnahmeliste, **keine book-once-Zeile** in der Fundliste; (5) `--apply` mit beiden Loeschanweisungen in **einer** Transaktion. **Der Wiederherstellungsnachweis ist tatsaechlich gefuehrt, nicht behauptet:** Sicherung readonly geoeffnet, per `VACUUM INTO` in die **neue** Datei `14.1-restore-probe.db` zurueckgespielt, dann **Zeile fuer Zeile UND Feld fuer Feld** verglichen — 100/100 Journalzeilen, 3/3 Monatszeilen, **0 fehlend, 0 ungleich**, Differenzspalte durchgehend 0; dazu die Gegenprobe, dass **keine** dieser 100 ids mehr in `development.db` steht. **Abweichung zur Zahl 59 benannt statt verrechnet:** Der Roadmap-Befund nennt 59 fiktive Journalbuchungen — gemessen sind es **100** Zeilen, davon **50** mit einem Wert ungleich null (130 einschliesslich des ausgenommenen Testnutzers). Die 59 ist mit keiner Abgrenzung deckungsgleich; es wurde **nicht** versucht, ein Praedikat zu konstruieren, das sie trifft. Das Werkzeug `purgeFutureOvertimeRows.ts` druckt die Gegenueberstellung und den Satz „der Trockenlauf ist die massgebliche Zaehlung" bei jedem Lauf selbst. Praedikat festgelegt und begruendet: bewegliches Datum > heute (kein fest verdrahteter Stichtag), elf rebuildbare Typen (der Filter schuetzt book-once-Zeilen, insbesondere `model_change`, die ein Zukunftsdatum tragen DUERFEN — WR-10), Testnutzer 15015 ausgenommen; alle Werte als Prepared-Statement-Parameter. D-08: alle fuenf geschuetzten Tabellen mit Zeilenzahl **und** SHA-256 vorher = nachher. Zusammenfassung: `14.1-06-SUMMARY.md`, Nachweis: `14.1-NACHWEIS-BEREINIGUNG.md`. **Neu aufgekommen, NICHT mitrepariert:** 14.1-U20 (die Roadmap-Zahl 59 ist falsch), 14.1-U21 (Testnutzer 15015 traegt weiterhin 30 Zukunftszeilen), 14.1-U22 (Aufbewahrung von Sicherung und Probekopien), 14.1-U23 (Wiedervorlage von 14.1-U15 — Alt-Abzuege wurden bewusst NICHT mitbereinigt, das waere ein zweiter Befund im selben Vorgang und haette D-07 verletzt), **14.1-U24 (die Produktionsdatenbank ist unbereinigt — sie traegt dieselben 100 + 3 Zeilen; D-13 verbot den Zugriff in dieser Phase)**, 14.1-U25 (Sichtpruefung des Kontoauszugs).*
 
-
 ---
 
 ### Phase 14.2: Restbefunde der Abnahme schließen (INSERTED)
@@ -633,6 +632,7 @@ Warnungen aus `14-WEITERE-BEFUNDE.md`, die in den Folge-Milestone gehen.
 
 - Der fehlende Trendpfeil auf `model_change`-Zeilen (P12-29b) — er fehlt **bewusst** seit
   Server-CR-01; das ist eine Entscheidung des Anwenders, kein Fehler.
+
 - Die 44 ENTSCHEIDUNG-Zeilen der Abnahmeliste.
 - Die zehn Warnungen WR-01 bis WR-10 aus `14-WEITERE-BEFUNDE.md`.
 - `work_time_accounts.currentBalance` wird nach einem Stundenwechsel nicht fortgeschrieben
@@ -644,12 +644,14 @@ Warnungen aus `14-WEITERE-BEFUNDE.md`, die in den Folge-Milestone gehen.
 - Ein deaktivierter Nutzer lässt sich in der Oberfläche wiederfinden und reaktivieren
 - Der Desktop zeigt für einen Nutzer mit Modellwechsel dieselben Wochenstunden, mit denen
   er rechnet — vor und nach dem Stichtag geprüft
+
 - Die drei E2E-Dateien laufen ohne roten Fall
 - Kein Zeitraum in der Zukunft weist Überstunden aus
 - Der DATEV-Fehler erscheint als lesbarer Satz, nicht als JSON
 - Ein Vorgang trägt in Schaltfläche, Meldung und Datenbank denselben Namen
 - Alle geprüften Kontraste erreichen mindestens 4,5:1 für Fließtext bzw. 3:1 für Großtext,
   in hell **und** dunkel
+
 - Alle Trefferflächen messen mindestens 32×32 px
 - Jeder Fix hat einen eigenen Commit und ist einzeln rückgängig machbar
 - Keine Zeile in `time_entries`, `absence_requests`, `overtime_corrections`,
@@ -683,6 +685,10 @@ Plans:
 - [ ] 14.2-11-PLAN.md — **D-2**: Trefferflächen ab 32 × 32 px, Spezifitätskollision aufgelöst
 - [ ] 14.2-12-PLAN.md — **V-1**: `13-UI-SPEC.md` auf den `title`-Weg nachziehen (kein Produktionscode)
 - [ ] 14.2-13-PLAN.md — E2E-Gesamtlauf, UAT-Sammlung „Phase 14.2" (ab 14.2-U1), Umgebung abräumen, D-01-Endnachweis
+
+**Cross-cutting constraints:**
+
+- D-01: Keine Zeile in den fuenf geschuetzten Tabellen wurde angefasst (Zeilenzahl und SHA-256 vorher = nachher)
 
 ---
 

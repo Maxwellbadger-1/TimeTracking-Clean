@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: verifying
-stopped_at: Phase 14.1 durchgelaufen - alle sechs Plaene fertig, Verifikation human_needed (21/22 Muss-Aussagen belegt, keine Luecke, kein Gap-Plan noetig). Die Umsetzung ist fertig, die ABNAHME ist offen: 30 Punkte 14.1-U1 bis U30 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.1. Die Code-Review am Phasenende hat 32 Befunde erhoben (6 BLOCKER); keiner wurde behoben - alle liegen ausserhalb des Scope Fence, vermerkt in deferred-items.md. DRINGENDSTER PUNKT VOR DER AUSLIEFERUNG: 14.1-U26 (CR-01) - ein genehmigter Ueberstundenausgleich mit Zukunftsdatum bindet das Guthaben nicht mehr, dasselbe Guthaben ist mehrfach vergebbar. Ebenfalls offen: 14.1-U24 (Produktionsdatenbank unbereinigt) und die Entscheidung aus Plan 14-08 zu den 99 von fix-overtime.ts geschriebenen Werten. Kein Push, kein Deployment - main steht 30 Commits vor origin/main auf 22f9cdc.
-last_updated: "2026-08-25T07:45:00.000Z"
-last_activity: 2026-08-25 -- Phase 14.1 abgeschlossen: BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zeilen, Wiederherstellungsnachweis gefuehrt), Gates 557 gruen / 3 rot, Verifikation und Code-Review gelaufen
+status: executing
+stopped_at: Plan 14.1-06 vollständig abgeschlossen — SUMMARY, Nachweisdokument, `deferred-items.md` und `14-UAT-SAMMLUNG.md` geschrieben. Damit sind alle sechs Pläne der Phase 14.1 fertig. Kein Push (D-13); `origin/main` steht unverändert auf `22f9cdc`.
+last_updated: "2026-08-25T21:22:24.103Z"
+last_activity: 2026-08-25 -- Phase 14.2 planning complete
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 6
-  total_plans: 59
+  total_plans: 72
   completed_plans: 56
-  percent: 75
+  percent: 67
 ---
 
 # Project State
@@ -388,7 +388,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
 Plan: 6 of 6
-Status: Phase complete — ready for verification
+Status: Ready to execute
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
         ist durchgefuehrt und einzeln rueckgaengig machbar; die Sicherung liegt unter
@@ -401,7 +401,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-25 -- Plan 14.1-06 (Datenbereinigung) abgeschlossen, Phase 14.1 inhaltlich fertig
+Last activity: 2026-08-25 -- Phase 14.2 planning complete
 
 ## Operator Next Steps
 
