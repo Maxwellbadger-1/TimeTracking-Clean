@@ -627,6 +627,59 @@ export function createAbsenceRequest(
       // ohnehin nur type='sick', das Urlaubskonto wird hier nie gebucht (siehe
       // updateBalancesAfterApproval: nur type='vacation' erzeugt eine Journalbuchung).
       updateBalancesAfterApproval(result.lastInsertRowid as number, null);
+
+      // BL-05 (Phase 14.1, D-05) — CRITICAL: Update overtime calculations for all affected months
+      // Dieser Block erzeugt die `sick_credit`-Buchungen im Journal und zieht
+      // `overtime_balance` nach. Er stand bisher AUSSCHLIESSLICH im regulaeren
+      // Genehmigungsweg (`approveAbsenceRequest`, direkt hinter dem dortigen
+      // `updateBalancesAfterApproval`). Der Auto-Genehmigungszweig hier hatte ihn nie —
+      // eine heute eingetragene Krankmeldung wurde deshalb nicht gutgeschrieben.
+      // Verdeckt hat das der naechtliche Lauf um 03:00 Uhr, der die Neuberechnung nachholte;
+      // seit dem 23.08.2026 ist er angehalten (D-11), der Fehler wirkt seither unmittelbar.
+      //
+      // WARUM HIER UND NICHT IN `updateBalancesAfterApproval`: Diese Funktion hat ZWEI
+      // Aufrufer — die Auto-Genehmigung hier und `approveAbsenceRequest`. Der regulaere Weg
+      // fuehrt den Block unmittelbar nach seinem eigenen Aufruf ohnehin aus; wanderte er in
+      // die Funktion hinein, liefe er dort ein zweites Mal.
+      //
+      // WAS HIER AUSDRUECKLICH NICHT GEAENDERT WIRD: Die Auto-Genehmigung selbst
+      // (der ternaere Ausdruck weiter oben, der Krankmeldungen sofort auf `approved` setzt)
+      // ist Absicht und bleibt — Krankmeldungen muessen nicht genehmigt werden (Festlegung vom
+      // 25.08.2026). Genehmiger-Feld und Genehmigungszeitpunkt des Antrags bleiben leer —
+      // der Anlegezeitpunkt steht in `createdAt` —, und es wird kein Protokolleintrag
+      // geschrieben. BL-05 betrifft ausschliesslich die fehlende Neuberechnung.
+      //
+      // `updateMonthlyOvertime` kommt aus dem statischen Top-Level-Import, den Plan 14.1-02
+      // (BL-02) fuer diese Datei verbindlich festgelegt hat (14.1-NACHWEIS-BL02.md,
+      // Abschnitt 4). Kein `await import(...)`, kein zweiter Importstil, kein
+      // Signaturwechsel — `createAbsenceRequest` bleibt synchron.
+      const affectedMonths = new Set<string>();
+      for (
+        let d = new Date(data.startDate);
+        d <= new Date(data.endDate);
+        d.setDate(d.getDate() + 1)
+      ) {
+        // Monatsschluessel ueber `formatDate` aus ../utils/timezone.js — die
+        // ISO-String-Konvertierung ist projektweit verboten, weil sie den Tag nach UTC
+        // verschiebt (.claude/CLAUDE.md, "Timezone Bugs").
+        affectedMonths.add(formatDate(d, 'yyyy-MM')); // "YYYY-MM"
+      }
+
+      for (const month of affectedMonths) {
+        try {
+          updateMonthlyOvertime(data.userId, month);
+          logger.info(
+            { userId: data.userId, month, absenceType: data.type },
+            '✅ Overtime recalculated after absence auto-approval'
+          );
+        } catch (error) {
+          logger.error(
+            { err: error, userId: data.userId, month, absenceType: data.type },
+            '❌ Failed to recalculate overtime after absence auto-approval'
+          );
+        }
+      }
+
       logger.info('✅ Balances updated');
     }
 
@@ -1341,15 +1394,30 @@ function updateBalancesAfterApproval(requestId: number, actorId: number | null):
     logger.info({ userId: request.userId, hoursToDeduct, startDate: request.startDate, endDate: request.endDate }, '✅ Overtime comp: Deducting hours based on work schedule');
     deductOvertimeHours(request.userId, hoursToDeduct);
   }
-  // Note: Sick days don't need any balance updates here
-  // The overtime calculation in ReportsPage.tsx handles absence credits automatically
+  // Note: Sick days don't need any balance updates here.
+  //
+  // BL-05 (Phase 14.1, D-05) — der zweite Satz an dieser Stelle verwies frueher auf die
+  // Berichtsseite des Frontends, die die Gutschriften angeblich automatisch erzeuge. Das war
+  // die falsche Begruendung, die den Befund verursacht hat: Eine Berichtsabfrage rechnet `overtime_balance`
+  // neu, ruehrt aber weder das Journal (`overtime_transactions`) noch den Kontostand-Cache an —
+  // und seit dem 23.08.2026 ist auch der naechtliche Lauf angehalten, der es bisher nachholte.
+  //
+  // Richtig ist: Fuer `sick` ist HIER tatsaechlich nichts zu tun. Die Neuberechnung steht bei
+  // BEIDEN Aufrufern dieser Funktion ausserhalb von ihr —
+  //   - `createAbsenceRequest`   (Auto-Genehmigung), unmittelbar nach dem Aufruf,
+  //   - `approveAbsenceRequest`  (regulaerer Genehmigungsweg), ebenfalls unmittelbar danach.
+  // Genau deshalb gehoert der Block nicht hier hinein: Er liefe im regulaeren Weg sonst zweimal.
 }
 
 // REMOVED: createSickLeaveTimeEntries function
 // Old implementation created automatic time_entries for sick days
 // This is WRONG per Best Practice (Personio, DATEV, SAP)
 // Sick days should ONLY exist in absence_requests table
-// Overtime calculation now handles absence credits directly in ReportsPage.tsx
+// BL-05 (Phase 14.1, D-05): Hier stand frueher derselbe Verweis auf die Berichtsseite des
+// Frontends wie in updateBalancesAfterApproval — dieselbe falsche Begruendung.
+// Die Gutschriften entstehen NICHT in einer Berichtsabfrage,
+// sondern beim Rebuild des Monats (`updateMonthlyOvertime` ->
+// `rebuildOvertimeTransactionsForMonth`), den beide Genehmigungswege selbst ausloesen.
 
 /**
  * Revert balance changes after deletion (or after rejecting a previously approved request).
