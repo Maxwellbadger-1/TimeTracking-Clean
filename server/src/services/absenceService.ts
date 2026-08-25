@@ -988,7 +988,27 @@ export async function approveAbsenceRequest(
     }
   }
 
-  // NEW: Record overtime compensation transaction
+  // Journalzeile vom Typ 'compensation' fuer den genehmigten Ueberstundenausgleich.
+  //
+  // BL-04 (Phase 14.1, D-04) — DIESE ZEILE BLEIBT. ENTSCHEIDUNG DES ANWENDERS VOM 25.08.2026
+  // (Plan 14.1-05, Task 2, Option A; festgehalten in 14.1-NACHWEIS-BL04.md, Abschnitt 5).
+  //
+  // Sie ist ein PRUEFNACHWEIS und BEWEGT KEINEN SALDO. Beides ist gemessen, nicht vermutet:
+  //   - Sie ueberlebt eine Neuberechnung dauerhaft (1 Zeile davor, 1 danach). Die Liste
+  //     REBUILDABLE_TYPES in `overtimeTransactionRebuildService.ts:153-166` nimmt den Typ
+  //     seit dem Fix vom 18.08.2026 ausdruecklich vom Loeschbereich des Rebuilds aus, mit
+  //     der dortigen Begruendung „SCOPE: This restores the audit trail". Vorher raeumte ihn
+  //     der naechste Rebuild still weg — daher die 0 Journalzeilen gegen 3 genehmigte
+  //     Ausgleiche, die der Befundbericht meldete.
+  //   - Sie aendert den angezeigten Saldo nicht: `getOvertimeBalance()`
+  //     (`overtimeTransactionService.ts:454-479`) summiert `overtime_balance`, nicht das
+  //     Journal; der Live-Kontoauszug mischt ausschliesslich `type = 'model_change'` bei.
+  //     Testweises Loeschen der Zeile aenderte den Saldo um 0,00 h.
+  //
+  // WARUM DER AUSGLEICHSTAG TROTZDEM „genau eine Spur" traegt: Das Erfolgskriterium der
+  // Phase ist als genau eine SALDOWIRKSAME Spur zu lesen. Saldowirksam ist allein der
+  // Rebuild (Weg C, REQ-19). Wer das Journal liest, findet am Ausgleichstag zwei Zeilen —
+  // eine rechnende und diese belegende. Das ist Absicht.
   if (request.type === 'overtime_comp') {
     const { recordOvertimeCompensation } = await import('./overtimeTransactionService.js');
     const { calculateAbsenceHoursWithWorkSchedule } = await import('../utils/workingDays.js');
@@ -1387,13 +1407,30 @@ function updateBalancesAfterApproval(requestId: number, actorId: number | null):
       referenceId: request.id,
       createdBy: actorId,
     });
-  } else if (request.type === 'overtime_comp') {
-    // Deduct from overtime balance
-    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
-    const hoursToDeduct = calculateAbsenceCredits(request.userId, request.startDate, request.endDate);
-    logger.info({ userId: request.userId, hoursToDeduct, startDate: request.startDate, endDate: request.endDate }, '✅ Overtime comp: Deducting hours based on work schedule');
-    deductOvertimeHours(request.userId, hoursToDeduct);
   }
+  // BL-04 (Phase 14.1, D-04) — HIER STAND DER HANDGESCHRIEBENE ABZUG FUER `overtime_comp`.
+  //
+  // Er ist ersatzlos entfallen. Der Abzug der Stunden fuer einen genehmigten
+  // Ueberstundenausgleich kommt jetzt AUSSCHLIESSLICH aus dem Rebuild — Weg C,
+  // `overtimeTransactionRebuildService.ts:412-448` (`handleAbsenceDay`), REQ-19: Der
+  // Ausgleichstag wird als Minus in Tagessollhoehe gebucht und damit aus dem
+  // Ueberstundenkonto bezahlt. Angestossen wird der Rebuild unmittelbar nach dieser
+  // Funktion, in `approveAbsenceRequest` (Block „CRITICAL: Update overtime calculations").
+  //
+  // WARUM DER FRUEHERE ABZUG FALSCH WAR: Er schrieb von Hand in `overtime_balance` — eine
+  // ABGELEITETE Tabelle, die aus Zeiterfassung, Abwesenheiten und Korrekturen neu berechnet
+  // wird. Die naechste Neuberechnung loeschte den Eingriff stillschweigend wieder
+  // (`overtimeService.ts:144-156`). Bis dahin stand in einem laengst abgeschlossenen Monat
+  // eine Ist-Stundenzahl, die nicht mehr zu den Zeiteintraegen dieses Monats passte, und der
+  // Tag war doppelt abgezogen: einmal ueber Weg C, einmal von Hand.
+  //
+  // In Zahlen gemessen (14.1-NACHWEIS-BL04.md, Abschnitt 1, Testnutzer 25.08.2026):
+  // Der Abzug landete nicht im Monat des Ausgleichstags, sondern per FIFO im aeltesten Monat
+  // mit positivem Saldo — dort fiel `actualHours` von 252,00 h auf 244,00 h, obwohl die
+  // Zeiteintraege dieses Monats 252,00 h belegen. Der angezeigte Saldo sprang: 68,00 h
+  // unmittelbar nach der Genehmigung, 76,00 h beim naechsten Aufruf. Nach dem Entfernen
+  // betraegt dieselbe Differenz 0,00 h.
+  //
   // Note: Sick days don't need any balance updates here.
   //
   // BL-05 (Phase 14.1, D-05) — der zweite Satz an dieser Stelle verwies frueher auf die
@@ -1455,13 +1492,26 @@ function revertBalancesAfterDeletion(
       referenceId: request.id,
       createdBy: actorId,
     });
-  } else if (request.type === 'overtime_comp') {
-    // Add back to overtime balance
-    // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
-    const hoursToAdd = calculateAbsenceCredits(request.userId, request.startDate, request.endDate);
-    logger.info({ userId: request.userId, hoursToAdd, startDate: request.startDate, endDate: request.endDate }, '♻️ Overtime comp reverting: Adding hours back based on work schedule');
-    deductOvertimeHours(request.userId, -hoursToAdd);
-  } else if (request.type === 'sick') {
+  }
+  // BL-04 (Phase 14.1, D-04) — HIER STAND DIE VERMEINTLICHE RUECKGABE FUER `overtime_comp`.
+  //
+  // Sie ist ersatzlos entfallen. Die Rueckgabe der Stunden bei Ablehnung und bei Loeschung
+  // eines genehmigten Ausgleichs traegt jetzt allein Weg C, der Rebuild
+  // (`overtimeTransactionRebuildService.ts:412-448`, REQ-19). Beide Aufrufer dieser Funktion
+  // stossen ihn unmittelbar danach an: `rejectAbsenceRequest` (Block „CRITICAL: If rejecting
+  // an approved absence") und `deleteAbsenceRequest` (Block „CRITICAL: Recalculate overtime
+  // after deleting approved absence"; dort ist er erst seit BL-02 ueberhaupt erreichbar).
+  //
+  // WARUM DER FRUEHERE ZWEIG NICHTS ZURUECKGAB: Er rief den handgeschriebenen Abzug mit
+  // NEGATIVEM Argument auf, und dessen Schleife brach bei `remainingHours <= 0` in der ersten
+  // Runde ab, bevor irgendetwas geschrieben wurde. Der Zweig sah aus wie eine Rueckbuchung,
+  // war aber keine. Gemessen (14.1-NACHWEIS-BL04.md, Abschnitt 1): Nach Ablehnung wie nach
+  // Loeschung fehlten dem Saldo weiterhin 8,00 h aus dem Abzug der Genehmigung; ohne den
+  // Zweig ist die Rueckgabe mit 0,00 h Differenz vollstaendig.
+  //
+  // ACHTUNG BEIM WEITEREN UMBAU DIESER KETTE: Der `sick`-Zweig darunter gehoert NICHT zu
+  // BL-04. Er ist der Pfad, den BL-02 repariert hat, und muss erreichbar bleiben.
+  else if (request.type === 'sick') {
     // Delete automatic time entries for sick days
     deleteSickLeaveTimeEntries(request);
   }
@@ -1688,42 +1738,25 @@ function decrementVacationPending(userId: number, year: number, days: number): v
 // This function used the OLD monthly aggregation system (overtime_balance table).
 // All validation now uses the NEW transaction-based system for consistency.
 
-/**
- * Deduct overtime hours
- */
-function deductOvertimeHours(userId: number, hours: number): void {
-  // Get all overtime balances for user, ordered by month
-  const query = `
-    SELECT * FROM overtime_balance
-    WHERE userId = ? AND overtime > 0
-    ORDER BY month ASC
-  `;
-
-  const balances = db.prepare(query).all(userId) as Array<{
-    id: number;
-    month: string;
-    overtime: number;
-  }>;
-
-  let remainingHours = hours;
-
-  // Deduct from oldest months first (FIFO)
-  for (const balance of balances) {
-    if (remainingHours <= 0) break;
-
-    const toDeduct = Math.min(remainingHours, balance.overtime);
-
-    // We need to reduce actualHours in the overtime_balance table
-    // Since overtime is a VIRTUAL column (actualHours - targetHours),
-    // we need to update actualHours
-    const updateQuery = `
-      UPDATE overtime_balance
-      SET actualHours = actualHours - ?
-      WHERE id = ?
-    `;
-
-    db.prepare(updateQuery).run(toDeduct, balance.id);
-
-    remainingHours -= toDeduct;
-  }
-}
+// ENTFERNT (BL-04, Phase 14.1, D-04): der handgeschriebene FIFO-Abzug in `overtime_balance`.
+//
+// Die lokale, nicht exportierte Hilfsfunktion suchte per
+// `SELECT * FROM overtime_balance WHERE userId = ? AND overtime > 0 ORDER BY month ASC` den
+// aeltesten Monat mit positivem Saldo und zog die Ausgleichsstunden dort von `actualHours` ab
+// (`UPDATE overtime_balance SET actualHours = actualHours - ?`). Ihre beiden Aufrufer standen
+// in `updateBalancesAfterApproval` und `revertBalancesAfterDeletion`; an beiden Stellen steht
+// jetzt ein Kommentar, der die Begruendung traegt.
+//
+// Sie ist ersatzlos entfallen, weil sie in eine ABGELEITETE Tabelle schrieb: Jede
+// Neuberechnung (`overtimeService.ts:144-156`,
+// `overtimeTransactionRebuildService.ts:609-621`) loeschte den Eingriff stillschweigend
+// wieder. Bis dahin war der Ausgleichstag doppelt abgezogen — einmal ueber den Rebuild
+// (Weg C, REQ-19), einmal von Hand — und der angezeigte Saldo sprang.
+//
+// Ihr Rueckgabezweig war ausserdem wirkungslos: Bei negativem Argument brach die Schleife an
+// `remainingHours <= 0` in der ersten Runde ab, bevor irgendetwas geschrieben wurde.
+//
+// Der vollstaendige fruehere Quelltext samt Messwerten steht in
+// `.planning/phases/14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen/14.1-PATTERNS.md`
+// (Abschnitt „BL-04") und in `14.1-NACHWEIS-BL04.md`; in der Versionsgeschichte ist er unter
+// seinem alten Namen auffindbar.
