@@ -562,6 +562,110 @@ Plans:
 - [x] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
       *Abgeschlossen 2026-08-25 — 3 Commits, Gates gruen (557 gruen / 3 rot, rote Menge unveraendert; der Lauf ging gegen die BEREINIGTE Datenbank, kein Test stuetzte sich auf eine Zukunftszeile). **Der einzige Schritt der Phase, der Daten loescht.** Entfernt: **100 Journalzeilen** mit einem Datum nach heute (Nutzer 3 und 17 fuer 2026-09, Nutzer 30 fuer 2026-10) und die **3 zugehoerigen Monatszeilen** in `overtime_balance`; danach liefern beide Pruefabfragen **0**. Der Ablauf aus D-06 lief vollstaendig und in dieser Reihenfolge, **keine Stufe uebersprungen**: (1) Probelauf auf einer Produktionsarbeitskopie — `14-prod-nach-migration.db` nur readonly geoeffnet, Hash vorher = nachher, Saldenvergleich ueber alle Nutzer **0 von 20** mit Differenz ungleich 0,00 h, in zwei Messungen (kanonischer Rechenweg und angezeigter Monatssaldo); (2) Sicherung per `VACUUM INTO` (nicht `cp` — 4,1 MB WAL) nach `server/database/backups/development.PRE-14.1-06_20260825_070544.db`, 1.355.776 Bytes, **gegen die Sicherungsdatei geprueft**: `integrity_check` ok, `foreign_key_check` leer, **20 Kennzahlen mit Differenz 0**; (3) Trockenlauf gegen `development.db` mit **identischem Hash vorher/nachher**; (4) Pruefung der Fundliste vor dem Schreiben — genau Nutzer 3, 17, 30, Testnutzer 15015 in der Ausnahmeliste, **keine book-once-Zeile** in der Fundliste; (5) `--apply` mit beiden Loeschanweisungen in **einer** Transaktion. **Der Wiederherstellungsnachweis ist tatsaechlich gefuehrt, nicht behauptet:** Sicherung readonly geoeffnet, per `VACUUM INTO` in die **neue** Datei `14.1-restore-probe.db` zurueckgespielt, dann **Zeile fuer Zeile UND Feld fuer Feld** verglichen — 100/100 Journalzeilen, 3/3 Monatszeilen, **0 fehlend, 0 ungleich**, Differenzspalte durchgehend 0; dazu die Gegenprobe, dass **keine** dieser 100 ids mehr in `development.db` steht. **Abweichung zur Zahl 59 benannt statt verrechnet:** Der Roadmap-Befund nennt 59 fiktive Journalbuchungen — gemessen sind es **100** Zeilen, davon **50** mit einem Wert ungleich null (130 einschliesslich des ausgenommenen Testnutzers). Die 59 ist mit keiner Abgrenzung deckungsgleich; es wurde **nicht** versucht, ein Praedikat zu konstruieren, das sie trifft. Das Werkzeug `purgeFutureOvertimeRows.ts` druckt die Gegenueberstellung und den Satz „der Trockenlauf ist die massgebliche Zaehlung" bei jedem Lauf selbst. Praedikat festgelegt und begruendet: bewegliches Datum > heute (kein fest verdrahteter Stichtag), elf rebuildbare Typen (der Filter schuetzt book-once-Zeilen, insbesondere `model_change`, die ein Zukunftsdatum tragen DUERFEN — WR-10), Testnutzer 15015 ausgenommen; alle Werte als Prepared-Statement-Parameter. D-08: alle fuenf geschuetzten Tabellen mit Zeilenzahl **und** SHA-256 vorher = nachher. Zusammenfassung: `14.1-06-SUMMARY.md`, Nachweis: `14.1-NACHWEIS-BEREINIGUNG.md`. **Neu aufgekommen, NICHT mitrepariert:** 14.1-U20 (die Roadmap-Zahl 59 ist falsch), 14.1-U21 (Testnutzer 15015 traegt weiterhin 30 Zukunftszeilen), 14.1-U22 (Aufbewahrung von Sicherung und Probekopien), 14.1-U23 (Wiedervorlage von 14.1-U15 — Alt-Abzuege wurden bewusst NICHT mitbereinigt, das waere ein zweiter Befund im selben Vorgang und haette D-07 verletzt), **14.1-U24 (die Produktionsdatenbank ist unbereinigt — sie traegt dieselben 100 + 3 Zeilen; D-13 verbot den Zugriff in dieser Phase)**, 14.1-U25 (Sichtpruefung des Kontoauszugs).*
 
+
+---
+
+### Phase 14.2: Restbefunde der Abnahme schließen (INSERTED)
+
+**Ziel:** Die Befunde, die die maschinelle Abnahme zutage gefördert hat, sind geschlossen —
+soweit sie Fehler sind und nicht Entscheidungen.
+
+**Herkunft:** `14-ABNAHME-AUTO.md`, `14-ABNAHME-SERVER.md` und `14-ABNAHME-SICHT.md`
+(124 Prüfzeilen, 104 bestanden). Die 44 ENTSCHEIDUNG-Zeilen der Abnahmeliste gehören
+**nicht** hierher — sie sind Ihre Sache, nicht die des Codes. Ebenso wenig die zehn
+Warnungen aus `14-WEITERE-BEFUNDE.md`, die in den Folge-Milestone gehen.
+
+**Umfang — funktionale Sackgassen zuerst**
+
+- **F-1 — Ein deaktivierter Nutzer lässt sich nicht reaktivieren.**
+  `POST /api/users/:id/reactivate` antwortet 404 „User not found or not deleted".
+  Wer jemanden deaktiviert, kommt nicht mehr zurück. (P12-30b, NB-1)
+
+- **F-2 — Der Desktop zeigt Stammdaten, rechnet aber mit der Periode.**
+  `WorkScheduleDisplay` zeigt `user.weeklyHours` (40 h/Woche), während die seit dem
+  17.08.2026 gültige Periode 30 h trägt und die Sollrechnung der Periode folgt. Das Datum
+  kommt aus der Periode, die Zahl aus den Stammdaten. Rest des Desktop-Nachzugs, den
+  Phase 11 zurückgestellt und Plan 12-08 unvollständig erledigt hat. (NB-2)
+
+- **F-3 — Das Rollen-Auswahlfeld trägt keinen Namen.**
+  `EditUserModal.tsx:862` reicht kein `name` an `<Select label="Rolle">` durch; die
+  Laufzeitabfrage liefert `{"name":null,"id":""}`. Ein E2E-Test scheitert daran, und das
+  Feld ist für Hilfsmittel nicht adressierbar. (E2E „Change role to admin")
+
+- **F-4 — Deaktivierte Nutzer sind unerreichbar.**
+  Vom Standardfilter ausgeblendet und ohne „Bearbeiten"-Schaltfläche. Hängt mit F-1
+  zusammen und ist gemeinsam mit ihm zu lösen. (E2E „Deactivate and reactivate")
+
+- **F-5 — Ein Zukunftsmonat zeigt Überstunden.**
+  September 2026 weist „Überstunden (Zeitraum) −130:00h" aus, obwohl der Monat noch nicht
+  begonnen hat. Die Deckelung aus Plan 14.1-01 greift an dieser Stelle nicht. (14.1-U2b)
+
+- **F-6 — Der DATEV-Fehler erscheint als roher JSON-Text.**
+  `desktop/src/api/exports.ts:34-36` nutzt `response.text()`; der 409 landet unverarbeitet
+  im Hinweisfenster. Die Meldung erscheint — lesbar ist sie nicht. (11-U2b)
+
+- **F-7 — „Stornieren" sagt „abgelehnt".**
+  Der einzige Weg heißt „Stornieren", die Erfolgsmeldung danach lautet
+  „Abwesenheitsantrag abgelehnt", die Datenbank speichert `status='rejected'`. Drei
+  verschiedene Wörter für einen Vorgang. (14.1-U6b)
+
+- **F-8 — Die Kollisionsmarkierung liegt unter dem Dialog.**
+  Sie wird vollständig vom Wechsel-Dialog verdeckt (`elementFromPoint` trifft das
+  Vorschaupanel) und beim Schließen gelöscht — sichtbar wird sie nie. (14-U6)
+
+**Umfang — Darstellung, ausdrücklich zugesagt**
+
+- **D-1 — Sechs Kontrastunterschreitungen** über beide Modi (3,18 / 3,30 / 3,60–3,90 /
+  3,68 / 3,76). Die schwerste sitzt auf der Saldoänderung im Vorschaupanel — der Zahl, auf
+  die es beim Stundenwechsel ankommt. (P12-21, P12-47, 13-U9)
+
+- **D-2 — Trefferflächen 40×28 px und 32×24 px** statt der zugesagten 32×32 px. Ursache:
+  `p-2` wird von `px-3 py-1.5` der Button-Grundkomponente überschrieben. (13-U10)
+
+**Umfang — Vertragsklärung, kein Codefix**
+
+- **V-1 —** `13-UI-SPEC.md` fordert weiterhin ein anwendungsgezeichnetes Tooltip, das
+  Korrektur M-2 der Phase 13 bewusst durch ein browsergezeichnetes `title` ersetzt hat.
+  Einer der beiden Texte ist veraltet. Zu klären, welcher — und den anderen nachziehen.
+  (13-U8)
+
+**Nicht im Umfang**
+
+- Der fehlende Trendpfeil auf `model_change`-Zeilen (P12-29b) — er fehlt **bewusst** seit
+  Server-CR-01; das ist eine Entscheidung des Anwenders, kein Fehler.
+- Die 44 ENTSCHEIDUNG-Zeilen der Abnahmeliste.
+- Die zehn Warnungen WR-01 bis WR-10 aus `14-WEITERE-BEFUNDE.md`.
+- `work_time_accounts.currentBalance` wird nach einem Stundenwechsel nicht fortgeschrieben
+  (B-3 der Serverabnahme) — der Kontoauszug ist nicht betroffen, weil er einen anderen Weg
+  liest. Gehört in den Folge-Milestone.
+
+**Erfolgskriterien**
+
+- Ein deaktivierter Nutzer lässt sich in der Oberfläche wiederfinden und reaktivieren
+- Der Desktop zeigt für einen Nutzer mit Modellwechsel dieselben Wochenstunden, mit denen
+  er rechnet — vor und nach dem Stichtag geprüft
+- Die drei E2E-Dateien laufen ohne roten Fall
+- Kein Zeitraum in der Zukunft weist Überstunden aus
+- Der DATEV-Fehler erscheint als lesbarer Satz, nicht als JSON
+- Ein Vorgang trägt in Schaltfläche, Meldung und Datenbank denselben Namen
+- Alle geprüften Kontraste erreichen mindestens 4,5:1 für Fließtext bzw. 3:1 für Großtext,
+  in hell **und** dunkel
+- Alle Trefferflächen messen mindestens 32×32 px
+- Jeder Fix hat einen eigenen Commit und ist einzeln rückgängig machbar
+- Keine Zeile in `time_entries`, `absence_requests`, `overtime_corrections`,
+  `vacation_balance` und `vacation_transactions` wird angefasst
+
+**Abhängigkeit:** Phase 14.1 (die Abnahme, aus der die Befunde stammen)
+
+**Risiko:** Gering. Keiner der Befunde berührt das Rechenwerk; F-5 berührt die Deckelung aus
+14.1-01 und ist deshalb mit demselben Nachweis abzusichern.
+
+**Plans:** noch nicht aufgeteilt
+
+Plans:
+
+- [ ] TBD (`/gsd:plan-phase 14.2`)
+
 ---
 
 ## Phasen (abgeschlossen)
