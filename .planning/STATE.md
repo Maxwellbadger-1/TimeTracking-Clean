@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 14.1-02 abgeschlossen (BL-02 geschlossen, 2 Commits, Gates gruen). Naechster Plan 14.1-03 (BL-05). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
-last_updated: "2026-08-25T03:48:00.000Z"
-last_activity: 2026-08-25 -- Plan 14.1-02 abgeschlossen, BL-02 geschlossen (Journalzeilen 2 -> 0, Kontostand -168,00 h -> -176,00 h)
+stopped_at: Plan 14.1-03 abgeschlossen (BL-05 geschlossen, 2 Commits, Gates gruen). Naechster Plan 14.1-04 (BL-03). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
+last_updated: "2026-08-25T04:05:00.000Z"
+last_activity: 2026-08-25 -- Plan 14.1-03 abgeschlossen, BL-05 geschlossen (sick_credit-Zeilen 0 -> 1, +8,00 h unmittelbar nach dem Anlegen)
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 65
-  completed_plans: 52
+  completed_plans: 53
   percent: 57
 ---
 
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (2/6 Plänen fertig)
+- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (3/6 Plänen fertig)
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 14.1-03 (BL-05: Krankmeldung löst sofort dieselbe Neuberechnung aus) ausführen — Welle 3 ist durch den Abschluss von 14.1-02 entsperrt. **Vorgabe aus 14.1-02:** Der Importstil für `absenceService.ts` ist festgeschrieben — statischer Top-Level-Import, bereits im Dateikopf vorhanden; ein zweiter Importstil darf dort nicht entstehen (Begründung in `14.1-NACHWEIS-BL02.md`, Abschnitt 4). Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug) und die neue Entscheidung 14.1-U5 (work_time_accounts bleibt nach dem Löschen auf einem Zwischenstand; Details in deferred-items.md, Abschnitt „Aus Plan 14.1-02").
-- **Last completed:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad einer genehmigten Abwesenheit rechnet nachweislich neu: `overtime_transactions` mit der referenceId des Antrags 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h, beides unmittelbar nach der Löschung bei angehaltenem Nachtlauf. Gegenversuch protokolliert (ohne den Fix 2 von 3 Tests rot). 2 Commits, alle vier Gates grün (542 grün / 3 rot, rote Menge unverändert).
-- **Davor abgeschlossen:** Plan 14.1-01 — BL-01 geschlossen. Deckelung auf heute in `calculateCurrentOvertimeBalance()` und `calculatePeriodOvertime()`, `deletedAt`-Filter ergänzt. Nachgemessen an allen 15 aktiven Nutzern auf einer Produktionsarbeitskopie: 8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher. 4 Commits, alle vier Gates grün (539 grün / 3 rot, rote Menge unverändert).
-- **Stopped at:** Plan 14.1-01 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
+- **Next action:** Plan 14.1-04 (BL-03: Historien-Export filtert `status` und `deletedAt`, `totalOvertime` begrenzt) ausführen — Welle 4 ist durch den Abschluss von 14.1-03 entsperrt; der Plan arbeitet in `exportService.ts` und berührt `absenceService.ts` nicht. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug) sowie die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` bleibt nach dem Löschen einer Krankmeldung um 8,00 h zurück und wird beim Anlegen einer Krankmeldung gar nicht fortgeschrieben; Details in deferred-items.md, Abschnitte „Aus Plan 14.1-02" und „Aus Plan 14.1-03").
+- **Last completed:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
+- **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
+- **Stopped at:** Plan 14.1-03 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -248,6 +248,11 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.1]: PeriodOvertimeResult.endDate bleibt das ANGEFRAGTE Bereichsende, gerechnet wird bis effectiveEndDate — dieselbe Trennung wie journalEndDate gegen endDate in calculateLiveOvertimeTransactions; haelt die Ausgabe von snapshotBalances.ts unveraendert
 - [Phase 14.1]: Der Exitcode von verifyBalanceVsJournal.ts haengt allein an der BL-01-Kennzahl (Zukunftsdiff), nicht an der Journalsumme — sonst haengt ein Werkzeug dieses Plans dauerhaft an einem fremden, noch nicht entschiedenen Befund
 - [Phase 14.1]: Der neu entdeckte Befund (Abwesenheits-Gutschriften ohne Gegenbuchung im Kontoauszug) wurde NICHT mitrepariert, sondern in deferred-items.md vermerkt und als 14.1-U3 zur Entscheidung vorgelegt (D-07, D-09)
+- [Phase 14.1]: BL-05 — der Neuberechnungsblock gehoert in createAbsenceRequest, nicht in updateBalancesAfterApproval: diese Funktion hat zwei Aufrufer, und der regulaere Genehmigungsweg fuehrt den Block direkt danach ohnehin aus (er liefe dort sonst doppelt)
+- [Phase 14.1]: BL-05 nutzt den in Plan 14.1-02 festgeschriebenen statischen Top-Level-Import; kein await import fuer updateMonthlyOvertime, kein Signaturwechsel — createAbsenceRequest bleibt synchron und routes/absences.ts sowie 15 Testaufrufstellen bleiben unberuehrt
+- [Phase 14.1]: BL-05 — die Auto-Genehmigung von Krankmeldungen bleibt unveraendert und wird zusaetzlich durch Regressionstests festgeschrieben (approved, approvedBy/approvedAt NULL, kein audit_log, Abgrenzung zum pending-Urlaubsantrag), damit ein spaeterer Umbau daran scheitert statt still durchzugehen
+- [Phase 14.1]: BL-05 — der work_time_accounts-Block des regulaeren Weges wurde bewusst NICHT mitkopiert (D-05 benennt genau einen Block); die Lage wurde stattdessen gemessen (Kontostand bleibt um ein Tagessoll zurueck) und als 14.1-U8 zur Entscheidung vorgelegt (D-07, D-09)
+- [Phase 14.1]: Erklaerende Kommentare zitieren keine Fundstelle woertlich, die ein Abnahmekriterium per grep zaehlt — sonst zaehlt der Kommentar mit und die Kennzahl weist eine Aenderung aus, die es nicht gibt
 
 ## Quick Tasks Completed
 
@@ -331,6 +336,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14 P07 | 35min | 3 tasks | 9 files |
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P01 | 26min | 3 tasks | 9 files |
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P02 | 23min | 2 tasks | 5 files |
+| Phase 14.1 P03 (BL-05) | 14min | 2 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -367,7 +373,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Executing Phase 14.1
         Plan 14.1-05 ist autonomous: false und haelt in Welle 5 fuer eine Entscheidung
         des Anwenders zu Weg B (recordOvertimeCompensation) an.
@@ -377,7 +383,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-25 -- Plan 14.1-02 (BL-02) abgeschlossen, Welle 3 entsperrt
+Last activity: 2026-08-25 -- Plan 14.1-03 (BL-05) abgeschlossen, Welle 4 entsperrt
 
 ## Operator Next Steps
 

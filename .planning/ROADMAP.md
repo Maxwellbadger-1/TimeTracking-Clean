@@ -542,7 +542,8 @@ Plans:
 
 **Welle 3** *(blocked on Welle 2 — gleiche Datei `absenceService.ts`, gleicher Importstil)*
 
-- [ ] 14.1-03-PLAN.md — BL-05: Krankmeldung löst sofort dieselbe Neuberechnung aus; Auto-Genehmigung bleibt unverändert
+- [x] 14.1-03-PLAN.md — BL-05: Krankmeldung löst sofort dieselbe Neuberechnung aus; Auto-Genehmigung bleibt unverändert
+      *Abgeschlossen 2026-08-25 — 2 Commits, Gates gruen (547 gruen / 3 rot, rote Menge unveraendert; die gruene Menge ist um genau die 5 neuen Tests gewachsen). In Zahlen belegt: `overtime_transactions` mit `type = 'sick_credit'` 0 → 1 Zeile, Summe +8,00 h (genau ein Tagessoll), gemessen in der Anweisung unmittelbar nach `createAbsenceRequest` — bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage (D-11). Der Block steht in `createAbsenceRequest` und nicht in `updateBalancesAfterApproval`, weil diese Funktion zwei Aufrufer hat und der regulaere Weg ihn ohnehin direkt danach ausfuehrt. Derselbe Importstil wie 14.1-02 (statischer Top-Level-Import), kein Signaturwechsel. **Auto-Genehmigung unveraendert und jetzt festgeschrieben:** `approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`, Abgrenzung zum pending-Urlaubsantrag — drei Regressionstests. Die Bestandsantraege 46, 60, 68, 70 sind vor und nach dem Plan identisch, die fuenf nach D-08 geschuetzten Tabellen Zeile fuer Zeile unveraendert. Gegenversuch protokolliert (ohne den Fix Test 1 rot: `expected 0 to be greater than 0`). Zusammenfassung: `14.1-03-SUMMARY.md`, Nachweis: `14.1-NACHWEIS-BL05.md`. **Neu aufgekommen:** `work_time_accounts` wird beim Anlegen einer Krankmeldung nicht fortgeschrieben (Kontostand bleibt um ein Tagessoll zurueck) — vermerkt in `deferred-items.md` und als 14.1-U8 zur Entscheidung vorgelegt, NICHT mitrepariert; gehoert sachlich zu 14.1-U5.*
 
 **Welle 4** *(blocked on Welle 3)*
 
@@ -603,7 +604,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 2/6 | In Arbeit — 14.1-02 (BL-02) abgeschlossen 2026-08-25, Welle 3 entsperrt | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 3/6 | In Arbeit — 14.1-03 (BL-05) abgeschlossen 2026-08-25, Welle 4 entsperrt | — |
 
 ---
 
