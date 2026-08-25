@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 14-08 ABGEBROCHEN nach Task 3 Schritt E — Deployment erfolgreich (41c9c09 auf der Produktion, Migrationen 008-015 angewendet, integrity_check ok), aber Blockerbefund bei den Stundenstaenden. Task 3 Schritt F (Funktionstest) und G (Ausgangsstand fuer 14-09) nicht ausgefuehrt.
-last_updated: "2026-08-25T02:56:29.747Z"
-last_activity: 2026-08-25 -- Phase 14.1 execution started
+stopped_at: Plan 14.1-01 abgeschlossen (BL-01 geschlossen, 4 Commits, Gates gruen). Naechster Plan 14.1-02 (BL-02). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
+last_updated: "2026-08-25T03:24:00.000Z"
+last_activity: 2026-08-25 -- Plan 14.1-01 abgeschlossen, BL-01 geschlossen (8 betroffene Nutzer vorher, 0 nachher)
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 5
-  total_plans: 59
-  completed_plans: 50
-  percent: 63
+  total_plans: 65
+  completed_plans: 51
+  percent: 56
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14
+- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (1/6 Plänen fertig)
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** ENTSCHEIDUNG DES ANWENDERS zum Befund aus Plan 14-08: fix-overtime.ts hat beim Deployment 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben. Stand bestehen lassen oder Rueckweg B? Erst danach 14-09 (braucht zusaetzlich die vier D6-Werte und einen NEU erhobenen Ausgangsstand — der Stand von 11:15:41 taugt nicht mehr). Details in 14-PRODUKTIONSLAUF.md.
-- **Last completed:** Phase 13 vollständig — 11/11 Pläne, Code-Review 2 kritisch + 13 Warnungen behoben (15 fix(13-review)-Commits), Verifikation 4/4 Erfolgskriterien
-- **Stopped at:** Plan 14-08 ABGEBROCHEN nach Task 3 Schritt E — Deployment erfolgreich (41c9c09 auf der Produktion, Migrationen 008-015 angewendet, integrity_check ok), aber Blockerbefund bei den Stundenstaenden. Task 3 Schritt F (Funktionstest) und G (Ausgangsstand fuer 14-09) nicht ausgefuehrt.
+- **Next action:** Plan 14.1-02 (BL-02: `require()` durch ESM-Import ersetzen) ausführen — Welle 2 ist durch den Abschluss von 14.1-01 entsperrt. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md) und die neue Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug; Details in deferred-items.md, Abschnitt „Aus Plan 14.1-01").
+- **Last completed:** Plan 14.1-01 — BL-01 geschlossen. Deckelung auf heute in `calculateCurrentOvertimeBalance()` und `calculatePeriodOvertime()`, `deletedAt`-Filter ergänzt. Nachgemessen an allen 15 aktiven Nutzern auf einer Produktionsarbeitskopie: 8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher. 4 Commits, alle vier Gates grün (539 grün / 3 rot, rote Menge unverändert).
+- **Stopped at:** Plan 14.1-01 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -243,6 +243,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14]: Die Planannahme 'der Backfill kann die D5-Zahlen nicht bewegen' ist widerlegt: rebuildOvertimeTransactionsForMonth schreibt ueber STEP 7 auch overtime_balance, und snapshotBalances.ts liest daraus — der D5-Diff zeigte 164 Zeilen bei 8 von 20 Nutzern
 - [Phase 14]: Findelogik des Backfills korrigiert: massgeblich ist der letzte Tag mit Sollstunden ODER Zeiteintrag ODER genehmigter Abwesenheit — die Planregel uebersah zwei Aushilfen (weeklyHours=0) mit echten, nicht gebuchten Arbeitsstunden am 31.07.2026
 - [Phase 14]: backfillOvertimeJournal.ts erhaelt den Schalter --all-months (Vorgabe aus); die Wahl zwischen Teilaufbau (2 Nutzer besser, 3 schlechter) und Vollaufbau (13 von 15 deckungsgleich, keiner schlechter) gehoert nach D2 dem Anwender und wird in Plan 14-10 getroffen
+- [Phase 14.1]: BL-01 — die Deckelung auf heute wurde an beiden Stellen eingesetzt statt als Hilfsfunktion nach utils/timezone.ts gezogen (Freiheitsgrad aus D-01); die bereits korrekte WR-10-Vorlage bleibt damit unangetastet
+- [Phase 14.1]: PeriodOvertimeResult.endDate bleibt das ANGEFRAGTE Bereichsende, gerechnet wird bis effectiveEndDate — dieselbe Trennung wie journalEndDate gegen endDate in calculateLiveOvertimeTransactions; haelt die Ausgabe von snapshotBalances.ts unveraendert
+- [Phase 14.1]: Der Exitcode von verifyBalanceVsJournal.ts haengt allein an der BL-01-Kennzahl (Zukunftsdiff), nicht an der Journalsumme — sonst haengt ein Werkzeug dieses Plans dauerhaft an einem fremden, noch nicht entschiedenen Befund
+- [Phase 14.1]: Der neu entdeckte Befund (Abwesenheits-Gutschriften ohne Gegenbuchung im Kontoauszug) wurde NICHT mitrepariert, sondern in deferred-items.md vermerkt und als 14.1-U3 zur Entscheidung vorgelegt (D-07, D-09)
 
 ## Quick Tasks Completed
 
@@ -324,6 +328,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14-absicherung-und-auslieferung P05 | ~25min | 3 tasks | 7 files |
 | Phase 14-absicherung-und-auslieferung P06 | 15min | 2 tasks | 1 files |
 | Phase 14 P07 | 35min | 3 tasks | 9 files |
+| Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P01 | 26min | 3 tasks | 9 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -402,3 +407,4 @@ auf zwei davon.
 
 - Plan 14-10 blockiert: Der Journal-Backfill bewegt den fuer Mitarbeiter sichtbaren Saldo (overtime_balance) bei 8 von 20 Nutzern der Produktionskopie um bis zu 84 Stunden. Der in 14-10 vorgesehene Teilaufbau ist zudem der messbar schlechtere Weg (2 Nutzer besser, 3 schlechter gegenueber dem kanonischen Rechenweg; Vollaufbau: 13 von 15 deckungsgleich, keiner schlechter). Entscheidung des Anwenders noetig: (a) Teilaufbau, (b) Vollaufbau mit --all-months, (c) verschieben. Messwerte in 14-URTEIL-PHASE-9.1.md Abschnitt 8.
 - Plan 14-08 nach Task 3 Schritt E abgebrochen: Deployment (Lauf 32632007657, success) hat die Migrationen 008-015 angewendet — diese bewegen nachweislich keine Zahl (Vorhersagemessung vor dem Push: 0 Differenzen). Aber fix-overtime.ts hat danach 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben (Summe -98,5 h; groesste Einzelbewegung -84 h bei userId 16 Benedikt Jochem). Das verletzt die Zusicherung des Anwenders, dass sich an den Stundenstaenden nichts aendert. Richtung gemessen: 13 von 15 aktiven Nutzern stimmen jetzt exakt mit dem kanonischen Rechenweg ueberein (vorher 7 von 15), kein Nutzer steht schlechter — zahlengleich der Zustand, den der Anwender fuer 14-10 (Vollaufbau) gewaehlt hat. Nichts verloren: Journal, Zeiteintraege, Urlaub, Stammdaten unveraendert. Entscheidung noetig: (a) Stand bestehen lassen, (b) Rueckweg B (Daten UND Code, nimmt den gesamten v3.0-Milestone zurueck). Geprueft Sicherung production.PRE-14-08_20260823_111541.db liegt doppelt vor. Zahlen in 14-PRODUKTIONSLAUF.md und 14-VERGLEICH-VOR-NACH.md.
+- Entscheidung des Anwenders noetig (14.1-U3, aufgekommen in Plan 14.1-01): Im Kontoauszug erzeugt ein Urlaubs- oder Krankheitstag NUR die Gutschriftszeile (+ Tagessoll) und KEINE Soll-Gegenbuchung. Die Buchungsliste summiert sich dadurch hoeher als der Saldo darueber — nachgemessen am 25.08.2026 gegen eine Arbeitskopie von 14-prod-nach-migration.db: Nutzer 16 = 30,00 h, Nutzer 17 = 8,00 h, Nutzer 3 = 4,00 h. Anders als bei BL-01 ist hier der Saldo richtig und die Liste falsch. Solange das offen ist, ist das ERSTE ERFOLGSKRITERIUM der Phase 14.1 ("Saldo = Summe der Buchungen darunter, fuer jeden Nutzer") nur fuer die BL-01-Ursache erreicht (8 betroffene Nutzer vorher, 0 nachher), nicht insgesamt (9 vorher, 3 nachher). Zwei Loesungswege ausformuliert in .planning/phases/14-absicherung-und-auslieferung/deferred-items.md, Abschnitt "Aus Plan 14.1-01 (25.08.2026)", Eintrag 1. Zahlen in 14.1-NACHWEIS-BL01.md, Abschnitt 5.

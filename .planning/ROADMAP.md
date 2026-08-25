@@ -532,7 +532,8 @@ Plans:
 
 **Welle 1**
 
-- [ ] 14.1-01-PLAN.md — BL-01: Saldo über dem Kontoauszug auf heute deckeln, `deletedAt` filtern; dazu die bewusste Änderung des Phase-12-Tests (D-10)
+- [x] 14.1-01-PLAN.md — BL-01: Saldo über dem Kontoauszug auf heute deckeln, `deletedAt` filtern; dazu die bewusste Änderung des Phase-12-Tests (D-10)
+      *Abgeschlossen 2026-08-25 — 4 Commits, Gates gruen (539 gruen / 3 rot, rote Menge unveraendert). Nachgemessen an allen 15 aktiven Nutzern: 8 mit Zukunftsdifferenz vorher, 0 nachher. Nachweis: `14.1-NACHWEIS-BL01.md`, Zusammenfassung: `14.1-01-SUMMARY.md`. **Offen geblieben:** Das erste Erfolgskriterium der Phase ist nur fuer die BL-01-Ursache erreicht — ein zweiter, neu entdeckter Befund (Abwesenheits-Gutschriften ohne Gegenbuchung) laesst fuer 3 Nutzer eine Restdifferenz stehen; vermerkt in `deferred-items.md` und als 14.1-U3 zur Entscheidung vorgelegt.*
 
 **Welle 2** *(blocked on Welle 1)*
 
@@ -601,6 +602,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 1/6 | In Arbeit — 14.1-01 (BL-01) abgeschlossen 2026-08-25, Welle 2 entsperrt | — |
 
 ---
 
