@@ -483,24 +483,8 @@ export function UserManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
-                            {!user.isActive ? (
-                              // Deleted user - show reactivate button
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={async () => {
-                                  try {
-                                    await reactivateUser.mutateAsync(user.id);
-                                  } catch (error) {
-                                    // Error handled by hook
-                                  }
-                                }}
-                                disabled={reactivateUser.isPending}
-                              >
-                                Reaktivieren
-                              </Button>
-                            ) : (
-                              // Active user - show edit/reset password/delete buttons
+                            {status === 'active' ? (
+                              // Aktiver Nutzer: Bearbeiten / Passwort zuruecksetzen / Loeschen
                               <>
                                 {/* WR-12: Der Button trug bisher gar keinen zugaenglichen
                                     Namen ausser "Bearbeiten" — in einer Tabelle mit einer
@@ -533,6 +517,51 @@ export function UserManagementPage() {
                                   </Button>
                                 )}
                               </>
+                            ) : status === 'deactivated' ? (
+                              // F-4: Nur deaktiviert (deletedAt IS NULL) — auffindbar UND
+                              // bearbeitbar, kein Loeschen/Passwort-Zuruecksetzen (Ausweitung
+                              // ueber den Befund hinaus, siehe UAT-Kandidat im SUMMARY)
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  aria-label={`Bearbeiten: ${user.firstName} ${user.lastName}`}
+                                  onClick={() => setEditingUserId(user.id)}
+                                >
+                                  Bearbeiten
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={async () => {
+                                    try {
+                                      await reactivateUser.mutateAsync(user.id);
+                                    } catch (error) {
+                                      // Error handled by hook
+                                    }
+                                  }}
+                                  disabled={reactivateUser.isPending}
+                                >
+                                  Reaktivieren
+                                </Button>
+                              </>
+                            ) : (
+                              // Archiviert (soft-geloescht, deletedAt IS NOT NULL) — die
+                              // Soft-Delete-Semantik bleibt sichtbar getrennt, nur Reaktivieren
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                onClick={async () => {
+                                  try {
+                                    await reactivateUser.mutateAsync(user.id);
+                                  } catch (error) {
+                                    // Error handled by hook
+                                  }
+                                }}
+                                disabled={reactivateUser.isPending}
+                              >
+                                Reaktivieren
+                              </Button>
                             )}
                           </div>
                         </td>
