@@ -370,3 +370,41 @@ Zwei vorhandene WR-Vermerke derselben Funktion (WR-09 zum Ergebnistyp, WR-10 zu 
 `yearPlaceholders`) wurden **gelesen und als Muster benutzt**, aber nicht verändert: Der neue
 Nutzerfilter folgt dem `yearPlaceholders`-Muster, der WR-09-Kommentar steht unverändert über
 derselben Zuweisung.
+
+---
+
+## Aus Plan 14.1-05 (25.08.2026) — BL-04
+
+### 1. Alt-Abzüge in `overtime_balance` aus der Zeit vor dem Fix — nicht gesucht, nicht repariert
+
+**Gefunden:** Plan 14.1-05, Task 1, beim Vermessen des entfernten FIFO-Abzugs.
+**Nicht repariert** — bewusst, Begründung unten.
+
+Der entfernte Weg A schrieb bei jeder Genehmigung eines Überstundenausgleichs 8,00 h (bzw. das
+jeweilige Tagessoll) von Hand aus `overtime_balance` heraus — und zwar aus dem **ältesten**
+Monat mit positivem Saldo, nicht aus dem Monat des Ausgleichstags. Sein Rückgabezweig war
+wirkungslos (die Schleife brach bei negativem Argument sofort ab). Im Bestand gibt es drei
+genehmigte Ausgleiche (Anträge 25, 56, 64, Nutzer 18, 17, 3). Ob deren Abzug heute noch in
+einer Monatszeile steht, wurde in diesem Plan **nicht** gemessen.
+
+**Warum das vertretbar ist:** `overtime_balance` ist eine abgeleitete Tabelle. Jede
+Berichtsabfrage eines Monats ruft `updateMonthlyOvertime` und überschreibt die Zeile aus
+Zeiterfassung, Abwesenheiten und Korrekturen — der Alt-Abzug löst sich dabei auf. Genau diese
+Selbstheilung ist der Grund, warum der Befund überhaupt so lange unbemerkt blieb. Nach dem Fix
+kommt kein neuer Abzug hinzu.
+
+**Warum es trotzdem hier steht:** Der nächtliche Lauf ist seit dem 23.08.2026 angehalten
+(D-11). Solange er steht und niemand den betroffenen Monat abruft, kann eine alte Zeile
+stehenbleiben. Eine Nachmessung gehört sachlich zur Datenbereinigung (Plan 14.1-06, D-06) und
+nicht in den Code-Fix von BL-04 — sie würde Daten anfassen, und D-06 verlangt dafür Sicherung
+und Trockenlauf.
+
+Als Punkt **14.1-U15** in `14-UAT-SAMMLUNG.md` eingetragen.
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.1-05 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt
+sich auf `server/src/services/absenceService.ts`. `overtimeTransactionRebuildService.ts`
+(WR-01) wurde **gelesen und zitiert** — `REBUILDABLE_TYPES` (`:153-166`) und `handleAbsenceDay`
+(`:383-451`) tragen die Belege für die Entscheidung zu Weg B —, aber in keinem Commit
+verändert.
