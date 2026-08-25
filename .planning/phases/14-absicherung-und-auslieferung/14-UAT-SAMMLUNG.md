@@ -512,3 +512,22 @@ Transparenz separat gezählt): 14 Punkte — 11-U6, P12-18 (→13-U11); P12-37, 
 (→13-U18); P12-6, P12-8 (→22).
 
 **6 (Phase 11) + 51 (Phase 12) + 29 (Phase 13) = 86 — Kontrollsumme bestätigt.**
+
+---
+
+## Phase 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen
+
+Quelle: `.planning/phases/14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen/`.
+Angefügt am 25.08.2026 nach Plan 14.1-01 (BL-01). Nur Punkte, die ein Mensch beurteilen oder
+entscheiden muss — alles maschinell Prüfbare ist in `14.1-NACHWEIS-BL01.md` mit Zahlen belegt.
+
+| # | Prüfung | Erwartung | Warum ein Mensch |
+|---|---|---|---|
+| 14.1-U1 | Kontoauszug eines Nutzers **ohne** Abwesenheit im laufenden Monat öffnen (z. B. Nutzer 18, 20, 21 oder 25), Monat = laufender Monat, an einem Tag, der **nicht** der Monatsletzte ist | Der fette „Zeitkonto-Saldo" über der Tabelle ist identisch mit der Summe der Buchungen darunter. Vor dem Fix lag er bei Nutzer 18 um 20,00 h, bei Nutzer 25 um 6,40 h zu niedrig | Die Zahl steht auf dem Bildschirm eines Mitarbeiters; nur ein Mensch sieht, ob die beiden Zahlen dort tatsächlich nebeneinander stimmen |
+| 14.1-U2 | Denselben Kontoauszug für einen **künftigen** Monat öffnen | Der Saldo zeigt keine erfundenen Minusstunden für Tage, die noch nicht stattgefunden haben | Beurteilung der Darstellung, nicht des Rechenwegs |
+| 14.1-U3 | **Entscheidung:** Wie sollen Urlaubs- und Krankheitstage im Kontoauszug erscheinen? Heute erzeugt ein solcher Tag **nur** die Gutschriftszeile (+ Tagessoll) und **keine** Soll-Gegenbuchung; die Liste summiert sich dadurch höher als der Saldo (Nutzer 16: 30,00 h, Nutzer 17: 8,00 h, Nutzer 3: 4,00 h — gemessen am 25.08.2026). Weg 1: Gegenbuchung sichtbar machen (−4,00 h neben +4,00 h). Weg 2: Gutschriftszeile auf `hours: 0` setzen, wie es die `model_change`-Zeilen bereits tun | Eine der beiden Darstellungen wird festgelegt und danach umgesetzt | Reine Darstellungsentscheidung mit Wirkung auf jeden Mitarbeiterbildschirm. Vollständig beschrieben in `deferred-items.md`, Abschnitt „Aus Plan 14.1-01 (25.08.2026)", Eintrag 1, und in `14.1-NACHWEIS-BL01.md`, Abschnitt 5 |
+| 14.1-U4 | **Kenntnisnahme:** Das erste Erfolgskriterium der Phase 14.1 („Saldo = Summe der Buchungen, für jeden Nutzer") ist nach Plan 14.1-01 für die BL-01-Ursache erreicht (8 betroffene Nutzer vorher → 0 nachher), für die unter 14.1-U3 beschriebene zweite Ursache **noch nicht** (9 → 3 Nutzer) | Der Anwender nimmt zur Kenntnis, dass das Kriterium erst mit der Entscheidung aus 14.1-U3 vollständig erfüllt ist | Bewertung eines Erfolgskriteriums, keine technische Prüfung |
+
+**Nicht Gegenstand dieser Punkte:** WR-01 bis WR-10 (eigener Milestone nach der Auslieferung,
+D-09) sowie Push, Deployment und Zugriff auf die Produktionsdatenbank (D-13 — die Auslieferung
+entscheidet der Anwender gesondert).
