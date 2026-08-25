@@ -551,9 +551,10 @@ Plans:
 
 **Welle 5** *(blocked on Welle 4 und 14.1-02 — gleiche Datei, und Weg C ist im Löschpfad erst nach BL-02 erreichbar)*
 
-- [ ] 14.1-05-PLAN.md — BL-04: Nachmessung, Entscheidung des Anwenders zu Weg B (Checkpoint), Weg A samt beiden Aufrufern entfernen
+- [x] 14.1-05-PLAN.md — BL-04: Nachmessung, Entscheidung zu Weg B, Weg A samt beiden Aufrufern entfernen
+      *Abgeschlossen 2026-08-25 — 3 Commits, Gates gruen (557 gruen / 3 rot, rote Menge unveraendert). Die von D-04 verlangte Nachmessung an Testdaten wurde VOR dem Entfernen gefuehrt und hat zwei Dinge zutage gefoerdert, die der Befund nicht kannte: Weg A hatte ZWEI Aufrufer (CONTEXT.md nennt nur einen), und der zweite war seit jeher wirkungslos (negatives Argument, Schleife bricht sofort ab) — genau deshalb fehlten nach Ablehnung und Loeschung je 8,00 h. In Zahlen belegt: Sprung zwischen Saldo nach Genehmigung und Saldo nach der naechsten Neuberechnung −8,00 h → 0,00 h; actualHours des fremden, laengst abgeschlossenen Vormonats nach der Genehmigung 244,00 h → 252,00 h; Rueckgabe bei Ablehnung und bei Loeschung je −8,00 h → 0,00 h. Ein Probelauf mit auskommentierten Aufrufern belegte VOR dem Entfernen, dass Weg C beide Rueckgabewege allein traegt. **Entscheidung zu Weg B (Anwender, 25.08.2026): option-a — die compensation-Journalzeile bleibt als Pruefnachweis.** Sie ruht auf zwei Messwerten, nicht auf einer Formulierung: Die Zeile ueberlebt das erzwungene updateMonthlyOvertime (1 Zeile davor, 1 danach) und bewegt keinen Saldo (76,00 h mit wie ohne sie). „Genau eine Spur, nicht drei" ist damit im Sinne von genau einer SALDOWIRKSAMEN Spur erfuellt. Weg C unveraendert, der sick-Zweig aus BL-02 erreichbar geblieben. Gegenversuch protokolliert (ohne den Fix 3 von 4 Tests rot, darunter die Kernzusicherung). Zusammenfassung: `14.1-05-SUMMARY.md`, Nachweis: `14.1-NACHWEIS-BL04.md`. **Neu aufgekommen, NICHT mitrepariert:** Ob die drei Bestandsausgleiche (Antraege 25, 56, 64) heute noch einen Alt-Abzug in `overtime_balance` stehen haben, wurde nicht gemessen — das waere ein Datenzugriff und gehoert nach D-06 in die Datenbereinigung; vermerkt in `deferred-items.md` und als 14.1-U15 zur Entscheidung vorgelegt.*
 
-**Welle 6** *(blocked on Welle 5 und 14.1-01 — die Bereinigung läuft zuletzt und nach dem BL-01-Fix)*
+**Welle 6** *(entsperrt — Welle 5 abgeschlossen; die Bereinigung läuft zuletzt und nach dem BL-01-Fix)*
 
 - [ ] 14.1-06-PLAN.md — Datenbereinigung: Sicherung → Trockenlauf → Prüfung → `--apply` → Wiederherstellungsnachweis
 
@@ -604,7 +605,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 4/6 | In Arbeit — 14.1-04 (BL-03) abgeschlossen 2026-08-25, Welle 5 entsperrt (14.1-05 ist `autonomous: false`) | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 5/6 | In Arbeit — 14.1-05 (BL-04) abgeschlossen 2026-08-25, Welle 6 entsperrt (Datenbereinigung, D-06) | — |
 
 ---
 

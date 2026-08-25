@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 14.1-04 abgeschlossen (BL-03 geschlossen, 2 Commits, Gates gruen). Naechster Plan 14.1-05 (BL-04) - autonomous false, haelt fuer eine Entscheidung des Anwenders zu Weg B an. Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
-last_updated: "2026-08-25T04:30:00.000Z"
-last_activity: 2026-08-25 -- Plan 14.1-04 abgeschlossen, BL-03 geschlossen (abgelehnte Antraege im Export 15 -> 0, stillgelegte Konten 5 -> 0, totalOvertime -2954,21 h -> 105,75 h)
+stopped_at: Plan 14.1-05 abgeschlossen (BL-04 geschlossen, 3 Commits, Gates gruen). Naechster und letzter Plan der Phase 14.1 ist 14.1-06 (Datenbereinigung der drei Zukunftsmonate, D-06 - zweistufig mit Sicherung und Trockenlauf). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
+last_updated: "2026-08-25T04:54:00.000Z"
+last_activity: 2026-08-25 -- Plan 14.1-05 abgeschlossen, BL-04 geschlossen (Sprung im Saldo nach einer Genehmigung -8,00 h -> 0,00 h; Rueckgabe bei Ablehnung und Loeschung je -8,00 h -> 0,00 h; Weg B bleibt als Pruefnachweis)
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 65
-  completed_plans: 54
-  percent: 57
+  completed_plans: 55
+  percent: 58
 ---
 
 # Project State
@@ -25,14 +25,15 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (4/6 Plänen fertig)
+- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (5/6 Plänen fertig)
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 14.1-05 (BL-04: Ein genehmigter Überstundenausgleich hinterlässt genau eine Spur, nicht drei) ausführen — Welle 5 ist durch den Abschluss von 14.1-04 entsperrt. **Achtung:** 14.1-05 ist `autonomous: false` und hält für eine Entscheidung des Anwenders zu Weg B (`recordOvertimeCompensation`) an. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug), die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` zieht weder beim Löschen noch beim Anlegen einer Krankmeldung mit) sowie **14.1-U11** (der Historien-Export trägt weiterhin 102 Zeiteinträge und 1 genehmigten Antrag stillgelegter Konten — eine Aufbewahrungsfrage, keine Fehlerkorrektur; Details in deferred-items.md, Abschnitt „Aus Plan 14.1-04").
-- **Last completed:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
+- **Next action:** Plan 14.1-06 (Datenbereinigung der drei Zukunftsmonats-Datenreste) ausführen — Welle 6 ist durch den Abschluss von 14.1-05 entsperrt. Das ist der **einzige** Schritt der Phase, der Daten löscht, und er ist nach D-06 zwingend zweistufig: vorherige Sicherung → Trockenlauf ohne Schreibzugriff → Prüfung der Trockenlauf-Ausgabe → `--apply` → Nachweis, dass die gelöschten Zeilen aus der Sicherung wiederherstellbar sind. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug), die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` zieht weder beim Löschen noch beim Anlegen einer Krankmeldung mit), **14.1-U11** (der Historien-Export trägt weiterhin 102 Zeiteinträge und 1 genehmigten Antrag stillgelegter Konten) sowie neu **14.1-U15** (ob die Datenbereinigung die drei Bestandsausgleiche 25, 56, 64 zusätzlich auf Alt-Abzüge in `overtime_balance` nachmisst — Details in deferred-items.md, Abschnitt „Aus Plan 14.1-05").
+- **Last completed:** Plan 14.1-05 — BL-04 geschlossen. Der handgeschriebene FIFO-Abzug in `overtime_balance` (Weg A) ist samt **beiden** Aufrufern und der Funktionsdefinition ersatzlos entfernt; projektweit 0 Treffer. Die von D-04 verlangte Nachmessung lief **vor** dem Entfernen und förderte zwei Dinge zutage, die der Befund nicht kannte: Weg A hatte zwei Aufrufer (14.1-CONTEXT.md nennt nur einen), und der zweite war seit jeher wirkungslos — er rief den Abzug mit negativem Argument auf, dessen Schleife sofort abbricht; genau deshalb fehlten nach Ablehnung und Löschung je 8,00 h. Gemessen: Sprung zwischen Saldo nach Genehmigung und Saldo nach der nächsten Neuberechnung **−8,00 h → 0,00 h**, `actualHours` des fremden, längst abgeschlossenen Vormonats **244,00 h → 252,00 h**, Rückgabe bei Ablehnung und bei Löschung je **−8,00 h → 0,00 h**. **Entscheidung des Anwenders zu Weg B: `option-a`** — die `compensation`-Journalzeile bleibt als Prüfnachweis, gestützt auf zwei Messwerte (sie überlebt die Neuberechnung: 1 Zeile davor, 1 danach; sie bewegt den Saldo um 0,00 h). Drei Commits (`67647b6` Nachmessung, `24bfb75` fix, `50e8b7b` Zusicherungen), alle vier Gates grün (557 grün / 3 rot bei einem Ausgangsstand von 553/3), D-08-Prüfsummen unverändert, die Anträge 25/56/64 unangetastet, kein Push.
+- **Davor abgeschlossen:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
 - **Davor abgeschlossen:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
-- **Stopped at:** Plan 14.1-04 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
+- **Stopped at:** Plan 14.1-05 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -86,6 +87,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Decisions
 
+- [Phase 14.1 / Plan 14.1-05]: **BL-04 / Weg B — `option-a` (Anwender, 25.08.2026):** Die `compensation`-Journalzeile bleibt als Prüfnachweis. Sie ist seit dem Rebuild-Fix vom 18.08.2026 dauerhaft (gemessen: 1 Zeile vor und nach einer Neuberechnung) und bewegt keinen Saldo (gemessen: 76,00 h mit wie ohne sie). „Genau eine Spur, nicht drei" wird als genau eine **saldowirksame** Spur gelesen.
+- [Phase 14.1 / Plan 14.1-05]: **BL-04 / Weg A entfernt, samt beiden Aufrufern.** Der zweite Aufrufer (in `revertBalancesAfterDeletion`) stand nicht in 14.1-CONTEXT.md und war außerdem seit jeher wirkungslos — negatives Argument, Schleife bricht bei `remainingHours <= 0` sofort ab. Genau deshalb fehlten nach Ablehnung und Löschung je 8,00 h.
+- [Phase 14.1 / Plan 14.1-05]: Das Abnahmekriterium „`grep -c recordOvertimeCompensation` in `absenceService.ts` = 1" ist eine Fehlzählung des Planers (gemessen: 2, beide Zeilen gehören zu Weg B). Benannt und begründet, statt den Code an die Zahl anzupassen.
+- [Phase 14.1 / Plan 14.1-05]: Mögliche Alt-Abzüge im Bestand (Anträge 25, 56, 64) wurden **nicht gemessen und nicht repariert** — das wäre ein Datenzugriff und gehört nach D-06 in die Datenbereinigung (Plan 14.1-06). Als 14.1-U15 zur Entscheidung vorgelegt.
 - **01-server-db-consolidation-01:** Used chmod 750 for /home/ubuntu/databases/ directories — tighter than 755 minimum, excludes other users entirely for better security
 - [Phase 01-server-db-consolidation]: LIVE_DB_PATH confirmed as /home/ubuntu/database-shared.db — symlink server/database.db already points to it
 - [Phase 01-server-db-consolidation]: Use pm2 pid <name> (not pgrep -f) for reliable PM2 process PID resolution
@@ -339,6 +344,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P02 | 23min | 2 tasks | 5 files |
 | Phase 14.1 P03 (BL-05) | 14min | 2 tasks | 5 files |
 | Phase 14.1 P04 (BL-03) | 25min | 2 tasks | 5 files |
+| Phase 14.1 P05 (BL-04) | 22min | 3 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
