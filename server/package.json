@@ -18,6 +18,7 @@
     "apply:model-change": "tsx src/scripts/applyModelChange.ts",
     "backfill:overtime-journal": "tsx src/scripts/backfillOvertimeJournal.ts",
     "purge:future-overtime": "tsx src/scripts/purgeFutureOvertimeRows.ts",
+    "check:protected-tables": "tsx src/scripts/protectedTablesChecksum.ts",
     "seed:model-change": "tsx src/scripts/seedModelChangeUser.ts",
     "verify:period-nulleffect": "tsx src/scripts/verifyPeriodNullEffect.ts",
     "verify:balance-vs-journal": "tsx src/scripts/verifyBalanceVsJournal.ts",

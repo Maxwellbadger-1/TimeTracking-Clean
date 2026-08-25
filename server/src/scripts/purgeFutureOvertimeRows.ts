@@ -100,12 +100,13 @@
 
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { createHash } from 'crypto';
 import { assertNotProduction } from './productionGuard.js';
 import { getDatabasePath } from '../config/database.js';
-// Reiner Typ-Import — vom Compiler restlos entfernt, erzeugt zur Laufzeit keinen Import
-// (dieselbe Begruendung wie in snapshotBalances.ts und verifyPeriodNullEffect.ts).
-import type { Database as BetterSqlite3Database } from 'better-sqlite3';
+import {
+  PROTECTED_TABLES,
+  measureProtectedTables,
+  printProtectedTables,
+} from './protectedTables.js';
 
 // ---------------------------------------------------------------------------------------
 // Praedikat-Konstanten
@@ -141,14 +142,10 @@ export const EXCLUDED_USER_IDS: readonly number[] = [15015];
 /** Die Zahl aus dem Roadmap-Befund, gegen die der Trockenlauf gestellt wird (D-06). */
 const ROADMAP_ZAHL = 59;
 
-/** Die fuenf nach D-08 geschuetzten Tabellen — in ihnen wird keine Zeile angefasst. */
-export const PROTECTED_TABLES: readonly string[] = [
-  'time_entries',
-  'absence_requests',
-  'overtime_corrections',
-  'vacation_balance',
-  'vacation_transactions',
-];
+// Die fuenf nach D-01/D-08 geschuetzten Tabellen — in ihnen wird keine Zeile angefasst.
+// Deklaration und Messfunktionen wanderten in `protectedTables.ts` (Phase 14.2, Task 1);
+// dieser Re-Export haelt den bisherigen oeffentlichen Import-Pfad bestehen.
+export { PROTECTED_TABLES };
 
 const TYPE_PLACEHOLDERS = REBUILDABLE_TYPES.map(() => '?').join(', ');
 const USER_PLACEHOLDERS = EXCLUDED_USER_IDS.map(() => '?').join(', ');
@@ -216,34 +213,6 @@ interface BalanceFinding {
 
 interface CountRow {
   c: number;
-}
-
-interface ProtectedMetric {
-  table: string;
-  rowCount: number;
-  checksum: string;
-}
-
-/**
- * Zeilenzahl und SHA-256 ueber alle Zeilen einer Tabelle (nach `id` sortiert, JSON-
- * Darstellung) — dasselbe Verfahren wie in den Nachweisen zu BL-01 bis BL-04, damit die
- * Werte ueber die ganze Phase hinweg vergleichbar bleiben (D-08).
- */
-function measureProtectedTables(db: BetterSqlite3Database): ProtectedMetric[] {
-  return PROTECTED_TABLES.map((table) => {
-    const rows = db.prepare(`SELECT * FROM ${table} ORDER BY id ASC`).all() as unknown[];
-    const checksum = createHash('sha256').update(JSON.stringify(rows)).digest('hex');
-    return { table, rowCount: rows.length, checksum };
-  });
-}
-
-function printProtectedTables(label: string, metrics: ProtectedMetric[]): void {
-  console.log(`=== D-08 — die fuenf geschuetzten Tabellen (${label}) ===`);
-  for (const m of metrics) {
-    console.log(
-      `  ${m.table.padEnd(22)} Zeilen=${String(m.rowCount).padStart(5)}  sha256=${m.checksum}`
-    );
-  }
 }
 
 function printJournalFinding(indent: string, f: JournalFinding): void {
