@@ -624,3 +624,70 @@ Plan 14.2-02 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix
 sich auf `server/src/services/userService.ts` und `server/src/routes/users.ts`; keine der in
 den Warnungen genannten Dateien steht in einem seiner Commits.
 Zukunftsdaten mit gleichlautender Begründung aus; CR-01 und CR-06 sind Folgen dieser Lücke.
+
+---
+
+## Aus Plan 14.2-03 (26.08.2026) — F-4
+
+### 1. Zwei zusaetzliche rote Server-Tests, datumsabhaengig, ohne Codebezug zu F-4
+
+**Gefunden:** Plan 14.2-03, Task 3, beim Abschlussgate (`cd server && npx vitest run`).
+
+**Befund:** Gegenueber dem in `14.2-CONTEXT.md`/`14.2-NACHWEIS-D01.md` festgehaltenen
+Ausgangsstand (562 gruen / 3 rot vor Plan 14.2-02, 567 gruen / 3 rot nach Plan 14.2-02) zeigt
+der Testlauf am Ende von Plan 14.2-03 **565 gruen / 5 rot** (570 Faelle insgesamt, Zahl
+unveraendert). Die drei vorbestehenden roten Faelle (`unifiedOvertimeService.test.ts:285`,
+`:340`, `vacationBackfillService.test.ts:138`) sind weiterhin rot. **Zwei zusaetzliche** sind
+neu rot:
+
+- `overtimeFutureCapping.test.ts` — „Test 2: Der Saldo stimmt mit der Summe der darunter
+  gezeigten Buchungen ueberein" — `expected 1 to be +0`
+- `workPeriodChangeService.test.ts` — „CR-01: Die model_change-Zeile wird in KEINEM
+  transaktionssummierenden Lesepfad mitgezaehlt" — `expected 4 to be less than 0.011`
+
+**Ursache (belegt, nicht vermutet):** Beide Testdateien legen „heute" bei Modul-Ladezeit in
+einer Konstante fest (`const TODAY = getTodayString();` bzw. `const today = ...`) und
+vergleichen damit spaeter zwei Aufrufe derselben Berechnungskette
+(`calculateLiveOvertimeTransactions` vs. `calculateCurrentOvertimeBalance`), die intern
+selbst je einmal frisch „heute" ermitteln (`unifiedOvertimeService.ts:183-186`,
+`overtimeLiveCalculationService.ts:210-227`, beides 14.1-BL-01-Deckelungscode). Die
+Abweichungsgroesse (1 h bzw. 4 h) entspricht in beiden Faellen genau dem Tagessoll eines
+einzelnen Werktags — dem Muster eines Datumsgrenzfalls zwischen dem eingefrorenen
+Modul-Zeitpunkt und der intern neu ermittelten Zeit, nicht einem Rechenfehler in der Logik
+selbst.
+
+**Kein Codebezug zu diesem Plan:** `git diff <Plan-02-Endcommit>..HEAD --stat` zeigt fuer die
+Commits dieses Plans ausschliesslich `desktop/src/pages/UserManagementPage.tsx` und
+`desktop/tests/messungen/f4-aktionsspalte.mjs` — keine Datei aus `server/src/services/`.
+`overtimeFutureCapping.test.ts` und `workPeriodChangeService.test.ts` gehoeren zu Phase 14.1
+(BL-01/CR-01) und liegen ausserhalb des Aenderungsumfangs jedes Commits dieses Plans. Ein
+Domain-Bezug (Desktop-UI-Seite der Nutzerverwaltung vs. serverseitiges Ueberstunden-Rechenwerk)
+besteht nicht — kein Importpfad verbindet beide Seiten.
+
+**Nicht behoben (Scope Fence, D-02):** Diese zwei Dateien liegen ausserhalb von F-4 und wurden
+bewusst **nicht** angefasst — ein Fix haette einen zweiten Befund in denselben Commit-Satz
+gemischt. Kein erneuter Testlauf zur Bestaetigung „hoffentlich verschwindet es wieder"
+(Scope-Boundary-Regel); die Reproduktion war bei zwei unabhaengigen frischen
+`npx vitest run`-Prozessen identisch.
+
+**Wirkung:** Kein Datenverlust, keine Sicherheitswirkung. Reine Testinfrastruktur-Fragilitaet
+bei Tests, die „heute" einmalig einfrieren, statt durchgehend eine einzige Quelle zu nutzen.
+
+**Vorschlag:** Beide Tests auf eine einzige, injizierbare Zeitquelle umstellen (z. B. ueber
+denselben Mechanismus, den `getCurrentDate()`/`getTodayString()` projektweit kapseln), statt
+„heute" bei Modul-Ladezeit einzufrieren und an anderer Stelle erneut live zu ermitteln. Als
+UAT-Punkt in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorgemerkt (siehe SUMMARY dieses
+Plans).
+
+### 2. Passwort-Zuruecksetzen und Loeschen fuer deaktivierte (nicht archivierte) Konten
+
+**Gefunden:** Plan 14.2-03, Task 2, beim Bau der drei Aktionsspalten-Zweige.
+
+**Befund:** Der mittlere Zweig (bloss deaktiviert, `deletedAt IS NULL`) traegt bewusst nur
+„Bearbeiten" und „Reaktivieren" — kein Passwort-Zuruecksetzen, kein Loeschen. F-4 verlangt
+„auffindbar und bearbeitbar", nicht vollen Funktionsumfang. Ob ein deaktiviertes Konto auch
+direkt (ohne Reaktivierung) sein Passwort zuruecksetzen oder geloescht werden koennen soll,
+ist eine fachliche Entscheidung, keine dieser Phase zugeordnete Korrektur.
+
+**Vorschlag:** Als UAT-Punkt in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorgemerkt (siehe
+SUMMARY dieses Plans).
