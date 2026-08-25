@@ -10,6 +10,33 @@ import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
 import { calculateCarryover, calculateProRataVacationDays, upsertVacationBalance } from './vacationBalanceService.js';
 import { createWorkPeriodContext } from './workPeriodContext.js';
+// BL-02 (Phase 14.1, D-02) — STATISCHER ESM-IMPORT STATT CommonJS-Aufruf.
+//
+// Warum der frueher hier stehende CommonJS-Aufruf nie lief: Dieses Modul laeuft als ES-Modul
+// (`server/package.json` -> `"type": "module"`, `server/tsconfig.json` -> `"module": "ESNext"`).
+// Dort ist `require` schlicht nicht definiert; die beiden frueheren Aufrufe im Loeschpfad
+// warfen sofort einen ReferenceError, den ein umgebendes catch nur weglogte. Nach aussen sah
+// die Loeschung erfolgreich aus, waehrend die Neuberechnung nie lief. Es gibt in diesem
+// Projekt keine CommonJS-Zwischenschicht — der alte Begruendungskommentar war sachlich falsch.
+//
+// Warum statisch und nicht `await import(...)`: `deleteAbsenceRequest`,
+// `revertBalancesAfterDeletion` und `deleteSickLeaveTimeEntries` sind synchron. Ein
+// dynamischer Import haette alle drei auf async umgestellt und saemtliche Aufrufer
+// (`routes/absences.ts`, drei Testdateien) nachgezogen — ein Signaturwechsel ohne fachlichen
+// Gewinn.
+//
+// Warum der Zyklus traegt: `absenceService` und `userService` bilden ueber
+// `getUserById`/`getVacationBalance` bereits heute einen statischen ESM-Zyklus, der in der
+// Produktion laeuft. Dieser Import schliesst in genau diesen bestehenden Zyklus hinein
+// (absenceService -> overtimeService -> userService -> absenceService) und fuehrt keine neue
+// Zyklusklasse ein. Keine der beiden Dateien verbraucht importierte Bindungen auf Top-Level;
+// `updateMonthlyOvertime` und `updateAllOvertimeLevels` sind gehoistete
+// `export function`-Deklarationen und werden ausschliesslich in Funktionskoerpern gerufen.
+// Eine tsx-Ladeprobe belegt das zur Laufzeit (14.1-NACHWEIS-BL02.md, Abschnitt 4).
+//
+// VERBINDLICH FUER PLAN 14.1-03 (BL-05): Dieser Stil ist der einzige in dieser Datei fuer den
+// Loesch- und Anlegepfad. Kein zweiter Importstil.
+import { updateMonthlyOvertime, updateAllOvertimeLevels } from './overtimeService.js';
 
 /**
  * Absence Service
@@ -1192,26 +1219,26 @@ export function deleteAbsenceRequest(id: number, deletedBy: number | null): void
 
   // CRITICAL: Recalculate overtime after deleting approved absence
   // This removes the transactions and updates overtime_balance.
-  // Bleibt außerhalb der Transaktion — abgeleiteter Wert, nutzt require() (CJS-Interop).
+  // Bleibt außerhalb der Transaktion — abgeleiteter Wert. `updateMonthlyOvertime` kommt aus
+  // dem statischen Import am Dateikopf (BL-02, Begründung dort). Der frühere äußere
+  // try/catch um den Import ist ersatzlos entfallen: Es gibt keinen Import mehr, der zur
+  // Laufzeit scheitern kann, und ein catch, das nichts mehr fängt, verschleiert künftige
+  // Fehler.
   if (request.status === 'approved') {
-    try {
-      const { updateMonthlyOvertime } = require('./overtimeService.js');
+    const affectedMonths = new Set<string>();
+    for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
+      affectedMonths.add(formatDate(d, 'yyyy-MM'));
+    }
 
-      const affectedMonths = new Set<string>();
-      for (let d = new Date(request.startDate); d <= new Date(request.endDate); d.setDate(d.getDate() + 1)) {
-        affectedMonths.add(formatDate(d, 'yyyy-MM'));
+    // Innerer try/catch je Monat bleibt wörtlich erhalten — dieselbe Fehlerbehandlung wie in
+    // approveAbsenceRequest: ein kaputter Monat darf die übrigen nicht mitreißen.
+    for (const month of affectedMonths) {
+      try {
+        updateMonthlyOvertime(request.userId, month);
+        logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence deletion');
+      } catch (error) {
+        logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence deletion');
       }
-
-      for (const month of affectedMonths) {
-        try {
-          updateMonthlyOvertime(request.userId, month);
-          logger.info({ userId: request.userId, month, absenceType: request.type }, '✅ Overtime recalculated after absence deletion');
-        } catch (error) {
-          logger.error({ err: error, userId: request.userId, month }, '❌ Failed to recalculate overtime after absence deletion');
-        }
-      }
-    } catch (error) {
-      logger.error({ err: error, requestId: id }, '❌ Failed to import overtimeService for recalculation');
     }
   }
 }
@@ -1418,7 +1445,9 @@ function deleteSickLeaveTimeEntries(request: AbsenceRequest): void {
       const dateStr = `${year}-${month}-${day}`;
 
       try {
-        const { updateAllOvertimeLevels } = require('./overtimeService.js');
+        // BL-02: `updateAllOvertimeLevels` kommt aus dem statischen Import am Dateikopf.
+        // Dieses try/catch bleibt bestehen — es fängt Fehler der Neuberechnung SELBST ab,
+        // nicht das Fehlschlagen eines Imports.
         updateAllOvertimeLevels(request.userId, dateStr);
       } catch (error) {
         logger.error({ error, date: dateStr }, 'Failed to update overtime after sick leave deletion');
