@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: "Plan 14.2-03 vollstaendig abgeschlossen - F-4 geschlossen (Statusfilter, Statusspalte, Aktionsspalte), user-edit.spec.ts:221 gruen, D-01-Pruefsummen unveraendert. Zwei zusaetzliche datumsabhaengige rote Server-Tests dokumentiert (nicht F-4-bezogen). Server (3100) und Vite (1420) laufen weiter. Kein Push."
-last_updated: "2026-08-25T22:26:59.827Z"
-last_activity: 2026-08-25
+stopped_at: "Plan 14.2-04 vollstaendig abgeschlossen - F-3 geschlossen (Select.tsx WR-16-Muster, Rollenfeld name/id), user-edit.spec.ts:308 gruen (und :221 weiterhin gruen), user-edit.spec.ts unveraendert (D-06), D-01-Pruefsummen unveraendert. 18 weitere Select-Aufrufstellen ohne name dokumentiert (nicht F-3). Server (3100) und Vite (1420) laufen weiter. Kein Push."
+last_updated: "2026-08-25T23:15:00.000Z"
+last_activity: 2026-08-26
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 72
-  completed_plans: 59
+  completed_plans: 60
   percent: 67
 ---
 
@@ -34,7 +34,8 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Davor abgeschlossen:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
 - **Davor abgeschlossen:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
-- **Stopped at:** Plan 14.2-03 vollstaendig abgeschlossen - F-4 geschlossen (Statusfilter, Statusspalte, Aktionsspalte), user-edit.spec.ts:221 gruen, D-01-Pruefsummen unveraendert. Zwei zusaetzliche datumsabhaengige rote Server-Tests dokumentiert (nicht F-4-bezogen). Server (3100) und Vite (1420) laufen weiter. Kein Push.
+- **Last completed:** Plan 14.2-04 — F-3 geschlossen. `Select.tsx` trägt jetzt dasselbe WR-16-Muster wie `Input.tsx`/`Textarea.tsx` (`useId`, `htmlFor`/`id`-Paar, `aria-invalid`, `aria-describedby`), rein additiv, Pflichtfeld-Stern unverändert (gehört zu D-1/Plan 14.2-10). Das Rollenfeld in `EditUserModal.tsx` trägt jetzt `name="role"`/`id="role"`; gemessen: `{"name":"role","id":"role","val":"admin","labelFor":"role","labelText":"Rolle*"}` gegen den Ausgangsbefund `{"name":null,"id":"","val":"employee"}`. E2E: isolierter Lauf `user-edit.spec.ts:308` grün, voller Dateilauf zeigt **2 passed** (`:221` F-4 und `:308` F-3) bei 5 vorbestehenden, dokumentierten Testdaten-Verschmutzungsfällen; `git diff --stat` auf `user-edit.spec.ts` leer (D-06). Voller Lauf aller drei E2E-Dateien: **14 grün/7 rot/2 übersprungen** (Ausgangsstand 12/9/2) — die Verbesserung um genau zwei Fälle entspricht F-3 und F-4; die verbleibenden sieben roten Fälle sind dieselbe vorbestehende Testdaten-Verschmutzung wie in `14.2-NACHWEIS-D01.md` dokumentiert, keiner der elf Befunde. 18 weitere `<Select>`-Aufrufstellen ohne `name` gefunden und in `deferred-items.md` dokumentiert, bewusst nicht mitgeändert (D-02). Drei Commits (`4f8b285` Select.tsx, `b2e306f` Rollenfeld name/id, `c0d14da` Messskript + deferred-items.md), alle vier Gates grün (565 grün / 5 rot — exakt die vom Kalendertagwechsel gewachsene vorbestehende Menge, kein Wachstum), D-01-Prüfsummen unverändert (105/120, identische sha256) trotz mehrfacher Testdaten-Bereinigung zwischendurch, kein Push.
+- **Stopped at:** Plan 14.2-04 vollstaendig abgeschlossen - F-3 geschlossen (Select.tsx WR-16-Muster, Rollenfeld name/id), user-edit.spec.ts:308 gruen (und :221 weiterhin gruen), user-edit.spec.ts unveraendert (D-06), D-01-Pruefsummen unveraendert. 18 weitere Select-Aufrufstellen ohne name dokumentiert (nicht F-3). Server (3100) und Vite (1420) laufen weiter. Kein Push.
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -271,6 +272,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.2-02]: Zusammenklebe-Befund aus client.ts:152-155 als UAT-Punkt vermerkt statt mitgenommen (Scope Fence)
 - [Phase 14.2-restbefunde-der-abnahme-schliessen]: Statusableitung als eine Stelle (getUserStatus/USER_STATUS_BADGE) statt vierfach kopierter Ternaerketten, von Statusspalte und Aktionsspalte gemeinsam genutzt — Task 1 legt sie an, Task 2 nutzt sie erneut fuer die Drei-Wege-Aktionsspalte
 - [Phase 14.2-restbefunde-der-abnahme-schliessen]: Mittlerer Aktionsspalten-Zweig (deaktiviert) traegt bewusst kein Loeschen/Passwort-Zuruecksetzen — F-4 verlangt auffindbar und bearbeitbar, keinen vollen Funktionsumfang; als UAT-Kandidat vorgemerkt
+- [Phase 14.2 / Plan 14.2-04]: F-3: id="role" zusaetzlich zu name="role" explizit gesetzt, statt der von Select seit Task 1 selbst generierten useId-Kennung — stabiler, nachvollziehbarer Wert fuer label for
+- [Phase 14.2 / Plan 14.2-04]: F-3: 18 weitere <Select>-Aufrufstellen ohne name NICHT mitgeaendert (D-02) — Liste nach deferred-items.md, Barrierefreiheits-Symptom durch Task 1 an allen Stellen bereits automatisch behoben
+- [Phase 14.2 / Plan 14.2-04]: F-3: E2E-Testdaten-Kollisionen (role-change-user, deactivate-user) durch Umbenennen bestehender users-Zeilen aufgeloest statt geloescht, gleiches Muster wie Plan 14.2-03
 
 ## Quick Tasks Completed
 
@@ -361,6 +365,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.2 P01 | 19min | 3 tasks | 9 files |
 | Phase 14.2-restbefunde-der-abnahme-schliessen P02 | 9min | 3 tasks | 4 files |
 | Phase 14.2-restbefunde-der-abnahme-schliessen P03 | 52min | 3 tasks | 3 files |
+| Phase 14.2 P04 | 36min | 3 tasks | 3 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -397,7 +402,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.2 (restbefunde-der-abnahme-schliessen) — EXECUTING
-Plan: 4 of 13
+Plan: 5 of 13
 Status: Ready to execute
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
