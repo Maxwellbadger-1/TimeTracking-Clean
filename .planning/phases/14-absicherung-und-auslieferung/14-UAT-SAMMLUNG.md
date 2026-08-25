@@ -552,3 +552,21 @@ entscheiden muss — alles maschinell Prüfbare ist in `14.1-NACHWEIS-BL01.md` m
 **Nicht Gegenstand dieser Punkte:** WR-01 bis WR-10 (eigener Milestone nach der Auslieferung,
 D-09) sowie Push, Deployment und Zugriff auf die Produktionsdatenbank (D-13 — die Auslieferung
 entscheidet der Anwender gesondert).
+
+### Nachtrag zur Phase 14.1 — aus der Code-Review vom 25.08.2026
+
+Die Code-Review am Ende der Phase hat 32 Befunde erhoben (6 BLOCKER, 20 WARNING, 6 INFO),
+Bericht: `.planning/phases/14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen/14.1-REVIEW.md`.
+**Keiner wurde repariert** — alle liegen außerhalb des Scope Fence der Phase (nur BL-01 bis
+BL-05 plus Datenbereinigung), und D-07 verbietet, einen zweiten Befund in denselben
+Commit-Satz zu nehmen. Drei der sechs Blocker wurden vom Orchestrator am Quelltext
+nachgeprüft statt übernommen; die Einordnung steht in `deferred-items.md`, Abschnitt
+„Aus der Code-Review der Phase 14.1".
+
+| # | Prüfung | Erwartung | Warum ein Mensch |
+|---|---|---|---|
+| 14.1-U26 | **Entscheidung, der dringendste Punkt vor der Auslieferung:** Ein genehmigter Überstundenausgleich mit **Zukunftsdatum** bindet das Guthaben nicht mehr, das die Prüfung `hasSufficientOvertimeBalance()` liest — zwei künftige Ausgleiche können nacheinander gegen dasselbe Guthaben genehmigt werden (CR-01, am Quelltext bestätigt). Der entfernte Weg A hat das zuvor abgefangen, allerdings nur bis zur nächsten Neuberechnung, weil er in eine abgeleitete Tabelle schrieb. Die Behebung berührt den Zukunftsmonatsfilter in `getOvertimeBalance()` — dieselbe Familie wie WR-01, nach D-09 ausdrücklich nicht in dieser Phase | Der Anwender legt fest, ob ein genehmigter künftiger Ausgleich das verfügbare Guthaben sofort binden soll, und ob das vor oder nach der Auslieferung behoben wird | Fachliche Festlegung mit unmittelbarer Wirkung auf Genehmigungen, keine technische Frage |
+| 14.1-U27 | **Kenntnisnahme:** Die Zusage „Trockenlauf — es wird nichts geschrieben" trifft nicht zu (CR-02, bestätigt). Der Modul-Import von `connection.js` führt Schema-DDL auf der Zieldatenbank aus. **Daten waren nie betroffen** — die D-08-Prüfsummen und Zeilenzahlen der fünf geschützten Tabellen blieben nachweislich gleich | Der Anwender nimmt zur Kenntnis, dass dies zu korrigieren ist, **bevor** das Werkzeug je mit `--allow-production` läuft | Bewertung eines Restrisikos vor einem Produktionslauf |
+| 14.1-U28 | **Kenntnisnahme:** `purge --apply` löscht `carryoverFromPreviousYear` mit und zeigt die Spalte im Trockenlauf nicht an (CR-03). **In diesem Lauf ist nichts verloren gegangen** — alle drei gelöschten Zeilen trugen den Wert 0 (ids 61245, 31769, 34406, aus der Sicherung nachgemessen), und sie sind vollständig wiederherstellbar | Der Anwender nimmt zur Kenntnis, dass die Spalte vor einem Produktionslauf in die Trockenlauf-Ausgabe gehört | Bewertung eines Restrisikos vor einem Produktionslauf |
+| 14.1-U29 | **Entscheidung:** Die drei übrigen Blocker — CR-04 (der Historien-Export filtert `absence_requests` und `vacation_balance` in der Sammelvariante nicht nach Nutzer), CR-05 (das Löschwerkzeug druckt die D-08-Prüfsummen, ohne sie zu vergleichen, und erst nach dem Commit), CR-06 (die neue Deckelung vergleicht UTC-Mitternacht mit Berliner Wanduhrzeit; Zeitzonenfamilie, also WR-Gebiet nach D-09) — wurden übernommen, aber nicht einzeln nachgeprüft | Der Anwender entscheidet, welche davon vor der Auslieferung behoben werden und welche in den WR-Milestone gehen | Priorisierung gegen einen Auslieferungstermin |
+| 14.1-U30 | **Kenntnisnahme:** Querschnittsbefund des Prüfers — alle fünf in dieser Phase neu angelegten Testdateien schließen Zukunftsdaten mit gleichlautender Begründung aus. CR-01 und CR-06 sind Folgen genau dieser Lücke | Der Anwender nimmt zur Kenntnis, dass die Regressionstests der Phase den Zukunftsfall nicht abdecken | Bewertung der Prüftiefe, keine technische Messung |

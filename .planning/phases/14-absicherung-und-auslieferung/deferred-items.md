@@ -515,3 +515,73 @@ Nach diesem Plan liegen drei zusätzliche, **nicht eingecheckte** Datenbankdatei
 
 Sie bleiben liegen. Wann sie gelöscht werden dürfen, entscheidet der Anwender — die Sicherung
 ist der einzige Rückweg für die Datenänderung dieses Plans. Punkt **14.1-U22**.
+
+---
+
+## Aus der Code-Review der Phase 14.1 (25.08.2026)
+
+Vollständiger Bericht: `.planning/phases/14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen/14.1-REVIEW.md`
+— 32 Befunde (6 BLOCKER, 20 WARNING, 6 INFO). **Keiner davon wurde in Phase 14.1 repariert**:
+Sie liegen sämtlich außerhalb des Scope Fence (nur BL-01 bis BL-05 plus Datenbereinigung), und
+D-07 verbietet, einen zweiten Befund in denselben Commit-Satz zu nehmen. Sie werden hier
+vermerkt und liegen gelassen — so, wie D-09 es für alles vorschreibt, was nebenbei auffällt.
+
+Drei der sechs Blocker habe ich als Orchestrator am Quelltext nachgeprüft, statt sie zu
+übernehmen:
+
+### CR-01 — bestätigt, wiegt am schwersten
+
+Ein genehmigter Überstundenausgleich mit **Zukunftsdatum** bewegt den Saldo nicht mehr, den
+`hasSufficientOvertimeBalance()` liest. Nachgeprüft:
+
+- Der entfernte Weg A (`deductOvertimeHours`, `absenceService.ts` vor `24bfb75`, Zeile 1694 ff.)
+  zog FIFO aus **vergangenen** Monaten mit `overtime > 0` ab — die zählt
+  `getOvertimeBalance()` mit (`overtimeTransactionService.ts:471-477`, `AND month <= ?`).
+- Weg C bucht den Abzug in den Monat des Ausgleichstags. Bei einem künftigen Ausgleich ist
+  das ein Zukunftsmonat, den `getOvertimeBalance()` **absichtlich** ausblendet — der
+  Kommentar bei `:460-462` nennt den Grund („Future months may have negative balances …
+  which must NOT count against current balance").
+- Folge: Zwei künftige Ausgleiche können nacheinander gegen dasselbe Guthaben genehmigt werden.
+
+**Einordnung, die der Bericht nicht macht:** Weg A war als Schutz ohnehin unzuverlässig. Er
+schrieb in `overtime_balance` — eine abgeleitete Tabelle, die die nächste Neuberechnung
+überschreibt (genau die Feststellung, auf der D-04 fußt). Der Schutz hielt also nur bis zum
+nächsten Rebuild. Durch das Entfernen wird er für künftige Ausgleiche dauerhaft statt
+zeitweise wirkungslos. Das ist eine echte Verschlechterung, aber kein Wegfall eines
+verlässlichen Schutzes.
+
+**Nicht in dieser Phase zu lösen:** Die Behebung berührt den Zukunftsmonatsfilter in
+`getOvertimeBalance()` — dieselbe Fehlerfamilie wie WR-01, die nach D-09 in den eigenen
+Milestone nach der Auslieferung gehört. Sie verlangt außerdem eine Festlegung: Soll ein
+genehmigter künftiger Ausgleich das verfügbare Guthaben sofort binden?
+
+### CR-02 — bestätigt
+
+„Trockenlauf — es wird nichts geschrieben" trifft nicht zu. `purgeFutureOvertimeRows.ts:299`
+holt `../database/connection.js`, und dessen Modulebene führt bei `connection.ts:50`
+(`dbWrapper.instance = initializeConnection()`) sofort `initializeDatabase()` und
+`createIndexes()` auf der **Zieldatenbank** aus. Das ist Schema-DDL, keine Datenänderung —
+die D-08-Prüfsummen über die fünf geschützten Tabellen blieben nachweislich gleich, und die
+Zeilenzahlen ebenso. Für ein Werkzeug, das mit `--allow-production` auf die Produktion gerichtet
+werden kann, ist die Zusage trotzdem zu korrigieren, bevor es dort läuft.
+
+### CR-03 — bestätigt als Risiko, **kein tatsächlicher Verlust**
+
+`purge --apply` löscht die Monatszeile samt `carryoverFromPreviousYear`, und der Trockenlauf
+zeigt die Spalte nicht an. In diesem Lauf ist nichts verloren gegangen: Alle drei gelöschten
+Zeilen trugen `carryoverFromPreviousYear = 0` (aus der Sicherung nachgemessen, ids 61245,
+31769, 34406) — und sie sind aus der Sicherung ohnehin vollständig wiederherstellbar, was
+Stufe 6 Zeile für Zeile vorgeführt hat. Vor einem Lauf gegen die Produktion gehört die Spalte
+in die Trockenlauf-Ausgabe.
+
+### CR-04, CR-05, CR-06 — übernommen, nicht einzeln nachgeprüft
+
+CR-04 (Historien-Export filtert `absence_requests` und `vacation_balance` in der
+Sammelvariante nicht nach Nutzer), CR-05 (das Löschwerkzeug druckt die D-08-Prüfsummen, ohne
+sie zu vergleichen, und erst nach dem Commit), CR-06 (die neue Deckelung vergleicht
+UTC-Mitternacht mit Berliner Wanduhrzeit — Zeitzonenfamilie, also WR-Gebiet nach D-09).
+
+### Die 20 Warnungen und 6 Hinweise
+
+Stehen im Bericht. Querschnittsbefund des Prüfers: Alle fünf neuen Testdateien schließen
+Zukunftsdaten mit gleichlautender Begründung aus; CR-01 und CR-06 sind Folgen dieser Lücke.
