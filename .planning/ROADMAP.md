@@ -491,13 +491,10 @@ mit demselben Release ausgeliefert werden, nicht in einem Nachzügler.
   Bisher verdeckt durch den nächtlichen Lauf um 03:00 Uhr, der es nachholte. Der ist seit
   dem 23.08. angehalten — **eine heute eingetragene Krankmeldung wird derzeit nicht
   gutgeschrieben.**
-  Zusätzlich, für die Nachvollziehbarkeit gegenüber einer Betriebsprüfung: Bei den vier
-  auto-genehmigten Anträgen im Bestand (46, 60, 68, 70) sind `approvedBy` **und**
-  `approvedAt` leer. `approvedBy = NULL` ist korrekt — es gibt keinen Genehmiger. Aber
-  `status='approved'` ohne jeden Zeitstempel lässt sich nicht von einer nachträglichen
-  Statusänderung unterscheiden. `approvedAt` ist auf den Zeitpunkt der Auto-Genehmigung
-  zu setzen und der Vorgang im `audit_log` als Systemautomatik zu vermerken — ohne dass
-  irgendjemand etwas genehmigen muss.
+  **Nicht im Umfang:** `approvedBy` und `approvedAt` bleiben bei auto-genehmigten
+  Krankmeldungen leer. Ein Zeitstempel wurde erwogen und vom Anwender am 25.08.2026
+  ausdrücklich verworfen — der Anlegezeitpunkt steht ohnehin in `createdAt`. Kein
+  Eingriff an den vier Bestandsanträgen 46, 60, 68, 70.
 
 - **Datenbereinigung:** 59 fiktive Journalbuchungen für Tage, die noch nicht stattgefunden
   haben (Nutzer 3 und 17 September 2026, Nutzer 30 Oktober 2026) sowie die drei zugehörigen
@@ -513,9 +510,8 @@ mit demselben Release ausgeliefert werden, nicht in einem Nachzügler.
   `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal, nicht erst nach
   dem nächsten nächtlichen Lauf. Nachweis bei **angehaltenem** Nachtlauf, sonst beweist
   der Test nichts.
-- Eine auto-genehmigte Krankmeldung trägt einen Genehmigungszeitpunkt und einen
-  `audit_log`-Eintrag als Systemautomatik; `approvedBy` bleibt leer, weil es keinen
-  Genehmiger gibt
+- Die Auto-Genehmigung von Krankmeldungen bleibt unverändert bestehen; `approvedBy` und
+  `approvedAt` bleiben leer, und die vier Bestandsanträge werden nicht angefasst
 - Der Historien-Export enthält weder abgelehnte Anträge noch stillgelegte Konten
 - Das Löschen einer genehmigten Abwesenheit rechnet nachweislich neu
 - Ein genehmigter Überstundenausgleich hinterlässt genau eine Spur, nicht drei
