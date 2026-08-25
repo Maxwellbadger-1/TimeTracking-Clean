@@ -691,3 +691,34 @@ ist eine fachliche Entscheidung, keine dieser Phase zugeordnete Korrektur.
 
 **Vorschlag:** Als UAT-Punkt in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorgemerkt (siehe
 SUMMARY dieses Plans).
+
+## Aus Phase 14.2, Orchestrator-Nachmessung (26.08.2026)
+
+### Zwei Server-Tests sind datumsabhängig und wurden allein durch den Kalendertagwechsel rot
+
+Beim Übergang vom 25.08. auf den 26.08.2026 — mitten im Lauf der Phase, zwischen Plan 02 und
+Plan 03 — ist die rote Testmenge des Servers **von 3 auf 5** gewachsen, ohne dass eine
+Serverdatei geändert wurde. Neu rot:
+
+- `src/services/workPeriodChangeService.test.ts` — „CR-01: Die model_change-Zeile wird in
+  KEINEM transaktionssummierenden Lesepfad mitgezählt" (`expected 4 to be less than 0.011`)
+- `src/services/overtimeFutureCapping.test.ts` — „Test 2: Der Saldo stimmt mit der Summe der
+  darunter gezeigten Buchungen überein"
+
+**Der Nachweis ist geführt, nicht behauptet.** Der Orchestrator hat `server/src/routes/users.ts`
+und `server/src/services/userService.ts` — die einzigen beiden Serverquellen, die diese Phase
+bis dahin geändert hatte — per `git checkout c396aaa --` auf den Stand **vor** der Phase
+zurückgesetzt und beide Testdateien erneut laufen lassen: **dieselben zwei Fehlschläge**
+(2 failed / 27 passed). Danach wurden die Dateien wiederhergestellt; `git diff HEAD` ist leer.
+Plan 14.2-03 hat ausserdem nachweislich **keine** Serverdatei angefasst
+(`git diff --stat` über seine Commits: nur `desktop/src/pages/UserManagementPage.tsx`).
+
+**Folge für das Gate dieser Phase:** Die vorbestehende rote Menge ist ab dem 26.08.2026
+**fünf**, nicht drei. Die Auflage „die rote Menge darf nicht wachsen" gilt gegen diese fünf.
+
+**Warum das ein eigener Befund ist:** Beide Tests prüfen dieselbe Zusicherung — der angezeigte
+Saldo stimmt mit der Summe der darunter gezeigten Buchungen überein. Dass sie an einem
+beliebigen Kalendertag umkippen, heisst: die Zusicherung ist nur an bestimmten Tagen belegt.
+Die Differenz von 4,00 h entspricht genau einem Tagessoll bei 20 h/Woche. Das gehört nicht in
+diese Phase (Scope Fence — keiner der elf Befunde), aber es gehört gesehen: es ist dieselbe
+Familie wie die Zukunftsdeckelung aus Plan 14.1-01 und Befund F-5.
