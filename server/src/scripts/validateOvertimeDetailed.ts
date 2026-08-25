@@ -111,8 +111,11 @@ let getDailyTargetHours: (user: UserPublic, date: Date | string, periods: WorkPe
 let createWorkPeriodContext: () => WorkPeriodContext;
 let getWorkPeriods: (userId: number) => UserWorkPeriod[];
 
-// API Base URL for frontend validation
-const API_BASE = 'http://localhost:3000/api';
+// API Base URL for frontend validation. B-1 (14-ABNAHME-SERVER.md, geschlossen in 14.2-01):
+// auf `::` (IPv6) Port 3000 lauscht ein fremdes Next.js-Projekt; `localhost` loest je nach
+// System zuerst auf IPv6 auf und trifft damit den falschen Server, worauf der vierte
+// Vergleichsweg mit "Could not fetch from Frontend API" scheitert.
+const API_BASE = 'http://127.0.0.1:3000/api';
 
 // Global session cookie for API authentication
 let sessionCookie: string | null = null;
