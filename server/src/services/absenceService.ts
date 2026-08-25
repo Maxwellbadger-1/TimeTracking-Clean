@@ -4,7 +4,10 @@ import logger from '../utils/logger.js';
 import { countWorkingDaysBetween, countWorkingDaysForUser, getDailyTargetHours, getDayName, calculateAbsenceHoursWithWorkSchedule } from '../utils/workingDays.js';
 import { validateDateString } from '../utils/validation.js';
 import { getUserById } from './userService.js';
-import { getOvertimeBalance } from './overtimeTransactionService.js';
+// CR-01 (Phase 14.1): `getAvailableOvertimeBalance` = Saldo abzueglich der bereits fuer
+// genehmigte Ausgleichstage verplanten Stunden. Nur die PRUEFUNG benutzt diese Groesse;
+// `getOvertimeBalance` bleibt fuer alle Anzeigewerte unveraendert im Einsatz.
+import { getAvailableOvertimeBalance } from './overtimeTransactionService.js';
 import { broadcastEvent } from '../websocket/server.js';
 import { formatDate } from '../utils/timezone.js';
 import { recordVacationTransaction } from './vacationTransactionService.js';
@@ -582,8 +585,18 @@ export function createAbsenceRequest(
       logger.info({ userId: data.userId, days, startDate: data.startDate, endDate: data.endDate }, '📌 Parameters');
 
       // PROFESSIONAL: Use transaction-based balance (like SAP SuccessFactors, Personio, DATEV)
-      const overtimeHours = getOvertimeBalance(data.userId);
-      logger.info({ overtimeHours }, '📊 overtimeHours from transaction-based system');
+      //
+      // CR-01 (Code-Review Phase 14.1): `getAvailableOvertimeBalance()` statt
+      // `getOvertimeBalance()`. Der Befund nennt beide Pruefungen ausdruecklich („jede
+      // Pruefung sieht dieselben 8 h") — die Anlegepruefung hier fusste auf demselben
+      // ungeminderten Saldo wie der Genehmigungsvorbehalt und liess deshalb einen zweiten
+      // Antrag ueber dasselbe, laengst verplante Guthaben zu. Gemessen: Nutzer 2, Guthaben
+      // 10,00 h, sechs Runden a 10,00 h — jede Anlegepruefung meldete „10.00 >= 10.00".
+      //
+      // Der ANGEZEIGTE Saldo bleibt unveraendert: `getOvertimeBalance()` ist nicht angefasst.
+      // Gemindert wird ausschliesslich die Groesse, gegen die geprueft wird.
+      const overtimeHours = getAvailableOvertimeBalance(data.userId);
+      logger.info({ overtimeHours }, '📊 verfügbares Guthaben (Saldo abzüglich verplanter Ausgleichstage)');
 
       // USE INDIVIDUAL WORK SCHEDULE: Calculate actual hours for this period
       const requiredHours = calculateAbsenceCredits(data.userId, data.startDate, data.endDate);
@@ -910,7 +923,8 @@ export async function approveAbsenceRequest(
   if (request.type === 'overtime_comp') {
     const {
       hasSufficientOvertimeBalance,
-      getOvertimeBalance
+      getOvertimeBalance,
+      getCommittedFutureCompensationHours
     } = await import('./overtimeTransactionService.js');
 
     const { getWorkTimeAccountWithUser } = await import('./workTimeAccountService.js');
@@ -931,11 +945,25 @@ export async function approveAbsenceRequest(
 
     const currentBalance = getOvertimeBalance(request.userId);
 
+    // CR-01 (Code-Review Phase 14.1): Bereits genehmigte Ausgleichstage mit Datum in der
+    // Zukunft sind noch nicht in `overtime_balance` verrechnet — sie fallen erst hinein, wenn
+    // der Tag ins Rechenfenster rueckt. Ohne diese Vormerkung sah jede Pruefung wieder das
+    // volle Guthaben, und dasselbe Guthaben war beliebig oft vergebbar.
+    //
+    // Die Vormerkung wird hier NUR fuer die Fehlermeldung erneut ermittelt; die Entscheidung
+    // selbst faellt in `hasSufficientOvertimeBalance()`, das intern dieselbe Groesse benutzt.
+    // Ohne diese Angabe stuende in der Meldung „Aktuell: 10.00h, Benötigt: 10.00h,
+    // Limit: -20h" — eine Ablehnung, die der Genehmigende nicht nachvollziehen koennte.
+    const committedFutureHours = getCommittedFutureCompensationHours(request.userId);
+
     if (!hasSufficientOvertimeBalance(request.userId, actualHoursRequired, account?.maxMinusHours || -20)) {
-      const balanceAfter = currentBalance - actualHoursRequired;
+      const availableBalance = currentBalance - committedFutureHours;
+      const balanceAfter = availableBalance - actualHoursRequired;
       throw new Error(
         `Unzureichendes Überstunden-Guthaben. ` +
         `Aktuell: ${currentBalance.toFixed(2)}h, ` +
+        `davon bereits für genehmigte Ausgleichstage verplant: ${committedFutureHours.toFixed(2)}h, ` +
+        `verfügbar: ${availableBalance.toFixed(2)}h, ` +
         `Benötigt: ${actualHoursRequired.toFixed(2)}h, ` +
         `Nach Abbau: ${balanceAfter.toFixed(2)}h, ` +
         `Limit: ${account?.maxMinusHours || -20}h`

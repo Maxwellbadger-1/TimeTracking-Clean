@@ -256,8 +256,21 @@ export function getDailyTargetHours(
  * calculateAbsenceHoursWithWorkSchedule(user, '2026-01-06', '2026-01-10', periods)
  * // → 40h (5 days × 8h)
  */
+// CR-01 (Code-Review Phase 14.1): Der Parametertyp war `UserPublic`, obwohl die Funktion vom
+// Nutzerobjekt ausschliesslich `id` und `hireDate` liest — beides ueber `resolvePeriodForDate()`,
+// dessen eigene Signatur bereits `TargetHoursUser` lautet. Wochenplan und Wochenstunden kommen
+// aus der aufgeloesten PERIODE, nicht aus dem Nutzerobjekt (D4).
+//
+// Die Weitung ist eine ERWEITERUNG, keine Einengung — dieselbe Begruendung, aus der
+// `getDailyTargetHours()` weiter oben in dieser Datei schon `TargetHoursUser` nimmt: jedes
+// vollstaendige `UserPublic` erfuellt `TargetHoursUser` weiterhin, kein bestehender Aufrufer
+// muss geaendert werden. Gebraucht wird sie von
+// `overtimeTransactionService.getCommittedFutureCompensationHours()`, das den Nutzer mit einer
+// eigenen Abfrage laedt: Ein Import von `userService` waere dort ein Modulzyklus
+// (userService importiert `getOvertimeBalance` aus overtimeTransactionService), und ein
+// zusammengesetztes Schein-`UserPublic` waere ein Cast auf Felder, die nie gelesen werden.
 export function calculateAbsenceHoursWithWorkSchedule(
-  user: UserPublic,
+  user: TargetHoursUser,
   startDate: string,
   endDate: string,
   periods: WorkPeriodContext

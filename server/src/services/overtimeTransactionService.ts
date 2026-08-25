@@ -16,7 +16,15 @@
 
 import { db } from '../database/connection.js';
 import logger from '../utils/logger.js';
-import { formatDate, getCurrentDate } from '../utils/timezone.js';
+import { formatDate, getCurrentDate, getTodayString } from '../utils/timezone.js';
+// CR-01 (Phase 14.1): Fuer die Vormerkung bereits vergebener Ausgleichsstunden. Beide Module
+// sind zyklusfrei erreichbar — `workingDays` zieht nur db/timezone/logger,
+// `workPeriodContext` nur `workPeriodService` (db/logger/validation/timezone). Keines von
+// beiden importiert diese Datei zurueck.
+import { calculateAbsenceHoursWithWorkSchedule } from '../utils/workingDays.js';
+import type { TargetHoursUser } from '../utils/workingDays.js';
+import { createWorkPeriodContext } from './workPeriodContext.js';
+import type { WorkSchedule } from '../types/index.js';
 
 /**
  * CR-01 (Code-Review Phase 12) — WARUM `model_change` AUS JEDEM SUMMENPFAD FLIEGT:
@@ -642,9 +650,172 @@ export function getAggregatedOvertimeStats(year?: number): {
 }
 
 /**
+ * CR-01 (Code-Review Phase 14.1) — BEREITS VERGEBENE, NOCH NICHT VERRECHNETE
+ * AUSGLEICHSSTUNDEN.
+ *
+ * WOZU: `getOvertimeBalance()` beantwortet „wie viele Ueberstunden hat der Mitarbeiter?".
+ * Diese Funktion beantwortet „wie viele davon sind bereits verplant?". Die Differenz ist das,
+ * was noch vergeben werden darf (`getAvailableOvertimeBalance()`).
+ *
+ * WARUM DIE TRENNLINIE GENAU BEI „TAG > HEUTE" LIEGT — gemessen, nicht angenommen
+ * (14.1-NACHWEIS-CR01.md, Abschnitt 2):
+ *
+ * Ein Ausgleichstag erzeugt in `overtime_balance` KEINE eigene Abbuchung. Er wirkt dadurch,
+ * dass der Tag sein Tagessoll behaelt und keine Gutschrift bekommt (`handleAbsenceDay()`
+ * legt fuer `overtime_comp` bewusst keine zweite, neutralisierende Zeile an, REQ-19) — der
+ * Tag steht also als Fehlbetrag in Hoehe des Tagessolls im Monat. Genau deshalb ist der
+ * Zeitpunkt der Wirkung nicht die Genehmigung, sondern der Moment, in dem der Tag in das
+ * Rechenfenster faellt.
+ *
+ * Das Rechenfenster endet bei HEUTE:
+ *   - `rebuildOvertimeTransactionsForMonth()` deckelt den laufenden Monat auf
+ *     `min(Monatsende, heute)` (Zeile 115-119 dort),
+ *   - `getOvertimeBalance()` blendet Monate > laufender Monat vollstaendig aus.
+ * Beides zusammen ergibt: in `overtime_balance` beruecksichtigt  <=>  Tag <= heute.
+ *
+ * Gemessen an Nutzer 2 (Wochenplan: nur Donnerstag 5 h):
+ *   - Ausgleich 2026-08-06/13/20 (Vergangenheit): Saldo 10,00 -> 10,00 h. Der Fehlbetrag
+ *     stand bereits im Monat — eine zusaetzliche Vormerkung waere eine DOPPELZAEHLUNG.
+ *   - Ausgleich 2026-08-27 (Zukunft, laufender Monat): Saldo 10,00 -> 10,00 h.
+ *   - Ausgleich 2026-09-03 ff. (kuenftiger Monat): Saldo 10,00 -> 10,00 h.
+ * Die beiden letzten Faelle sind die Luecke; der erste darf nicht mitgezaehlt werden.
+ *
+ * WARUM `absence_requests` UND NICHT DAS JOURNAL: Der Befundbericht schlaegt vor, ueber
+ * `overtime_transactions` mit `type = 'compensation' AND date > heute` zu summieren. Das
+ * traegt hier nicht: In der Arbeitsdatenbank stehen 0 solche Zeilen gegen 5 genehmigte
+ * Ausgleiche — darunter der einzige echte Zukunftsfall (Antrag #64, Nutzer 3, 2026-09-29).
+ * Aeltere Neuberechnungen haben die Zeilen bis zum Fix vom 18.08.2026 stillschweigend
+ * geloescht, und `purgeFutureOvertimeRows.ts --apply` hat die Zukunftszeilen zusaetzlich
+ * entfernt. Eine Vormerkung auf dieser Grundlage haette fuer Antrag #64 genau 0,00 h ergeben,
+ * also nichts behoben. `absence_requests` ist dagegen eine geschuetzte Tabelle, wird von
+ * keinem Neuaufbau angefasst und ist die Quelle, gegen die auch genehmigt wird.
+ *
+ * TAGEGENAU statt antragsweise: Die Journalzeile traegt den Gesamtbetrag eines Antrags und
+ * das Startdatum. Ein Zeitraum, der heute ueberspannt (Start <= heute < Ende), waere damit
+ * entweder ganz oder gar nicht vorgemerkt. Hier wird stattdessen der Teil ab morgen
+ * gerechnet — mit `calculateAbsenceHoursWithWorkSchedule()`, also woertlich derselben
+ * Funktion, die auch der Genehmigungsvorbehalt und die Abbuchung benutzen. Es entsteht KEINE
+ * dritte Rechenregel.
+ *
+ * NEUBERECHNUNG STATT GESPEICHERTEM BETRAG: Aendert sich der Wochenplan nach der
+ * Genehmigung, aendert sich damit auch, was der kuenftige Tag spaeter tatsaechlich kosten
+ * wird — der Neuaufbau rechnet ihn dann mit dem neuen Plan. Die Vormerkung folgt dieser
+ * Rechnung, statt einen bei der Genehmigung eingefrorenen Betrag zu konservieren.
+ *
+ * FEHLERVERHALTEN: `MissingWorkPeriodError` wird NICHT abgefangen. Laesst sich fuer einen
+ * kuenftigen Tag keine Arbeitszeitperiode aufloesen, ist das nach Migration 009 ein
+ * Datendefekt (D4: „kein Rueckfall auf users.weeklyHours/workSchedule"). Ein geratener
+ * Ersatzwert waere genau der stille Rueckfall, den D4 verbietet. Derselbe Fehler kann aus
+ * dem Aufruf unmittelbar davor in `approveAbsenceRequest()` schon heute kommen — die
+ * Fehlerklasse dieses Pfades ist also unveraendert.
+ *
+ * @param userId User ID
+ * @returns Bereits genehmigte Ausgleichsstunden fuer Tage nach heute (>= 0)
+ */
+export function getCommittedFutureCompensationHours(userId: number): number {
+  const today = getTodayString();
+
+  const requests = db.prepare(`
+    SELECT id, startDate, endDate
+    FROM absence_requests
+    WHERE userId = ?
+      AND type = 'overtime_comp'
+      AND status = 'approved'
+      AND endDate > ?
+  `).all(userId, today) as Array<{ id: number; startDate: string; endDate: string }>;
+
+  if (requests.length === 0) {
+    return 0;
+  }
+
+  // Nutzer ueber eine eigene Abfrage laden statt ueber `userService.getUserById()`:
+  // `userService` importiert `getOvertimeBalance` aus DIESER Datei — der Import waere ein
+  // Modulzyklus. Gelesen werden ohnehin nur `id` und `hireDate` (siehe `TargetHoursUser`).
+  const user = db.prepare(`
+    SELECT id, hireDate, weeklyHours, workSchedule
+    FROM users
+    WHERE id = ?
+  `).get(userId) as
+    | { id: number; hireDate: string; weeklyHours: number; workSchedule: string | null }
+    | undefined;
+
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  const targetUser: TargetHoursUser = {
+    id: user.id,
+    hireDate: user.hireDate,
+    weeklyHours: user.weeklyHours,
+    workSchedule: user.workSchedule ? (JSON.parse(user.workSchedule) as WorkSchedule) : null,
+  };
+
+  // EIN Perioden-Kontext fuer den gesamten Aufruf — nicht einer je Antrag und schon gar nicht
+  // einer je Tag (derselbe Grund, aus dem `approveAbsenceRequest()` seinen Kontext vorlaedt).
+  const periods = createWorkPeriodContext();
+  const tomorrow = addOneDay(today);
+
+  let committed = 0;
+  for (const request of requests) {
+    // Nur der Teil ab morgen. `startDate > today` ist der Regelfall (eintaegige Ausgleiche);
+    // `tomorrow` greift, wenn der Zeitraum heute ueberspannt.
+    const from = request.startDate > today ? request.startDate : tomorrow;
+    committed += calculateAbsenceHoursWithWorkSchedule(
+      targetUser,
+      from,
+      request.endDate,
+      periods
+    );
+  }
+
+  return Math.round(committed * 100) / 100;
+}
+
+/**
+ * Naechster Kalendertag zu einem YYYY-MM-DD-String.
+ *
+ * Reine Kalenderarithmetik auf UTC-Mittag: Der Mittagsanker macht den Schritt gegen
+ * Sommerzeitspruenge unempfindlich, die UTC-Getter schliessen eine Zonenverschiebung aus.
+ * Dasselbe Muster wie in `workingDays.ts` (`formatDateUtc`). KEIN `toISOString().split('T')[0]`
+ * — das waere der von `.claude/CLAUDE.md` ausdruecklich verbotene Zeitzonenfehler.
+ */
+function addOneDay(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + 1, 12, 0, 0));
+  const y = next.getUTCFullYear();
+  const m = String(next.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(next.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * CR-01 — Das Guthaben, gegen das noch vergeben werden darf.
+ *
+ * `getOvertimeBalance()` bleibt unveraendert: Das ist die Zahl, die der Mitarbeiter als
+ * seinen Ueberstundensaldo sieht, und sie ist richtig — er HAT die Stunden noch, sie sind
+ * nur verplant. Verplante Stunden duerfen aber kein zweites Mal vergeben werden; dafuer
+ * ist diese Funktion da. Sie ist die einzige Groesse, gegen die geprueft wird.
+ *
+ * @param userId User ID
+ * @returns Saldo abzueglich der bereits vergebenen, noch nicht verrechneten Ausgleichsstunden
+ */
+export function getAvailableOvertimeBalance(userId: number): number {
+  const balance = getOvertimeBalance(userId);
+  const committed = getCommittedFutureCompensationHours(userId);
+
+  return Math.round((balance - committed) * 100) / 100;
+}
+
+/**
  * Check if user has sufficient overtime balance
  *
  * VALIDATION: Used before approving overtime_comp absence
+ *
+ * CR-01 (Code-Review Phase 14.1): Grundlage ist `getAvailableOvertimeBalance()` statt
+ * `getOvertimeBalance()`. Vorher sah jede Pruefung denselben Saldo, egal wie viele
+ * Ausgleichstage in der Zukunft schon genehmigt waren — gemessen wurden Nutzer 2 gegen ein
+ * Guthaben von 10,00 h bei Minusgrenze -20 h (also 30,00 h zulaessig) in sechs Runden
+ * 55,00 h genehmigt, bei unveraendertem Saldo von 10,00 h.
  *
  * @param userId User ID
  * @param hoursRequired Hours needed for absence
@@ -656,8 +827,8 @@ export function hasSufficientOvertimeBalance(
   hoursRequired: number,
   maxMinusHours: number
 ): boolean {
-  const currentBalance = getOvertimeBalance(userId);
-  const balanceAfterDeduction = currentBalance - hoursRequired;
+  const availableBalance = getAvailableOvertimeBalance(userId);
+  const balanceAfterDeduction = availableBalance - hoursRequired;
 
   return balanceAfterDeduction >= maxMinusHours;
 }
