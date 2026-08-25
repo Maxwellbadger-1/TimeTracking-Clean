@@ -408,3 +408,110 @@ sich auf `server/src/services/absenceService.ts`. `overtimeTransactionRebuildSer
 (WR-01) wurde **gelesen und zitiert** — `REBUILDABLE_TYPES` (`:153-166`) und `handleAbsenceDay`
 (`:383-451`) tragen die Belege für die Entscheidung zu Weg B —, aber in keinem Commit
 verändert.
+
+---
+
+## Aus Plan 14.1-06 (25.08.2026) — Datenbereinigung der Zukunftsmonate
+
+### 1. Die Produktionsdatenbank ist weiterhin unbereinigt
+
+**Gefunden:** Plan 14.1-06, Stufe 1, beim Probelauf auf der Produktionsarbeitskopie.
+**Nicht repariert** — D-13 verbietet den Produktionszugriff in dieser Phase vollständig.
+
+Die Produktionsarbeitskopie `14-prod-nach-migration.db` trägt exakt dieselben **100**
+Journalzeilen mit Zukunftsdatum (Nutzer 3 und 17 für 2026-09, Nutzer 30 für 2026-10) und
+dieselben **3** Monatszeilen in `overtime_balance` wie die Arbeitsdatenbank. Die echte
+`production.db` trägt sie mit hoher Wahrscheinlichkeit ebenfalls — die Kopie stammt vom Stand
+nach der Migration vom 23.08.2026.
+
+**Was schon vorliegt:** Der vollständige Probelauf gegen die Produktionsarbeitskopie ist
+gefahren und belegt: 100 + 3 Zeilen entfernt, danach 0 verblieben, `integrity_check` = ok,
+`foreign_key_check` leer, und **0 von 20 Nutzern** mit einer Saldendifferenz ungleich 0,00 h —
+weder im kanonischen Rechenweg noch im angezeigten Monatsaggregat. Das Werkzeug trägt für den
+Produktionsfall bereits die vorgeschriebene Aufrufform im Kopfkommentar
+(`--allow-production`, das ohne `--apply` weiterhin nur einen Trockenlauf fährt).
+
+**Was fehlt:** Die Entscheidung des Anwenders, ob und wann gegen die Produktion gefahren wird,
+und die dortige Sicherung nach dem Muster von `14-ROLLBACK-RUNBOOK.md` Abschnitt 1.
+
+Als Punkt **14.1-U24** in `14-UAT-SAMMLUNG.md` eingetragen.
+
+### 2. Der Testnutzer 15015 trägt weiterhin Zukunftszeilen
+
+**Gefunden:** Plan 14.1-06, Stufe 3, in der Ausnahmeliste des Trockenlaufs.
+**Nicht repariert** — bewusst: D-06 nimmt den Testnutzer ausdrücklich von der Bereinigung aus.
+
+In `development.db` stehen weiterhin **30** Journalzeilen mit Zukunftsdatum
+(userId 15015, 2026-09-01 bis 2026-09-30, Typ `time_entry`, `SUM(hours) = -88`) und **eine**
+`overtime_balance`-Zeile (2026-09, targetHours 88, actualHours 0). Das Prädikat schließt sie
+über `userId NOT IN (?)` aus, und der Trockenlauf weist sie als ausgenommen aus.
+
+**Warum das vertretbar ist:** 15015 (`test.vollzeit`) ist ein reiner Testnutzer der
+Entwicklungsdatenbank. Er existiert in der Produktionskopie nicht. Seine Zeilen verfälschen
+keine Kundenzahl.
+
+**Warum es trotzdem hier steht:** Wer künftig „kein Datum in der Zukunft" per Abfrage ohne
+Nutzerfilter prüft, findet 30 Treffer und hält den Befund für offen. Die Einschränkung
+„Testnutzer 15015 ausgenommen" gehört zu jeder Formulierung des Erfolgskriteriums dazu.
+
+Als Punkt **14.1-U21** in `14-UAT-SAMMLUNG.md` eingetragen.
+
+### 3. Die Roadmap-Zahl 59 ist nach wie vor unerklärt
+
+**Gefunden:** Plan 14.1-06, Trockenlauf gegen beide Datenbanken.
+**Nicht repariert** — eine Zahl in einem Befundtext ist kein Code.
+
+Der Roadmap-Befund nennt **59** fiktive Journalbuchungen. Gemessen sind es unter dem
+festgelegten Prädikat **100** Zeilen, davon **50** mit `hours != 0`; einschließlich des
+ausgenommenen Testnutzers **130**. Die Zahl 59 ist mit keiner dieser Abgrenzungen
+deckungsgleich und auch nicht als Summe oder Differenz darstellbar. Es wurde **nicht**
+versucht, ein Prädikat zu konstruieren, das die Zahl 59 trifft.
+
+Die Abweichung ist in `14.1-NACHWEIS-BEREINIGUNG.md`, Abschnitt „Abweichung zur Zahl 59",
+benannt. Ob der Roadmap-Text korrigiert wird, entscheidet der Anwender —
+Punkt **14.1-U20**.
+
+### 4. 14.1-U15 (Alt-Abzüge in `overtime_balance`) wurde nicht mitbereinigt
+
+**Gefunden:** übernommen aus Plan 14.1-05.
+**Nicht repariert** — bewusst.
+
+Plan 14.1-05 hatte die Frage offen gelassen, ob die drei genehmigten Ausgleiche (Anträge 25,
+56, 64; Nutzer 18, 17, 3) heute noch einen Alt-Abzug aus dem entfernten FIFO-Weg in einer
+Monatszeile von `overtime_balance` stehen haben, und sie in die Datenbereinigung verwiesen.
+
+Plan 14.1-06 hat sie **nicht** aufgegriffen. Grund: Das wäre ein **zweiter Befund in demselben
+Löschvorgang** gewesen und hätte D-07 verletzt („niemals zwei Befunde in einem Commit"). Die
+Bereinigung der Zukunftszeilen ist ein Vorgang mit eigenem Prädikat, eigener Sicherung und
+eigenem Wiederherstellungsnachweis; ein zweites, sachlich unabhängiges Prädikat im selben Lauf
+hätte den Nachweis unlesbar gemacht und den Rückweg vermischt.
+
+Der Punkt bleibt offen und wird als **14.1-U23** erneut vorgelegt.
+
+### 5. D-09: Keine WR-Warnung behoben — und eine bewusst als Begründung benutzt
+
+Plan 14.1-06 hat keine Stelle verändert, die zu WR-01 bis WR-10 gehört. Die einzige Berührung
+ist **WR-10** (`model_change`-Zeilen dürfen ein Datum in der Zukunft tragen — die Korrektur
+oder der Storno einer geplanten Arbeitszeitperiode, Phase 13). Diese Warnung wurde **nicht
+behoben**, sondern als **Begründung für den Typfilter** des Löschprädikats verwendet: Der
+Filter schließt `model_change` und die übrigen book-once-Typen aus, damit die Warnung nicht
+durch eine Datenbereinigung „nebenbei" entschieden wird. Im heutigen Bestand gibt es keine
+solche Zeile in der Zukunft — der Filter ist ein Sicherheitsnetz, kein Füllwerk.
+
+Die phasenweite WR-Zusammenfassung (alle sechs Pläne) steht in
+`14.1-NACHWEIS-BEREINIGUNG.md`, Abschnitt „D-09 — WR-Zusammenfassung über die gesamte
+Phase 14.1".
+
+### 6. Sicherungen und Probekopien liegen im Arbeitsverzeichnis
+
+Nach diesem Plan liegen drei zusätzliche, **nicht eingecheckte** Datenbankdateien unter
+`server/database/`:
+
+| Datei | Zweck | Größe |
+|---|---|---:|
+| `backups/development.PRE-14.1-06_20260825_070544.db` | die Sicherung vor dem Löschlauf (D-07) | 1.355.776 B |
+| `14.1-restore-probe.db` | die zurückgespielte Kopie aus dem Wiederherstellungsnachweis | 1.355.776 B |
+| `14.1-bereinigung-probe.db` | die Produktionsarbeitskopie aus Stufe 1 | 1.323.008 B |
+
+Sie bleiben liegen. Wann sie gelöscht werden dürfen, entscheidet der Anwender — die Sicherung
+ist der einzige Rückweg für die Datenänderung dieses Plans. Punkt **14.1-U22**.
