@@ -692,6 +692,61 @@ ist eine fachliche Entscheidung, keine dieser Phase zugeordnete Korrektur.
 **Vorschlag:** Als UAT-Punkt in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorgemerkt (siehe
 SUMMARY dieses Plans).
 
+## Aus Plan 14.2-04 (26.08.2026) — F-3
+
+### 1. Weitere `<Select>`-Aufrufstellen ohne `name`
+
+**Gefunden:** Plan 14.2-04, Task 2, projektweite Suche (`grep -rn "<Select" desktop/src`).
+**Nicht repariert** — bewusst. F-3 verlangt nur das Rollenfeld in `EditUserModal.tsx`; jede
+weitere Stelle waere ein zweiter Befund (D-02).
+
+Seit Task 1 erzeugt `Select.tsx` fuer **jeden** Aufrufer selbststaendig ein `htmlFor`/`id`-Paar
+(`useId()`-Fallback) — das Barrierefreiheits-Symptom von F-3 (Label ohne `htmlFor`) ist damit an
+allen Stellen unten bereits behoben. Was fehlt, ist ausschliesslich ein **stabiler,
+selbstgewaehlter** `name` (statt der generierten React-`id`) — relevant nur, falls ein
+E2E-Selektor oder ein natives `<form>`-Submit ihn braucht.
+
+Vollstaendige Liste (18 Fundstellen, `grep -rn "<Select" desktop/src` abzueglich des jetzt
+gefixten Rollenfelds), mit Label-Text soweit vorhanden:
+
+| Datei:Zeile | `label`-Prop |
+|---|---|
+| `desktop/src/components/absences/AbsenceRequestForm.tsx:267` | „Mitarbeiter" |
+| `desktop/src/components/absences/AbsenceRequestForm.tsx:284` | „Art der Abwesenheit" |
+| `desktop/src/components/corrections/OvertimeCorrectionModal.tsx:189` | „Korrekturtyp" |
+| `desktop/src/components/timeEntries/EditTimeEntryModal.tsx:204` | „Arbeitsort" |
+| `desktop/src/components/timeEntries/TimeEntryForm.tsx:144` | „Mitarbeiter" |
+| `desktop/src/components/timeEntries/TimeEntryForm.tsx:204` | „Arbeitsort" |
+| `desktop/src/components/users/CreateUserModal.tsx:272` | „Rolle" (Anlage-Dialog, nicht F-3 — F-3 ist ausdrücklich nur `EditUserModal.tsx:862`) |
+| `desktop/src/pages/AbsencesPage.tsx:392` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/AbsencesPage.tsx:404` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/AbsencesPage.tsx:418` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/ReportsPage.tsx:249` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/ReportsPage.tsx:270` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/TimeEntriesPage.tsx:440` | „Zeitraum" |
+| `desktop/src/pages/TimeEntriesPage.tsx:476` | „Mitarbeiter" |
+| `desktop/src/pages/TimeEntriesPage.tsx:491` | „Arbeitsort" |
+| `desktop/src/pages/UserManagementPage.tsx:341` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/UserManagementPage.tsx:356` | (kein `label`, Filterzeile) |
+| `desktop/src/pages/UserManagementPage.tsx:367` | (kein `label`, Filterzeile) |
+
+**Wirkung:** Kein Datenverlust, keine Sicherheitswirkung. Ein automatisierter Test, der eines
+dieser Felder ueber `select[name="…"]` ansprechen wollte, faende derzeit keinen Treffer — er
+muesste ueber den Labeltext oder eine Position gehen.
+
+**Vorschlag:** Falls ein kuenftiger E2E-Test eines dieser Felder braucht, `name` an der
+jeweiligen Aufrufstelle ergaenzen, analog zu `EditUserModal.tsx:862` (dieser Plan). Kein
+Sammel-Commit noetig — jede Stelle einzeln, wenn der Bedarf entsteht.
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.2-04 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehoert. Die Fixes beschraenken
+sich auf `desktop/src/components/ui/Select.tsx` und
+`desktop/src/components/users/EditUserModal.tsx`; keine der in den Warnungen genannten Dateien
+steht in einem seiner Commits.
+
+---
+
 ## Aus Phase 14.2, Orchestrator-Nachmessung (26.08.2026)
 
 ### Zwei Server-Tests sind datumsabhängig und wurden allein durch den Kalendertagwechsel rot
