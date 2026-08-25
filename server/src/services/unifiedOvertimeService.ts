@@ -280,9 +280,18 @@ export class UnifiedOvertimeService {
     const requestedEnd = new Date(endDate);
     const effectiveStartDate = requestedStart < hireDate ? hireDate : requestedStart;
 
+    // BL-01 (Phase 14.1, D-01) — DECKELUNG AUF HEUTE, wie im Schwestermodell
+    // `calculateMonthlyOvertime()` (dort `effectiveEndDate`, weiter oben in dieser Datei).
+    // Fuer Tage in der Zukunft gibt es keine Ist-Daten; eine Tageszeile dort truege ein volles
+    // Tagessoll ohne Ist und zoege den Zeitraumsaldo ins Minus. Die Deckelung steht hier in der
+    // Berechnung selbst, damit sie kein Aufrufer erneut vergessen kann.
+    // `today` kommt aus `getCurrentDate()` (Berlin), nicht aus `new Date()` — Projektregel.
+    const today = getCurrentDate();
+    const effectiveEndDate = requestedEnd > today ? today : requestedEnd;
+
     // Calculate daily overtime for each day in range
     const dailyResults: DailyOvertimeResult[] = [];
-    for (let d = new Date(effectiveStartDate); d <= requestedEnd; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(effectiveStartDate); d <= effectiveEndDate; d.setDate(d.getDate() + 1)) {
       const dateStr = formatDate(d, 'yyyy-MM-dd');
       const dailyResult = this.calculateDailyOvertime(userId, dateStr, periods);
       dailyResults.push(dailyResult);
@@ -312,6 +321,10 @@ export class UnifiedOvertimeService {
 
     return {
       startDate: formatDate(effectiveStartDate, 'yyyy-MM-dd'),
+      // BL-01 (Phase 14.1, D-01): `endDate` bleibt das ANGEFRAGTE Bereichsende und beschreibt
+      // damit den Auftrag, nicht den Rechenweg. Gerechnet wurde bis `effectiveEndDate` (auf
+      // heute gedeckelt) — dieselbe Trennung von angefragtem und berechnetem Ende wie in
+      // `calculateLiveOvertimeTransactions()` (`journalEndDate` gegen `endDate`).
       endDate,
       targetHours: totals.targetHours,
       actualHours: totals.actualHours,

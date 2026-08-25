@@ -695,10 +695,13 @@ export function calculateCurrentOvertimeBalance(
   toDate?: string
 ): number {
   // Get user to determine date range
+  // BL-01 (Phase 14.1, D-01): `AND deletedAt IS NULL` wie in `userService.getUserById()` und
+  // `unifiedOvertimeService.getUser()`. Ohne den Filter lieferte diese Abfrage auch fuer einen
+  // soft-geloeschten Nutzer eine Zeile, und der `throw` unten blieb wirkungslos.
   const user = db.prepare(`
     SELECT id, hireDate
     FROM users
-    WHERE id = ?
+    WHERE id = ? AND deletedAt IS NULL
   `).get(userId) as { id: number; hireDate: string } | undefined;
 
   if (!user) {
@@ -709,7 +712,17 @@ export function calculateCurrentOvertimeBalance(
   const startDate = fromDate && fromDate > user.hireDate
     ? fromDate
     : user.hireDate;
-  const endDate = toDate || formatDate(getCurrentDate(), 'yyyy-MM-dd'); // Today
+  // BL-01 (Phase 14.1, D-01) — DECKELUNG AUF HEUTE:
+  //
+  // Diese Zahl steht im Kontoauszug direkt ueber der Buchungsliste, die
+  // `calculateLiveOvertimeTransactions()` liefert. Jene Schwesterfunktion deckelt ihr
+  // Berechnungsende seit dem WR-10-Fix hart auf heute (siehe dort). Hier fehlte die Deckelung:
+  // ein `toDate` in der Zukunft (der Client schickt den Monatsletzten) wurde ungeprueft
+  // uebernommen, und jeder kuenftige Arbeitstag ging mit vollem Tagessoll ohne Ist als Minus
+  // ein. Beide Zahlen muessen aus demselben Zeitraum stammen — deshalb gilt hier dieselbe Regel.
+  const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
+  const requestedEndDate = toDate || today;
+  const endDate = requestedEndDate > today ? today : requestedEndDate;
 
   // Delegate to UnifiedOvertimeService (Single Source of Truth)
   const periodResult = unifiedOvertimeService.calculatePeriodOvertime(
