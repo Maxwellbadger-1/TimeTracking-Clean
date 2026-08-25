@@ -683,24 +683,39 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
     }
   });
 
-  it('WR-02: Ein bereits materialisierter Zukunftsmonat wird mit dem neuen Sollmodell nachgezogen, balanceDelta bleibt davon unberuehrt', () => {
-    const userId = createEmployee('wr02-zukunftsmonat', 40, '2020-01-01');
+  /**
+   * PLANAENDERUNG (Phase 14.1, D-10) — die Praemisse dieses Tests war falsch, nicht sein
+   * Mechanismus.
+   *
+   * Frueherer Name: „WR-02: Ein bereits materialisierter Zukunftsmonat wird mit dem neuen
+   * Sollmodell nachgezogen, balanceDelta bleibt davon unberuehrt".
+   *
+   * Der Test materialisierte einen zwei Monate in der Zukunft liegenden Monat vorab ueber den
+   * Rebuild-Dienst (`overtimeTransactionRebuildService`) und pruefte anschliessend, dass dessen
+   * `targetHours` beim Stundenwechsel *aktualisiert* werden. Er entstand, als die
+   * Zukunftszeilen im Bestand auffielen und jemand dafuer sorgte, dass sie mitgezogen werden
+   * — statt zu fragen, warum es sie ueberhaupt gibt.
+   *
+   * Genau diese Frage beantwortet **D-01 (BL-01)**: Sie duerfen nicht entstehen. Fuer einen
+   * Tag, der noch nicht stattgefunden hat, gibt es keine Ist-Daten; eine Zeile dort traegt ein
+   * volles Tagessoll ohne Ist und zieht den Saldo ins Minus. Ein Test, der ihr Fortbestehen
+   * absichert, zementiert den Fehler. Die Vorab-Materialisierung und die
+   * `targetHours`-Erwartung auf den Zukunftsmonat entfallen deshalb ersatzlos.
+   *
+   * ERHALTEN BLEIBT der zweite, weiterhin wertvolle Teil: dass ein Stundenwechsel
+   * `balanceDelta` unberuehrt laesst und nicht in die Zukunft greift — jetzt gemessen an
+   * einem Monat, der nicht in der Zukunft liegt, und ergaenzt um die umgekehrte Erwartung:
+   * nach dem Wechsel existiert fuer den Zukunftsmonat GAR KEINE Monatszeile.
+   */
+  it('WR-02 (Praemisse geaendert, Phase 14.1 / D-01): Ein Stundenwechsel greift nicht in die Zukunft und laesst balanceDelta unberuehrt', () => {
+    const userId = createEmployee('wr02-keine-zukunftszeile', 40, '2020-01-01');
     try {
       insertTestWorkPeriod(userId, { validFrom: '2020-01-01', weeklyHours: 40, workSchedule: null });
 
       const validFrom = firstOfMonthOffset(today, -1);
       insertWeekdayTimeEntries(userId, validFrom, today, 8);
 
-      // Zukunftsmonat vorab materialisieren — genau die Lage, die durch genehmigten
-      // Zukunftsurlaub im Bestand entsteht (siehe Kommentar in getOvertimeBalance()).
       const futureMonth = firstOfMonthOffset(today, 2).slice(0, 7);
-      rebuildOvertimeTransactionsForMonth(userId, futureMonth);
-
-      const futureBefore = db
-        .prepare('SELECT targetHours FROM overtime_balance WHERE userId = ? AND month = ?')
-        .get(userId, futureMonth) as { targetHours: number } | undefined;
-      expect(futureBefore).toBeDefined();
-      expect(futureBefore!.targetHours).toBeGreaterThan(0);
 
       const outcome = applyWorkTimeChange(
         {
@@ -708,21 +723,27 @@ describe('applyWorkTimeChange — Erfolgskriterien der Phase 12 (ROADMAP)', () =
           validFrom,
           weeklyHours: 20,
           workSchedule: null,
-          reason: 'Halbierung der Wochenstunden — Nachweis fuer den Zukunftsmonat (WR-02)',
+          reason: 'Halbierung der Wochenstunden — Nachweis, dass die Zukunft unberuehrt bleibt',
         },
         { dryRun: false, createdBy: adminId }
       );
 
-      const futureAfter = db
+      // D-01: Der Wechsel legt fuer einen Monat in der Zukunft keine Monatszeile an.
+      const futureRow = db
         .prepare('SELECT targetHours FROM overtime_balance WHERE userId = ? AND month = ?')
-        .get(userId, futureMonth) as { targetHours: number };
+        .get(userId, futureMonth) as { targetHours: number } | undefined;
+      expect(futureRow).toBeUndefined();
 
-      // Halbe Wochenstunden -> halbes Monatssoll. Der Zukunftsmonat traegt jetzt das neue
-      // Modell und nicht mehr das alte.
-      expect(futureAfter.targetHours).toBeCloseTo(futureBefore!.targetHours / 2, 2);
+      // Ebenso wenig entsteht eine Journalbuchung mit einem Datum nach heute.
+      const futureTransactions = db
+        .prepare(
+          'SELECT COUNT(*) as c FROM overtime_transactions WHERE userId = ? AND date > ?'
+        )
+        .get(userId, today) as { c: number };
+      expect(futureTransactions.c).toBe(0);
 
-      // Der gemessene und gebuchte balanceDelta stammt weiterhin ausschliesslich aus dem
-      // Zeitraum bis heute: getOvertimeBalance() blendet Zukunftsmonate aus.
+      // Der gemessene und gebuchte balanceDelta stammt ausschliesslich aus dem Zeitraum bis
+      // heute.
       expect(outcome.preview.balanceDelta).toBe(
         Math.round((outcome.preview.balanceAfter - outcome.preview.balanceBefore) * 100) / 100
       );
