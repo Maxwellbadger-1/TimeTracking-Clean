@@ -608,7 +608,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 6/6 | **Complete** — BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zukunftszeilen entfernt, Wiederherstellungsnachweis geführt); Gates 557 grün / 3 rot, kein Push (D-13) | 2026-08-25 |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 6/6 | **Umsetzung fertig — Abnahme offen** — BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zukunftszeilen entfernt, Wiederherstellungsnachweis Zeile für Zeile geführt); Gates 557 grün / 3 rot, kein Push (D-13). Verifikation `human_needed`: 21/22 Muss-Aussagen belegt, keine Lücke. Offen: 30 Abnahmepunkte (14.1-U1 bis U30) und 6 Code-Review-Blocker, die nach D-09 bewusst nicht behoben wurden — dringendster Punkt 14.1-U26 | 2026-08-25 |
 
 ---
 

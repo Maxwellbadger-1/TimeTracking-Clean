@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: verifying
-stopped_at: Plan 14.1-06 abgeschlossen (Datenbereinigung: 100 Journalzeilen und 3 Monatszeilen entfernt, Sicherung geprueft, Wiederherstellungsnachweis Zeile fuer Zeile gefuehrt, 3 Commits, Gates gruen). Alle sechs Plaene der Phase 14.1 sind fertig. Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten. Neu offen: 14.1-U20 bis 14.1-U25, darunter 14.1-U24 (Produktionsdatenbank unbereinigt).
-last_updated: "2026-08-25T05:21:53.569Z"
-last_activity: 2026-08-25 -- Plan 14.1-06 abgeschlossen, Datenbereinigung gefahren (100 + 3 Zeilen entfernt, 0 verblieben; kein Saldo bewegt; Wiederherstellungsnachweis 0 fehlend / 0 ungleich)
+stopped_at: Phase 14.1 durchgelaufen - alle sechs Plaene fertig, Verifikation human_needed (21/22 Muss-Aussagen belegt, keine Luecke, kein Gap-Plan noetig). Die Umsetzung ist fertig, die ABNAHME ist offen: 30 Punkte 14.1-U1 bis U30 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.1. Die Code-Review am Phasenende hat 32 Befunde erhoben (6 BLOCKER); keiner wurde behoben - alle liegen ausserhalb des Scope Fence, vermerkt in deferred-items.md. DRINGENDSTER PUNKT VOR DER AUSLIEFERUNG: 14.1-U26 (CR-01) - ein genehmigter Ueberstundenausgleich mit Zukunftsdatum bindet das Guthaben nicht mehr, dasselbe Guthaben ist mehrfach vergebbar. Ebenfalls offen: 14.1-U24 (Produktionsdatenbank unbereinigt) und die Entscheidung aus Plan 14-08 zu den 99 von fix-overtime.ts geschriebenen Werten. Kein Push, kein Deployment - main steht 30 Commits vor origin/main auf 22f9cdc.
+last_updated: "2026-08-25T07:45:00.000Z"
+last_activity: 2026-08-25 -- Phase 14.1 abgeschlossen: BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zeilen, Wiederherstellungsnachweis gefuehrt), Gates 557 gruen / 3 rot, Verifikation und Code-Review gelaufen
 progress:
   total_phases: 8
   completed_phases: 6
