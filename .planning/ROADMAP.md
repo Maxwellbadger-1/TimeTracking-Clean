@@ -537,7 +537,8 @@ Plans:
 
 **Welle 2** *(blocked on Welle 1)*
 
-- [ ] 14.1-02-PLAN.md — BL-02: `require()` durch ESM-Import ersetzen, Löschpfad rechnet nachweislich neu; legt den Importstil für 14.1-03 fest
+- [x] 14.1-02-PLAN.md — BL-02: `require()` durch ESM-Import ersetzen, Löschpfad rechnet nachweislich neu; legt den Importstil für 14.1-03 fest
+      *Abgeschlossen 2026-08-25 — 2 Commits, Gates gruen (542 gruen / 3 rot, rote Menge unveraendert). In Zahlen belegt: overtime_transactions mit der referenceId des Antrags 2 → 0, work_time_accounts.currentBalance −168,00 h → −176,00 h, beides unmittelbar nach der Loeschung bei angehaltenem Nachtlauf (D-11). Gegenversuch protokolliert (ohne den Fix 2 von 3 Tests rot). **Importstil fuer 14.1-03 festgeschrieben:** statischer Top-Level-Import, Begruendung und Laufzeit-Ladeprobe in `14.1-NACHWEIS-BL02.md`, Abschnitt 4. Zusammenfassung: `14.1-02-SUMMARY.md`. **Neu aufgekommen:** work_time_accounts bleibt nach dem Loeschen auf einem Zwischenstand (8,00 h Restdifferenz) — vermerkt in `deferred-items.md` und als 14.1-U5 zur Entscheidung vorgelegt, NICHT mitrepariert.*
 
 **Welle 3** *(blocked on Welle 2 — gleiche Datei `absenceService.ts`, gleicher Importstil)*
 
@@ -602,7 +603,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 1/6 | In Arbeit — 14.1-01 (BL-01) abgeschlossen 2026-08-25, Welle 2 entsperrt | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 2/6 | In Arbeit — 14.1-02 (BL-02) abgeschlossen 2026-08-25, Welle 3 entsperrt | — |
 
 ---
 
