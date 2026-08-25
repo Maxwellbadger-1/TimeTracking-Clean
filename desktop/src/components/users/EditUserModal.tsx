@@ -860,6 +860,8 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
 
           <div className="grid grid-cols-3 gap-4">
             <Select
+              name="role"
+              id="role"
               label="Rolle"
               value={role}
               onChange={(e) => setRole(e.target.value as typeof role)}
