@@ -17,6 +17,7 @@
     "snapshot:balances": "tsx src/scripts/snapshotBalances.ts",
     "apply:model-change": "tsx src/scripts/applyModelChange.ts",
     "backfill:overtime-journal": "tsx src/scripts/backfillOvertimeJournal.ts",
+    "purge:future-overtime": "tsx src/scripts/purgeFutureOvertimeRows.ts",
     "seed:model-change": "tsx src/scripts/seedModelChangeUser.ts",
     "verify:period-nulleffect": "tsx src/scripts/verifyPeriodNullEffect.ts",
     "verify:balance-vs-journal": "tsx src/scripts/verifyBalanceVsJournal.ts",
