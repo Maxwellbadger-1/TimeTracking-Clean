@@ -22,6 +22,7 @@
     "seed:model-change": "tsx src/scripts/seedModelChangeUser.ts",
     "verify:period-nulleffect": "tsx src/scripts/verifyPeriodNullEffect.ts",
     "verify:balance-vs-journal": "tsx src/scripts/verifyBalanceVsJournal.ts",
+    "verify:future-overtime": "tsx src/scripts/verifyFutureOvertimeBalance.ts",
     "validate:schema": "tsx scripts/validateSchema.ts",
     "migrate:overtime": "tsx src/scripts/migrateOvertimeToTransactions.ts",
     "sync:worktime": "tsx src/scripts/syncWorkTimeAccounts.ts",
