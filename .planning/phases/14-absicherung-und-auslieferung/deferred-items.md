@@ -864,3 +864,43 @@ beschränkt sich auf **eine** Zuweisung in
 `desktop/src/hooks/useWorkTimeAccounts.ts` und `workTimeAccountService.ts` stehen in keinem
 seiner Commits. Die Punkte 1 bis 3 oben sind **neue Beobachtungen**, keine WR-Warnungen — sie
 werden trotzdem nach demselben Verfahren hier abgelegt.
+
+---
+
+## Aus Plan 14.2-06 (26.08.2026) — F-6
+
+### 1. NB-5, Fall 3: Zusammengeklebter Satz in `client.ts:153-155` (UAT-Kandidat)
+
+**Gefunden:** `14.2-06-PLAN.md`, `<objective>` und Abschnitt „Ausdrücklich nicht anfassen"
+(D-08-Festlegung, bereits im CONTEXT als nicht Teil von F-6 benannt).
+**Nicht repariert** — ausdrücklicher Scope Fence dieses Plans.
+
+`desktop/src/api/client.ts:153-155` zeigt bei einem Fehler, den ein Aufrufer nicht selbst
+darstellt, einen Toast mit zwei aneinandergeklebten Sätzen **ohne Trennzeichen**:
+
+```typescript
+toast.error(data.error || `Server-Fehler: ${response.status}`, {
+  description: 'Die Anfrage konnte nicht verarbeitet werden.',
+});
+```
+
+Der dritte NB-5-Fall (Krankmeldung auf einen Tag mit bereits erfasster Zeit) trifft genau diese
+Stelle: der servergelieferte deutsche Satz (`data.error`) erscheint als Toast-Titel, direkt
+darunter — ohne Punkt, Doppelpunkt oder Absatz — der feste Untertitel „Die Anfrage konnte nicht
+verarbeitet werden.". Das ist **kein Rohtext** (anders als F-6) und betrifft laut NB-5 **drei**
+Stellen, von denen zwei außerhalb dieser Phase liegen — ein eigener Befund, keiner der elf.
+
+**Wirkung:** Kein Datenverlust. Zwei vollständige, für sich lesbare deutsche Sätze, aber ohne
+visuelle/semantische Trennung — abhängig vom jeweiligen Serversatz kann das wie ein einziger,
+grammatisch unsauberer Satz wirken.
+
+**Für die UAT-Sammlung:** ob der zusammengeklebte Satz **verständlich** ist, kann nur ein
+Mensch beurteilen — als `14.2-U…` in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorzumerken
+(Plan 14.2-13 sammelt).
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.2-06 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Die Fixes beschränken
+sich auf `desktop/src/api/exports.ts`; `desktop/src/api/client.ts`,
+`server/src/routes/exports.ts` und `server/src/services/exportService.ts` stehen in keinem
+seiner Commits (Scope Fence, D-08-Festlegung im Plan).
