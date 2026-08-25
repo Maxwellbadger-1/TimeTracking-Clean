@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 14.1-03 abgeschlossen (BL-05 geschlossen, 2 Commits, Gates gruen). Naechster Plan 14.1-04 (BL-03). Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
-last_updated: "2026-08-25T04:05:00.000Z"
-last_activity: 2026-08-25 -- Plan 14.1-03 abgeschlossen, BL-05 geschlossen (sick_credit-Zeilen 0 -> 1, +8,00 h unmittelbar nach dem Anlegen)
+stopped_at: Plan 14.1-04 abgeschlossen (BL-03 geschlossen, 2 Commits, Gates gruen). Naechster Plan 14.1-05 (BL-04) - autonomous false, haelt fuer eine Entscheidung des Anwenders zu Weg B an. Weiterhin offen aus Plan 14-08 - Entscheidung des Anwenders zu den 99 von fix-overtime.ts geschriebenen Werten.
+last_updated: "2026-08-25T04:30:00.000Z"
+last_activity: 2026-08-25 -- Plan 14.1-04 abgeschlossen, BL-03 geschlossen (abgelehnte Antraege im Export 15 -> 0, stillgelegte Konten 5 -> 0, totalOvertime -2954,21 h -> 105,75 h)
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 65
-  completed_plans: 53
+  completed_plans: 54
   percent: 57
 ---
 
@@ -25,13 +25,14 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (3/6 Plänen fertig)
+- **Phase:** 14.1 — Rechenwerk-Blocker aus dem Produktionslauf schließen (4/6 Plänen fertig)
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
-- **Next action:** Plan 14.1-04 (BL-03: Historien-Export filtert `status` und `deletedAt`, `totalOvertime` begrenzt) ausführen — Welle 4 ist durch den Abschluss von 14.1-03 entsperrt; der Plan arbeitet in `exportService.ts` und berührt `absenceService.ts` nicht. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug) sowie die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` bleibt nach dem Löschen einer Krankmeldung um 8,00 h zurück und wird beim Anlegen einer Krankmeldung gar nicht fortgeschrieben; Details in deferred-items.md, Abschnitte „Aus Plan 14.1-02" und „Aus Plan 14.1-03").
-- **Last completed:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
+- **Next action:** Plan 14.1-05 (BL-04: Ein genehmigter Überstundenausgleich hinterlässt genau eine Spur, nicht drei) ausführen — Welle 5 ist durch den Abschluss von 14.1-04 entsperrt. **Achtung:** 14.1-05 ist `autonomous: false` und hält für eine Entscheidung des Anwenders zu Weg B (`recordOvertimeCompensation`) an. Unverändert offen daneben: die Entscheidung des Anwenders zum Befund aus Plan 14-08 (fix-overtime.ts hat 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben; Details in 14-PRODUKTIONSLAUF.md), die Entscheidung 14.1-U3 (Darstellung von Abwesenheitstagen im Kontoauszug), die zusammengehörenden Entscheidungen 14.1-U5 und **14.1-U8** (`work_time_accounts` zieht weder beim Löschen noch beim Anlegen einer Krankmeldung mit) sowie **14.1-U11** (der Historien-Export trägt weiterhin 102 Zeiteinträge und 1 genehmigten Antrag stillgelegter Konten — eine Aufbewahrungsfrage, keine Fehlerkorrektur; Details in deferred-items.md, Abschnitt „Aus Plan 14.1-04").
+- **Last completed:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
+- **Davor abgeschlossen:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
-- **Stopped at:** Plan 14.1-03 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
+- **Stopped at:** Plan 14.1-04 vollständig abgeschlossen, SUMMARY und Nachweis geschrieben. Kein Push (D-13).
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -337,6 +338,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P01 | 26min | 3 tasks | 9 files |
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P02 | 23min | 2 tasks | 5 files |
 | Phase 14.1 P03 (BL-05) | 14min | 2 tasks | 5 files |
+| Phase 14.1 P04 (BL-03) | 25min | 2 tasks | 5 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -373,7 +375,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Executing Phase 14.1
         Plan 14.1-05 ist autonomous: false und haelt in Welle 5 fuer eine Entscheidung
         des Anwenders zu Weg B (recordOvertimeCompensation) an.
@@ -417,3 +419,5 @@ auf zwei davon.
 - Plan 14-08 nach Task 3 Schritt E abgebrochen: Deployment (Lauf 32632007657, success) hat die Migrationen 008-015 angewendet — diese bewegen nachweislich keine Zahl (Vorhersagemessung vor dem Push: 0 Differenzen). Aber fix-overtime.ts hat danach 99 Werte in overtime_balance bei 8 Nutzern neu geschrieben (Summe -98,5 h; groesste Einzelbewegung -84 h bei userId 16 Benedikt Jochem). Das verletzt die Zusicherung des Anwenders, dass sich an den Stundenstaenden nichts aendert. Richtung gemessen: 13 von 15 aktiven Nutzern stimmen jetzt exakt mit dem kanonischen Rechenweg ueberein (vorher 7 von 15), kein Nutzer steht schlechter — zahlengleich der Zustand, den der Anwender fuer 14-10 (Vollaufbau) gewaehlt hat. Nichts verloren: Journal, Zeiteintraege, Urlaub, Stammdaten unveraendert. Entscheidung noetig: (a) Stand bestehen lassen, (b) Rueckweg B (Daten UND Code, nimmt den gesamten v3.0-Milestone zurueck). Geprueft Sicherung production.PRE-14-08_20260823_111541.db liegt doppelt vor. Zahlen in 14-PRODUKTIONSLAUF.md und 14-VERGLEICH-VOR-NACH.md.
 - Entscheidung des Anwenders noetig (14.1-U3, aufgekommen in Plan 14.1-01): Im Kontoauszug erzeugt ein Urlaubs- oder Krankheitstag NUR die Gutschriftszeile (+ Tagessoll) und KEINE Soll-Gegenbuchung. Die Buchungsliste summiert sich dadurch hoeher als der Saldo darueber — nachgemessen am 25.08.2026 gegen eine Arbeitskopie von 14-prod-nach-migration.db: Nutzer 16 = 30,00 h, Nutzer 17 = 8,00 h, Nutzer 3 = 4,00 h. Anders als bei BL-01 ist hier der Saldo richtig und die Liste falsch. Solange das offen ist, ist das ERSTE ERFOLGSKRITERIUM der Phase 14.1 ("Saldo = Summe der Buchungen darunter, fuer jeden Nutzer") nur fuer die BL-01-Ursache erreicht (8 betroffene Nutzer vorher, 0 nachher), nicht insgesamt (9 vorher, 3 nachher). Zwei Loesungswege ausformuliert in .planning/phases/14-absicherung-und-auslieferung/deferred-items.md, Abschnitt "Aus Plan 14.1-01 (25.08.2026)", Eintrag 1. Zahlen in 14.1-NACHWEIS-BL01.md, Abschnitt 5.
 - Entscheidung des Anwenders noetig (14.1-U5, aufgekommen in Plan 14.1-02): Nach dem Loeschen einer genehmigten Krankmeldung bleibt work_time_accounts.currentBalance auf einem Zwischenstand stehen — gemessen -176,00 h, waehrend Journal und overtime_balance desselben Nutzers bei -184,00 h enden (Differenz genau ein Tagessoll). Ursache: updateAllOvertimeLevels() — die einzige Funktion, die work_time_accounts schreibt — laeuft INNERHALB der Loeschtransaktion, solange die Zeile in absence_requests noch steht; der anschliessende updateMonthlyOvertime()-Aufruf rechnet richtig, beruehrt work_time_accounts aber nicht. Vorbestehend: ja — vor dem BL-02-Fix bewegte sich der Wert ueberhaupt nicht, der Fix macht den Befund erst messbar. Zwei Loesungswege ausformuliert in .planning/phases/14-absicherung-und-auslieferung/deferred-items.md, Abschnitt "Aus Plan 14.1-02 (25.08.2026)", Eintrag 1. Zahlen in 14.1-NACHWEIS-BL02.md, Abschnitt 7. NICHT mitrepariert (D-07, D-09).
+- Entscheidung des Anwenders noetig (14.1-U8, aufgekommen in Plan 14.1-03): Beim Anlegen einer Krankmeldung wird work_time_accounts.currentBalance gar nicht fortgeschrieben (gemessen -184,00 h vorher wie nachher), waehrend im selben Moment die sick_credit-Gutschrift von +8,00 h im Journal steht. Gehoert sachlich zu 14.1-U5 und sollte mit ihm zusammen entschieden werden. Details in deferred-items.md, Abschnitt "Aus Plan 14.1-03 (25.08.2026) - BL-05", und in 14.1-NACHWEIS-BL05.md, Abschnitt 4.
+- Entscheidung des Anwenders noetig (14.1-U11, aufgekommen in Plan 14.1-04): Der Historien-Export nennt stillgelegte Konten nicht mehr in seiner Nutzerliste, traegt aber weiterhin 102 Zeiteintraege und 1 genehmigten Antrag, die ueber die Spalte userId auf genau diese Konten verweisen (gemessen auf der Produktionsarbeitskopie). Die Listen timeEntries und absences der Sammelvariante sind nur nach Zeitraum eingegrenzt, nicht nach Nutzern - vor dem Fix genauso. Weg 1: denselben Nutzerfilter mitziehen, den overtime_balance jetzt traegt. Weg 2: die Zeilen bewusst behalten und begruenden, dann aber die Nutzerliste wieder mitfuehren. Kein technischer Blocker fuer die folgenden Plaene; Details in deferred-items.md, Abschnitt "Aus Plan 14.1-04 (25.08.2026) - BL-03", und in 14.1-NACHWEIS-BL03.md, Abschnitt 7.

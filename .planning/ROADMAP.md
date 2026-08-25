@@ -547,7 +547,7 @@ Plans:
 
 **Welle 4** *(blocked on Welle 3)*
 
-- [ ] 14.1-04-PLAN.md — BL-03: Historien-Export filtert `status` und `deletedAt`, `totalOvertime` begrenzt
+- [x] 14.1-04-PLAN.md — BL-03: Historien-Export filtert `status` und `deletedAt`, `totalOvertime` begrenzt
 
 **Welle 5** *(blocked on Welle 4 und 14.1-02 — gleiche Datei, und Weg C ist im Löschpfad erst nach BL-02 erreichbar)*
 
@@ -604,7 +604,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
-| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 3/6 | In Arbeit — 14.1-03 (BL-05) abgeschlossen 2026-08-25, Welle 4 entsperrt | — |
+| 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 4/6 | In Arbeit — 14.1-04 (BL-03) abgeschlossen 2026-08-25, Welle 5 entsperrt (14.1-05 ist `autonomous: false`) | — |
 
 ---
 
