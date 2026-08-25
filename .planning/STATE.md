@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
-stopped_at: Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert
-last_updated: "2026-08-23T10:07:41.178Z"
-last_activity: 2026-08-23
+stopped_at: Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert. Phase 14.1 ist geplant (6 Plaene, 6 Wellen) und wartet auf Ausfuehrung.
+last_updated: "2026-08-25T02:51:30.639Z"
+last_activity: 2026-08-25 -- Phase 14.1 planning complete
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 5
-  total_plans: 53
+  total_plans: 59
   completed_plans: 50
-  percent: 71
+  percent: 63
 ---
 
 # Project State
@@ -359,12 +359,18 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 14 (absicherung-und-auslieferung) — EXECUTING
-Plan: 8 of 11
+Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — GEPLANT, bereit zur Ausfuehrung
+Plan: 0 of 6 (6 Plaene, 6 Wellen, durchgehend seriell)
+Status: Ready to execute — /gsd:execute-phase 14.1
+        Plan 14.1-05 ist autonomous: false und haelt in Welle 5 fuer eine Entscheidung
+        des Anwenders zu Weg B (recordOvertimeCompensation) an.
+
+Vorherige Phase: 14 (absicherung-und-auslieferung) — EXECUTING, Plan 8 of 11
 Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
-Last activity: 2026-08-23
+        Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
+Last activity: 2026-08-25 -- Phase 14.1 geplant (6 Plaene)
 
 ## Operator Next Steps
 
