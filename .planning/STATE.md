@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produktion und
-stopped_at: Completed Phase 14 Plan 07 (Urteil zu Phase 9.1, Backfill-Werkzeug, Probelauf auf Produktionskopie) — 14-08 bis 14-11 gesperrt, 14-10 blockiert. Phase 14.1 ist geplant (6 Plaene, 6 Wellen) und wartet auf Ausfuehrung.
-last_updated: "2026-08-25T02:51:30.639Z"
-last_activity: 2026-08-25 -- Phase 14.1 planning complete
+status: executing
+stopped_at: Plan 14-08 ABGEBROCHEN nach Task 3 Schritt E — Deployment erfolgreich (41c9c09 auf der Produktion, Migrationen 008-015 angewendet, integrity_check ok), aber Blockerbefund bei den Stundenstaenden. Task 3 Schritt F (Funktionstest) und G (Ausgangsstand fuer 14-09) nicht ausgefuehrt.
+last_updated: "2026-08-25T02:56:29.747Z"
+last_activity: 2026-08-25 -- Phase 14.1 execution started
 progress:
   total_phases: 8
   completed_phases: 5
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 14 — absicherung-und-auslieferung
+**Current focus:** Phase 14.1 — rechenwerk-blocker-aus-dem-produktionslauf-schliessen
 
 ## Current Status
 
@@ -359,9 +359,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — GEPLANT, bereit zur Ausfuehrung
-Plan: 0 of 6 (6 Plaene, 6 Wellen, durchgehend seriell)
-Status: Ready to execute — /gsd:execute-phase 14.1
+Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 14.1
         Plan 14.1-05 ist autonomous: false und haelt in Welle 5 fuer eine Entscheidung
         des Anwenders zu Weg B (recordOvertimeCompensation) an.
 
@@ -370,7 +370,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-25 -- Phase 14.1 geplant (6 Plaene)
+Last activity: 2026-08-25 -- Phase 14.1 execution started
 
 ## Operator Next Steps
 
