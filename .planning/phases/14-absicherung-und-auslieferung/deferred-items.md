@@ -585,3 +585,42 @@ UTC-Mitternacht mit Berliner Wanduhrzeit — Zeitzonenfamilie, also WR-Gebiet na
 
 Stehen im Bericht. Querschnittsbefund des Prüfers: Alle fünf neuen Testdateien schließen
 Zukunftsdaten mit gleichlautender Begründung aus; CR-01 und CR-06 sind Folgen dieser Lücke.
+
+---
+
+## Aus Plan 14.2-02 (25.08.2026) — F-1
+
+### 1. Fehlende Trennung zwischen Servermeldung und generischem Zusatztext im Toast
+
+**Gefunden:** Plan 14.2-02, Task 1, beim Lesen von `14.2-PLAN.md` (Scope Fence zu F-1) und
+`14.2-CONTEXT.md` D-08.
+
+**Befund:** `desktop/src/api/client.ts:152-155` zeigt bei jedem serverseitigen Fehler, der
+keinen eigenen Darstellungsweg hat, einen Toast mit zwei Teilen — Titel `data.error` (der
+deutsche Servertext) und `description: 'Die Anfrage konnte nicht verarbeitet werden.'`. Beide
+Teile werden vom Toast-System **ohne Trennzeichen aneinandergereiht** dargestellt, laut NB-5
+(`14-ABNAHME-SICHT.md` § 7, Fall 2 und Fall 3): z. B.
+`User not found or not deletedDie Anfrage konnte nicht verarbeitet werden.` (F-1, jetzt durch
+den deutschen Servertext ersetzt — die Zusammenklebung selbst bleibt) oder eine Krankmeldung
+auf einen Tag mit Zeiterfassung. NB-5 nennt **drei** betroffene Stellen; F-1 ist nur eine davon,
+die beiden anderen liegen außerhalb dieser Phase.
+
+**Vorbestehend:** ja. Der Fix aus Task 1 (deutscher Servertext statt englischem Rohtext)
+beseitigt den F-1-eigenen Teil des Symptoms — die Wörter, die zusammenkleben, sind jetzt beide
+deutsch statt einer davon englisch — aber **nicht** die fehlende Trennung selbst.
+
+**Wirkung:** Ein Bediener liest zwei zusammengeklebte Sätze als einen, ohne erkennbaren
+Anfang des zweiten. Kein Datenverlust, keine Sicherheitswirkung — reine Lesbarkeit.
+
+**Vorschlag:** `client.ts:152-155` auf ein zweizeiliges Toast-Layout ziehen (z. B. Titel/
+Description mit Zeilenumbruch statt Aneinanderreihung) oder den generischen Zusatztext bei
+vorhandenem `data.error` ganz weglassen. Betrifft alle Aufrufer von `apiClient`, nicht nur
+F-1 — Wirksamkeitsprüfung sollte gegen alle drei in NB-5 genannten Fälle laufen. Als UAT-Punkt
+in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorgemerkt (siehe SUMMARY dieses Plans).
+
+### 2. D-09: Keine WR-Warnung berührt
+
+Plan 14.2-02 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt
+sich auf `server/src/services/userService.ts` und `server/src/routes/users.ts`; keine der in
+den Warnungen genannten Dateien steht in einem seiner Commits.
+Zukunftsdaten mit gleichlautender Begründung aus; CR-01 und CR-06 sind Folgen dieser Lücke.
