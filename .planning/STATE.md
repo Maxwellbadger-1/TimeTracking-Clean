@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: "Plan 14.2-05 vollstaendig abgeschlossen - F-5 und B-4 geschlossen (Rebuild deckelt unbedingt auf heute). Ueber alle aktiven Nutzer: vorher 41 von 62 mit Zukunftsdifferenz, nachher 0 von 62; Gegenprobe auf Produktionsarbeitskopie 2 von 15 auf 0 von 15. Vier Gates gruen (570 gruen / 5 rot - exakt die korrigierte vorbestehende Menge), D-01-Pruefsummen unveraendert trotz --rebuild ueber 50 Nutzer-Monat-Paare. Server (3100) nach der Serveraenderung neu gestartet und laeuft, Vite (1420) laeuft. Kein Push."
-last_updated: "2026-08-25T23:33:47.076Z"
-last_activity: 2026-08-26
+stopped_at: "Plan 14.2-06 vollstaendig abgeschlossen - F-6 geschlossen. exports.ts packt in exportDATEV und exportHistoricalCSV das Feld error aus dem Antwortkoerper aus (extractErrorMessage + containsInternalDetails-Sicherheitsschranke), statt response.text() roh anzuzeigen. Fuenf Faelle gemessen (echter 409, kaputter Koerper, interner Text, je DATEV/CSV): durchgaengig lesbarer deutscher Satz, kein JSON, kein internes Detail. Vier Gates gruen (570 gruen / 5 rot - unveraendert vorbestehend), D-01-Pruefsummen unveraendert. NB-5 Fall 3 (client.ts) als UAT-Kandidat vorgemerkt. Server (3100) und Vite (1420) laufen weiter. Kein Push."
+last_updated: "2026-08-25T23:54:44.018Z"
+last_activity: 2026-08-25
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 72
-  completed_plans: 61
+  completed_plans: 62
   percent: 67
 ---
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
 - **Last completed:** Plan 14.2-05 — **F-5 und B-4 geschlossen.** `rebuildOvertimeTransactionsForMonth()` deckelt das Berechnungsende jetzt **unbedingt** auf heute (`monthEnd > today ? today : monthEnd`) — die dritte und letzte Stelle des 14.1-BL-01-Musters; sie lag damals nicht im Umfang. **Die Ursache lag nicht dort, wo D-07 sie vermutete:** die Deckelung in `unifiedOvertimeService.ts:186` greift nachweislich (`calculateMonthlyOvertime(48717,"2026-09")` → `{0,0,0}`); der Rebuild lief in `updateMonthlyOvertime()` **nach** dem korrekten Schreibvorgang (`:163` nach `:144`) und überschrieb ihn. **Nachweis über alle aktiven Nutzer (D-07):** vorher **41 von 62** mit Zukunftsdifferenz in `overtime_balance`, nachher **0 von 62**; wiederaufbaubare Journalzeilen mit Zukunftsdatum 1488 → 6; **Gegenprobe auf einer Produktionsarbeitskopie** 2 von 15 → 0 von 15 (Quelle `14-prod-nach-migration.db` nur readonly, Hash vorher = nachher). **Gegenversuch geführt:** derselbe Regressionstest gegen den Stand vor dem Fix **3 rot / 2 grün**, danach **5 grün**. **B-4 mit Zahlen geschlossen** (Nutzer 48717: 2026-09 −130 → 0,00; 2026-11 −98 → 0,00; 2026-12 −88 → 0,00; die Abweichung zum gemeldeten −74 ist benannt, nicht geglättet) — kein UAT-Punkt. Vier Commits (`1d7942f` Fix in **einer** Datei, `f75ce14` Test + Werkzeug `verify:future-overtime`, `9aad1de` `14.2-NACHWEIS-F5.md`, `7b7b219` Abschlussgate + deferred-items), alle vier Gates grün (**570 grün / 5 rot** — exakt die korrigierte vorbestehende Menge, keiner neu, keiner weggefallen; die beiden datumsabhängigen Fälle haben sich **nicht** bewegt, wie es F-5 erwarten lässt), **D-01-Prüfsummen aller fünf Tabellen unverändert**, obwohl `--rebuild` 50 Nutzer-Monat-Paare in `overtime_balance`/`overtime_transactions` neu geschrieben hat. Sicherung vor dem Schreiblauf: `server/database/backups/development.db.14.2-05-vor-rebuild.db`. Drei Nebenbefunde nach `deferred-items.md` (WR-01-Zukunftsmonatsfilter als Fehlerabsorption, Nutzer mit künftigem Einstellungsdatum behält 6 alte Journalzeilen ohne Anzeigewirkung, NB-C neu zu messen). Kein Push.
 - **Last completed:** Plan 14.2-04 — F-3 geschlossen. `Select.tsx` trägt jetzt dasselbe WR-16-Muster wie `Input.tsx`/`Textarea.tsx` (`useId`, `htmlFor`/`id`-Paar, `aria-invalid`, `aria-describedby`), rein additiv, Pflichtfeld-Stern unverändert (gehört zu D-1/Plan 14.2-10). Das Rollenfeld in `EditUserModal.tsx` trägt jetzt `name="role"`/`id="role"`; gemessen: `{"name":"role","id":"role","val":"admin","labelFor":"role","labelText":"Rolle*"}` gegen den Ausgangsbefund `{"name":null,"id":"","val":"employee"}`. E2E: isolierter Lauf `user-edit.spec.ts:308` grün, voller Dateilauf zeigt **2 passed** (`:221` F-4 und `:308` F-3) bei 5 vorbestehenden, dokumentierten Testdaten-Verschmutzungsfällen; `git diff --stat` auf `user-edit.spec.ts` leer (D-06). Voller Lauf aller drei E2E-Dateien: **14 grün/7 rot/2 übersprungen** (Ausgangsstand 12/9/2) — die Verbesserung um genau zwei Fälle entspricht F-3 und F-4; die verbleibenden sieben roten Fälle sind dieselbe vorbestehende Testdaten-Verschmutzung wie in `14.2-NACHWEIS-D01.md` dokumentiert, keiner der elf Befunde. 18 weitere `<Select>`-Aufrufstellen ohne `name` gefunden und in `deferred-items.md` dokumentiert, bewusst nicht mitgeändert (D-02). Drei Commits (`4f8b285` Select.tsx, `b2e306f` Rollenfeld name/id, `c0d14da` Messskript + deferred-items.md), alle vier Gates grün (565 grün / 5 rot — exakt die vom Kalendertagwechsel gewachsene vorbestehende Menge, kein Wachstum), D-01-Prüfsummen unverändert (105/120, identische sha256) trotz mehrfacher Testdaten-Bereinigung zwischendurch, kein Push.
-- **Stopped at:** Plan 14.2-05 vollstaendig abgeschlossen - F-5 und B-4 geschlossen (Rebuild deckelt unbedingt auf heute). Ueber alle aktiven Nutzer: vorher 41 von 62 mit Zukunftsdifferenz, nachher 0 von 62; Gegenprobe auf Produktionsarbeitskopie 2 von 15 auf 0 von 15. Vier Gates gruen (570 gruen / 5 rot - exakt die korrigierte vorbestehende Menge), D-01-Pruefsummen unveraendert trotz --rebuild ueber 50 Nutzer-Monat-Paare. Server (3100) nach der Serveraenderung neu gestartet und laeuft, Vite (1420) laeuft. Kein Push.
+- **Stopped at:** Plan 14.2-06 vollstaendig abgeschlossen - F-6 geschlossen. exports.ts packt in exportDATEV und exportHistoricalCSV das Feld error aus dem Antwortkoerper aus (extractErrorMessage + containsInternalDetails-Sicherheitsschranke), statt response.text() roh anzuzeigen. Fuenf Faelle gemessen (echter 409, kaputter Koerper, interner Text, je DATEV/CSV): durchgaengig lesbarer deutscher Satz, kein JSON, kein internes Detail. Vier Gates gruen (570 gruen / 5 rot - unveraendert vorbestehend), D-01-Pruefsummen unveraendert. NB-5 Fall 3 (client.ts) als UAT-Kandidat vorgemerkt. Server (3100) und Vite (1420) laufen weiter. Kein Push.
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -279,6 +279,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.2]: F-5/B-4 geschlossen: die Ursache lag nicht in unifiedOvertimeService (dessen 14.1-BL-01-Deckelung greift nachweislich, calculateMonthlyOvertime(48717,2026-09) liefert 0/0/0), sondern in overtimeTransactionRebuildService — der dritten, von Phase 14.1 nicht erfassten Stelle desselben Musters, die in updateMonthlyOvertime() NACH dem korrekten Schreibvorgang laeuft und ihn ueberschrieb. Gemessen ueber alle aktiven Nutzer: vorher 41 von 62 mit Zukunftsdifferenz, nachher 0 von 62.
 - [Phase 14.2]: 14.2-05: Arbeitskopie der Beweisdatenbank mit db.backup() statt VACUUM INTO gezogen — VACUUM INTO scheitert auf einer readonly-Verbindung (gemessen); die readonly-Auflage aus D-03 ist die schaerfere und gewinnt. Quellhash von 14-prod-nach-migration.db vorher = nachher.
 - [Phase 14.2]: 14.2-05: Die sechs verbliebenen Journalzeilen des Nutzers mit kuenftigem Einstellungsdatum (48719) NICHT repariert — die noetige Umstellung betrifft genau die hireDate-Wache, die der Plan unveraendert laesst. Ohne Anzeigewirkung (overtime_balance 0/0, Kontoauszug Saldo 0,00). Nach deferred-items.md.
+- [Phase ?]: [Phase 14.2 / Plan 14.2-06]: F-6: gegen den tatsaechlichen Serverkoerper gebaut (kein Feld code, Satz beginnt 'DATEV-Export abgebrochen:'), nicht gegen das im CONTEXT zitierte, abweichende PERIOD_CHAIN_GAP-Beispiel (D-08-Korrektur)
+- [Phase ?]: [Phase 14.2 / Plan 14.2-06]: F-6: exportHistoricalCSV traegt denselben Fix wie exportDATEV, obwohl der reale Server dort meist nur einen generischen 500 liefert - identischer Bug (response.text() roh), identischer Fix
+- [Phase ?]: [Phase 14.2 / Plan 14.2-06]: F-6: NB-5 Fall 3 (client.ts:153-155, zusammengeklebter Satz) als UAT-Kandidat in deferred-items.md vermerkt statt mitgenommen - kein Rohtext, eigener Befund (Scope Fence, D-08)
 
 ## Quick Tasks Completed
 
@@ -371,6 +374,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.2-restbefunde-der-abnahme-schliessen P03 | 52min | 3 tasks | 3 files |
 | Phase 14.2 P04 | 36min | 3 tasks | 3 files |
 | Phase 14.2 P05 | 42min | 3 tasks | 7 files |
+| Phase 14.2 P06 | 35min | 3 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -407,7 +411,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.2 (restbefunde-der-abnahme-schliessen) — EXECUTING
-Plan: 6 of 13
+Plan: 7 of 13
 Status: Ready to execute
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
