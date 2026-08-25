@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Plan 14.1-06 vollständig abgeschlossen — SUMMARY, Nachweisdokument, `deferred-items.md` und `14-UAT-SAMMLUNG.md` geschrieben. Damit sind alle sechs Pläne der Phase 14.1 fertig. Kein Push (D-13); `origin/main` steht unverändert auf `22f9cdc`.
-last_updated: "2026-08-25T21:22:24.103Z"
-last_activity: 2026-08-25 -- Phase 14.2 planning complete
+stopped_at: Plan 14.2-01 vollständig abgeschlossen — D-01-Werkzeug, Prüfumgebung, Ausgangswerte-Nachweis und B-1 in vier einzeln revertierbaren Commits. Server (3100) und Vite (1420) laufen für die Folgepläne weiter. Kein Push.
+last_updated: "2026-08-25T21:46:21.170Z"
+last_activity: 2026-08-25
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 72
-  completed_plans: 56
+  completed_plans: 57
   percent: 67
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 14.1 — rechenwerk-blocker-aus-dem-produktionslauf-schliessen
+**Current focus:** Phase 14.2 — restbefunde-der-abnahme-schliessen
 
 ## Current Status
 
@@ -34,7 +34,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Davor abgeschlossen:** Plan 14.1-04 — BL-03 geschlossen. Der Historien-Export filtert jetzt stillgelegte Konten (`deletedAt IS NULL`) und nicht genehmigte Anträge (`status = 'approved'`) in **beiden** Abfragevarianten, und `totalOvertime` summiert nur die exportierten Nutzer und keinen Monat in der Zukunft. Auf einer Produktionsarbeitskopie gemessen: abgelehnte Anträge im Export **15 → 0**, stillgelegte Konten **5 → 0**, `overtimeBalance`-Zeilen mit Zukunftsmonat **3 → 0**, `totalOvertime` **−2.954,21 h → 105,75 h**. Die bewusste Gegenentscheidung der DATEV-Schwesterfunktion blieb unangetastet und ist jetzt durch einen Test abgesichert. Zwei Commits (`ceb97d5` fix, `38c0173` test), alle vier Gates grün (553 grün / 3 rot bei einem Ausgangsstand von 547/3), D-08-Prüfsummen unverändert, kein Push.
 - **Davor abgeschlossen:** Plan 14.1-03 — BL-05 geschlossen. Der Neuberechnungsblock steht jetzt auch im Auto-Genehmigungszweig von `createAbsenceRequest`; die `sick_credit`-Buchungen stehen unmittelbar nach dem Anlegen im Journal (0 → 1 Zeile, +8,00 h = ein Tagessoll), bei angehaltenem Nachtlauf und ohne zwischengeschaltete Berichtsabfrage. Die Auto-Genehmigung ist unverändert und jetzt durch drei Regressionstests festgeschrieben (`approved`, `approvedBy`/`approvedAt` NULL, kein `audit_log`); die Bestandsanträge 46, 60, 68, 70 sind unangetastet. Gegenversuch protokolliert (ohne den Fix Test 1 rot). 2 Commits, alle vier Gates grün (547 grün / 3 rot, rote Menge unverändert).
 - **Davor abgeschlossen:** Plan 14.1-02 — BL-02 geschlossen. `require()` in `absenceService.ts` durch einen statischen ESM-Import ersetzt; der Löschpfad rechnet nachweislich neu: `overtime_transactions` 2 → 0, `work_time_accounts.currentBalance` −168,00 h → −176,00 h. Davor Plan 14.1-01 — BL-01 geschlossen (8 Nutzer mit Zukunftsdifferenz vorher, 0 nachher).
-- **Stopped at:** Plan 14.1-06 vollständig abgeschlossen — SUMMARY, Nachweisdokument, `deferred-items.md` und `14-UAT-SAMMLUNG.md` geschrieben. Damit sind alle sechs Pläne der Phase 14.1 fertig. Kein Push (D-13); `origin/main` steht unverändert auf `22f9cdc`.
+- **Stopped at:** Plan 14.2-01 vollständig abgeschlossen — D-01-Werkzeug, Prüfumgebung, Ausgangswerte-Nachweis und B-1 in vier einzeln revertierbaren Commits. Server (3100) und Vite (1420) laufen für die Folgepläne weiter. Kein Push.
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -264,6 +264,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.1-06]: Der Typfilter aus REBUILDABLE_TYPES bleibt im Loeschpraedikat, obwohl er heute 0 Zeilen ausnimmt - er schuetzt book-once-Zeilen, insbesondere model_change, die ein Zukunftsdatum tragen DUERFEN (WR-10)
 - [Phase 14.1-06]: Es wurde NICHT versucht, ein Praedikat zu konstruieren, das die Roadmap-Zahl 59 trifft. Gemessen: 100 Zeilen, davon 50 mit Wert ungleich null (130 einschliesslich Testnutzer 15015). Der Trockenlauf ist die massgebliche Zaehlung, die Abweichung ist benannt statt verrechnet
 - [Phase 14.1-06]: 14.1-U15 (moegliche Alt-Abzuege in overtime_balance) wurde NICHT mitbereinigt - ein zweites, sachlich unabhaengiges Loeschpraedikat im selben Lauf waere ein zweiter Befund in demselben Vorgang gewesen und haette D-07 verletzt
+- [Phase 14.2 / Plan 14.2-01]: D-01-Baseline aus 14.2-01 (nicht die 14.1-01-Referenz) ist ab jetzt die Vergleichsbasis der Phase — Zeilenzahlen weichen ab (+42/+7/0/+46/+50), benannt statt verrechnet
+- [Phase 14.2 / Plan 14.2-01]: E2E-Ausgangsstand 12 gruen / 9 rot / 2 uebersprungen statt der erwarteten 19/2/2 — sieben zusaetzliche rote Faelle sind Testdaten-Verschmutzung (keine Aufraeumung in den drei Spec-Dateien), nicht gefixt, als UAT-Kandidat vermerkt
 
 ## Quick Tasks Completed
 
@@ -351,6 +353,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.1 P04 (BL-03) | 25min | 2 tasks | 5 files |
 | Phase 14.1 P05 (BL-04) | 22min | 3 tasks | 5 files |
 | Phase 14.1-rechenwerk-blocker-aus-dem-produktionslauf-schliessen P06 | 30min | 3 tasks | 5 files |
+| Phase 14.2 P01 | 19min | 3 tasks | 9 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -386,8 +389,8 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 14.1 (rechenwerk-blocker-aus-dem-produktionslauf-schliessen) — EXECUTING
-Plan: 6 of 6
+Phase: 14.2 (restbefunde-der-abnahme-schliessen) — EXECUTING
+Plan: 2 of 13
 Status: Ready to execute
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
@@ -401,7 +404,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-25 -- Phase 14.2 planning complete
+Last activity: 2026-08-25
 
 ## Operator Next Steps
 
