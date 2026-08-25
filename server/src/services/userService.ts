@@ -778,13 +778,20 @@ export function deleteUser(id: number): void {
 }
 
 /**
- * Reactivate deleted user (undo soft delete)
- * Only possible if user was soft-deleted (deletedAt IS NOT NULL)
+ * Reactivate a user (F-1)
+ *
+ * Covers both restorable states of a user record:
+ *   - aktiv           status='active'    deletedAt IS NULL      -> NOT restorable (already active, stays a 404)
+ *   - deaktiviert      status='inactive'  deletedAt IS NULL      -> restorable (deactivated via updateUser/updateUserStatus)
+ *   - soft-geloescht   status='inactive'  deletedAt IS NOT NULL  -> restorable (deleteUser)
+ *
+ * A user that is already active never matches and remains a 404 ("User not found or not
+ * deleted") — a silent success for an already-active user would mask a genuine operator error.
  */
 export function reactivateUser(id: number): UserPublic {
   try {
-    // Check if user exists and is deleted
-    const user = db.prepare('SELECT * FROM users WHERE id = ? AND deletedAt IS NOT NULL').get(id) as User | undefined;
+    // Check if user exists and is either soft-deleted or merely deactivated
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND (deletedAt IS NOT NULL OR status = 'inactive')").get(id) as User | undefined;
 
     if (!user) {
       throw new Error('User not found or not deleted');

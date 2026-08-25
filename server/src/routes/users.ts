@@ -555,14 +555,14 @@ router.post(
       if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json({
           success: false,
-          error: 'User not found or not deleted',
+          error: 'Benutzer nicht gefunden oder bereits aktiv.',
         });
         return;
       }
 
       res.status(500).json({
         success: false,
-        error: 'Failed to reactivate user',
+        error: 'Benutzer konnte nicht reaktiviert werden.',
       });
     }
   }
