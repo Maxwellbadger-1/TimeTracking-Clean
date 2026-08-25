@@ -674,7 +674,7 @@ Plans:
 
 - [x] 14.2-01-PLAN.md — Prüfsummen-Werkzeug (D-01), Prüfumgebung, B-1-Produktspur auf 127.0.0.1
 - [x] 14.2-02-PLAN.md — **F-1**: Reaktivierung deckt deaktivierte *und* soft-gelöschte Nutzer ab, deutsche Meldung
-- [ ] 14.2-03-PLAN.md — **F-4**: deaktivierte Nutzer auffindbar und bearbeitbar (schließt E2E `user-edit.spec.ts:221`)
+- [x] 14.2-03-PLAN.md — **F-4**: deaktivierte Nutzer auffindbar und bearbeitbar (schließt E2E `user-edit.spec.ts:221`)
 - [ ] 14.2-04-PLAN.md — **F-3**: `Select` trägt `name`/`id` und `htmlFor` (schließt E2E `user-edit.spec.ts:308`)
 - [ ] 14.2-05-PLAN.md — **F-5**: unbedingte Deckelung in `overtimeTransactionRebuildService` + Nachweis über alle aktiven Nutzer (schließt B-4)
 - [ ] 14.2-06-PLAN.md — **F-6**: Exportfehler als deutscher Satz statt JSON, beide Exportwege
