@@ -242,7 +242,7 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
           <span
             className={`font-bold ${
               data.currentBalance > 0
-                ? 'text-green-600 dark:text-green-400'
+                ? 'text-green-700 dark:text-green-400'
                 : data.currentBalance < 0
                 ? 'text-red-600 dark:text-red-400'
                 : 'text-gray-600 dark:text-gray-400'
@@ -387,14 +387,14 @@ export function OvertimeTransactions({ userId, year, month, limit = 50 }: Overti
                       // Regular types: show hours with +/- icons
                       <>
                         {transaction.hours > 0 ? (
-                          <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <TrendingUp className="w-4 h-4 text-green-700 dark:text-green-400" />
                         ) : transaction.hours < 0 ? (
                           <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
                         ) : null}
                         <span
                           className={`font-bold ${
                             transaction.hours > 0
-                              ? 'text-green-600 dark:text-green-400'
+                              ? 'text-green-700 dark:text-green-400'
                               : transaction.hours < 0
                               ? 'text-red-600 dark:text-red-400'
                               : 'text-gray-600 dark:text-gray-400'

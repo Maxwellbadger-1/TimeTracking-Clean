@@ -32,7 +32,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >
             {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
+            {props.required && <span className="text-red-600 dark:text-red-400 ml-1">*</span>}
           </label>
         )}
         <textarea

@@ -10,10 +10,19 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ children, variant = 'primary', size = 'md', fullWidth = false, className = '', ...props }, ref) => {
     const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
+    /*
+     * D-1 (Phase 14.2, Plan 10): Der Dunkelmodus traegt hier dieselbe Tonstufe wie der
+     * Hellmodus. Gemessen wurde Weiss auf der helleren Blaustufe (Primaerknopf) mit
+     * 3,68:1 und Weiss auf der helleren Rotstufe (Gefahrenknopf) mit 3,76:1 — beides
+     * unter der Grenze von 4,5:1 fuer Fliesstext. Eine hellere Stufe im Dunkelmodus
+     * reisst die Grenze gegen `text-white`, weil der Text weiss bleibt und nicht
+     * mitwandert; deshalb bleibt der Dunkelmodus auf derselben Stufe wie hell.
+     * `focus:ring-*` und der Hellmodus sind unveraendert.
+     */
     const variantStyles = {
-      primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600',
+      primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 dark:bg-blue-600 dark:hover:bg-blue-700',
       secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600',
+      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 dark:bg-red-600 dark:hover:bg-red-700',
       ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800',
     };
 

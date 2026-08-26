@@ -258,7 +258,7 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
                 <td className="px-4 py-3 text-sm text-right">
                   <span className={`font-medium ${
                     entry.earned > 0
-                      ? 'text-green-600 dark:text-green-400'
+                      ? 'text-green-700 dark:text-green-400'
                       : entry.earned < 0
                       ? 'text-red-600 dark:text-red-400'
                       : 'text-gray-600 dark:text-gray-400'
@@ -285,14 +285,14 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
                 <td className="px-4 py-3 text-sm text-right">
                   <div className="flex items-center justify-end gap-1">
                     {entry.balanceChange > 0 ? (
-                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <TrendingUp className="w-4 h-4 text-green-700 dark:text-green-400" />
                     ) : entry.balanceChange < 0 ? (
                       <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
                     ) : null}
                     <span
                       className={`font-medium ${
                         entry.balanceChange > 0
-                          ? 'text-green-600 dark:text-green-400'
+                          ? 'text-green-700 dark:text-green-400'
                           : entry.balanceChange < 0
                           ? 'text-red-600 dark:text-red-400'
                           : 'text-gray-600 dark:text-gray-400'
@@ -307,7 +307,7 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
                   <span
                     className={`font-bold ${
                       entry.balance > 0
-                        ? 'text-green-600 dark:text-green-400'
+                        ? 'text-green-700 dark:text-green-400'
                         : entry.balance < 0
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-gray-600 dark:text-gray-400'
@@ -344,7 +344,7 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
             </p>
             <p className={`text-lg font-bold ${
               history.reduce((sum, e) => sum + e.earned, 0) > 0
-                ? 'text-green-600 dark:text-green-400'
+                ? 'text-green-700 dark:text-green-400'
                 : history.reduce((sum, e) => sum + e.earned, 0) < 0
                 ? 'text-red-600 dark:text-red-400'
                 : 'text-gray-600 dark:text-gray-400'
@@ -372,7 +372,7 @@ export function WorkTimeAccountHistory({ userId, year, month, months = 12 }: Wor
             <p
               className={`text-lg font-bold ${
                 history[history.length - 1].balance > 0
-                  ? 'text-green-600 dark:text-green-400'
+                  ? 'text-green-700 dark:text-green-400'
                   : history[history.length - 1].balance < 0
                   ? 'text-red-600 dark:text-red-400'
                   : 'text-gray-600 dark:text-gray-400'

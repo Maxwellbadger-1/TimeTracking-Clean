@@ -862,7 +862,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
               </p>
 
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
                   Sollstunden im Zeitraum
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -903,14 +903,14 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
                   legt fuer diesen Randfall ausdruecklich gray-600/400 fest. */}
               <div className="flex items-center gap-2">
                 {preview.balanceDelta > 0 ? (
-                  <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <TrendingUp className="w-5 h-5 text-green-700 dark:text-green-400" />
                 ) : preview.balanceDelta < 0 ? (
                   <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
                 ) : null}
                 <span
                   className={`text-lg font-bold ${
                     preview.balanceDelta > 0
-                      ? 'text-green-600 dark:text-green-400'
+                      ? 'text-green-700 dark:text-green-400'
                       : preview.balanceDelta < 0
                       ? 'text-red-600 dark:text-red-400'
                       : 'text-gray-600 dark:text-gray-400'
@@ -921,7 +921,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
               </div>
 
               {preview.midMonthEffective && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   Der Stichtag liegt innerhalb des Monats {formatGermanMonthYear(preview.validFrom)}.
                   Für {formatGermanDayMonth(preview.validFrom)} bis Monatsende gilt bereits das neue
                   Modell, davor das alte.
@@ -930,7 +930,7 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
             </div>
           )}
 
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-600 dark:text-gray-400">
             Der bereits angesparte Saldo wird nicht umgerechnet — Stunden bleiben Stunden. Die
             Änderung entsteht allein daraus, dass im neu gerechneten Zeitraum ein anderes
             Tagessoll gilt.

@@ -58,7 +58,7 @@ export function formatDocumentedDelta(delta: number | undefined): string {
 export function documentedDeltaToneClass(delta: number | undefined): string {
   const value = delta ?? 0;
   if (!Number.isFinite(value) || value === 0) return 'text-gray-600 dark:text-gray-400';
-  return value > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+  return value > 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
 }
 
 /**
