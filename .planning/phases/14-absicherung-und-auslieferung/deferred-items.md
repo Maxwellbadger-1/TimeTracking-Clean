@@ -1510,14 +1510,28 @@ anderes Konto einzusehen, gibt es nicht — nur ein Jahr-Auswahlfeld.
 könnte das fremde Konto also anzeigen — die Seite übergibt die Kennung nur nicht und bietet
 keinen Weg an, sie zu setzen.
 
-*Einordnung:* Kein Rechenfehler, kein Datenverlust, keine Rechteausweitung. Eine
-Bedienlücke: Der Administrator kann die Urlaubsbuchungen eines Mitarbeiters über diese
-Ansicht nicht einsehen, obwohl die Überschrift es verspricht.
+*RICHTIGSTELLUNG 26.08.2026 — der Befund war zu groß gefasst.* Die Funktion **existiert**.
+`VacationBalanceManagementPage.tsx:258` ruft dieselbe Komponente mit Kennung auf:
 
-*Warum nicht sofort behoben:* Es ist eine Funktionserweiterung, keine Fehlerbehebung, und sie
-berührt die Frage, wer wessen Urlaubshistorie sehen darf — das ist eine fachliche
-Festlegung des Anwenders, keine technische. Gehört in den Folge-Milestone, gemeinsam mit den
-zehn Warnungen aus `14-WEITERE-BEFUNDE.md`.
+```tsx
+<VacationTransactions userId={statementUser.userId} year={selectedYear} />
+```
+
+Über den Menüpunkt *Urlaubskonten* kann ein Administrator den Urlaubs-Kontoauszug jedes
+Mitarbeiters einsehen. Der Endpunkt trägt serverseitige Rollenprüfung, und
+`vacationTransactionRoutes.test.ts` weist den Zugriff eines Mitarbeiters auf fremde Konten
+nachweislich ab. Die Frage „wer darf wessen Urlaubshistorie sehen" war also nie offen.
+
+*Tatsächliche Einordnung:* Kein Rechenfehler, kein Datenverlust, keine Rechteausweitung und
+keine fehlende Funktion. Übrig bleibt eine **Ungereimtheit in der Beschriftung**: Auf der
+Abwesenheiten-Seite wechselt der Reiter *Anträge* in den „Alle Mitarbeiter"-Modus, der Reiter
+*Kontoauszug* bleibt dagegen persönlich. Für einen Mitarbeiter ist das stimmig, für einen
+Administrator widersprüchlich.
+
+*Warum nicht behoben:* Der kleinste ehrliche Eingriff wäre, den Reiter für Administratoren
+„Mein Urlaubskonto" zu nennen — eine Beschriftung, keine Funktion. Das rechtfertigt keinen
+eigenen Eingriff in eine frisch ausgelieferte Produktion und wird im Folge-Milestone mit den
+übrigen Beschriftungs- und Bedienpunkten zusammen erledigt.
 
 *Nebenbefund zur Begriffsklärung:* „Kontoauszug" bezeichnet in dieser Anwendung **zwei**
 verschiedene Ansichten — den Urlaubs-Kontoauszug unter *Abwesenheiten* und die
