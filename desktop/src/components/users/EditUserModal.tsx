@@ -145,7 +145,24 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
   const changeButtonRef = useRef<HTMLButtonElement>(null);
   /** WR-11: Zustand 10 — Id der Periode, deren Stichtag mit der Eingabe im Wechsel-Dialog
    *  kollidiert. Wird von dort ueber `onConflict` gemeldet und an die Periodenliste
-   *  weitergereicht. */
+   *  weitergereicht.
+   *
+   *  F-8 (Phase 14.2, Plan 09) — Lebensdauer der Markierung, an EINER Stelle nachlesbar.
+   *  Gesetzt wird sie von:
+   *    - `WorkTimeChangeModal` (`onConflict`), sobald der Server oder die Formularpruefung
+   *      einen bereits belegten Stichtag meldet;
+   *    - `WorkTimePeriodEditModal` (`onConflict`), im Korrektur-Dialog.
+   *  Zurueckgenommen wird sie von:
+   *    - dem kollisionsfreien Vorschauerfolg im Wechsel-Dialog (`requestPreview.onSuccess`);
+   *    - dem Erfolgspfad nach dem Speichern (`onSaved` unten und `performSave` im Dialog) —
+   *      die Kollision ist dann aufgeloest;
+   *    - `handleClose` dieses Dialogs, als Endstelle, damit die Markierung nicht ueber die
+   *      ganze Sitzung haengen bleibt.
+   *  NICHT mehr zurueckgenommen wird sie beim blossen Schliessen des Wechsel-Dialogs. Genau
+   *  das war der Befund: Die Liste liegt strukturell unter dem Wechsel-Dialog (`z-[60]`
+   *  ueber `z-50`), also ist der geschlossene Dialog der erste Moment, in dem die Markierung
+   *  ueberhaupt sichtbar werden kann. Gemessener Ausgangsbefund (14-U6 Punkt 3): nach dem
+   *  Schliessen `bg rgba(0,0,0,0)`, `borderLeft 0px`. */
   const [conflictPeriodId, setConflictPeriodId] = useState<number | null>(null);
   const [successBanner, setSuccessBanner] = useState<{ validFrom: string; weeklyHours: number } | null>(null);
 
@@ -758,6 +775,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
     setLastNameError('');
     setEndDateError('');
 
+    // F-8 (Phase 14.2, Plan 09): Endstelle der Kollisionsmarkierung. Seit der Wechsel-Dialog
+    // sie beim Schliessen NICHT mehr zuruecknimmt (das war der Befund — sie war weg, bevor
+    // sie sichtbar werden konnte), braucht sie hier ihr Ende: Wer die Nutzerbearbeitung
+    // verlaesst, hat die Periodenliste gesehen; beim naechsten Oeffnen waere eine stehende
+    // Markierung eine Aussage ueber eine Eingabe, die es nicht mehr gibt.
+    setConflictPeriodId(null);
+
     onClose();
   };
 
@@ -1073,8 +1097,13 @@ export function EditUserModal({ isOpen, onClose, user }: EditUserModalProps) {
       <WorkTimeChangeModal
         isOpen={isChangeModalOpen}
         onClose={() => {
+          // F-8 (Phase 14.2, Plan 09): Hier stand die Ruecknahme der Kollisionsmarkierung.
+          // Sie war die zweite neben `resetForm()` im Dialog — beide zusammen loeschten die
+          // Zeilenmarkierung in genau dem Augenblick, in dem sie zum ersten Mal sichtbar
+          // werden konnte. Die Markierung bleibt jetzt stehen; zurueckgenommen wird sie am
+          // kollisionsfreien Vorschauerfolg, nach erfolgreichem Speichern (`onSaved`) und
+          // spaetestens beim Schliessen dieses Dialogs (`handleClose`).
           setIsChangeModalOpen(false);
-          setConflictPeriodId(null);
           changeButtonRef.current?.focus();
         }}
         user={user}
