@@ -1262,3 +1262,56 @@ ihre beabsichtigte Wirkung behalten, muss ein Mensch beurteilen:
 
 Die letzten beiden Fragen entstehen **erst durch** die Korrektur und haben im Abnahmeprotokoll
 keine Entsprechung — sie sind hier neu aufgenommen.
+
+---
+
+## Aus Plan 14.2-11 (D-2)
+
+### 1. Die Spezifitätskollision zwischen `Button.sizeStyles` und lokalem `className` betrifft JEDEN Aufrufer der Primitive
+
+**Gefunden:** Task 1/2, beim Beheben von D-2.
+
+**Befund:** `Button.tsx`s `sizeStyles` (`sm: 'px-3 py-1.5 text-sm'`, `md: 'px-4 py-2 text-base'`,
+`lg: 'px-6 py-3 text-lg'`) wird im erzeugten Stylesheet nach Tailwinds Entdeckungsreihenfolge
+**vor** jeder lokalen `className`-Polsterung eingereiht — unabhängig davon, wo im
+`class`-Attribut die lokale Klasse steht. Jeder Aufrufer, der `<Button size="sm" className="p-…">`
+mit einer abweichenden Polsterung schreibt, trägt **potenziell dieselbe tote Klasse**, die D-2
+bei „Korrigieren" und „Löschen" in `workTimePeriodActions.tsx` betraf.
+
+**Nicht behoben:** Dieser Plan hat die Kollision ausschließlich an den beiden — inzwischen drei,
+siehe Punkt 2 — betroffenen Stellen derselben Datei repariert (D-02, ein Befund, ein
+Commit-Satz). Eine projektweite Suche nach weiteren betroffenen Aufrufern lag außerhalb des
+Scopes.
+
+**Kandidat für einen späteren, projektweiten Fix:**
+- `tailwind-merge` einführen (Werkzeugwechsel, aktuell nicht installiert), oder
+- eine `size`-Variante der `Button`-Primitive, die lokale Polsterung selbst entgegennimmt statt
+  sie über `className` konkurrieren zu lassen.
+
+Ohne diesen Fix bleibt jede künftige `<Button size="sm|md|lg" className="p-…">`-Stelle mit
+abweichender Polsterung ein latenter Kandidat für denselben Bug — nicht geprüft, ob es weitere
+gibt.
+
+### 2. Die „Löschen"-Schaltfläche trug dieselbe Kollision wie „Korrigieren" — mitbehoben, nicht Teil der ursprünglichen Fundliste
+
+**Gefunden:** Task 2, beim Nachmessen aller drei Bedienelemente der Aktionszelle.
+
+**Befund:** `14-ABNAHME-SICHT.md` § 5 (13-U10) nennt nur „Korrigieren" (40 × 28 px) und den Chip
+„Nicht löschbar" (32 × 24 px). Die „Löschen"-Schaltfläche derselben Zelle trug exakt dieselbe
+Spezifitätskollision (`className="p-2 sm:px-3 sm:py-1.5"`, `size="sm"`) und maß bei Viewport
+600 × 900 ebenfalls **40 × 28 px** — nur der Abnahmelauf hatte sie nicht erfasst, vermutlich weil
+die geprüfte Zeile im Ausgangslauf eine `isFirst`-Zeile war (Chip statt „Löschen"-Knopf).
+
+**Behandlung:** Da dieselbe Zelle, dasselbe Kriterium (32 × 32 px) und dieselbe Ursache
+betroffen sind, wurde sie gemäß Plan-Anweisung („gehört zu demselben Befund … und wird
+mitbehoben") **unter D-2** mit demselben `!`-Muster behoben (Commit `afd1bdd`) — kein eigener
+Befund, aber ein eigener Commit innerhalb desselben Commit-Satzes. Nachgemessen: 32 × 32 px bei
+600 × 900.
+
+### 3. Keine weiteren zu kleinen Trefferflächen außerhalb der Aktionszelle gefunden
+
+Innerhalb des Scopes dieses Plans (Periodenliste, `workTimePeriodActions.tsx`) wurden keine
+weiteren Trefferflächen unter 32 × 32 px gemessen. Eine Suche außerhalb dieser Zelle
+(13-UI-SPEC.md bezieht sich ausdrücklich nur auf die Aktionszelle der Periodenliste) lag
+außerhalb des Auftrags — sollte eine kleine Fläche an anderer Stelle auffallen, ist sie noch
+nicht geprüft.
