@@ -1,0 +1,849 @@
+Deploy to Oracle Cloud (Production)	Set up job	﻿2026-08-26T04:42:52.2909954Z Current runner version: '2.336.0'
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2937726Z ##[group]Runner Image Provisioner
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2939412Z Hosted Compute Agent
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2940587Z Version: 20260729.566
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2941636Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2942767Z Build Date: 2026-07-29T19:17:02Z
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2943901Z Worker ID: {d8b76f44-eb7c-45a7-9c1e-0ff422b1e5ef}
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2945033Z Azure Region: westus3
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2945972Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2947989Z ##[group]Operating System
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2949227Z Ubuntu
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2950202Z 24.04.4
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2951160Z LTS
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2952077Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2953032Z ##[group]Runner Image
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2954068Z Image: ***-24.04
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2955054Z Version: 20260816.277.1
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2956562Z Included Software: https://github.com/actions/runner-images/blob/***24/20260816.277/images/***/Ubuntu2404-Readme.md
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2959074Z Image Release: https://github.com/actions/runner-images/releases/tag/***24%2F20260816.277
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2960472Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2964175Z ##[group]GITHUB_TOKEN Permissions
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2966724Z Actions: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2967784Z ArtifactMetadata: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2968707Z Attestations: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2970223Z Checks: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2971150Z CodeQuality: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2972022Z Contents: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2973004Z CopilotRequests: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2973976Z Deployments: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2974848Z Discussions: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2975794Z Drives: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2976669Z Issues: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2977517Z Metadata: read
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2978555Z Models: read
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2979888Z Packages: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2980941Z Pages: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2981985Z PullRequests: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2982940Z RepositoryProjects: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2983889Z SecurityEvents: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2984916Z Statuses: write
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2985876Z VulnerabilityAlerts: read
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2986952Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2989655Z Secret source: Actions
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.2991327Z Prepare workflow directory
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.3342115Z Prepare all required actions
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.3391479Z Getting action download info
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.6380476Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:52.7812271Z Download action repository 'appleboy/ssh-action@v1.0.3' (SHA:029f5b4aeeeb58fdfe1410a5d17f967dacf36262)
+Deploy to Oracle Cloud (Production)	Set up job	2026-08-26T04:42:53.4063210Z Complete job name: Deploy to Oracle Cloud (Production)
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	﻿2026-08-26T04:42:53.4590281Z ##[group]Build container for action use: '/home/runner/work/_actions/appleboy/ssh-action/v1.0.3/Dockerfile'.
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:53.4652860Z ##[command]/usr/bin/docker build -t 4d4591:2e56da00168a47f58e9065bb77cf8f60 -f "/home/runner/work/_actions/appleboy/ssh-action/v1.0.3/Dockerfile" "/home/runner/work/_actions/appleboy/ssh-action/v1.0.3"
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8745951Z #0 building with "default" instance using docker driver
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8746687Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8746972Z #1 [internal] load build definition from Dockerfile
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8747703Z #1 transferring dockerfile: 149B 0.0s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8748323Z #1 DONE 0.0s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8748597Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:55.8749169Z #2 [internal] load metadata for ghcr.io/appleboy/drone-ssh:1.7.3
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.4938396Z #2 DONE 0.8s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6245974Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6247126Z #3 [internal] load .dockerignore
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6248148Z #3 transferring context: 2B done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6248721Z #3 DONE 0.0s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6249490Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6249737Z #4 [internal] load build context
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6250301Z #4 transferring context: 108B done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6250830Z #4 DONE 0.0s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6251083Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6251652Z #5 [1/2] FROM ghcr.io/appleboy/drone-ssh:1.7.3@sha256:179cbd253771007f2ebcaf7a3860afe059207351de1f3378efafac93bd310158
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6253327Z #5 resolve ghcr.io/appleboy/drone-ssh:1.7.3@sha256:179cbd253771007f2ebcaf7a3860afe059207351de1f3378efafac93bd310158 done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6254493Z #5 sha256:179cbd253771007f2ebcaf7a3860afe059207351de1f3378efafac93bd310158 2.38kB / 2.38kB done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6255557Z #5 sha256:1a52f94820e830bc9734623deb03bbafa6a248fba19cdc2e5605c70d90d91441 1.24kB / 1.24kB done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6256701Z #5 sha256:c4781b8d012b16b6c7468dc9104fad0a63f2a8815b2af8b7176bb544253ea8c7 3.86kB / 3.86kB done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6258058Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 0B / 3.38MB 0.1s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6259373Z #5 sha256:654aaee5654be60f81172539ecd74485cf8bbe2e9137bab0d429862c31c676f6 0B / 284.83kB 0.1s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.6260350Z #5 sha256:7e20f48a19643465f486f59127b8f4e0f4114bedc8bd5260fb4f92d5fda95f1c 0B / 1.20kB 0.1s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7652545Z #5 sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 3.38MB / 3.38MB 0.2s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7654956Z #5 sha256:654aaee5654be60f81172539ecd74485cf8bbe2e9137bab0d429862c31c676f6 284.83kB / 284.83kB 0.2s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7656879Z #5 sha256:7e20f48a19643465f486f59127b8f4e0f4114bedc8bd5260fb4f92d5fda95f1c 1.20kB / 1.20kB 0.2s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7658509Z #5 extracting sha256:1207c741d8c9b028d98c4006013f9de959da3c55f85b91ed5e4583438a0112ca 0.1s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7742406Z #5 sha256:066e5b821e26d8313055e0314c056e6c297847bcf963e5df10e7aa03107f2246 0B / 125B 0.2s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.7744127Z #5 sha256:47353a6f9201a145b687290e5ae0278ac269faf4bb61bee3e9246c37a8d74277 0B / 2.44MB 0.2s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.9957540Z #5 sha256:066e5b821e26d8313055e0314c056e6c297847bcf963e5df10e7aa03107f2246 125B / 125B 0.3s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.9959521Z #5 sha256:47353a6f9201a145b687290e5ae0278ac269faf4bb61bee3e9246c37a8d74277 2.44MB / 2.44MB 0.3s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:56.9961098Z #5 extracting sha256:654aaee5654be60f81172539ecd74485cf8bbe2e9137bab0d429862c31c676f6 0.0s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:58.9925042Z #5 extracting sha256:7e20f48a19643465f486f59127b8f4e0f4114bedc8bd5260fb4f92d5fda95f1c
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0926098Z #5 extracting sha256:7e20f48a19643465f486f59127b8f4e0f4114bedc8bd5260fb4f92d5fda95f1c done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0927391Z #5 extracting sha256:066e5b821e26d8313055e0314c056e6c297847bcf963e5df10e7aa03107f2246 done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0928585Z #5 extracting sha256:47353a6f9201a145b687290e5ae0278ac269faf4bb61bee3e9246c37a8d74277 0.0s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0929866Z #5 DONE 2.6s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0930208Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0930441Z #6 [2/2] COPY entrypoint.sh /bin/entrypoint.sh
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.0931277Z #6 DONE 0.0s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.2451886Z 
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.2452481Z #7 exporting to image
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:42:59.2453064Z #7 exporting layers
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:43:00.0069934Z #7 exporting layers 0.9s done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:43:00.0392023Z #7 writing image sha256:f1102117c0252e93a0e8393cfe0058b0d6c91d3b1c2c7805ef0055c4ba24bd7b done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:43:00.0393333Z #7 naming to docker.io/library/4d4591:2e56da00168a47f58e9065bb77cf8f60 done
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:43:00.0394148Z #7 DONE 0.9s
+Deploy to Oracle Cloud (Production)	Build appleboy/ssh-action@v1.0.3	2026-08-26T04:43:00.0585372Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	﻿2026-08-26T04:43:00.0900386Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0908695Z ##[group]Run actions/checkout@v4
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0909725Z with:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0910108Z   repository: Maxwellbadger-1/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0912922Z   token: ***
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0913227Z   ssh-strict: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0913531Z   ssh-user: git
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0913850Z   persist-credentials: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0914196Z   clean: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0914512Z   sparse-checkout-cone-mode: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0915117Z   fetch-depth: 1
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0915424Z   fetch-tags: false
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0915738Z   show-progress: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0916054Z   lfs: false
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0916344Z   submodules: false
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0916698Z   set-safe-directory: true
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0917095Z   allow-unsafe-pr-checkout: false
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.0917706Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1927272Z Syncing repository: Maxwellbadger-1/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1929791Z ##[group]Getting Git version info
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1930758Z Working directory is '/home/runner/work/TimeTracking-Clean/TimeTracking-Clean'
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1932112Z [command]/usr/bin/git version
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1939486Z git version 2.55.0
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1961568Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1975975Z Temporarily overriding HOME='/home/runner/work/_temp/b3029e22-5cdc-4479-8729-dda9348a7acd' before making global git config changes
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1977644Z Adding repository directory to the temporary git global config as a safe directory
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.1981713Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/TimeTracking-Clean/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2029007Z Deleting the contents of '/home/runner/work/TimeTracking-Clean/TimeTracking-Clean'
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2033705Z ##[group]Initializing the repository
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2039095Z [command]/usr/bin/git init /home/runner/work/TimeTracking-Clean/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2143051Z hint: Using 'master' as the name for the initial branch. This default branch name
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2144476Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2145680Z hint: to use in all of your new repositories, which will suppress this warning,
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2146688Z hint: call:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2147291Z hint:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2148119Z hint: 	git config --global init.defaultBranch <name>
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2149389Z hint:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2150112Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2151193Z hint: 'development'. The just-created branch can be renamed via this command:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2152059Z hint:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2152603Z hint: 	git branch -m <name>
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2153155Z hint:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2153882Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2155155Z Initialized empty Git repository in /home/runner/work/TimeTracking-Clean/TimeTracking-Clean/.git/
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2160813Z [command]/usr/bin/git remote add origin https://github.com/Maxwellbadger-1/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2240519Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2241520Z ##[group]Disabling automatic garbage collection
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2244479Z [command]/usr/bin/git config --local gc.auto 0
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2276700Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2277700Z ##[group]Setting up auth
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2285437Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2322532Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2811353Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.2851294Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3079558Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3116685Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3344730Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3384360Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3385259Z ##[group]Fetching the repository
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:00.3394641Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +eaf5f5ca2b9452ba2245cf336b783e1fcbfc9b85:refs/remotes/origin/main
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4589762Z From https://github.com/Maxwellbadger-1/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4591000Z  * [new ref]         eaf5f5ca2b9452ba2245cf336b783e1fcbfc9b85 -> origin/main
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4594552Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4595653Z ##[group]Determining the checkout info
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4598014Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4606159Z [command]/usr/bin/git sparse-checkout disable
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4657450Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4689381Z ##[group]Checking out the ref
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.4694421Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.5724790Z Switched to a new branch 'main'
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.5731962Z branch 'main' set up to track 'origin/main'.
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.5737888Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.5785656Z [command]/usr/bin/git log -1 --format=%H
+Deploy to Oracle Cloud (Production)	Checkout code	2026-08-26T04:43:01.5812478Z eaf5f5ca2b9452ba2245cf336b783e1fcbfc9b85
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	﻿2026-08-26T04:43:01.6111644Z ##[group]Run appleboy/ssh-action@v1.0.3
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6112077Z with:
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6112506Z   host: ***
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6112801Z   username: ***
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6120231Z   key: ***
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6120526Z   port: 22
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6120819Z   script_stop: true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6144565Z   script: set -e  # Exit on error
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🚀 Starting deployment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Check if repository exists, if not clone it
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	if [ ! -d "/home/***/TimeTracking-Clean" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "📥 Repository not found. Cloning..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  cd /home/***
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	cd /home/***/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Explicit DATABASE_PATH for every step that touches the production DB.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Der Symlink server/database.db -> production.db wurde am 20.08.2026 entfernt
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# (siehe .planning/debug/db-stabilisierung-20260818.md). Ohne dieses Symlink
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# fiele jedes Skript ohne gesetztes DATABASE_PATH auf server/database.db im
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# frischen Checkout zurueck - eine neue, leere Datenbank statt der Produktion.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	export DATABASE_PATH=/home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Backup current database (safety!)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Zielt direkt auf die Produktionsdatenbank statt auf den früheren Symlink
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# server/database.db. Der Symlink wurde am 20.08.2026 entfernt: Er verleitete
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Skripte dazu, dieselbe Datenbank über einen zweiten Pfad zu öffnen — SQLite
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# legt die WAL-Datei neben dem geöffneten Pfad an, wodurch zwei Prozesse mit
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# getrennten WAL/SHM auf eine Datei zugriffen. Ergebnis war eine nicht mehr
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# neustartfähige Produktionsdatenbank (siehe .planning/debug/db-stabilisierung-20260818.md).
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Backups liegen jetzt einheitlich unter ~/databases/backups/.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "💾 Creating database backup..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	mkdir -p /home/***/databases/backups
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	cp /home/***/databases/production.db \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	   /home/***/databases/backups/production.predeploy_$(date +%Y%m%d_%H%M%S).db || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Pull latest code
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "📥 Pulling latest code from GitHub..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	git fetch origin main
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	git reset --hard origin/main
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Clean up old files
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🧹 Cleaning up old files..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	find server -name "*.mjs" -delete 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Fix npm corruption by reinstalling npm via npm itself
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🔧 Fixing npm corruption..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	curl -L https://www.npmjs.com/install.sh | sh 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Also try to fix with nvm if available
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	export NVM_DIR="$HOME/.nvm"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Clean npm cache
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	rm -rf ~/.npm 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Install dependencies and build
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "📦 Installing dependencies..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	cd server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	rm -rf node_modules package-lock.json 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	npm install --legacy-peer-deps
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🔨 Building TypeScript..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	npm run build
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Check if build succeeded
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	if [ ! -f "dist/server.js" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "❌ Build failed! dist/server.js not found"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Run database migrations
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🗄️  Running database migrations..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run migrate:prod || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "❌ Migration failed! Deployment aborted."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "💡 Database backup available: server/database.backup.*.db"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "✅ Migrations completed successfully"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Validate database schema (non-blocking)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🔍 Validating database schema..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run validate:schema || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "✅ Schema validation completed"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# HINWEIS: Der Schritt "Fix overtime calculations" stand frueher an dieser Stelle.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Er ist bewusst hinter den PM2-Start und den Health-Check verschoben worden —
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Begruendung dort.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Setup automatic daily cron job (runs at 3 AM every day)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "⏰ Setting up automatic daily overtime recalculation..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	CRON_COMMAND="0 3 * * * cd /home/***/TimeTracking-Clean/server && DATABASE_PATH=/home/***/databases/production.db NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/***/logs/overtime-fix.log 2>&1"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	mkdir -p /home/***/logs
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	(crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "✅ Cron job setup attempted"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Create .env file if it doesn't exist
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🔐 Setting up environment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	if [ ! -f ".env" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "Creating new .env file..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  SESSION_SECRET=$(openssl rand -hex 32)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "SESSION_SECRET=$SESSION_SECRET" > .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "NODE_ENV=production" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "TZ=Europe/Berlin" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "PORT=3000" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Extract SESSION_SECRET (simple and safe)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2 || echo "")
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	if [ -z "$SESSION_SECRET" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "⚠️  SESSION_SECRET empty, generating new one..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  SESSION_SECRET=$(openssl rand -hex 32)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Restart PM2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🔄 Restarting PM2..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	pm2 stop timetracking-server || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	pm2 delete timetracking-server || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Set ALLOWED_ORIGINS for CORS
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	TZ=Europe/Berlin NODE_ENV=production DATABASE_PATH=$DATABASE_PATH SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  pm2 start dist/server.js \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  --name timetracking-server \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  --cwd /home/***/TimeTracking-Clean/server \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  --time \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  --update-env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	pm2 save
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Wait for server to start
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "⏳ Waiting for server to start..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	sleep 5
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Health check
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "🏥 Running health check..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	if [ "$HTTP_CODE" = "200" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "✅ Deployment successful! Server is healthy"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  pm2 status
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	else
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "❌ Health check failed! HTTP $HTTP_CODE"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  pm2 logs timetracking-server --lines 50
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Fix overtime calculations (ensure all months exist)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# STELLUNG IM ABLAUF IST NICHT BELIEBIG (Plan 14-08, Befund aus 14-URTEIL-PHASE-9.1.md):
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Dieser Schritt MUSS nach dem PM2-Start und nach dem Health-Check laufen, nicht davor.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Grund: Die TypeScript-Migrationen 008-015 laufen NICHT in "Running database
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# migrations" — `npm run migrate:prod` (scripts/migrate.ts) filtert auf `.sql` und
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# liest nur aus server/database/migrations. Die TypeScript-Migrationen laufen erst
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# beim Serverstart ueber `runMigrations(db)` in server/src/server.ts:215.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# scripts/fix-overtime.ts importiert seit Plan 09-05 `ensureOvertimeBalanceEntries`,
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# das ueber unifiedOvertimeService.calculateMonthlyOvertime() je Tag
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# getDailyTargetHours() ruft — und das loest seit Phase 11 ueber die Tabelle
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# `user_work_periods` auf. Diese Tabelle entsteht erst durch Migration 008/009.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# An der alten Position lief das Skript also gegen eine halbmigrierte Datenbank,
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# in der `user_work_periods` noch nicht existiert, und schreibt dabei per UPSERT
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# in `overtime_balance`.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	#
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Das `||`-Konstrukt bleibt erhalten: der Schritt darf das Deployment weiterhin
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# nicht abbrechen (fix-overtime.ts hat laut Befund WR-05 der Phase 9 keine
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Fehlerisolierung je Nutzer — ein Fehler beim ersten Nutzer bricht den ganzen
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	# Lauf ab).
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "📊 Fixing overtime calculations..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	cd /home/***/TimeTracking-Clean/server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	  echo "⚠️  Overtime fix had issues, but continuing deployment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	echo "✅ Overtime calculations updated"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6169069Z   timeout: 30s
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6169379Z   command_timeout: 10m
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6169703Z   proxy_port: 22
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6170014Z   proxy_timeout: 30s
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6170320Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.6301051Z ##[command]/usr/bin/docker run --name d45912e56da00168a47f58e9065bb77cf8f60_9fc6bd --label 4d4591 --workdir /github/workspace --rm -e "INPUT_HOST" -e "INPUT_USERNAME" -e "INPUT_KEY" -e "INPUT_PORT" -e "INPUT_SCRIPT_STOP" -e "INPUT_SCRIPT" -e "INPUT_PASSPHRASE" -e "INPUT_PASSWORD" -e "INPUT_SYNC" -e "INPUT_USE_INSECURE_CIPHER" -e "INPUT_CIPHER" -e "INPUT_TIMEOUT" -e "INPUT_COMMAND_TIMEOUT" -e "INPUT_KEY_PATH" -e "INPUT_FINGERPRINT" -e "INPUT_PROXY_HOST" -e "INPUT_PROXY_PORT" -e "INPUT_PROXY_USERNAME" -e "INPUT_PROXY_PASSWORD" -e "INPUT_PROXY_PASSPHRASE" -e "INPUT_PROXY_TIMEOUT" -e "INPUT_PROXY_KEY" -e "INPUT_PROXY_KEY_PATH" -e "INPUT_PROXY_FINGERPRINT" -e "INPUT_PROXY_CIPHER" -e "INPUT_PROXY_USE_INSECURE_CIPHER" -e "INPUT_ENVS" -e "INPUT_ENVS_FORMAT" -e "INPUT_DEBUG" -e "INPUT_ALLENVS" -e "INPUT_REQUEST_PTY" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "GITHUB_ARTIFACTS" -e "GITHUB_ARTIFACTS_LIST" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e "ACTIONS_ORCHESTRATION_ID" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp":"/github/runner_temp" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/TimeTracking-Clean/TimeTracking-Clean":"/github/workspace" 4d4591:2e56da00168a47f58e9065bb77cf8f60
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8744104Z ======CMD======
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8744721Z set -e  # Exit on error
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8745054Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8745606Z echo "🚀 Starting deployment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8746012Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8746211Z # Check if repository exists, if not clone it
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8746823Z if [ ! -d "/home/***/TimeTracking-Clean" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8747360Z   echo "📥 Repository not found. Cloning..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8747775Z   cd /home/***
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8748206Z   git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8748684Z fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8749226Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8749536Z cd /home/***/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8749933Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8750371Z # Explicit DATABASE_PATH for every step that touches the production DB.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8751194Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8751885Z # Der Symlink server/database.db -> production.db wurde am 20.08.2026 entfernt
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8753334Z # (siehe .planning/debug/db-stabilisierung-20260818.md). Ohne dieses Symlink
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8754211Z # fiele jedes Skript ohne gesetztes DATABASE_PATH auf server/database.db im
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8754847Z # frischen Checkout zurueck - eine neue, leere Datenbank statt der Produktion.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8755545Z export DATABASE_PATH=/home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8755861Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8756011Z # Backup current database (safety!)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8756366Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8756871Z # Zielt direkt auf die Produktionsdatenbank statt auf den früheren Symlink
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8757499Z # server/database.db. Der Symlink wurde am 20.08.2026 entfernt: Er verleitete
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8758181Z # Skripte dazu, dieselbe Datenbank über einen zweiten Pfad zu öffnen — SQLite
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8759135Z # legt die WAL-Datei neben dem geöffneten Pfad an, wodurch zwei Prozesse mit
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8759788Z # getrennten WAL/SHM auf eine Datei zugriffen. Ergebnis war eine nicht mehr
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8760588Z # neustartfähige Produktionsdatenbank (siehe .planning/debug/db-stabilisierung-20260818.md).
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8761164Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8761531Z # Backups liegen jetzt einheitlich unter ~/databases/backups/.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8762048Z echo "💾 Creating database backup..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8762466Z mkdir -p /home/***/databases/backups
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8763123Z cp /home/***/databases/production.db \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8763695Z    /home/***/databases/backups/production.predeploy_$(date +%Y%m%d_%H%M%S).db || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8764095Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8764231Z # Pull latest code
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8764614Z echo "📥 Pulling latest code from GitHub..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8764998Z git fetch origin main
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8765319Z git reset --hard origin/main
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8765521Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8765657Z # Clean up old files
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8766016Z echo "🧹 Cleaning up old files..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8766422Z find server -name "*.mjs" -delete 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8766716Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8766906Z # Fix npm corruption by reinstalling npm via npm itself
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8767378Z echo "🔧 Fixing npm corruption..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8767829Z curl -L https://www.npmjs.com/install.sh | sh 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8768163Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8768325Z # Also try to fix with nvm if available
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8768701Z export NVM_DIR="$HOME/.nvm"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8769405Z [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8769743Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8769879Z # Clean npm cache
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8770199Z rm -rf ~/.npm 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8770424Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8770581Z # Install dependencies and build
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8771003Z echo "📦 Installing dependencies..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8771374Z cd server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8771736Z rm -rf node_modules package-lock.json 2>/dev/null || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8772197Z npm install --legacy-peer-deps
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8772419Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8772606Z echo "🔨 Building TypeScript..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8772962Z npm run build
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8773128Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8773262Z # Check if build succeeded
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8773600Z if [ ! -f "dist/server.js" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8774033Z   echo "❌ Build failed! dist/server.js not found"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8774435Z   exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8774703Z fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8774850Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8774985Z # Run database migrations
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8775378Z echo "🗄️  Running database migrations..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8775880Z DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run migrate:prod || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8776477Z   echo "❌ Migration failed! Deployment aborted."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8777015Z   echo "💡 Database backup available: server/database.backup.*.db"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8777468Z   exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8777743Z }
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8778102Z echo "✅ Migrations completed successfully"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8778578Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8778739Z # Validate database schema (non-blocking)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8779517Z echo "🔍 Validating database schema..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8780044Z DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npm run validate:schema || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8780653Z echo "✅ Schema validation completed"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8780906Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8781183Z # HINWEIS: Der Schritt "Fix overtime calculations" stand frueher an dieser Stelle.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8781863Z # Er ist bewusst hinter den PM2-Start und den Health-Check verschoben worden —
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8782359Z # Begruendung dort.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8782543Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8782742Z # Setup automatic daily cron job (runs at 3 AM every day)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8783301Z echo "⏰ Setting up automatic daily overtime recalculation..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8784418Z CRON_COMMAND="0 3 * * * cd /home/***/TimeTracking-Clean/server && DATABASE_PATH=/home/***/databases/production.db NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/***/logs/overtime-fix.log 2>&1"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8785379Z mkdir -p /home/***/logs
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8785871Z (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8786591Z   echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8787223Z }
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8787558Z echo "✅ Cron job setup attempted"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8787788Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8787938Z # Create .env file if it doesn't exist
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8788357Z echo "🔐 Setting up environment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8788718Z if [ ! -f ".env" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8789321Z   echo "Creating new .env file..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8789714Z   SESSION_SECRET=$(openssl rand -hex 32)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8790122Z   echo "SESSION_SECRET=$SESSION_SECRET" > .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8790530Z   echo "NODE_ENV=production" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8790964Z   echo "TZ=Europe/Berlin" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8791322Z   echo "PORT=3000" >> .env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8791633Z fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8791779Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8791940Z # Extract SESSION_SECRET (simple and safe)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8792469Z SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2 || echo "")
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8792844Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8792990Z if [ -z "$SESSION_SECRET" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8793462Z   echo "⚠️  SESSION_SECRET empty, generating new one..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8794127Z   SESSION_SECRET=$(openssl rand -hex 32)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8794501Z fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8794644Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8794955Z echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8795301Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8795431Z # Restart PM2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8795768Z echo "🔄 Restarting PM2..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8796116Z pm2 stop timetracking-server || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8796510Z pm2 delete timetracking-server || true
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8796751Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8796899Z # Set ALLOWED_ORIGINS for CORS
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8797606Z export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8798198Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8798661Z TZ=Europe/Berlin NODE_ENV=production DATABASE_PATH=$DATABASE_PATH SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8799668Z   pm2 start dist/server.js \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8800024Z   --name timetracking-server \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8800450Z   --cwd /home/***/TimeTracking-Clean/server \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8800846Z   --time \
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8801132Z   --update-env
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8801430Z pm2 save
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8801582Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8801723Z # Wait for server to start
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8802117Z echo "⏳ Waiting for server to start..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8802491Z sleep 5
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8802645Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8802774Z # Health check
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8803119Z echo "🏥 Running health check..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8803796Z HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8804325Z if [ "$HTTP_CODE" = "200" ]; then
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8804769Z   echo "✅ Deployment successful! Server is healthy"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8805170Z   pm2 status
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8805453Z else
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8805803Z   echo "❌ Health check failed! HTTP $HTTP_CODE"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8806236Z   pm2 logs timetracking-server --lines 50
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8806611Z   exit 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8806876Z fi
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8807022Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8807201Z # Fix overtime calculations (ensure all months exist)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8807602Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8808044Z # STELLUNG IM ABLAUF IST NICHT BELIEBIG (Plan 14-08, Befund aus 14-URTEIL-PHASE-9.1.md):
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8808741Z # Dieser Schritt MUSS nach dem PM2-Start und nach dem Health-Check laufen, nicht davor.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8809551Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8809972Z # Grund: Die TypeScript-Migrationen 008-015 laufen NICHT in "Running database
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8810705Z # migrations" — `npm run migrate:prod` (scripts/migrate.ts) filtert auf `.sql` und
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8811356Z # liest nur aus server/database/migrations. Die TypeScript-Migrationen laufen erst
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8811999Z # beim Serverstart ueber `runMigrations(db)` in server/src/server.ts:215.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8812675Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8813132Z # scripts/fix-overtime.ts importiert seit Plan 09-05 `ensureOvertimeBalanceEntries`,
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8813815Z # das ueber unifiedOvertimeService.calculateMonthlyOvertime() je Tag
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8814508Z # getDailyTargetHours() ruft — und das loest seit Phase 11 ueber die Tabelle
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8815144Z # `user_work_periods` auf. Diese Tabelle entsteht erst durch Migration 008/009.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8815771Z # An der alten Position lief das Skript also gegen eine halbmigrierte Datenbank,
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8816403Z # in der `user_work_periods` noch nicht existiert, und schreibt dabei per UPSERT
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8816916Z # in `overtime_balance`.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8817233Z #
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8817652Z # Das `||`-Konstrukt bleibt erhalten: der Schritt darf das Deployment weiterhin
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8818262Z # nicht abbrechen (fix-overtime.ts hat laut Befund WR-05 der Phase 9 keine
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8819184Z # Fehlerisolierung je Nutzer — ein Fehler beim ersten Nutzer bricht den ganzen
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8819714Z # Lauf ab).
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8820089Z echo "📊 Fixing overtime calculations..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8820533Z cd /home/***/TimeTracking-Clean/server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8821073Z DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8821760Z   echo "⚠️  Overtime fix had issues, but continuing deployment..."
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8822202Z }
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8822539Z echo "✅ Overtime calculations updated"
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8822778Z 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:01.8822909Z ======END======
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:04.8496905Z out: 🚀 Starting deployment...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:04.8515595Z out: 💾 Creating database backup...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:04.8687544Z out: 📥 Pulling latest code from GitHub...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.4444621Z err: From https://github.com/Maxwellbadger-1/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.4445340Z err:  * branch            main       -> FETCH_HEAD
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.4574309Z err:    41c9c09..eaf5f5c  main       -> origin/main
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.5961489Z out: HEAD is now at eaf5f5c docs(14.2): Phase 14.2 verifiziert - human_needed, 45 Abnahmepunkte
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.5969084Z out: 🧹 Cleaning up old files...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.6135211Z out: 🔧 Fixing npm corruption...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.6442599Z err:   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.6443727Z err:                                  Dload  Upload   Total   Spent    Left  Speed
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.8379218Z err: 
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.8379924Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.8380983Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:06.8381689Z 100  3755  100  3755    0     0  19367      0 --:--:-- --:--:-- --:--:-- 19355
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:08.3873204Z out: removing existing npm
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:43:11.0951112Z out: 📦 Installing dependencies...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:09.1897589Z out: up to date, audited 449 packages in 4m
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:09.1898460Z out: 84 packages are looking for funding
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:09.1899481Z out:   run `npm fund` for details
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1761944Z out: 24 vulnerabilities (3 moderate, 19 high, 2 critical)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1762636Z out: To address issues that do not require attention, run:
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1763168Z out:   npm audit fix
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1763624Z out: To address all issues (including breaking changes), run:
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1764177Z out:   npm audit fix --force
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1764590Z out: Run `npm audit` for details.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1972227Z err: npm notice
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1973184Z err: npm notice New major version of npm available! 10.8.2 -> 12.0.2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1974016Z err: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1977514Z err: npm notice To update run: npm install -g npm@12.0.2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.1978116Z err: npm notice
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:10.3036309Z out: 🔨 Building TypeScript...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:11.2034785Z out: > server@0.1.2 build
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:47:11.2035399Z out: > tsc
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:22.5965386Z out: 🗄️  Running database migrations...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:26.3763034Z out: > server@0.1.2 migrate:prod
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:26.3775993Z out: > tsx scripts/migrate.ts prod
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:28.1057124Z err: ⚠️  WARNING: Running migrations on PRODUCTION database!
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:28.1057999Z err:    Press Ctrl+C within 5 seconds to cancel...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.1115321Z out: 🗄️  Running migrations on PRODUCTION database
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.1116896Z out: 📁 Database: /home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.1416450Z out: ✅ No pending migrations - database is up to date!
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.1752821Z out: ✅ Migrations completed successfully
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.1753527Z out: 🔍 Validating database schema...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.7020633Z out: > server@0.1.2 validate:schema
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:33.7021309Z out: > tsx scripts/validateSchema.ts
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.2872868Z out: 🔍 Database Schema Validation
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.2874313Z out: 📁 Database: /home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3689009Z out: 📋 Validating database schema...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3702848Z err: ⚠️  No schema definition for table: audit_log
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3705189Z err: ⚠️  No schema definition for table: migrations
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3711737Z err: ⚠️  No schema definition for table: overtime_corrections
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3712807Z err: ⚠️  No schema definition for table: overtime_daily
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3717762Z err: ⚠️  No schema definition for table: overtime_weekly
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3719015Z err: ⚠️  No schema definition for table: password_change_log
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3722163Z err: ⚠️  No schema definition for table: user_work_periods
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.3729372Z err: ⚠️  No schema definition for table: vacation_transactions
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4661500Z out: 📊 Validation Results:
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4662197Z err: ⚠️  No schema definition for table: work_period_chain_guard
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4662977Z err: ⚠️  No schema definition for table: work_time_accounts
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4663667Z out: Table                    Status    Issues
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4664446Z out: ------------------------------------------------------------
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4665608Z out: absence_requests         ❌         Missing: approverId | Extra: adminNote, approvedBy
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4666532Z out: activities               ❌         Missing: description, projectId | Extra: active
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4667244Z out: audit_log                ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4667864Z out: departments              ❌         Missing: description
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4669194Z out: holidays                 ❌         Missing: state, createdAt
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4669902Z out: migrations               ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4670725Z out: notifications            ❌         Missing: recipientId, priority, link, metadata | Extra: userId
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4671946Z out: overtime_balance         ❌         Missing: overtime, carryover, balance, createdAt, updatedAt | Extra: carryoverFromPreviousYear
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4672696Z out: overtime_corrections     ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4673117Z out: overtime_daily           ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4673870Z out: overtime_transactions    ❌         Missing: balance | Extra: referenceType, balanceBefore, balanceAfter, createdBy, reversalOf
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4674579Z out: overtime_weekly          ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4675000Z out: password_change_log      ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4675503Z out: projects                 ❌         Missing: description
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4676527Z out: time_entries             ❌         Missing: projectId, activityId, description, isHomeOffice | Extra: startTime, endTime, breakMinutes, activity, project, location, notes, updatedAt
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4677401Z out: user_work_periods        ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4677800Z out: users                    ✅         
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4678760Z out: vacation_balance         ❌         Missing: totalDays, usedDays, pendingDays, remainingDays, carryoverDays, carryoverExpiry, createdAt, updatedAt | Extra: entitlement, carryover, taken
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4680132Z out: vacation_transactions    ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.4680554Z out: work_period_chain_guard  ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5035476Z err: ❌ VALIDATION FAILED: Database schema has missing required columns!
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5036866Z err:    Run migrations to fix: npm run migrate:prod
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5038277Z err: npm error Lifecycle script `validate:schema` failed with error:
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5039896Z err: npm error code 1
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5040980Z out: work_time_accounts       ⚠️        
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5042361Z err: npm error path /home/***/TimeTracking-Clean/server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5043307Z err: npm error workspace server@0.1.2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5044251Z err: npm error location /home/***/TimeTracking-Clean/server
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5045080Z err: npm error command failed
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5045820Z err: npm error command sh -c tsx scripts/validateSchema.ts
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5046769Z out: ============================================================
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5047713Z out: ✅ Schema validation completed
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5049018Z out: ⏰ Setting up automatic daily overtime recalculation...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5864871Z out: ✅ Cron job setup attempted
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.5865703Z out: 🔐 Setting up environment...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.6099902Z out: ✅ Environment ready (SESSION_SECRET length: 64)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:35.6100628Z out: 🔄 Restarting PM2...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.4696998Z out: [PM2] Applying action stopProcessId on app [timetracking-server](ids: [ 41 ])
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6751298Z out: [PM2] [timetracking-server](41) ✓
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6753074Z out: ┌────┬─────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6754606Z out: │ id │ name                    │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6755920Z out: ├────┼─────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6757217Z out: │ 41 │ timetracking-server     │ default     │ 0.1.2   │ fork    │ 0        │ 0      │ 0    │ stopped   │ 0%       │ 0b       │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6758521Z out: │ 25 │ timetracking-staging    │ default     │ 0.1.2   │ fork    │ 2449214  │ 4M     │ 0    │ online    │ 0%       │ 53.2mb   │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:36.6760437Z out: └────┴─────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9768420Z out: [PM2] Applying action deleteProcessId on app [timetracking-server](ids: [ 41 ])
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9799581Z out: [PM2] [timetracking-server](41) ✓
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9866791Z out: ┌────┬─────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9868390Z out: │ id │ name                    │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9870255Z out: ├────┼─────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9871701Z out: │ 25 │ timetracking-staging    │ default     │ 0.1.2   │ fork    │ 2449214  │ 4M     │ 0    │ online    │ 0%       │ 53.2mb   │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:37.9873214Z out: └────┴─────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.7879559Z out: [PM2] Starting /home/***/TimeTracking-Clean/server/dist/server.js in fork_mode (1 instance)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8017661Z out: [PM2] Done.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8742671Z out: ┌────┬─────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8744386Z out: │ id │ name                    │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8746125Z out: ├────┼─────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8747882Z out: │ 42 │ timetracking-server     │ default     │ 0.1.2   │ fork    │ 3701715  │ 0s     │ 0    │ online    │ 0%       │ 25.6mb   │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8749617Z out: │ 25 │ timetracking-staging    │ default     │ 0.1.2   │ fork    │ 2449214  │ 4M     │ 0    │ online    │ 0%       │ 52.9mb   │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:38.8751041Z out: └────┴─────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:39.9663685Z out: [PM2] Saving current process list...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:39.9729445Z out: [PM2] Successfully saved in /home/***/.pm2/dump.pm2
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:39.9819234Z out: ⏳ Waiting for server to start...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:44.9863173Z out: 🏥 Running health check...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.1035163Z out: ✅ Deployment successful! Server is healthy
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6775789Z out: ┌────┬─────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6777126Z out: │ id │ name                    │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6778395Z out: ├────┼─────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6780285Z out: │ 42 │ timetracking-server     │ default     │ 0.1.2   │ fork    │ 3701715  │ 6s     │ 0    │ online    │ 0%       │ 105.6mb  │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6781612Z out: │ 25 │ timetracking-staging    │ default     │ 0.1.2   │ fork    │ 2449214  │ 4M     │ 0    │ online    │ 0%       │ 53.2mb   │ ***   │ disabled │
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6782889Z out: └────┴─────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:45.6896498Z out: 📊 Fixing overtime calculations...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:51.9792375Z out: {"level":30,"time":1787719731912,"env":"production","path":"/home/***/databases/production.db","environment":"production","msg":"📁 Database path"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0717212Z out: 📁 Using database: /home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0718068Z out: 🔧 Starting overtime recalculation...
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0725859Z out: 📊 Found 15 active users
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0728339Z out: 👤 Processing: System Administrator (ID: 1)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0789231Z out: {"level":30,"time":1787719731918,"env":"production","msg":"✅ Foreign keys ENABLED and VERIFIED"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0791048Z out: {"level":30,"time":1787719731919,"env":"production","msg":"✅ WAL mode ENABLED and VERIFIED"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0792870Z out: {"level":30,"time":1787719731919,"env":"production","msg":"📊 Initializing database schema..."}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0794022Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ Database schema initialized successfully"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0795264Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ WAL mode enabled for multi-user support"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0796220Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ Foreign keys enabled"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0797099Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ All 19 tables created"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0798275Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ Indexes created for performance"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0799643Z out: {"level":30,"time":1787719731920,"env":"production","msg":"📊 Creating database indexes for performance..."}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0800715Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ Database indexes created successfully"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0801789Z out: {"level":30,"time":1787719731920,"env":"production","msg":"✅ Performance-optimized composite indexes added"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0802841Z out: {"level":30,"time":1787719731921,"env":"production","count":59,"msg":"📊 Database Indexes Verified"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0805115Z out: {"level":30,"time":1787719731921,"env":"production","table":"absence_requests","indexes":["idx_absence_requests_status","idx_absence_requests_userId","idx_absences_created","idx_absences_dates","idx_absences_status","idx_absences_type","idx_absences_user","idx_absences_user_date","idx_absences_user_status"],"msg":"  📋 absence_requests: 9 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0807485Z out: {"level":30,"time":1787719731921,"env":"production","table":"audit_log","indexes":["idx_audit_action","idx_audit_created","idx_audit_entity","idx_audit_log_entity","idx_audit_log_userId","idx_audit_user","idx_audit_user_created"],"msg":"  📋 audit_log: 7 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0809191Z out: {"level":30,"time":1787719731921,"env":"production","table":"holidays","indexes":["idx_holidays_date"],"msg":"  📋 holidays: 1 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0810899Z out: {"level":30,"time":1787719731921,"env":"production","table":"notifications","indexes":["idx_notifications_created","idx_notifications_read","idx_notifications_user","idx_notifications_userId","idx_notifications_user_date","idx_notifications_user_read"],"msg":"  📋 notifications: 6 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0812745Z out: {"level":30,"time":1787719731921,"env":"production","table":"overtime_balance","indexes":["idx_overtime_month","idx_overtime_user","idx_overtime_user_month"],"msg":"  📋 overtime_balance: 3 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0814295Z out: {"level":30,"time":1787719731921,"env":"production","table":"overtime_corrections","indexes":["idx_overtime_corrections_date","idx_overtime_corrections_userId"],"msg":"  📋 overtime_corrections: 2 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0815888Z out: {"level":30,"time":1787719731921,"env":"production","table":"overtime_daily","indexes":["idx_overtime_daily_date","idx_overtime_daily_user","idx_overtime_daily_user_date"],"msg":"  📋 overtime_daily: 3 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0817811Z out: {"level":30,"time":1787719731921,"env":"production","table":"overtime_transactions","indexes":["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of","idx_overtime_transactions_type","idx_overtime_transactions_userId"],"msg":"  📋 overtime_transactions: 4 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0820126Z out: {"level":30,"time":1787719731921,"env":"production","table":"overtime_weekly","indexes":["idx_overtime_weekly_user","idx_overtime_weekly_user_week","idx_overtime_weekly_week"],"msg":"  📋 overtime_weekly: 3 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0821753Z out: {"level":30,"time":1787719731921,"env":"production","table":"password_change_log","indexes":["idx_password_change_log_changedBy","idx_password_change_log_userId"],"msg":"  📋 password_change_log: 2 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0823508Z out: {"level":30,"time":1787719731921,"env":"production","table":"time_entries","indexes":["idx_time_entries_date","idx_time_entries_user","idx_time_entries_userId","idx_time_entries_user_date","idx_time_entries_user_start"],"msg":"  📋 time_entries: 5 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0825489Z out: {"level":30,"time":1787719731921,"env":"production","table":"user_work_periods","indexes":["idx_user_work_periods_deleted","idx_user_work_periods_one_open","idx_user_work_periods_user_from","idx_user_work_periods_user_from_unique"],"msg":"  📋 user_work_periods: 4 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0829316Z out: {"level":30,"time":1787719731921,"env":"production","table":"users","indexes":["idx_users_email","idx_users_role_deleted","idx_users_status","idx_users_username"],"msg":"  📋 users: 4 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0831022Z out: {"level":30,"time":1787719731921,"env":"production","table":"vacation_balance","indexes":["idx_vacation_user","idx_vacation_user_year","idx_vacation_year"],"msg":"  📋 vacation_balance: 3 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0832535Z out: {"level":30,"time":1787719731921,"env":"production","table":"vacation_transactions","indexes":["idx_vacation_tx_reference","idx_vacation_tx_user_year"],"msg":"  📋 vacation_transactions: 2 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0833927Z out: {"level":30,"time":1787719731921,"env":"production","table":"work_time_accounts","indexes":["idx_work_time_accounts_userId"],"msg":"  📋 work_time_accounts: 1 indexes"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.0834979Z out: {"level":30,"time":1787719732002,"env":"production","msg":"UnifiedOvertimeService initialized - Single Source of Truth"}
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.3121330Z out:   🔄 Processed 10 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.3680568Z out:   ⏰ Total overtime: 0.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.3681226Z out: 👤 Processing: Karin Jochem (ID: 2)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.5805550Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.5806218Z out:   ⏰ Total overtime: 10.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.5806721Z out: 👤 Processing: Christine Glas (ID: 3)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.8001697Z out:   🔄 Processed 9 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.8002409Z out:   ⏰ Total overtime: -14.81h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.8002989Z out: 👤 Processing: Benedikt Jochem (ID: 16)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.9847520Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.9848329Z out:   ⏰ Total overtime: 2.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:52.9849404Z out: 👤 Processing: Carmen Rothemund (ID: 17)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.1815098Z out:   🔄 Processed 9 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.1815934Z out:   ⏰ Total overtime: -42.76h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.1816475Z out: 👤 Processing: Silvia Lachner (ID: 18)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.4785001Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.4785768Z out:   ⏰ Total overtime: 3.50h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.4786381Z out: 👤 Processing: Ute Stock (ID: 19)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.6735520Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.6736162Z out:   ⏰ Total overtime: 12.41h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.6736693Z out: 👤 Processing: Hans Schauer (ID: 20)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.7896136Z out:   🔄 Processed 5 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.7896959Z out:   ⏰ Total overtime: -20.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.7897557Z out: 👤 Processing: Maria Schauer (ID: 21)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.8945096Z out:   🔄 Processed 5 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.8945816Z out:   ⏰ Total overtime: -17.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:53.8946779Z out: 👤 Processing: Beate Walleiter (ID: 22)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.0969190Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.1663869Z out:   ⏰ Total overtime: 47.50h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.1664451Z out: 👤 Processing: Sepp Wasensteiner (ID: 23)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.3022155Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.3022833Z out:   ⏰ Total overtime: 0.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.3023365Z out: 👤 Processing: Kathrin Leeb (ID: 24)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.5662157Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.5662782Z out:   ⏰ Total overtime: 201.50h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.5663303Z out: 👤 Processing: Heidemarie Tretter (ID: 25)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.7680556Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.7681560Z out:   ⏰ Total overtime: -240.95h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.7682243Z out: 👤 Processing: Reinhold Merl (ID: 27)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.8929250Z out:   🔄 Processed 7 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.8929913Z out:   ⏰ Total overtime: 0.00h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:54.8930474Z out: 👤 Processing: Christina Wasensteiner (ID: 29)
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.0973542Z out:   🔄 Processed 8 total month entries
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.0974220Z out:   ⏰ Total overtime: 65.28h
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.0974724Z out: ✅ DONE!
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.0975170Z out: 📊 Users processed: 15
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.0975697Z out: 🔄 Total entries updated: 117
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.1928445Z out: ✅ Overtime calculations updated
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.1931445Z ==============================================
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.1932410Z ✅ Successfully executed commands to all host.
+Deploy to Oracle Cloud (Production)	Deploy to Oracle Cloud via SSH	2026-08-26T04:48:55.1933025Z ==============================================
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	﻿2026-08-26T04:48:55.2730135Z ##[group]Run appleboy/ssh-action@v1.0.3
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2730562Z with:
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2730898Z   host: ***
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2731211Z   username: ***
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2738349Z   key: ***
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2738630Z   port: 22
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2740779Z   script: set -e
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	echo "Verifying DB path..."
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	PM2_PID=$(pm2 pid timetracking-server)
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	if [ -z "$PM2_PID" ] || [ "$PM2_PID" = "0" ]; then
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	  echo "ERROR: PM2 process 'timetracking-server' not found or not running"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	  exit 1
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	fi
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	echo "PM2 PID: $PM2_PID"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	DB_PATH=$(lsof -p "$PM2_PID" | grep '\.db$' | awk '{print $NF}' | head -1)
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	EXPECTED="/home/***/databases/production.db"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	if [ "$DB_PATH" = "$EXPECTED" ]; then
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	  echo "DB verification PASSED: $DB_PATH"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	else
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	  echo "DB verification FAILED: expected $EXPECTED, got: $DB_PATH"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	  exit 1
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	fi
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2742770Z   timeout: 30s
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2743071Z   command_timeout: 10m
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2743380Z   proxy_port: 22
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2743676Z   proxy_timeout: 30s
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2744002Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.2770677Z ##[command]/usr/bin/docker run --name d45912e56da00168a47f58e9065bb77cf8f60_be0628 --label 4d4591 --workdir /github/workspace --rm -e "INPUT_HOST" -e "INPUT_USERNAME" -e "INPUT_KEY" -e "INPUT_PORT" -e "INPUT_SCRIPT" -e "INPUT_PASSPHRASE" -e "INPUT_PASSWORD" -e "INPUT_SYNC" -e "INPUT_USE_INSECURE_CIPHER" -e "INPUT_CIPHER" -e "INPUT_TIMEOUT" -e "INPUT_COMMAND_TIMEOUT" -e "INPUT_KEY_PATH" -e "INPUT_FINGERPRINT" -e "INPUT_PROXY_HOST" -e "INPUT_PROXY_PORT" -e "INPUT_PROXY_USERNAME" -e "INPUT_PROXY_PASSWORD" -e "INPUT_PROXY_PASSPHRASE" -e "INPUT_PROXY_TIMEOUT" -e "INPUT_PROXY_KEY" -e "INPUT_PROXY_KEY_PATH" -e "INPUT_PROXY_FINGERPRINT" -e "INPUT_PROXY_CIPHER" -e "INPUT_PROXY_USE_INSECURE_CIPHER" -e "INPUT_SCRIPT_STOP" -e "INPUT_ENVS" -e "INPUT_ENVS_FORMAT" -e "INPUT_DEBUG" -e "INPUT_ALLENVS" -e "INPUT_REQUEST_PTY" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "GITHUB_ARTIFACTS" -e "GITHUB_ARTIFACTS_LIST" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e "ACTIONS_ORCHESTRATION_ID" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp":"/github/runner_temp" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/TimeTracking-Clean/TimeTracking-Clean":"/github/workspace" 4d4591:2e56da00168a47f58e9065bb77cf8f60
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4176705Z ======CMD======
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4177408Z set -e
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4177793Z echo "Verifying DB path..."
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4178231Z PM2_PID=$(pm2 pid timetracking-server)
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4179932Z if [ -z "$PM2_PID" ] || [ "$PM2_PID" = "0" ]; then
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4180861Z   echo "ERROR: PM2 process 'timetracking-server' not found or not running"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4181358Z   exit 1
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4181739Z fi
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4182109Z echo "PM2 PID: $PM2_PID"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4182555Z DB_PATH=$(lsof -p "$PM2_PID" | grep '\.db$' | awk '{print $NF}' | head -1)
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4183490Z EXPECTED="/home/***/databases/production.db"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4183963Z if [ "$DB_PATH" = "$EXPECTED" ]; then
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4184438Z   echo "DB verification PASSED: $DB_PATH"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4185118Z else
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4185707Z   echo "DB verification FAILED: expected $EXPECTED, got: $DB_PATH"
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4198488Z   exit 1
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4199139Z fi
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4199311Z 
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:55.4199438Z ======END======
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:58.6094188Z out: Verifying DB path...
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:59.1160870Z out: PM2 PID: 3701715
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:59.2006252Z out: DB verification PASSED: /home/***/databases/production.db
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:59.2008154Z ==============================================
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:59.2009670Z ✅ Successfully executed commands to all host.
+Deploy to Oracle Cloud (Production)	Verify DB path post-deploy	2026-08-26T04:48:59.2010183Z ==============================================
+Deploy to Oracle Cloud (Production)	Notify on success	﻿2026-08-26T04:48:59.2792157Z ##[group]Run echo "✅ Deployment to Oracle Cloud successful!"
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2792811Z ^[[36;1mecho "✅ Deployment to Oracle Cloud successful!"^[[0m
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2793384Z ^[[36;1mecho "🌐 Server URL: http://***:3000"^[[0m
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2793925Z ^[[36;1mecho "📊 Check status: ssh ***@*** 'pm2 status'"^[[0m
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2834089Z shell: /usr/bin/bash -e {0}
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2834458Z ##[endgroup]
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2911482Z ✅ Deployment to Oracle Cloud successful!
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2912093Z 🌐 Server URL: http://***:3000
+Deploy to Oracle Cloud (Production)	Notify on success	2026-08-26T04:48:59.2912618Z 📊 Check status: ssh ***@*** 'pm2 status'
+Deploy to Oracle Cloud (Production)	Post Checkout code	﻿2026-08-26T04:48:59.3020008Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3021707Z Post job cleanup.
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3879759Z [command]/usr/bin/git version
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3929678Z git version 2.55.0
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3987968Z Temporarily overriding HOME='/home/runner/work/_temp/04cd116f-93a4-4575-b4de-8022d55b3f07' before making global git config changes
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3989301Z Adding repository directory to the temporary git global config as a safe directory
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.3996243Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/TimeTracking-Clean/TimeTracking-Clean
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4036578Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4074396Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4330902Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4366473Z http.https://github.com/.extraheader
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4378652Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4422907Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4680262Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Deploy to Oracle Cloud (Production)	Post Checkout code	2026-08-26T04:48:59.4719503Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Deploy to Oracle Cloud (Production)	Complete job	﻿2026-08-26T04:48:59.5171958Z Cleaning up orphan processes
+Deploy to Oracle Cloud (Production)	Complete job	2026-08-26T04:48:59.5642465Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,460 @@
+Aufgelöster Datenbankpfad: /home/ubuntu/databases/production.db
+### WARNUNG: --allow-production gesetzt — Produktionsschutz UMGANGEN. ###
+  Zieldatenbank: /home/ubuntu/databases/production.db
+### MODUS: SCHREIBEN ###
+
+{"level":30,"time":1787719975809,"env":"production","path":"/home/ubuntu/databases/production.db","environment":"production","msg":"📁 Database path"}
+{"level":30,"time":1787719975815,"env":"production","msg":"✅ Foreign keys ENABLED and VERIFIED"}
+{"level":30,"time":1787719975816,"env":"production","msg":"✅ WAL mode ENABLED and VERIFIED"}
+{"level":30,"time":1787719975816,"env":"production","msg":"📊 Initializing database schema..."}
+{"level":30,"time":1787719975817,"env":"production","msg":"✅ Database schema initialized successfully"}
+{"level":30,"time":1787719975817,"env":"production","msg":"✅ WAL mode enabled for multi-user support"}
+{"level":30,"time":1787719975817,"env":"production","msg":"✅ Foreign keys enabled"}
+{"level":30,"time":1787719975817,"env":"production","msg":"✅ All 19 tables created"}
+{"level":30,"time":1787719975817,"env":"production","msg":"✅ Indexes created for performance"}
+{"level":30,"time":1787719975818,"env":"production","msg":"📊 Creating database indexes for performance..."}
+{"level":30,"time":1787719975818,"env":"production","msg":"✅ Database indexes created successfully"}
+{"level":30,"time":1787719975818,"env":"production","msg":"✅ Performance-optimized composite indexes added"}
+{"level":30,"time":1787719975818,"env":"production","count":59,"msg":"📊 Database Indexes Verified"}
+{"level":30,"time":1787719975819,"env":"production","table":"absence_requests","indexes":["idx_absence_requests_status","idx_absence_requests_userId","idx_absences_created","idx_absences_dates","idx_absences_status","idx_absences_type","idx_absences_user","idx_absences_user_date","idx_absences_user_status"],"msg":"  📋 absence_requests: 9 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"audit_log","indexes":["idx_audit_action","idx_audit_created","idx_audit_entity","idx_audit_log_entity","idx_audit_log_userId","idx_audit_user","idx_audit_user_created"],"msg":"  📋 audit_log: 7 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"holidays","indexes":["idx_holidays_date"],"msg":"  📋 holidays: 1 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"notifications","indexes":["idx_notifications_created","idx_notifications_read","idx_notifications_user","idx_notifications_userId","idx_notifications_user_date","idx_notifications_user_read"],"msg":"  📋 notifications: 6 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"overtime_balance","indexes":["idx_overtime_month","idx_overtime_user","idx_overtime_user_month"],"msg":"  📋 overtime_balance: 3 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"overtime_corrections","indexes":["idx_overtime_corrections_date","idx_overtime_corrections_userId"],"msg":"  📋 overtime_corrections: 2 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"overtime_daily","indexes":["idx_overtime_daily_date","idx_overtime_daily_user","idx_overtime_daily_user_date"],"msg":"  📋 overtime_daily: 3 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"overtime_transactions","indexes":["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of","idx_overtime_transactions_type","idx_overtime_transactions_userId"],"msg":"  📋 overtime_transactions: 4 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"overtime_weekly","indexes":["idx_overtime_weekly_user","idx_overtime_weekly_user_week","idx_overtime_weekly_week"],"msg":"  📋 overtime_weekly: 3 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"password_change_log","indexes":["idx_password_change_log_changedBy","idx_password_change_log_userId"],"msg":"  📋 password_change_log: 2 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"time_entries","indexes":["idx_time_entries_date","idx_time_entries_user","idx_time_entries_userId","idx_time_entries_user_date","idx_time_entries_user_start"],"msg":"  📋 time_entries: 5 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"user_work_periods","indexes":["idx_user_work_periods_deleted","idx_user_work_periods_one_open","idx_user_work_periods_user_from","idx_user_work_periods_user_from_unique"],"msg":"  📋 user_work_periods: 4 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"users","indexes":["idx_users_email","idx_users_role_deleted","idx_users_status","idx_users_username"],"msg":"  📋 users: 4 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"vacation_balance","indexes":["idx_vacation_user","idx_vacation_user_year","idx_vacation_year"],"msg":"  📋 vacation_balance: 3 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"vacation_transactions","indexes":["idx_vacation_tx_reference","idx_vacation_tx_user_year"],"msg":"  📋 vacation_transactions: 2 indexes"}
+{"level":30,"time":1787719975819,"env":"production","table":"work_time_accounts","indexes":["idx_work_time_accounts_userId"],"msg":"  📋 work_time_accounts: 1 indexes"}
+{"level":30,"time":1787719978918,"env":"production","msg":"UnifiedOvertimeService initialized - Single Source of Truth"}
+=== Fundliste ===
+userId=2 Karin Jochem: 4 unvollständige Monate — 2026-01, 2026-04, 2026-05, 2026-07
+userId=3 Christine Glas: 3 unvollständige Monate — 2026-01, 2026-03, 2026-06
+userId=16 Benedikt Jochem: 6 unvollständige Monate — 2026-01, 2026-03, 2026-04, 2026-05, 2026-06, 2026-07
+userId=17 Carmen Rothemund: 4 unvollständige Monate — 2026-03, 2026-04, 2026-05, 2026-06
+userId=18 Silvia Lachner: 3 unvollständige Monate — 2026-01, 2026-04, 2026-07
+userId=19 Ute Stock: 5 unvollständige Monate — 2026-01, 2026-02, 2026-03, 2026-04, 2026-05
+userId=20 Hans Schauer: 3 unvollständige Monate — 2026-04, 2026-06, 2026-07
+userId=21 Maria Schauer: 3 unvollständige Monate — 2026-04, 2026-06, 2026-07
+userId=22 Beate Walleiter: 1 unvollständige Monate — 2026-07
+userId=24 Kathrin Leeb: 1 unvollständige Monate — 2026-05
+userId=25 Heidemarie Tretter: 5 unvollständige Monate — 2026-03, 2026-04, 2026-05, 2026-06, 2026-07
+userId=29 Christina Wasensteiner: 1 unvollständige Monate — 2026-07
+Summe: 12 betroffene Nutzer, 39 unvollständige Monate. Übersprungene (soft-gelöschte) Nutzer: 5.
+--all-months gesetzt: der Schreiblauf verarbeitet stattdessen ALLE 100 vergangenen Monate über 15 Nutzer.
+
+overtime_transactions vor dem Lauf: COUNT=2590, SUM(hours)=-133.76, model_change-Zeilen=0
+
+{"level":30,"time":1787719979405,"env":"production","userId":1,"month":"2025-11","msg":"🔄 Rebuilding overtime transactions for month"}
+1 von 100 Monaten verarbeitet — userId=1, Monat=2025-11
+2 von 100 Monaten verarbeitet — userId=1, Monat=2025-12
+3 von 100 Monaten verarbeitet — userId=1, Monat=2026-01
+4 von 100 Monaten verarbeitet — userId=1, Monat=2026-02
+5 von 100 Monaten verarbeitet — userId=1, Monat=2026-03
+6 von 100 Monaten verarbeitet — userId=1, Monat=2026-04
+7 von 100 Monaten verarbeitet — userId=1, Monat=2026-05
+8 von 100 Monaten verarbeitet — userId=1, Monat=2026-06
+9 von 100 Monaten verarbeitet — userId=1, Monat=2026-07
+10 von 100 Monaten verarbeitet — userId=2, Monat=2026-01
+11 von 100 Monaten verarbeitet — userId=2, Monat=2026-02
+12 von 100 Monaten verarbeitet — userId=2, Monat=2026-03
+13 von 100 Monaten verarbeitet — userId=2, Monat=2026-04
+14 von 100 Monaten verarbeitet — userId=2, Monat=2026-05
+15 von 100 Monaten verarbeitet — userId=2, Monat=2026-06
+16 von 100 Monaten verarbeitet — userId=2, Monat=2026-07
+17 von 100 Monaten verarbeitet — userId=3, Monat=2026-01
+18 von 100 Monaten verarbeitet — userId=3, Monat=2026-02
+19 von 100 Monaten verarbeitet — userId=3, Monat=2026-03
+20 von 100 Monaten verarbeitet — userId=3, Monat=2026-04
+21 von 100 Monaten verarbeitet — userId=3, Monat=2026-05
+22 von 100 Monaten verarbeitet — userId=3, Monat=2026-06
+23 von 100 Monaten verarbeitet — userId=3, Monat=2026-07
+24 von 100 Monaten verarbeitet — userId=16, Monat=2026-01
+25 von 100 Monaten verarbeitet — userId=16, Monat=2026-02
+26 von 100 Monaten verarbeitet — userId=16, Monat=2026-03
+27 von 100 Monaten verarbeitet — userId=16, Monat=2026-04
+28 von 100 Monaten verarbeitet — userId=16, Monat=2026-05
+29 von 100 Monaten verarbeitet — userId=16, Monat=2026-06
+30 von 100 Monaten verarbeitet — userId=16, Monat=2026-07
+31 von 100 Monaten verarbeitet — userId=17, Monat=2026-01
+32 von 100 Monaten verarbeitet — userId=17, Monat=2026-02
+33 von 100 Monaten verarbeitet — userId=17, Monat=2026-03
+34 von 100 Monaten verarbeitet — userId=17, Monat=2026-04
+35 von 100 Monaten verarbeitet — userId=17, Monat=2026-05
+36 von 100 Monaten verarbeitet — userId=17, Monat=2026-06
+37 von 100 Monaten verarbeitet — userId=17, Monat=2026-07
+38 von 100 Monaten verarbeitet — userId=18, Monat=2026-01
+39 von 100 Monaten verarbeitet — userId=18, Monat=2026-02
+40 von 100 Monaten verarbeitet — userId=18, Monat=2026-03
+41 von 100 Monaten verarbeitet — userId=18, Monat=2026-04
+42 von 100 Monaten verarbeitet — userId=18, Monat=2026-05
+43 von 100 Monaten verarbeitet — userId=18, Monat=2026-06
+44 von 100 Monaten verarbeitet — userId=18, Monat=2026-07
+45 von 100 Monaten verarbeitet — userId=19, Monat=2026-01
+46 von 100 Monaten verarbeitet — userId=19, Monat=2026-02
+47 von 100 Monaten verarbeitet — userId=19, Monat=2026-03
+48 von 100 Monaten verarbeitet — userId=19, Monat=2026-04
+49 von 100 Monaten verarbeitet — userId=19, Monat=2026-05
+50 von 100 Monaten verarbeitet — userId=19, Monat=2026-06
+51 von 100 Monaten verarbeitet — userId=19, Monat=2026-07
+52 von 100 Monaten verarbeitet — userId=20, Monat=2026-04
+53 von 100 Monaten verarbeitet — userId=20, Monat=2026-05
+54 von 100 Monaten verarbeitet — userId=20, Monat=2026-06
+55 von 100 Monaten verarbeitet — userId=20, Monat=2026-07
+56 von 100 Monaten verarbeitet — userId=21, Monat=2026-04
+57 von 100 Monaten verarbeitet — userId=21, Monat=2026-05
+58 von 100 Monaten verarbeitet — userId=21, Monat=2026-06
+59 von 100 Monaten verarbeitet — userId=21, Monat=2026-07
+60 von 100 Monaten verarbeitet — userId=22, Monat=2026-01
+61 von 100 Monaten verarbeitet — userId=22, Monat=2026-02
+62 von 100 Monaten verarbeitet — userId=22, Monat=2026-03
+63 von 100 Monaten verarbeitet — userId=22, Monat=2026-04
+64 von 100 Monaten verarbeitet — userId=22, Monat=2026-05
+65 von 100 Monaten verarbeitet — userId=22, Monat=2026-06
+66 von 100 Monaten verarbeitet — userId=22, Monat=2026-07
+67 von 100 Monaten verarbeitet — userId=23, Monat=2026-01
+68 von 100 Monaten verarbeitet — userId=23, Monat=2026-02
+69 von 100 Monaten verarbeitet — userId=23, Monat=2026-03
+70 von 100 Monaten verarbeitet — userId=23, Monat=2026-04
+71 von 100 Monaten verarbeitet — userId=23, Monat=2026-05
+72 von 100 Monaten verarbeitet — userId=23, Monat=2026-06
+73 von 100 Monaten verarbeitet — userId=23, Monat=2026-07
+74 von 100 Monaten verarbeitet — userId=24, Monat=2026-01
+75 von 100 Monaten verarbeitet — userId=24, Monat=2026-02
+76 von 100 Monaten verarbeitet — userId=24, Monat=2026-03
+77 von 100 Monaten verarbeitet — userId=24, Monat=2026-04
+78 von 100 Monaten verarbeitet — userId=24, Monat=2026-05
+79 von 100 Monaten verarbeitet — userId=24, Monat=2026-06
+80 von 100 Monaten verarbeitet — userId=24, Monat=2026-07
+81 von 100 Monaten verarbeitet — userId=25, Monat=2026-01
+82 von 100 Monaten verarbeitet — userId=25, Monat=2026-02
+83 von 100 Monaten verarbeitet — userId=25, Monat=2026-03
+84 von 100 Monaten verarbeitet — userId=25, Monat=2026-04
+85 von 100 Monaten verarbeitet — userId=25, Monat=2026-05
+86 von 100 Monaten verarbeitet — userId=25, Monat=2026-06
+87 von 100 Monaten verarbeitet — userId=25, Monat=2026-07
+88 von 100 Monaten verarbeitet — userId=27, Monat=2026-02
+89 von 100 Monaten verarbeitet — userId=27, Monat=2026-03
+90 von 100 Monaten verarbeitet — userId=27, Monat=2026-04
+91 von 100 Monaten verarbeitet — userId=27, Monat=2026-05
+92 von 100 Monaten verarbeitet — userId=27, Monat=2026-06
+93 von 100 Monaten verarbeitet — userId=27, Monat=2026-07
+94 von 100 Monaten verarbeitet — userId=29, Monat=2026-01
+95 von 100 Monaten verarbeitet — userId=29, Monat=2026-02
+96 von 100 Monaten verarbeitet — userId=29, Monat=2026-03
+97 von 100 Monaten verarbeitet — userId=29, Monat=2026-04
+98 von 100 Monaten verarbeitet — userId=29, Monat=2026-05
+99 von 100 Monaten verarbeitet — userId=29, Monat=2026-06
+100 von 100 Monaten verarbeitet — userId=29, Monat=2026-07
+
+overtime_transactions nach dem Lauf: COUNT=3581, SUM(hours)=-207.09, model_change-Zeilen=0
+Differenz: COUNT=991, SUM(hours)=-73.33
+integrity_check: [{"integrity_check":"ok"}]
+model_change-Zeilen unveraendert (0 vor, 0 nach dem Lauf).
+
+### FERTIG ###
+{"level":30,"time":1787719979431,"env":"production","userId":1,"month":"2025-11","transactionsCreated":18,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979432,"env":"production","userId":1,"month":"2025-11","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979433,"env":"production","userId":1,"month":"2025-12","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979502,"env":"production","userId":1,"month":"2025-12","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979502,"env":"production","userId":1,"month":"2025-12","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979503,"env":"production","userId":1,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979527,"env":"production","userId":1,"month":"2026-01","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979527,"env":"production","userId":1,"month":"2026-01","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979527,"env":"production","userId":1,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979549,"env":"production","userId":1,"month":"2026-02","transactionsCreated":28,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979549,"env":"production","userId":1,"month":"2026-02","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979550,"env":"production","userId":1,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979625,"env":"production","userId":1,"month":"2026-03","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979625,"env":"production","userId":1,"month":"2026-03","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979626,"env":"production","userId":1,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979704,"env":"production","userId":1,"month":"2026-04","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979704,"env":"production","userId":1,"month":"2026-04","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979705,"env":"production","userId":1,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979730,"env":"production","userId":1,"month":"2026-05","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979731,"env":"production","userId":1,"month":"2026-05","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979731,"env":"production","userId":1,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979810,"env":"production","userId":1,"month":"2026-06","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979810,"env":"production","userId":1,"month":"2026-06","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979810,"env":"production","userId":1,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979837,"env":"production","userId":1,"month":"2026-07","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979837,"env":"production","userId":1,"month":"2026-07","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979837,"env":"production","userId":2,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979919,"env":"production","userId":2,"month":"2026-01","transactionsCreated":31,"finalBalance":-20,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719979919,"env":"production","userId":2,"month":"2026-01","targetHours":20,"actualHours":0,"overtime":-20,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719979920,"env":"production","userId":2,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719979946,"env":"production","userId":2,"month":"2026-02","transactionsCreated":28,"finalBalance":-11,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980000,"env":"production","userId":2,"month":"2026-02","targetHours":20,"actualHours":29,"overtime":9,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980001,"env":"production","userId":2,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980030,"env":"production","userId":2,"month":"2026-03","transactionsCreated":31,"finalBalance":-28.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980030,"env":"production","userId":2,"month":"2026-03","targetHours":20,"actualHours":2.5,"overtime":-17.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980031,"env":"production","userId":2,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980107,"env":"production","userId":2,"month":"2026-04","transactionsCreated":30,"finalBalance":-32,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980108,"env":"production","userId":2,"month":"2026-04","targetHours":25,"actualHours":21.5,"overtime":-3.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980108,"env":"production","userId":2,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980142,"env":"production","userId":2,"month":"2026-05","transactionsCreated":31,"finalBalance":-19.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980142,"env":"production","userId":2,"month":"2026-05","targetHours":15,"actualHours":27.5,"overtime":12.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980143,"env":"production","userId":2,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980217,"env":"production","userId":2,"month":"2026-06","transactionsCreated":30,"finalBalance":25.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980217,"env":"production","userId":2,"month":"2026-06","targetHours":15,"actualHours":60,"overtime":45,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980217,"env":"production","userId":2,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980244,"env":"production","userId":2,"month":"2026-07","transactionsCreated":31,"finalBalance":19,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980245,"env":"production","userId":2,"month":"2026-07","targetHours":25,"actualHours":18.5,"overtime":-6.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980245,"env":"production","userId":3,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980329,"env":"production","userId":3,"month":"2026-01","transactionsCreated":56,"finalBalance":1.1800000000000002,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980329,"env":"production","userId":3,"month":"2026-01","targetHours":28,"actualHours":29.18,"overtime":1.1799999999999997,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980330,"env":"production","userId":3,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980403,"env":"production","userId":3,"month":"2026-02","transactionsCreated":30,"finalBalance":2.26,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980403,"env":"production","userId":3,"month":"2026-02","targetHours":32,"actualHours":33.08,"overtime":1.0799999999999983,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980403,"env":"production","userId":3,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980429,"env":"production","userId":3,"month":"2026-03","transactionsCreated":31,"finalBalance":2.4299999999999997,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980429,"env":"production","userId":3,"month":"2026-03","targetHours":40,"actualHours":40.17,"overtime":0.1700000000000017,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980430,"env":"production","userId":3,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980511,"env":"production","userId":3,"month":"2026-04","transactionsCreated":30,"finalBalance":3.02,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980512,"env":"production","userId":3,"month":"2026-04","targetHours":28,"actualHours":28.590000000000003,"overtime":0.5900000000000034,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980512,"env":"production","userId":3,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980540,"env":"production","userId":3,"month":"2026-05","transactionsCreated":40,"finalBalance":3.77,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980540,"env":"production","userId":3,"month":"2026-05","targetHours":28,"actualHours":28.75,"overtime":0.75,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980541,"env":"production","userId":3,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980618,"env":"production","userId":3,"month":"2026-06","transactionsCreated":30,"finalBalance":5.1,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980618,"env":"production","userId":3,"month":"2026-06","targetHours":40,"actualHours":41.33,"overtime":1.3299999999999983,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980618,"env":"production","userId":3,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980674,"env":"production","userId":3,"month":"2026-07","transactionsCreated":31,"finalBalance":4.26,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980674,"env":"production","userId":3,"month":"2026-07","targetHours":32,"actualHours":31.16,"overtime":-0.8399999999999999,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980700,"env":"production","userId":16,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980730,"env":"production","userId":16,"month":"2026-01","transactionsCreated":31,"finalBalance":48.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980730,"env":"production","userId":16,"month":"2026-01","targetHours":120,"actualHours":168.5,"overtime":48.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980734,"env":"production","userId":16,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980815,"env":"production","userId":16,"month":"2026-02","transactionsCreated":33,"finalBalance":20.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980815,"env":"production","userId":16,"month":"2026-02","targetHours":120,"actualHours":92,"overtime":-28,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980815,"env":"production","userId":16,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980849,"env":"production","userId":16,"month":"2026-03","transactionsCreated":31,"finalBalance":23.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980849,"env":"production","userId":16,"month":"2026-03","targetHours":132,"actualHours":135,"overtime":3,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980851,"env":"production","userId":16,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980922,"env":"production","userId":16,"month":"2026-04","transactionsCreated":32,"finalBalance":49.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980922,"env":"production","userId":16,"month":"2026-04","targetHours":120,"actualHours":146.25,"overtime":26.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980923,"env":"production","userId":16,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719980956,"env":"production","userId":16,"month":"2026-05","transactionsCreated":47,"finalBalance":29.25,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719980956,"env":"production","userId":16,"month":"2026-05","targetHours":108,"actualHours":87.5,"overtime":-20.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719980956,"env":"production","userId":16,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981037,"env":"production","userId":16,"month":"2026-06","transactionsCreated":40,"finalBalance":45.25,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981037,"env":"production","userId":16,"month":"2026-06","targetHours":126,"actualHours":142,"overtime":16,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981038,"env":"production","userId":16,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981114,"env":"production","userId":16,"month":"2026-07","transactionsCreated":31,"finalBalance":15.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981114,"env":"production","userId":16,"month":"2026-07","targetHours":138,"actualHours":108.25,"overtime":-29.75,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981114,"env":"production","userId":17,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981141,"env":"production","userId":17,"month":"2026-01","transactionsCreated":32,"finalBalance":9.09,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981142,"env":"production","userId":17,"month":"2026-01","targetHours":44,"actualHours":53.09,"overtime":9.090000000000003,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981142,"env":"production","userId":17,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981219,"env":"production","userId":17,"month":"2026-02","transactionsCreated":29,"finalBalance":7.91,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981219,"env":"production","userId":17,"month":"2026-02","targetHours":48,"actualHours":46.81999999999999,"overtime":-1.1800000000000068,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981219,"env":"production","userId":17,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981245,"env":"production","userId":17,"month":"2026-03","transactionsCreated":31,"finalBalance":9.49,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981245,"env":"production","userId":17,"month":"2026-03","targetHours":56,"actualHours":57.58,"overtime":1.5799999999999983,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981245,"env":"production","userId":17,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981322,"env":"production","userId":17,"month":"2026-04","transactionsCreated":35,"finalBalance":1.6600000000000001,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981322,"env":"production","userId":17,"month":"2026-04","targetHours":40,"actualHours":32.17,"overtime":-7.829999999999998,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981322,"env":"production","userId":17,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981349,"env":"production","userId":17,"month":"2026-05","transactionsCreated":37,"finalBalance":0.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981349,"env":"production","userId":17,"month":"2026-05","targetHours":40,"actualHours":39.089999999999996,"overtime":-0.9100000000000037,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981350,"env":"production","userId":17,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981430,"env":"production","userId":17,"month":"2026-06","transactionsCreated":32,"finalBalance":-1.5899999999999999,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981430,"env":"production","userId":17,"month":"2026-06","targetHours":52,"actualHours":49.66,"overtime":-2.3400000000000034,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981524,"env":"production","userId":17,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981554,"env":"production","userId":17,"month":"2026-07","transactionsCreated":32,"finalBalance":-0.009999999999999787,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981554,"env":"production","userId":17,"month":"2026-07","targetHours":52,"actualHours":53.58,"overtime":1.5799999999999983,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981564,"env":"production","userId":18,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981627,"env":"production","userId":18,"month":"2026-01","transactionsCreated":31,"finalBalance":5.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981627,"env":"production","userId":18,"month":"2026-01","targetHours":84,"actualHours":89.75,"overtime":5.75,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981634,"env":"production","userId":18,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981711,"env":"production","userId":18,"month":"2026-02","transactionsCreated":28,"finalBalance":0.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981711,"env":"production","userId":18,"month":"2026-02","targetHours":80,"actualHours":75,"overtime":-5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981721,"env":"production","userId":18,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981810,"env":"production","userId":18,"month":"2026-03","transactionsCreated":37,"finalBalance":4,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981810,"env":"production","userId":18,"month":"2026-03","targetHours":80,"actualHours":83.25,"overtime":3.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981822,"env":"production","userId":18,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981849,"env":"production","userId":18,"month":"2026-04","transactionsCreated":30,"finalBalance":2.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981849,"env":"production","userId":18,"month":"2026-04","targetHours":92,"actualHours":90.75,"overtime":-1.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981856,"env":"production","userId":18,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719981925,"env":"production","userId":18,"month":"2026-05","transactionsCreated":31,"finalBalance":3,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719981925,"env":"production","userId":18,"month":"2026-05","targetHours":72,"actualHours":72.25,"overtime":0.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719981934,"env":"production","userId":18,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982005,"env":"production","userId":18,"month":"2026-06","transactionsCreated":33,"finalBalance":3.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982005,"env":"production","userId":18,"month":"2026-06","targetHours":72,"actualHours":72.75,"overtime":0.75,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982014,"env":"production","userId":18,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982051,"env":"production","userId":18,"month":"2026-07","transactionsCreated":31,"finalBalance":16.25,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982052,"env":"production","userId":18,"month":"2026-07","targetHours":100,"actualHours":112.5,"overtime":12.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982107,"env":"production","userId":19,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982133,"env":"production","userId":19,"month":"2026-01","transactionsCreated":31,"finalBalance":0.08000000000000007,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982133,"env":"production","userId":19,"month":"2026-01","targetHours":10,"actualHours":10.08,"overtime":0.08000000000000007,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982144,"env":"production","userId":19,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982314,"env":"production","userId":19,"month":"2026-02","transactionsCreated":28,"finalBalance":0.08000000000000007,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982314,"env":"production","userId":19,"month":"2026-02","targetHours":10,"actualHours":10,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982330,"env":"production","userId":19,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982411,"env":"production","userId":19,"month":"2026-03","transactionsCreated":31,"finalBalance":8,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982411,"env":"production","userId":19,"month":"2026-03","targetHours":10,"actualHours":17.92,"overtime":7.920000000000002,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982422,"env":"production","userId":19,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982447,"env":"production","userId":19,"month":"2026-04","transactionsCreated":30,"finalBalance":6.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982447,"env":"production","userId":19,"month":"2026-04","targetHours":12.5,"actualHours":11,"overtime":-1.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982457,"env":"production","userId":19,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982525,"env":"production","userId":19,"month":"2026-05","transactionsCreated":31,"finalBalance":13.75,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982525,"env":"production","userId":19,"month":"2026-05","targetHours":7.5,"actualHours":14.75,"overtime":7.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982536,"env":"production","userId":19,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982605,"env":"production","userId":19,"month":"2026-06","transactionsCreated":30,"finalBalance":18.25,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982605,"env":"production","userId":19,"month":"2026-06","targetHours":7.5,"actualHours":12,"overtime":4.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982612,"env":"production","userId":19,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982638,"env":"production","userId":19,"month":"2026-07","transactionsCreated":31,"finalBalance":11,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982638,"env":"production","userId":19,"month":"2026-07","targetHours":12.5,"actualHours":5.25,"overtime":-7.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982650,"env":"production","userId":20,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982720,"env":"production","userId":20,"month":"2026-04","transactionsCreated":30,"finalBalance":-81.90000000000012,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982720,"env":"production","userId":20,"month":"2026-04","targetHours":27.99999999999999,"actualHours":31.5,"overtime":3.5000000000000107,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982802,"env":"production","userId":20,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719982828,"env":"production","userId":20,"month":"2026-05","transactionsCreated":31,"finalBalance":-74.10000000000011,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719982828,"env":"production","userId":20,"month":"2026-05","targetHours":25.199999999999992,"actualHours":33,"overtime":7.800000000000008,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719982907,"env":"production","userId":20,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983003,"env":"production","userId":20,"month":"2026-06","transactionsCreated":30,"finalBalance":-79.00000000000011,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983003,"env":"production","userId":20,"month":"2026-06","targetHours":29.399999999999988,"actualHours":24.5,"overtime":-4.899999999999988,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983013,"env":"production","userId":20,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983039,"env":"production","userId":20,"month":"2026-07","transactionsCreated":31,"finalBalance":-80.20000000000013,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983039,"env":"production","userId":20,"month":"2026-07","targetHours":32.19999999999999,"actualHours":31,"overtime":-1.1999999999999886,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983047,"env":"production","userId":21,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983121,"env":"production","userId":21,"month":"2026-04","transactionsCreated":30,"finalBalance":-59.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983121,"env":"production","userId":21,"month":"2026-04","targetHours":20,"actualHours":21.5,"overtime":1.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983128,"env":"production","userId":21,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983205,"env":"production","userId":21,"month":"2026-05","transactionsCreated":31,"finalBalance":-56.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983206,"env":"production","userId":21,"month":"2026-05","targetHours":18,"actualHours":21,"overtime":3,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983215,"env":"production","userId":21,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983240,"env":"production","userId":21,"month":"2026-06","transactionsCreated":30,"finalBalance":-59,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983240,"env":"production","userId":21,"month":"2026-06","targetHours":21,"actualHours":18.5,"overtime":-2.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983250,"env":"production","userId":21,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983317,"env":"production","userId":21,"month":"2026-07","transactionsCreated":31,"finalBalance":-60,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983317,"env":"production","userId":21,"month":"2026-07","targetHours":23,"actualHours":22,"overtime":-1,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983319,"env":"production","userId":22,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983403,"env":"production","userId":22,"month":"2026-01","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983403,"env":"production","userId":22,"month":"2026-01","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983403,"env":"production","userId":22,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983428,"env":"production","userId":22,"month":"2026-02","transactionsCreated":28,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983428,"env":"production","userId":22,"month":"2026-02","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983428,"env":"production","userId":22,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983504,"env":"production","userId":22,"month":"2026-03","transactionsCreated":31,"finalBalance":8,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983504,"env":"production","userId":22,"month":"2026-03","targetHours":0,"actualHours":8,"overtime":8,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983504,"env":"production","userId":22,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983533,"env":"production","userId":22,"month":"2026-04","transactionsCreated":30,"finalBalance":19.25,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983533,"env":"production","userId":22,"month":"2026-04","targetHours":0,"actualHours":11.25,"overtime":11.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983533,"env":"production","userId":22,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983607,"env":"production","userId":22,"month":"2026-05","transactionsCreated":31,"finalBalance":28.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983607,"env":"production","userId":22,"month":"2026-05","targetHours":0,"actualHours":9.25,"overtime":9.25,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983607,"env":"production","userId":22,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983633,"env":"production","userId":22,"month":"2026-06","transactionsCreated":30,"finalBalance":28.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983634,"env":"production","userId":22,"month":"2026-06","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983634,"env":"production","userId":22,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983713,"env":"production","userId":22,"month":"2026-07","transactionsCreated":31,"finalBalance":47.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983713,"env":"production","userId":22,"month":"2026-07","targetHours":0,"actualHours":19,"overtime":19,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983713,"env":"production","userId":23,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983813,"env":"production","userId":23,"month":"2026-01","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983813,"env":"production","userId":23,"month":"2026-01","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983813,"env":"production","userId":23,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983837,"env":"production","userId":23,"month":"2026-02","transactionsCreated":28,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983837,"env":"production","userId":23,"month":"2026-02","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983838,"env":"production","userId":23,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983916,"env":"production","userId":23,"month":"2026-03","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983917,"env":"production","userId":23,"month":"2026-03","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983917,"env":"production","userId":23,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719983943,"env":"production","userId":23,"month":"2026-04","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719983943,"env":"production","userId":23,"month":"2026-04","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719983944,"env":"production","userId":23,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984021,"env":"production","userId":23,"month":"2026-05","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984021,"env":"production","userId":23,"month":"2026-05","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984021,"env":"production","userId":23,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984048,"env":"production","userId":23,"month":"2026-06","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984048,"env":"production","userId":23,"month":"2026-06","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984048,"env":"production","userId":23,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984125,"env":"production","userId":23,"month":"2026-07","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984125,"env":"production","userId":23,"month":"2026-07","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984125,"env":"production","userId":24,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984211,"env":"production","userId":24,"month":"2026-01","transactionsCreated":31,"finalBalance":30.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984211,"env":"production","userId":24,"month":"2026-01","targetHours":0,"actualHours":30.5,"overtime":30.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984211,"env":"production","userId":24,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984237,"env":"production","userId":24,"month":"2026-02","transactionsCreated":28,"finalBalance":48,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984237,"env":"production","userId":24,"month":"2026-02","targetHours":0,"actualHours":17.5,"overtime":17.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984237,"env":"production","userId":24,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984312,"env":"production","userId":24,"month":"2026-03","transactionsCreated":31,"finalBalance":41,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984312,"env":"production","userId":24,"month":"2026-03","targetHours":0,"actualHours":-7,"overtime":-7,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984312,"env":"production","userId":24,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984350,"env":"production","userId":24,"month":"2026-04","transactionsCreated":30,"finalBalance":80,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984350,"env":"production","userId":24,"month":"2026-04","targetHours":0,"actualHours":39,"overtime":39,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984350,"env":"production","userId":24,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984428,"env":"production","userId":24,"month":"2026-05","transactionsCreated":31,"finalBalance":129,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984428,"env":"production","userId":24,"month":"2026-05","targetHours":0,"actualHours":49,"overtime":49,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984429,"env":"production","userId":24,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984503,"env":"production","userId":24,"month":"2026-06","transactionsCreated":30,"finalBalance":201.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984503,"env":"production","userId":24,"month":"2026-06","targetHours":0,"actualHours":72.5,"overtime":72.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984504,"env":"production","userId":24,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984531,"env":"production","userId":24,"month":"2026-07","transactionsCreated":31,"finalBalance":201.5,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984531,"env":"production","userId":24,"month":"2026-07","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984531,"env":"production","userId":25,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984617,"env":"production","userId":25,"month":"2026-01","transactionsCreated":31,"finalBalance":-32.00000000000001,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984617,"env":"production","userId":25,"month":"2026-01","targetHours":32.00000000000001,"actualHours":0,"overtime":-32.00000000000001,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984617,"env":"production","userId":25,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984702,"env":"production","userId":25,"month":"2026-02","transactionsCreated":28,"finalBalance":-64.00000000000003,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984702,"env":"production","userId":25,"month":"2026-02","targetHours":32.00000000000001,"actualHours":0,"overtime":-32.00000000000001,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984703,"env":"production","userId":25,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984729,"env":"production","userId":25,"month":"2026-03","transactionsCreated":31,"finalBalance":-99.19999999999987,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984729,"env":"production","userId":25,"month":"2026-03","targetHours":35.20000000000001,"actualHours":0,"overtime":-35.20000000000001,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984729,"env":"production","userId":25,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984808,"env":"production","userId":25,"month":"2026-04","transactionsCreated":30,"finalBalance":-115.19999999999989,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984808,"env":"production","userId":25,"month":"2026-04","targetHours":32.00000000000001,"actualHours":16,"overtime":-16.000000000000007,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984809,"env":"production","userId":25,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984836,"env":"production","userId":25,"month":"2026-05","transactionsCreated":31,"finalBalance":-141.74999999999991,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984836,"env":"production","userId":25,"month":"2026-05","targetHours":28.800000000000008,"actualHours":2.25,"overtime":-26.550000000000008,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984836,"env":"production","userId":25,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984911,"env":"production","userId":25,"month":"2026-06","transactionsCreated":30,"finalBalance":-175.34999999999988,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984911,"env":"production","userId":25,"month":"2026-06","targetHours":33.60000000000001,"actualHours":0,"overtime":-33.60000000000001,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984911,"env":"production","userId":25,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984939,"env":"production","userId":25,"month":"2026-07","transactionsCreated":31,"finalBalance":-212.14999999999986,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984939,"env":"production","userId":25,"month":"2026-07","targetHours":36.80000000000001,"actualHours":0,"overtime":-36.80000000000001,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984939,"env":"production","userId":27,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719984942,"env":"production","userId":27,"month":"2026-02","transactionsCreated":2,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719984942,"env":"production","userId":27,"month":"2026-02","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719984942,"env":"production","userId":27,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985019,"env":"production","userId":27,"month":"2026-03","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985019,"env":"production","userId":27,"month":"2026-03","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985019,"env":"production","userId":27,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985046,"env":"production","userId":27,"month":"2026-04","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985046,"env":"production","userId":27,"month":"2026-04","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985046,"env":"production","userId":27,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985125,"env":"production","userId":27,"month":"2026-05","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985125,"env":"production","userId":27,"month":"2026-05","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985126,"env":"production","userId":27,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985202,"env":"production","userId":27,"month":"2026-06","transactionsCreated":30,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985202,"env":"production","userId":27,"month":"2026-06","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985202,"env":"production","userId":27,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985229,"env":"production","userId":27,"month":"2026-07","transactionsCreated":31,"finalBalance":0,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985230,"env":"production","userId":27,"month":"2026-07","targetHours":0,"actualHours":0,"overtime":0,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985230,"env":"production","userId":29,"month":"2026-01","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985317,"env":"production","userId":29,"month":"2026-01","transactionsCreated":31,"finalBalance":8,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985317,"env":"production","userId":29,"month":"2026-01","targetHours":0,"actualHours":8,"overtime":8,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985317,"env":"production","userId":29,"month":"2026-02","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985343,"env":"production","userId":29,"month":"2026-02","transactionsCreated":28,"finalBalance":18,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985343,"env":"production","userId":29,"month":"2026-02","targetHours":0,"actualHours":10,"overtime":10,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985344,"env":"production","userId":29,"month":"2026-03","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985422,"env":"production","userId":29,"month":"2026-03","transactionsCreated":31,"finalBalance":7.16,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985422,"env":"production","userId":29,"month":"2026-03","targetHours":0,"actualHours":-10.84,"overtime":-10.84,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985508,"env":"production","userId":29,"month":"2026-04","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985536,"env":"production","userId":29,"month":"2026-04","transactionsCreated":30,"finalBalance":23.36,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985536,"env":"production","userId":29,"month":"2026-04","targetHours":0,"actualHours":16.2,"overtime":16.2,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985539,"env":"production","userId":29,"month":"2026-05","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985614,"env":"production","userId":29,"month":"2026-05","transactionsCreated":31,"finalBalance":36.96,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985614,"env":"production","userId":29,"month":"2026-05","targetHours":0,"actualHours":13.6,"overtime":13.6,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985615,"env":"production","userId":29,"month":"2026-06","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985643,"env":"production","userId":29,"month":"2026-06","transactionsCreated":30,"finalBalance":52.46,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985643,"env":"production","userId":29,"month":"2026-06","targetHours":0,"actualHours":15.5,"overtime":15.5,"dbChanges":1,"msg":"📊 Updated overtime_balance"}
+{"level":30,"time":1787719985643,"env":"production","userId":29,"month":"2026-07","msg":"🔄 Rebuilding overtime transactions for month"}
+{"level":30,"time":1787719985722,"env":"production","userId":29,"month":"2026-07","transactionsCreated":31,"finalBalance":65.28,"msg":"✅ Transactions rebuilt successfully"}
+{"level":30,"time":1787719985722,"env":"production","userId":29,"month":"2026-07","targetHours":0,"actualHours":12.82,"overtime":12.82,"dbChanges":1,"msg":"📊 Updated overtime_balance"}

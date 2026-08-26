@@ -1,0 +1,26 @@
+### KANONISCH VS AGGREGAT — SCHRITT 1 (VOR)
+  auswertbar: 15 | uebereinstimmend mit kanonischem Weg: 10 | abweichend: 5 | nicht auswertbar: 5
+### KANONISCH VS AGGREGAT — SCHRITT 6 (NACH)
+  auswertbar: 15 | uebereinstimmend mit kanonischem Weg: 15 | abweichend: 0 | nicht auswertbar: 5
+
+id | Aggregat VOR | kanonisch VOR | Diff VOR | Aggregat NACH | kanonisch NACH | Diff NACH | Urteil
+1 | 0 | 0 | 0 | 0 | 0 | 0 | unveraendert deckungsgleich
+2 | 10 | 10 | 0 | 10 | 10 | 0 | unveraendert deckungsgleich
+3 | 5.19 | 5.19 | 0 | 5.19 | 5.19 | 0 | unveraendert deckungsgleich
+15 | Fehler: User 15 not found
+16 | 8 | 2 | 6 | 2 | 2 | 0 | JETZT deckungsgleich
+17 | 1.24 | 1.24 | 0 | 1.24 | 1.24 | 0 | unveraendert deckungsgleich
+18 | 11.5 | 3.5 | 8 | 3.5 | 3.5 | 0 | JETZT deckungsgleich
+19 | 12.41 | 12.41 | 0 | 12.41 | 12.41 | 0 | unveraendert deckungsgleich
+20 | -18.6 | -20 | 1.4 | -20 | -20 | 0 | JETZT deckungsgleich
+21 | -16 | -17 | 1 | -17 | -17 | 0 | JETZT deckungsgleich
+22 | 47.5 | 47.5 | 0 | 47.5 | 47.5 | 0 | unveraendert deckungsgleich
+23 | 0 | 0 | 0 | 0 | 0 | 0 | unveraendert deckungsgleich
+24 | 201.5 | 201.5 | 0 | 201.5 | 201.5 | 0 | unveraendert deckungsgleich
+25 | -239.35 | -240.95 | 1.6 | -240.95 | -240.95 | 0 | JETZT deckungsgleich
+26 | Fehler: User 26 not found
+27 | 0 | 0 | 0 | 0 | 0 | 0 | unveraendert deckungsgleich
+28 | Fehler: User 28 not found
+29 | 65.28 | 65.28 | 0 | 65.28 | 65.28 | 0 | unveraendert deckungsgleich
+30 | Fehler: User 30 not found
+31 | Fehler: User 31 not found

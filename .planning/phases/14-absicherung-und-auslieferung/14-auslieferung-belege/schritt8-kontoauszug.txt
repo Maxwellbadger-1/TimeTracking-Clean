@@ -1,0 +1,97 @@
+Aufgeloester Datenbankpfad: /home/ubuntu/14-auslieferung/messkopie-nach.db
+### NUR LESEND — dieses Werkzeug schreibt nichts ###
+{"level":30,"time":1787720251308,"env":"development","path":"/home/ubuntu/14-auslieferung/messkopie-nach.db","environment":"development","msg":"📁 Database path"}
+{"level":30,"time":1787720251318,"env":"development","msg":"✅ Foreign keys ENABLED and VERIFIED"}
+{"level":30,"time":1787720251322,"env":"development","msg":"✅ WAL mode ENABLED and VERIFIED"}
+{"level":30,"time":1787720251322,"env":"development","msg":"📊 Initializing database schema..."}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ Database schema initialized successfully"}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ WAL mode enabled for multi-user support"}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ Foreign keys enabled"}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ All 19 tables created"}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ Indexes created for performance"}
+{"level":30,"time":1787720251324,"env":"development","msg":"📊 Creating database indexes for performance..."}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ Database indexes created successfully"}
+{"level":30,"time":1787720251324,"env":"development","msg":"✅ Performance-optimized composite indexes added"}
+{"level":30,"time":1787720251325,"env":"development","count":59,"msg":"📊 Database Indexes Verified"}
+{"level":30,"time":1787720251325,"env":"development","table":"absence_requests","indexes":["idx_absence_requests_status","idx_absence_requests_userId","idx_absences_created","idx_absences_dates","idx_absences_status","idx_absences_type","idx_absences_user","idx_absences_user_date","idx_absences_user_status"],"msg":"  📋 absence_requests: 9 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"audit_log","indexes":["idx_audit_action","idx_audit_created","idx_audit_entity","idx_audit_log_entity","idx_audit_log_userId","idx_audit_user","idx_audit_user_created"],"msg":"  📋 audit_log: 7 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"holidays","indexes":["idx_holidays_date"],"msg":"  📋 holidays: 1 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"notifications","indexes":["idx_notifications_created","idx_notifications_read","idx_notifications_user","idx_notifications_userId","idx_notifications_user_date","idx_notifications_user_read"],"msg":"  📋 notifications: 6 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"overtime_balance","indexes":["idx_overtime_month","idx_overtime_user","idx_overtime_user_month"],"msg":"  📋 overtime_balance: 3 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"overtime_corrections","indexes":["idx_overtime_corrections_date","idx_overtime_corrections_userId"],"msg":"  📋 overtime_corrections: 2 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"overtime_daily","indexes":["idx_overtime_daily_date","idx_overtime_daily_user","idx_overtime_daily_user_date"],"msg":"  📋 overtime_daily: 3 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"overtime_transactions","indexes":["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of","idx_overtime_transactions_type","idx_overtime_transactions_userId"],"msg":"  📋 overtime_transactions: 4 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"overtime_weekly","indexes":["idx_overtime_weekly_user","idx_overtime_weekly_user_week","idx_overtime_weekly_week"],"msg":"  📋 overtime_weekly: 3 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"password_change_log","indexes":["idx_password_change_log_changedBy","idx_password_change_log_userId"],"msg":"  📋 password_change_log: 2 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"time_entries","indexes":["idx_time_entries_date","idx_time_entries_user","idx_time_entries_userId","idx_time_entries_user_date","idx_time_entries_user_start"],"msg":"  📋 time_entries: 5 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"user_work_periods","indexes":["idx_user_work_periods_deleted","idx_user_work_periods_one_open","idx_user_work_periods_user_from","idx_user_work_periods_user_from_unique"],"msg":"  📋 user_work_periods: 4 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"users","indexes":["idx_users_email","idx_users_role_deleted","idx_users_status","idx_users_username"],"msg":"  📋 users: 4 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"vacation_balance","indexes":["idx_vacation_user","idx_vacation_user_year","idx_vacation_year"],"msg":"  📋 vacation_balance: 3 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"vacation_transactions","indexes":["idx_vacation_tx_reference","idx_vacation_tx_user_year"],"msg":"  📋 vacation_transactions: 2 indexes"}
+{"level":30,"time":1787720251325,"env":"development","table":"work_time_accounts","indexes":["idx_work_time_accounts_userId"],"msg":"  📋 work_time_accounts: 1 indexes"}
+{"level":30,"time":1787720253704,"env":"development","msg":"UnifiedOvertimeService initialized - Single Source of Truth"}
+Heute (Berlin):            2026-08-26
+Monat:                     2026-08
+Zeitraum von/bis:          2026-08-01 bis 2026-08-31
+Zukunftsfenster:           2026-08-31 liegt hinter heute — BL-01 ist in diesem Lauf messbar.
+
+Aktive Nutzer (deletedAt IS NULL): 15
+
+  userId   SummeJournal   SaldoMonat   SaldoHeute   Zukunftsdiff   JournalDiff
+--------------------------------------------------------------------------------
+       1           0.00         0.00         0.00           0.00          0.00
+       2          -9.00        -9.00        -9.00           0.00          0.00
+       3           4.93         0.93         0.93           0.00          4.00   <== Restdifferenz (Gutschriften, siehe deferred-items.md)
+      16          16.50       -13.50       -13.50           0.00         30.00   <== Restdifferenz (Gutschriften, siehe deferred-items.md)
+      17           9.25         1.25         1.25           0.00          8.00   <== Restdifferenz (Gutschriften, siehe deferred-items.md)
+      18         -12.75       -12.75       -12.75           0.00          0.00
+      19           1.41         1.41         1.41           0.00          0.00
+      20         -25.20       -25.20       -25.20           0.00          0.00
+      21         -18.00       -18.00       -18.00           0.00          0.00
+      22           0.00         0.00         0.00           0.00          0.00
+      23           0.00         0.00         0.00           0.00          0.00
+      24           0.00         0.00         0.00           0.00          0.00
+      25         -28.80       -28.80       -28.80           0.00          0.00
+      27           0.00         0.00         0.00           0.00          0.00
+      29           0.00         0.00         0.00           0.00          0.00
+--------------------------------------------------------------------------------
+
+Nutzer mit Zukunftsdiff ungleich 0,00 h (BL-01):        0
+Nutzer mit JournalDiff  ungleich 0,00 h (Gutschriften): 3
+Nutzer mit Fehler beim Berechnen:                       0
+
+HINWEIS: 3 Nutzer tragen eine JournalDiff ungleich 0,00 h. Das ist NICHT BL-01,
+  sondern die fehlende Gegenbuchung zu Abwesenheits-Gutschriften im Kontoauszug —
+  eigener Befund, vermerkt in .planning/phases/14-absicherung-und-auslieferung/deferred-items.md.
+
+ERGEBNIS: BL-01 GESCHLOSSEN — fuer jeden aktiven Nutzer ist die Zukunftsdiff 0,00 h.
+{"level":20,"time":1787720253710,"env":"development","userId":1,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720253720,"env":"development","userId":1,"transactionCount":0,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720253744,"env":"development","userId":2,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720253750,"env":"development","userId":2,"transactionCount":6,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720253821,"env":"development","userId":3,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720253825,"env":"development","userId":3,"transactionCount":6,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720253847,"env":"development","userId":16,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720253904,"env":"development","userId":16,"transactionCount":19,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720253928,"env":"development","userId":17,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720253932,"env":"development","userId":17,"transactionCount":8,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254013,"env":"development","userId":18,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254018,"env":"development","userId":18,"transactionCount":9,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254039,"env":"development","userId":19,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254042,"env":"development","userId":19,"transactionCount":5,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254112,"env":"development","userId":20,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254115,"env":"development","userId":20,"transactionCount":18,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254135,"env":"development","userId":21,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254138,"env":"development","userId":21,"transactionCount":18,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254212,"env":"development","userId":22,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254215,"env":"development","userId":22,"transactionCount":0,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254236,"env":"development","userId":23,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254307,"env":"development","userId":23,"transactionCount":0,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254336,"env":"development","userId":24,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254341,"env":"development","userId":24,"transactionCount":0,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254409,"env":"development","userId":25,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254412,"env":"development","userId":25,"transactionCount":18,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254431,"env":"development","userId":27,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254434,"env":"development","userId":27,"transactionCount":0,"msg":"✅ Live transactions calculated"}
+{"level":20,"time":1787720254506,"env":"development","userId":29,"startDate":"2026-08-01","endDate":"2026-08-26","journalEndDate":"2026-08-31","msg":"📊 Calculating live overtime transactions"}
+{"level":20,"time":1787720254509,"env":"development","userId":29,"transactionCount":0,"msg":"✅ Live transactions calculated"}

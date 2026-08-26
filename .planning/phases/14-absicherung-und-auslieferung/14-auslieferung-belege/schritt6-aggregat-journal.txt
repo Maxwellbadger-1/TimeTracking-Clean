@@ -1,0 +1,38 @@
+### AGGREGAT VS JOURNAL — SCHRITT 6 (ABSCHLUSS) (/home/ubuntu/databases/production.db)
+Monatszeilen gesamt: 141 | uebereinstimmend: 112 | abweichend: 29 | betroffene Nutzer: 11
+Betroffene Nutzer: 2 Karin Jochem | 15 Test Test | 16 Benedikt Jochem | 18 Silvia Lachner | 19 Ute Stock | 20 Hans Schauer | 21 Maria Schauer | 25 Heidemarie Tretter | 28 Test Test | 30 Test Urlaub | 31 UA T
+--- Abweichungen je Monatszeile ---
+  userId=  2 Karin Jochem             2026-08  Aggregat=       -9  Journal=       -4  Diff=        5
+  userId= 15 Test Test                2026-02  Aggregat=        0  Journal=     -8.5  Diff=     -8.5
+  userId= 16 Benedikt Jochem          2026-08  Aggregat=    -13.5  Journal=     16.5  Diff=       30
+  userId= 18 Silvia Lachner           2026-08  Aggregat=   -12.75  Journal=    -4.75  Diff=        8
+  userId= 19 Ute Stock                2026-08  Aggregat=     1.41  Journal=     3.91  Diff=      2.5
+  userId= 20 Hans Schauer             2026-08  Aggregat=    -25.2  Journal=     -8.4  Diff=     16.8
+  userId= 21 Maria Schauer            2026-08  Aggregat=      -18  Journal=        0  Diff=       18
+  userId= 25 Heidemarie Tretter       2026-08  Aggregat=    -28.8  Journal=        0  Diff=     28.8
+  userId= 28 Test Test                2026-03  Aggregat=     35.5  Journal=    -24.5  Diff=      -60
+  userId= 28 Test Test                2026-04  Aggregat=      -48  Journal=      -44  Diff=        4
+  userId= 28 Test Test                2026-06  Aggregat=      -52  Journal=        0  Diff=       52
+  userId= 28 Test Test                2026-07  Aggregat=      -52  Journal=      -40  Diff=       12
+  userId= 28 Test Test                2026-08  Aggregat=      -36  Journal=        0  Diff=       36
+  userId= 30 Test Urlaub              2026-01  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-02  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-03  Aggregat=     -176  Journal=        0  Diff=      176
+  userId= 30 Test Urlaub              2026-04  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-05  Aggregat=     -144  Journal=        0  Diff=      144
+  userId= 30 Test Urlaub              2026-06  Aggregat=     -168  Journal=        0  Diff=      168
+  userId= 30 Test Urlaub              2026-07  Aggregat=     -184  Journal=        0  Diff=      184
+  userId= 30 Test Urlaub              2026-08  Aggregat=     -120  Journal=        0  Diff=      120
+  userId= 31 UA T                     2026-01  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-02  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-03  Aggregat=     -176  Journal=        0  Diff=      176
+  userId= 31 UA T                     2026-04  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-05  Aggregat=     -144  Journal=        0  Diff=      144
+  userId= 31 UA T                     2026-06  Aggregat=     -168  Journal=        0  Diff=      168
+  userId= 31 UA T                     2026-07  Aggregat=     -184  Journal=        0  Diff=      184
+  userId= 31 UA T                     2026-08  Aggregat=     -120  Journal=        0  Diff=      120
+--- Zukunftszeilen (Stichtag 2026-08-26) ---
+  overtime_transactions mit date > heute: 0
+  overtime_balance mit month > 2026-08: 0  []
+--- Tabellenumfang ---
+  overtime_transactions gesamt: 3581 | overtime_balance gesamt: 141

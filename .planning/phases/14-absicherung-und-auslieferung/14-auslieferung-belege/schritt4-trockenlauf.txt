@@ -1,0 +1,86 @@
+Aufgeloester Datenbankpfad: /home/ubuntu/databases/production.db
+### WARNUNG: --allow-production gesetzt — Produktionsschutz UMGANGEN. ###
+  Zieldatenbank: /home/ubuntu/databases/production.db
+### TROCKENLAUF — es wird nichts geschrieben ###
+
+{"level":30,"time":1787719901636,"env":"production","path":"/home/ubuntu/databases/production.db","environment":"production","msg":"📁 Database path"}
+{"level":30,"time":1787719901704,"env":"production","msg":"✅ Foreign keys ENABLED and VERIFIED"}
+{"level":30,"time":1787719901705,"env":"production","msg":"✅ WAL mode ENABLED and VERIFIED"}
+{"level":30,"time":1787719901705,"env":"production","msg":"📊 Initializing database schema..."}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ Database schema initialized successfully"}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ WAL mode enabled for multi-user support"}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ Foreign keys enabled"}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ All 19 tables created"}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ Indexes created for performance"}
+{"level":30,"time":1787719901707,"env":"production","msg":"📊 Creating database indexes for performance..."}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ Database indexes created successfully"}
+{"level":30,"time":1787719901707,"env":"production","msg":"✅ Performance-optimized composite indexes added"}
+{"level":30,"time":1787719901708,"env":"production","count":59,"msg":"📊 Database Indexes Verified"}
+{"level":30,"time":1787719901708,"env":"production","table":"absence_requests","indexes":["idx_absence_requests_status","idx_absence_requests_userId","idx_absences_created","idx_absences_dates","idx_absences_status","idx_absences_type","idx_absences_user","idx_absences_user_date","idx_absences_user_status"],"msg":"  📋 absence_requests: 9 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"audit_log","indexes":["idx_audit_action","idx_audit_created","idx_audit_entity","idx_audit_log_entity","idx_audit_log_userId","idx_audit_user","idx_audit_user_created"],"msg":"  📋 audit_log: 7 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"holidays","indexes":["idx_holidays_date"],"msg":"  📋 holidays: 1 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"notifications","indexes":["idx_notifications_created","idx_notifications_read","idx_notifications_user","idx_notifications_userId","idx_notifications_user_date","idx_notifications_user_read"],"msg":"  📋 notifications: 6 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"overtime_balance","indexes":["idx_overtime_month","idx_overtime_user","idx_overtime_user_month"],"msg":"  📋 overtime_balance: 3 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"overtime_corrections","indexes":["idx_overtime_corrections_date","idx_overtime_corrections_userId"],"msg":"  📋 overtime_corrections: 2 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"overtime_daily","indexes":["idx_overtime_daily_date","idx_overtime_daily_user","idx_overtime_daily_user_date"],"msg":"  📋 overtime_daily: 3 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"overtime_transactions","indexes":["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of","idx_overtime_transactions_type","idx_overtime_transactions_userId"],"msg":"  📋 overtime_transactions: 4 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"overtime_weekly","indexes":["idx_overtime_weekly_user","idx_overtime_weekly_user_week","idx_overtime_weekly_week"],"msg":"  📋 overtime_weekly: 3 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"password_change_log","indexes":["idx_password_change_log_changedBy","idx_password_change_log_userId"],"msg":"  📋 password_change_log: 2 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"time_entries","indexes":["idx_time_entries_date","idx_time_entries_user","idx_time_entries_userId","idx_time_entries_user_date","idx_time_entries_user_start"],"msg":"  📋 time_entries: 5 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"user_work_periods","indexes":["idx_user_work_periods_deleted","idx_user_work_periods_one_open","idx_user_work_periods_user_from","idx_user_work_periods_user_from_unique"],"msg":"  📋 user_work_periods: 4 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"users","indexes":["idx_users_email","idx_users_role_deleted","idx_users_status","idx_users_username"],"msg":"  📋 users: 4 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"vacation_balance","indexes":["idx_vacation_user","idx_vacation_user_year","idx_vacation_year"],"msg":"  📋 vacation_balance: 3 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"vacation_transactions","indexes":["idx_vacation_tx_reference","idx_vacation_tx_user_year"],"msg":"  📋 vacation_transactions: 2 indexes"}
+{"level":30,"time":1787719901708,"env":"production","table":"work_time_accounts","indexes":["idx_work_time_accounts_userId"],"msg":"  📋 work_time_accounts: 1 indexes"}
+=== Auswahlpraedikat ===
+  overtime_transactions: date > '2026-08-26'
+                         AND type IN (worked, time_entry, earned, vacation_credit, sick_credit, overtime_comp_credit, special_credit, unpaid_deduction, unpaid_adjustment, holiday_credit, weekend_credit)
+                         AND userId NOT IN (15015)
+  overtime_balance:      month > '2026-08'
+                         AND userId NOT IN (15015)
+  Alle Werte sind gebundene Parameter; hier stehen sie nur zur Anzeige eingesetzt.
+
+=== Fundliste overtime_transactions (je Nutzer, Monat und Typ) ===
+  userId=    3 2026-09 overtime_comp_credit   Zeilen=   1  davon hours!=0:    1  SUM(hours)=       4  2026-09-29 .. 2026-09-29
+  userId=    3 2026-09 time_entry             Zeilen=  29  davon hours!=0:    9  SUM(hours)=     -36  2026-09-01 .. 2026-09-29
+  userId=    3 2026-09 vacation_credit        Zeilen=   8  davon hours!=0:    3  SUM(hours)=      12  2026-09-21 .. 2026-09-28
+  userId=   17 2026-09 time_entry             Zeilen=  29  davon hours!=0:   13  SUM(hours)=     -52  2026-09-01 .. 2026-09-29
+  userId=   17 2026-09 vacation_credit        Zeilen=   3  davon hours!=0:    2  SUM(hours)=       8  2026-09-01 .. 2026-09-03
+  userId=   30 2026-10 time_entry             Zeilen=  30  davon hours!=0:   22  SUM(hours)=    -176  2026-10-01 .. 2026-10-30
+
+=== Fundliste overtime_transactions (je Nutzer und Monat) ===
+  userId=    3 2026-09  Zeilen=  38  davon hours!=0:   13  SUM(hours)=-20
+  userId=   17 2026-09  Zeilen=  32  davon hours!=0:   15  SUM(hours)=-44
+  userId=   30 2026-10  Zeilen=  30  davon hours!=0:   22  SUM(hours)=-176
+  Summe: 100 Zeilen, davon 50 mit hours != 0, SUM(hours)=-240
+
+=== Fundliste overtime_balance ===
+  userId=    3 2026-09  targetHours=    36  actualHours=    16  Differenz=     -20 h
+  userId=   17 2026-09  targetHours=    52  actualHours=     8  Differenz=     -44 h
+  userId=   30 2026-10  targetHours=   176  actualHours=     0  Differenz=    -176 h
+  Summe: 3 Monatszeilen.
+
+=== Abweichung zur Zahl 59 ===
+  Der Roadmap-Befund nennt 59 fiktive Journalbuchungen.
+  Unter dem oben festgelegten Praedikat gefunden: 100 Zeilen,
+  davon 50 mit hours != 0.
+  Die Zahl 59 ist mit keiner der beiden Abgrenzungen deckungsgleich (59 != 100 und 59 != 50).
+  DER TROCKENLAUF IST DIE MASSGEBLICHE ZAEHLUNG, nicht die Roadmap-Zahl.
+  Die Abweichung wird benannt, nicht stillschweigend verrechnet.
+
+=== Ausnahmeliste — Zeilen mit Zukunftsdatum, die bleiben ===
+  (a) durch den Nutzerausschluss (userId IN 15015):
+      keine
+      Summe ausgenommen: 0 Journalzeilen, 0 Monatszeilen.
+  (b) durch den Typfilter (book-once-Typen, insbesondere model_change):
+      keine — im Bestand traegt heute keine book-once-Zeile ein Datum in der Zukunft.
+      Summe ausgenommen: 0 Journalzeilen.
+
+=== D-01 — die fuenf geschuetzten Tabellen (vor dem Lauf) ===
+  time_entries           Zeilen=  718  sha256=0972d332454ad0fe6ce640e41265355b03629af6dbddeadd9e9573ebfecd5e93
+  absence_requests       Zeilen=   43  sha256=286f291c830dad171fba64fe0fb0d83a21a8ed95cd4215fe7131a50ada6614aa
+  overtime_corrections   Zeilen=    4  sha256=f55792d4da5f4dd096d2ae0271503380b69dc82f5f300d10e61820a82c14a227
+  vacation_balance       Zeilen=   40  sha256=ca5e82502b4e5b403a3341429a1043f62c6b4c363a1adf8d10ecfe0295ea63dd
+  vacation_transactions  Zeilen=   59  sha256=df1c7d2c8f6dafb01f2170a2652a39bfcd4e6aea94f3ecdbdc3c5cfb2a2e54e0
+
+Trockenlauf beendet. Mit --apply ausfuehren.

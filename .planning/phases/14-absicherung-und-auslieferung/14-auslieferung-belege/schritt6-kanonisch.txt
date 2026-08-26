@@ -1,0 +1,42 @@
+{"level":30,"time":1787720038904,"env":"development","path":"/home/ubuntu/14-auslieferung/messkopie-nach.db","environment":"development","msg":"📁 Database path"}
+{"level":30,"time":1787720038912,"env":"development","msg":"✅ Foreign keys ENABLED and VERIFIED"}
+{"level":30,"time":1787720038929,"env":"development","msg":"✅ WAL mode ENABLED and VERIFIED"}
+{"level":30,"time":1787720038929,"env":"development","msg":"📊 Initializing database schema..."}
+{"level":30,"time":1787720038931,"env":"development","msg":"✅ Database schema initialized successfully"}
+{"level":30,"time":1787720038931,"env":"development","msg":"✅ WAL mode enabled for multi-user support"}
+{"level":30,"time":1787720038931,"env":"development","msg":"✅ Foreign keys enabled"}
+{"level":30,"time":1787720038931,"env":"development","msg":"✅ All 19 tables created"}
+{"level":30,"time":1787720038931,"env":"development","msg":"✅ Indexes created for performance"}
+{"level":30,"time":1787720038931,"env":"development","msg":"📊 Creating database indexes for performance..."}
+{"level":30,"time":1787720038932,"env":"development","msg":"✅ Database indexes created successfully"}
+{"level":30,"time":1787720038932,"env":"development","msg":"✅ Performance-optimized composite indexes added"}
+{"level":30,"time":1787720038932,"env":"development","count":59,"msg":"📊 Database Indexes Verified"}
+{"level":30,"time":1787720038932,"env":"development","table":"absence_requests","indexes":["idx_absence_requests_status","idx_absence_requests_userId","idx_absences_created","idx_absences_dates","idx_absences_status","idx_absences_type","idx_absences_user","idx_absences_user_date","idx_absences_user_status"],"msg":"  📋 absence_requests: 9 indexes"}
+{"level":30,"time":1787720038932,"env":"development","table":"audit_log","indexes":["idx_audit_action","idx_audit_created","idx_audit_entity","idx_audit_log_entity","idx_audit_log_userId","idx_audit_user","idx_audit_user_created"],"msg":"  📋 audit_log: 7 indexes"}
+{"level":30,"time":1787720038932,"env":"development","table":"holidays","indexes":["idx_holidays_date"],"msg":"  📋 holidays: 1 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"notifications","indexes":["idx_notifications_created","idx_notifications_read","idx_notifications_user","idx_notifications_userId","idx_notifications_user_date","idx_notifications_user_read"],"msg":"  📋 notifications: 6 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"overtime_balance","indexes":["idx_overtime_month","idx_overtime_user","idx_overtime_user_month"],"msg":"  📋 overtime_balance: 3 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"overtime_corrections","indexes":["idx_overtime_corrections_date","idx_overtime_corrections_userId"],"msg":"  📋 overtime_corrections: 2 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"overtime_daily","indexes":["idx_overtime_daily_date","idx_overtime_daily_user","idx_overtime_daily_user_date"],"msg":"  📋 overtime_daily: 3 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"overtime_transactions","indexes":["idx_overtime_transactions_date","idx_overtime_transactions_reversal_of","idx_overtime_transactions_type","idx_overtime_transactions_userId"],"msg":"  📋 overtime_transactions: 4 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"overtime_weekly","indexes":["idx_overtime_weekly_user","idx_overtime_weekly_user_week","idx_overtime_weekly_week"],"msg":"  📋 overtime_weekly: 3 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"password_change_log","indexes":["idx_password_change_log_changedBy","idx_password_change_log_userId"],"msg":"  📋 password_change_log: 2 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"time_entries","indexes":["idx_time_entries_date","idx_time_entries_user","idx_time_entries_userId","idx_time_entries_user_date","idx_time_entries_user_start"],"msg":"  📋 time_entries: 5 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"user_work_periods","indexes":["idx_user_work_periods_deleted","idx_user_work_periods_one_open","idx_user_work_periods_user_from","idx_user_work_periods_user_from_unique"],"msg":"  📋 user_work_periods: 4 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"users","indexes":["idx_users_email","idx_users_role_deleted","idx_users_status","idx_users_username"],"msg":"  📋 users: 4 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"vacation_balance","indexes":["idx_vacation_user","idx_vacation_user_year","idx_vacation_year"],"msg":"  📋 vacation_balance: 3 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"vacation_transactions","indexes":["idx_vacation_tx_reference","idx_vacation_tx_user_year"],"msg":"  📋 vacation_transactions: 2 indexes"}
+{"level":30,"time":1787720038933,"env":"development","table":"work_time_accounts","indexes":["idx_work_time_accounts_userId"],"msg":"  📋 work_time_accounts: 1 indexes"}
+{"level":30,"time":1787720041524,"env":"development","msg":"UnifiedOvertimeService initialized - Single Source of Truth"}
+=== snapshotBalances: Ausgangslage ===
+Aufgelöster Datenbankpfad: /home/ubuntu/14-auslieferung/messkopie-nach.db
+Dateigröße: 1470464 Bytes
+Anzahl Zeilen in users (ungefiltert): 20
+Anzahl Zeilen in user_work_periods: 20
+asOf: 2026-08-26
+
+Zeilenzahl users (ungefiltert): 20; Länge users[] im Snapshot: 20 — stimmen überein.
+Vollständige Datei geschrieben: /home/ubuntu/14-auslieferung/schritt6-kanonisch.json
+Vergleichsdatei (nur users-Array) geschrieben: /home/ubuntu/14-auslieferung/schritt6-kanonisch.users.json
+
+ERGEBNIS: Snapshot erhoben (Exit 0).

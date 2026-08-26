@@ -1,0 +1,73 @@
+### AGGREGAT VS JOURNAL — SCHRITT 3 (NACH DEPLOYMENT) (/home/ubuntu/databases/production.db)
+Monatszeilen gesamt: 144 | uebereinstimmend: 80 | abweichend: 64 | betroffene Nutzer: 16
+Betroffene Nutzer: 2 Karin Jochem | 3 Christine Glas | 15 Test Test | 16 Benedikt Jochem | 17 Carmen Rothemund | 18 Silvia Lachner | 19 Ute Stock | 20 Hans Schauer | 21 Maria Schauer | 22 Beate Walleiter | 24 Kathrin Leeb | 25 Heidemarie Tretter | 28 Test Test | 29 Christina Wasensteiner | 30 Test Urlaub | 31 UA T
+--- Abweichungen je Monatszeile ---
+  userId=  2 Karin Jochem             2026-01  Aggregat=      -20  Journal=        0  Diff=       20
+  userId=  2 Karin Jochem             2026-04  Aggregat=     -3.5  Journal=      1.5  Diff=        5
+  userId=  2 Karin Jochem             2026-05  Aggregat=     12.5  Journal=     17.5  Diff=        5
+  userId=  2 Karin Jochem             2026-07  Aggregat=     -6.5  Journal=     -1.5  Diff=        5
+  userId=  2 Karin Jochem             2026-08  Aggregat=       -9  Journal=       -4  Diff=        5
+  userId=  3 Christine Glas           2026-01  Aggregat=     1.18  Journal=        0  Diff=    -1.18
+  userId=  3 Christine Glas           2026-06  Aggregat=     1.33  Journal=     1.66  Diff=     0.33
+  userId= 15 Test Test                2026-02  Aggregat=        0  Journal=     -8.5  Diff=     -8.5
+  userId= 16 Benedikt Jochem          2026-01  Aggregat=     48.5  Journal=        0  Diff=    -48.5
+  userId= 16 Benedikt Jochem          2026-03  Aggregat=        3  Journal=      5.5  Diff=      2.5
+  userId= 16 Benedikt Jochem          2026-06  Aggregat=       16  Journal=       17  Diff=        1
+  userId= 16 Benedikt Jochem          2026-07  Aggregat=   -29.75  Journal=    -28.5  Diff=     1.25
+  userId= 16 Benedikt Jochem          2026-08  Aggregat=    -13.5  Journal=     16.5  Diff=       30
+  userId= 17 Carmen Rothemund         2026-03  Aggregat=     1.58  Journal=     3.08  Diff=      1.5
+  userId= 17 Carmen Rothemund         2026-04  Aggregat=    -7.83  Journal=    -4.42  Diff=     3.41
+  userId= 17 Carmen Rothemund         2026-06  Aggregat=    -2.34  Journal=    -1.59  Diff=     0.75
+  userId= 18 Silvia Lachner           2026-01  Aggregat=     5.75  Journal=        0  Diff=    -5.75
+  userId= 18 Silvia Lachner           2026-04  Aggregat=    -1.25  Journal=     -2.5  Diff=    -1.25
+  userId= 18 Silvia Lachner           2026-07  Aggregat=     12.5  Journal=     8.25  Diff=    -4.25
+  userId= 18 Silvia Lachner           2026-08  Aggregat=   -12.75  Journal=    -4.75  Diff=        8
+  userId= 19 Ute Stock                2026-01  Aggregat=     0.08  Journal=       -6  Diff=    -6.08
+  userId= 19 Ute Stock                2026-02  Aggregat=        0  Journal=    -3.25  Diff=    -3.25
+  userId= 19 Ute Stock                2026-03  Aggregat=     7.92  Journal=     7.42  Diff=     -0.5
+  userId= 19 Ute Stock                2026-04  Aggregat=     -1.5  Journal=        1  Diff=      2.5
+  userId= 19 Ute Stock                2026-05  Aggregat=     7.25  Journal=        5  Diff=    -2.25
+  userId= 19 Ute Stock                2026-08  Aggregat=     1.41  Journal=     3.91  Diff=      2.5
+  userId= 20 Hans Schauer             2026-04  Aggregat=      3.5  Journal=      4.9  Diff=      1.4
+  userId= 20 Hans Schauer             2026-06  Aggregat=     -4.9  Journal=     -3.5  Diff=      1.4
+  userId= 20 Hans Schauer             2026-07  Aggregat=     -1.2  Journal=     -3.3  Diff=     -2.1
+  userId= 20 Hans Schauer             2026-08  Aggregat=    -25.2  Journal=     -8.4  Diff=     16.8
+  userId= 21 Maria Schauer            2026-04  Aggregat=      1.5  Journal=      2.5  Diff=        1
+  userId= 21 Maria Schauer            2026-06  Aggregat=     -2.5  Journal=     -1.5  Diff=        1
+  userId= 21 Maria Schauer            2026-07  Aggregat=       -1  Journal=     -2.5  Diff=     -1.5
+  userId= 21 Maria Schauer            2026-08  Aggregat=      -18  Journal=        0  Diff=       18
+  userId= 22 Beate Walleiter          2026-07  Aggregat=       19  Journal=       16  Diff=       -3
+  userId= 24 Kathrin Leeb             2026-05  Aggregat=       49  Journal=     44.5  Diff=     -4.5
+  userId= 25 Heidemarie Tretter       2026-03  Aggregat=    -35.2  Journal=      -24  Diff=     11.2
+  userId= 25 Heidemarie Tretter       2026-04  Aggregat=      -16  Journal=    -18.4  Diff=     -2.4
+  userId= 25 Heidemarie Tretter       2026-05  Aggregat=   -26.55  Journal=     0.65  Diff=     27.2
+  userId= 25 Heidemarie Tretter       2026-06  Aggregat=    -33.6  Journal=        0  Diff=     33.6
+  userId= 25 Heidemarie Tretter       2026-07  Aggregat=    -36.8  Journal=        0  Diff=     36.8
+  userId= 25 Heidemarie Tretter       2026-08  Aggregat=    -28.8  Journal=        0  Diff=     28.8
+  userId= 28 Test Test                2026-03  Aggregat=     35.5  Journal=    -24.5  Diff=      -60
+  userId= 28 Test Test                2026-04  Aggregat=      -48  Journal=      -44  Diff=        4
+  userId= 28 Test Test                2026-06  Aggregat=      -52  Journal=        0  Diff=       52
+  userId= 28 Test Test                2026-07  Aggregat=      -52  Journal=      -40  Diff=       12
+  userId= 28 Test Test                2026-08  Aggregat=      -36  Journal=        0  Diff=       36
+  userId= 29 Christina Wasensteiner   2026-07  Aggregat=    12.82  Journal=    10.82  Diff=       -2
+  userId= 30 Test Urlaub              2026-01  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-02  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-03  Aggregat=     -176  Journal=        0  Diff=      176
+  userId= 30 Test Urlaub              2026-04  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 30 Test Urlaub              2026-05  Aggregat=     -144  Journal=        0  Diff=      144
+  userId= 30 Test Urlaub              2026-06  Aggregat=     -168  Journal=        0  Diff=      168
+  userId= 30 Test Urlaub              2026-07  Aggregat=     -184  Journal=        0  Diff=      184
+  userId= 30 Test Urlaub              2026-08  Aggregat=     -120  Journal=        0  Diff=      120
+  userId= 31 UA T                     2026-01  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-02  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-03  Aggregat=     -176  Journal=        0  Diff=      176
+  userId= 31 UA T                     2026-04  Aggregat=     -160  Journal=        0  Diff=      160
+  userId= 31 UA T                     2026-05  Aggregat=     -144  Journal=        0  Diff=      144
+  userId= 31 UA T                     2026-06  Aggregat=     -168  Journal=        0  Diff=      168
+  userId= 31 UA T                     2026-07  Aggregat=     -184  Journal=        0  Diff=      184
+  userId= 31 UA T                     2026-08  Aggregat=     -120  Journal=        0  Diff=      120
+--- Zukunftszeilen (Stichtag 2026-08-26) ---
+  overtime_transactions mit date > heute: 100
+  overtime_balance mit month > 2026-08: 3  [3/2026-09, 17/2026-09, 30/2026-10]
+--- Tabellenumfang ---
+  overtime_transactions gesamt: 2690 | overtime_balance gesamt: 144
