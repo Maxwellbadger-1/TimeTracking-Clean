@@ -1093,3 +1093,62 @@ je zwei Zeilen in `vacation_balance`/`vacation_transactions` (Plan 14.2-03 hat d
 also **D-01 wiederholt zu verletzen, um ein Gate zu erfüllen**. Das ist die falsche Reihenfolge
 der Zusagen. Der tragfähige Weg (Zufallsnamen oder `afterEach`-Aufräumen in den drei
 Spec-Dateien) ist eine Entscheidung des Anwenders und gehört in die UAT-Sammlung.
+
+---
+
+## Aus Plan 14.2-09 (F-8)
+
+### 1. `WorkTimePeriodEditModal.tsx` trägt dasselbe Rücknahmemuster — **geprüft, nicht mitrepariert**
+
+Der Korrektur-Dialog meldet über dieselbe Schnittstelle wie der Wechsel-Dialog
+(`EditUserModal.tsx:1119`, `onConflict={setConflictPeriodId}`). Am Quelltext nachgeprüft
+(`desktop/src/components/worktime/WorkTimePeriodEditModal.tsx`, Stand 26.08.2026):
+
+| Zeile | Stelle | Befund |
+|---|---|---|
+| `:391` | letzte Zeile von `resetForm()` | `onConflict?.(null);` — und `handleClose()` (`:394-397`) ruft `resetForm()`. **Exakt das Muster von F-8, Teilproblem (b).** |
+| `:281` | `handleValidFromChange` | `onConflict?.(null);` bei **jedem Tastendruck** im Stichtagsfeld — dort sogar strenger als im Wechsel-Dialog, der die Rücknahme nur an den Vorschauerfolg hängt |
+| `:359` | Ende von `validateForm()` | `onConflict?.(result.conflictPeriodId ?? null);` — setzt die Markierung |
+| `:419` | Erfolgspfad von `performSave` | `resetForm()`, danach `onSaved(outcome)` |
+
+**Teilproblem (a) trifft ihn ebenfalls:** Der Korrektur-Dialog liegt genauso über der
+Periodenliste im `EditUserModal`; eine dort gesetzte Markierung kann den Anwender bei offenem
+Dialog nicht erreichen. Ein Kollisionspanel wie das aus Plan 14.2-09 fehlt ihm.
+
+**Nicht behoben, mit Begründung (D-02):** F-8 ist der Befund am **Wechsel-Dialog** — das
+Abnahmeprotokoll (`14-U6` Punkt 3) hat genau diesen Bedienweg gemessen. Der Korrektur-Dialog ist
+ein **eigener Befund** mit eigenem Bedienweg, eigener Messung und eigenem Commit-Satz. Ihn in
+denselben Commit-Satz zu ziehen, würde die Zuordnung „ein Befund, ein Commit-Satz" auflösen und
+eine unbelegte Behauptung mit einem belegten Fix vermischen. Er ist hier verzeichnet, damit er
+nicht verlorengeht.
+
+**Anmerkung zur Endstelle:** Die in Plan 14.2-09 in `EditUserModal.handleClose` eingefügte
+Rücknahme (`setConflictPeriodId(null)`) wirkt auch für den Korrektur-Dialog — eine von dort
+gesetzte Markierung bleibt also ebenfalls nicht über die Sitzung hängen. Das ist eine
+Nebenwirkung, kein Fix des obigen Befundes.
+
+### 2. `formatGermanDate` im Wechsel-Dialog und die Servermeldung schreiben das Datum unterschiedlich
+
+Gemessen in Zustand 1 (`14.2-NACHWEIS-F8.md`, Abschnitt 3.2/3.3):
+
+- Das neue Kollisionspanel schreibt **`17.8.2026`** — `formatGermanDate` ist
+  `toLocaleDateString('de-DE')` ohne Formatangaben (`WorkTimeChangeModal.tsx:145-147`), also
+  ohne führende Null. Dieselbe Schreibweise benutzt die Periodenliste.
+- Der Feldfehler daneben schreibt **`17.08.2026`** — dieser Text kommt bei der
+  Vorschau-Fehlerantwort **vom Server** und wird unverändert übernommen
+  (`requestPreview → onError → setFieldErrors`).
+
+Zwei Schreibweisen desselben Datums in einem Dialog. **Nicht angefasst**, weil (a) D-10 den
+Feldfehlertext ausdrücklich unverändert lässt und (b) `formatGermanDate` die im Projekt
+etablierte Hilfsfunktion ist, deren Änderung jede Datumsanzeige des Dialogs beträfe — das ist
+kein Teil von F-8. Kandidat für die UAT-Sammlung.
+
+### 3. Der Vorschaudienst meldet bei den vorbelegten Werten `isNoOp` statt `future`
+
+Am laufenden Server nachgemessen: `POST /api/work-periods/preview` mit
+`{userId: 48717, validFrom: '2026-09-15', weeklyHours: 30, workSchedule: <Tagesplan der aktuellen Periode>}`
+liefert `isNoOp: true`. Der Dialog zeigt dann „Es gibt nichts umzustellen", obwohl der Stichtag
+ein anderer ist als der der aktuellen Periode. Fachlich vertretbar (die *Werte* ändern sich
+nicht), für den Bedienenden aber überraschend, weil er einen neuen Stichtag eingetragen hat.
+**Nicht angefasst** — gehört nicht zu F-8. Im Messskript ist der Fall umgangen, indem die
+Wochenstunden mitgeändert werden (dokumentiert in `14.2-NACHWEIS-F8.md`, Abschnitt 5).
