@@ -142,6 +142,12 @@ export function WorkTimePeriodActions({
       ) : isDeleting ? (
         <LoadingSpinner size="sm" />
       ) : (
+        /*
+         * D-2 (Nachtrag, Task 2): Dieselbe Spezifitaetskollision wie beim "Korrigieren"-Knopf
+         * (derselbe `size="sm"` der Button-Primitive) — gemessen 40 x 28 px bei Viewport
+         * 600 x 900. Gehoert zu demselben Befund (dieselbe Zelle, dasselbe Kriterium) und wird
+         * mit demselben `!`-Muster mitbehoben.
+         */
         <Button
           type="button"
           variant="ghost"
@@ -150,7 +156,7 @@ export function WorkTimePeriodActions({
           onClick={() => onDelete(period)}
           aria-label="Löschen"
           title="Löschen"
-          className="p-2 sm:px-3 sm:py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+          className="!p-2 sm:!px-3 sm:!py-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
         >
           <Trash2 className="w-4 h-4" />
           <span className="hidden sm:inline sm:ml-1.5">Löschen</span>
