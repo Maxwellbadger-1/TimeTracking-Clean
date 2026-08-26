@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
-stopped_at: Completed 14.2-11-PLAN.md
-last_updated: "2026-08-26T02:19:55.287Z"
+stopped_at: Completed 14.2-12-PLAN.md
+last_updated: "2026-08-26T02:34:48.733Z"
 last_activity: 2026-08-26
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 72
-  completed_plans: 67
+  completed_plans: 68
   percent: 67
 ---
 
@@ -39,7 +39,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 - **Davor abgeschlossen:** Plan 14.2-08 — **F-2 geschlossen.** Kachel, Detailansicht, Nutzerliste und Admin-Dashboard zeigen jetzt die Wochenstunden der **heute gültigen Periode** statt der Stammdaten. Serverseitig löst `getAllUsers()` die Periode in **einer** Abfrage auf (drei korrelierte Unterabfragen, `deletedAt IS NULL`, gebundenes Berlin-Datum aus `formatDate(getCurrentDate(),'yyyy-MM-dd')`, `ORDER BY validFrom ASC LIMIT 1` — **ASC statt des im Plan vorgeschlagenen DESC**, am Quelltext geprüft: `getWorkPeriods()` sortiert ASC und `resolveWorkPeriodIn()` nimmt den ersten Treffer). Drei additive optionale Felder (`currentWeeklyHours`/`currentWorkSchedule`/`currentValidFrom`) auf `UserPublic` und `User`; `routes/users.ts` unverändert, beide Routen profitieren ohne eigene Änderung. Clientseitig dreistufige Quellwahl (Periode → Serverkontext → Stammdaten); Stufe 3 garantiert, dass nie eine leere Zahl dasteht. **Gemessen vor und nach dem Stichtag, zehn Messzeilen, alle „Ja":** Fall A (Nutzer 48717, Periode 30 h ab 17.08.2026) Kachel `40h/Woche` → **`30h/Woche`**, Detailansicht `40h` → **`30h`**, Nutzerliste `40h` → **`30h`**, Admin-Dashboard **`30:00h/Woche`**; Fall B (Nutzer 48714, über die Oberfläche angelegte künftige Periode 26738 ab 25.09.2026 mit 12 h) — alle vier zeigen **20 h**, die künftigen 12 h werden **nicht** vorweggenommen, und „Aktuell gültiges Modell seit 14.5.2026" nennt die heutige Periode; Fall C (Periodenabfrage auf HTTP 500) zeigt `40h/Woche`, kein `NaN`, nicht leer. **Die von D-05 verlangte Suche ist durchgeführt und vollständig dokumentiert** — alle `weeklyHours`- und `.workSchedule`-Lesestellen des Desktops in (a)/(b)/(c) eingeordnet; `AbsenceRequestForm.tsx:331` und `AbsencesBreakdown.tsx:89/305` am Quelltext nachgeprüft und als unkritisch **bestätigt** (niemand muss sie ein zweites Mal suchen). Fünf Commits (`dec5c91` RED-Test 6 rot, `34e5289` Serverfix 6 grün, `a429854` Desktopfix in genau vier Dateien, `3502abd` Messskript, `f825f54` Nachweis + deferred-items), alle vier Gates grün (**578 grün / 3 rot** — genau die vorbestehenden, rote Menge nicht gewachsen), Antwortzeit `GET /api/users` Median 3,89 → 4,32 ms (Faktor 1,11). **D-01: alle fünf Zeilenzahlen und SHA-256 vorher = nachher** — zwei während der Messung durch den Stundenwechsel entstandene Zeilen (`vacation_balance` 39415, `vacation_transactions` 39497) wurden nach Sicherung entfernt und die Wiederherstellung nachgewiesen. **Nicht erfüllt und benannt:** E2E 12 grün / 9 rot / 2 übersprungen — byte-genau dieselbe Menge wie der Ausgangsstand aus `14.2-NACHWEIS-D01.md`; Ursache gemessen (alle neun fest verdrahteten Testbenutzernamen stehen bereits in `development.db`, der Anlage-Dialog bleibt nach der UNIQUE-Kollision offen), keine E2E-Zusicherung betrifft die geänderte Spalte. Kein Push.
 - **Last completed:** Plan 14.2-05 — **F-5 und B-4 geschlossen.** `rebuildOvertimeTransactionsForMonth()` deckelt das Berechnungsende jetzt **unbedingt** auf heute (`monthEnd > today ? today : monthEnd`) — die dritte und letzte Stelle des 14.1-BL-01-Musters; sie lag damals nicht im Umfang. **Die Ursache lag nicht dort, wo D-07 sie vermutete:** die Deckelung in `unifiedOvertimeService.ts:186` greift nachweislich (`calculateMonthlyOvertime(48717,"2026-09")` → `{0,0,0}`); der Rebuild lief in `updateMonthlyOvertime()` **nach** dem korrekten Schreibvorgang (`:163` nach `:144`) und überschrieb ihn. **Nachweis über alle aktiven Nutzer (D-07):** vorher **41 von 62** mit Zukunftsdifferenz in `overtime_balance`, nachher **0 von 62**; wiederaufbaubare Journalzeilen mit Zukunftsdatum 1488 → 6; **Gegenprobe auf einer Produktionsarbeitskopie** 2 von 15 → 0 von 15 (Quelle `14-prod-nach-migration.db` nur readonly, Hash vorher = nachher). **Gegenversuch geführt:** derselbe Regressionstest gegen den Stand vor dem Fix **3 rot / 2 grün**, danach **5 grün**. **B-4 mit Zahlen geschlossen** (Nutzer 48717: 2026-09 −130 → 0,00; 2026-11 −98 → 0,00; 2026-12 −88 → 0,00; die Abweichung zum gemeldeten −74 ist benannt, nicht geglättet) — kein UAT-Punkt. Vier Commits (`1d7942f` Fix in **einer** Datei, `f75ce14` Test + Werkzeug `verify:future-overtime`, `9aad1de` `14.2-NACHWEIS-F5.md`, `7b7b219` Abschlussgate + deferred-items), alle vier Gates grün (**570 grün / 5 rot** — exakt die korrigierte vorbestehende Menge, keiner neu, keiner weggefallen; die beiden datumsabhängigen Fälle haben sich **nicht** bewegt, wie es F-5 erwarten lässt), **D-01-Prüfsummen aller fünf Tabellen unverändert**, obwohl `--rebuild` 50 Nutzer-Monat-Paare in `overtime_balance`/`overtime_transactions` neu geschrieben hat. Sicherung vor dem Schreiblauf: `server/database/backups/development.db.14.2-05-vor-rebuild.db`. Drei Nebenbefunde nach `deferred-items.md` (WR-01-Zukunftsmonatsfilter als Fehlerabsorption, Nutzer mit künftigem Einstellungsdatum behält 6 alte Journalzeilen ohne Anzeigewirkung, NB-C neu zu messen). Kein Push.
 - **Last completed:** Plan 14.2-04 — F-3 geschlossen. `Select.tsx` trägt jetzt dasselbe WR-16-Muster wie `Input.tsx`/`Textarea.tsx` (`useId`, `htmlFor`/`id`-Paar, `aria-invalid`, `aria-describedby`), rein additiv, Pflichtfeld-Stern unverändert (gehört zu D-1/Plan 14.2-10). Das Rollenfeld in `EditUserModal.tsx` trägt jetzt `name="role"`/`id="role"`; gemessen: `{"name":"role","id":"role","val":"admin","labelFor":"role","labelText":"Rolle*"}` gegen den Ausgangsbefund `{"name":null,"id":"","val":"employee"}`. E2E: isolierter Lauf `user-edit.spec.ts:308` grün, voller Dateilauf zeigt **2 passed** (`:221` F-4 und `:308` F-3) bei 5 vorbestehenden, dokumentierten Testdaten-Verschmutzungsfällen; `git diff --stat` auf `user-edit.spec.ts` leer (D-06). Voller Lauf aller drei E2E-Dateien: **14 grün/7 rot/2 übersprungen** (Ausgangsstand 12/9/2) — die Verbesserung um genau zwei Fälle entspricht F-3 und F-4; die verbleibenden sieben roten Fälle sind dieselbe vorbestehende Testdaten-Verschmutzung wie in `14.2-NACHWEIS-D01.md` dokumentiert, keiner der elf Befunde. 18 weitere `<Select>`-Aufrufstellen ohne `name` gefunden und in `deferred-items.md` dokumentiert, bewusst nicht mitgeändert (D-02). Drei Commits (`4f8b285` Select.tsx, `b2e306f` Rollenfeld name/id, `c0d14da` Messskript + deferred-items.md), alle vier Gates grün (565 grün / 5 rot — exakt die vom Kalendertagwechsel gewachsene vorbestehende Menge, kein Wachstum), D-01-Prüfsummen unverändert (105/120, identische sha256) trotz mehrfacher Testdaten-Bereinigung zwischendurch, kein Push.
-- **Stopped at:** Completed 14.2-11-PLAN.md
+- **Stopped at:** Completed 14.2-12-PLAN.md
 
 **Autonomer Lauf (`/gsd:autonomous --from 11`):** discuss übersprungen (CONTEXT für 11–14 liegt vor),
 UI-Phase nur wo nötig (12 und 13 haben UI-SPEC, 14 braucht keine), menschliche Abnahme (UAT)
@@ -294,6 +294,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - [Phase 14.2]: 14.2-09 (F-8): WorkTimePeriodEditModal.tsx traegt dasselbe Ruecknahmemuster (:391 in resetForm, :281 bei jedem Tastendruck) — geprueft, in deferred-items.md vermerkt, NICHT mitrepariert (D-02, eigener Befund).
 - [Phase 14.2-11]: D-2: Spezifitaetskollision Button.sizeStyles vs. lokaler className ueber Tailwinds !-Modifier geloest, keine neue Abhaengigkeit — Ursache war Tailwinds Entdeckungsreihenfolge im generierten Stylesheet, nicht ein fehlendes p-2; Vorbild EditUserModal.tsx:908
 - [Phase 14.2-11]: Loeschen-Schaltflaeche trug dieselbe Kollision wie Korrigieren (vom Abnahmelauf nicht erfasst) und wurde als Teil desselben Befunds D-2 mitbehoben
+- [Phase 14.2 / Plan 12]: V-1: Der Quelltext gewinnt, die Spezifikation wird nachgezogen (D-13). 13-UI-SPEC.md beschreibt jetzt den title-Weg (M-2) statt group-focus-within/ESC an beiden widerspruechlichen Stellen; der Tastaturverlust ist als UAT-Punkt vorgemerkt. Zwei von Plan 14.2-10 (D-1) uebergebene Farbstellen mit nachgezogen. 12-UI-SPEC.md traegt dieselben drei ueberholten Farbstellen - bewusst nicht geaendert (Scope Fence).
 
 ## Quick Tasks Completed
 
@@ -391,6 +392,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | Phase 14.2 P08 | 70min | 3 tasks | 10 files |
 | Phase 14.2 P09 | 65min | 3 tasks | 5 files |
 | Phase 14.2-restbefunde-der-abnahme-schliessen P11 | 35 | 3 tasks | 6 files |
+| Phase 14.2 P12 | 35 | 2 tasks | 2 files |
 
 ## Aktuelle Hinweise für parallele Sitzungen (Stand 20.08.2026)
 
@@ -427,7 +429,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 14.2 (restbefunde-der-abnahme-schliessen) — EXECUTING
-Plan: 11 of 13
+Plan: 12 of 13
 Status: Ready to execute
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
