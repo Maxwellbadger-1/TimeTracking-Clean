@@ -1152,3 +1152,113 @@ ein anderer ist als der der aktuellen Periode. Fachlich vertretbar (die *Werte* 
 nicht), für den Bedienenden aber überraschend, weil er einen neuen Stichtag eingetragen hat.
 **Nicht angefasst** — gehört nicht zu F-8. Im Messskript ist der Fall umgangen, indem die
 Wochenstunden mitgeändert werden (dokumentiert in `14.2-NACHWEIS-F8.md`, Abschnitt 5).
+
+---
+
+## Aus Plan 14.2-10 (D-1)
+
+Alles hier ist bei der **Gegenmessung** von D-1 aufgefallen
+(`14.2-NACHWEIS-D1.md`, Abschnitt 5.2). Der Messlauf hat 3.942 Knoten über fünf Flächen in
+beiden Modi erfasst; die sechs Funde und drei weitere Unterschreitungen derselben Art sind in
+`fix(14.2-D-1)` behoben. Was hier steht, ist **nicht** behoben — und zwar mit Begründung.
+
+### 1. `desktop/tailwind.config.js` führt keine Palette — jede Farbe ist an ihrer Stelle hart kodiert
+
+```javascript
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: 'class',
+  theme: { extend: {} },      // <- leer
+  plugins: [],
+}
+```
+
+`theme.extend` ist leer. Es gibt **keine** zentrale Stelle, an der „der positive Ton" oder
+„der Gefahrenton" einmal definiert wäre; jede der rund vierzig Fundstellen trägt ihre
+Tailwind-Klasse selbst. Genau deshalb bestand D-1 aus sechs getrennten Funden statt aus einer
+Korrektur, und genau deshalb hat die Gegenmessung eine zehnte Fund-2-Stelle im Hilfsmodul
+`overtimeTransactionFormat.ts` zutage gefördert, die keine Grep-Liste über die
+Komponentendateien hätte finden können.
+
+**Nicht behoben, weil** eine Palette einzuführen ein Werkzeugwechsel ist (`theme.extend.colors`
+plus Umbenennung aller Fundstellen), kein Kontrastfix. Das liegt außerhalb von D-1 und wäre in
+einem Commit-Satz mit ihm nicht mehr einzeln rückgängig zu machen (D-02).
+
+**Kandidat für:** eine eigene Vereinheitlichung nach Phase 14.2. Der Nutzen ist konkret — mit
+einer Palette wäre D-1 eine Änderung an zwei Zeilen gewesen statt an neun Dateien.
+
+### 2. `text-green-600` steht flächendeckend außerhalb der fünf gemessenen Flächen — gemessen 3,30
+
+`rgb(22,163,74)` auf Weiß misst **3,30:1** und unterschreitet damit die Grenze für Fließtext um
+denselben Betrag, der Fund 2 zugrunde liegt. **Es ist derselbe Befund**, nur an Stellen, die das
+Abnahmeprotokoll 13-U9 nicht gemessen hat. `grep -rn "text-green-600" desktop/src` liefert rund
+**35 Dateien**, darunter:
+
+| Datei | Stelle |
+|---|---|
+| `components/reports/OvertimeSummaryCards.tsx:74` | die Überstunden-Summenkarte der Berichtsseite (gemessen 3,30) |
+| `components/reports/AbsencesBreakdown.tsx:288` | Summe der Abwesenheitsstunden |
+| `components/reports/TeamOvertimeSummary.tsx:105,121,194` | Teamsaldo und Teammittel |
+| `components/reports/OvertimeUserTable.tsx:151` | Saldospalte der Mitarbeiterübersicht |
+| `components/reports/OvertimeHistoryChart.tsx:60,118` | Verlaufsdiagramm |
+| `components/worktime/BalanceSummaryWidget.tsx:128,154,174,192` | Saldo-Widget |
+| `components/worktime/DailyOvertimeDetails.tsx:111,200,221` | Tagesaufschlüsselung im Kontoauszug |
+| `components/worktime/WorkTimeAccountWidget.tsx:87` | Kontowidget |
+| `components/corrections/CorrectionsTable.tsx:141` | Korrekturtabelle |
+| `components/vacation/VacationTransactions.tsx:323` | Urlaubsbuchungen |
+| `components/users/EditUserModal.tsx:598` | Vorschau im Löschdetail |
+| `pages/OvertimeManagementPage.tsx:273`, `pages/VacationBalanceManagementPage.tsx:188` | Verwaltungsseiten |
+
+**Nicht behoben, weil** diese Flächen außerhalb der fünf Flächen liegen, die D-1 definiert
+(Periodenliste, Wechsel-Dialog, Löschbestätigung, Kontoauszug, Korrektur-Dialog). Sie
+mitzunehmen hieße, einen zweiten, nirgends benannten Befund unter D-1 abzurechnen und die
+Aussage „ein Befund, ein Commit-Satz" (D-02) aufzulösen — und die Gegenmessung, die D-1 belegt,
+würde dann Flächen abdecken, für die es keinen Ausgangswert gibt.
+
+**Kandidat für:** einen eigenen Befund „positiver Ton flächendeckend auf `green-700` ziehen",
+sinnvollerweise zusammen mit Punkt 1 (mit Palette wäre es eine Zeile).
+
+### 3. Symbole in `text-gray-400` unterschreiten den Nicht-Text-Kontrast (WCAG 1.4.11)
+
+Gemessen im Hellmodus: `rgb(156,163,175)` ergibt **2,45 bis 2,54** gegen die Grenze **3:1**.
+Betroffen sind `ChevronDown` (Aufklappzeichen der Monatszeile,
+`WorkTimeAccountHistory.tsx:238`), `FileText` (Belegzeichen der Buchungszeile,
+`OvertimeTransactions.tsx:327`) und `Info` (`OvertimeTransactions.tsx:226`). Im Messlauf:
+**129 Knoten** innerhalb der fünf Flächen, **131** außerhalb.
+
+**Nicht behoben, weil** (a) `text-gray-400` zu keinem der sechs Funde gehört und von D-1 nicht
+angefasst wurde, und (b) der Abnahmelauf 13-U9 **Symbole überhaupt nicht gemessen** hat — seine
+Bandbreite „4,51 bis 17,74" ist eine reine **Text**bandbreite. Es gibt für diese Knoten also
+keinen Ausgangswert, gegen den eine Regression zu prüfen wäre. Der Ton sitzt tree-weit.
+
+**Einordnung:** WCAG 1.4.11 verlangt 3:1 nur für Nicht-Text-Inhalt, der zum Verständnis
+**erforderlich** ist. Ob das Aufklappzeichen dazu zählt, ist eine Ermessensfrage — das
+Aufklappen ist auch ohne das Zeichen über die Zeile erreichbar. Genau deshalb gehört der Punkt
+in die UAT-Sammlung und nicht in ein automatisches Gate.
+
+### 4. `text-gray-500` auf `bg-red-50` in `AbsencesBreakdown` — gemessen 4,42
+
+Drei Textknoten („Tage", „Gutschrift", „Volle Gutschrift (Soll-Stunden)") messen **4,42:1**.
+Dieselbe Ursache wie die in `fix(14.2-D-1)` behobenen Absätze des Vorschaupanels: `gray-500`
+trägt auf Weiß 4,83, auf einem eingefärbten Panelhintergrund aber nicht mehr.
+**Nicht behoben**, weil außerhalb der fünf Flächen. Gehört zu demselben Folgebefund wie Punkt 2.
+
+---
+
+### Für die UAT-Sammlung (Plan 14.2-13) — die Urteile, die menschlich bleiben
+
+Kontrast ist eine Zahl und ist gemessen. **Dominanz ist ein Urteil** und kann es nicht sein.
+D-1 hat den positiven Ton von `green-600` auf `green-700` und den Dunkelmodus-Knopfgrund von
+`-500` auf `-600` gezogen; beides ist dunkler und satter als vorher. Ob die Flächen dadurch
+ihre beabsichtigte Wirkung behalten, muss ein Mensch beurteilen:
+
+| Kennung | Frage | Fläche |
+|---|---|---|
+| **P12-21** | Ist die Saldoänderung nach der Umstellung auf `green-700` weiterhin **das dominante Element** des Vorschaupanels — oder konkurriert sie jetzt mit der Sollstunden-Tabelle darüber? | Wechsel-Dialog und Korrektur-Dialog, Zustand „rückwirkend", hell |
+| **13-U1b** | Ist der Primärknopf im **Dunkelmodus** noch der **einzige Blickfang** der Aktionszeile, nachdem sein Grund von `blue-500` auf `blue-600` gezogen wurde — oder tritt er jetzt zu nah an den Sekundärknopf heran? | Alle Dialoge, dunkel |
+| **13-U9** | Ist der Gesamteindruck **mindestens so gut wie in Phase 12**? Die Kontraste sind sämtlich gestiegen (kleinster Wert unverändert 4,51); die Frage ist, ob die Fläche dadurch nicht *härter* wirkt | alle fünf Flächen, hell und dunkel |
+| — | Ist der Pflichtfeld-Stern in `red-600` noch als **Pflichtmarkierung** erkennbar, oder liest er sich jetzt wie ein **Fehler**? Der Fehlerton derselben Fläche ist ebenfalls `red-600` | `EditUserModal`, Löschbestätigung, hell |
+| — | Läuft im Kontoauszug der positive Ton (`green-700`) noch sichtbar gegen den negativen (`red-600`) auseinander? Beide sind jetzt dunkler; die Unterscheidung darf nicht allein am Vorzeichen hängen | Kontoauszug, hell |
+
+Die letzten beiden Fragen entstehen **erst durch** die Korrektur und haben im Abnahmeprotokoll
+keine Entsprechung — sie sind hier neu aufgenommen.

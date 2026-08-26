@@ -681,7 +681,7 @@ Plans:
 - [x] 14.2-07-PLAN.md — **F-7**: „Stornieren" meldet „storniert" (Weg A, D-09)
 - [x] 14.2-08-PLAN.md — **F-2**: Desktop zeigt die Wochenstunden der gültigen Periode, vor *und* nach dem Stichtag gemessen
 - [x] 14.2-09-PLAN.md — **F-8**: Kollisionsmarkierung erreicht den Anwender (`elementFromPoint`)
-- [ ] 14.2-10-PLAN.md — **D-1**: sechs Kontrastunterschreitungen, hell und dunkel, mit Gegenmessung
+- [x] 14.2-10-PLAN.md — **D-1**: sechs Kontrastunterschreitungen, hell und dunkel, mit Gegenmessung
 - [ ] 14.2-11-PLAN.md — **D-2**: Trefferflächen ab 32 × 32 px, Spezifitätskollision aufgelöst
 - [ ] 14.2-12-PLAN.md — **V-1**: `13-UI-SPEC.md` auf den `title`-Weg nachziehen (kein Produktionscode)
 - [ ] 14.2-13-PLAN.md — E2E-Gesamtlauf, UAT-Sammlung „Phase 14.2" (ab 14.2-U1), Umgebung abräumen, D-01-Endnachweis
