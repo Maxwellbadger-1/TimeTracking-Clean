@@ -1398,3 +1398,90 @@ Plan 14.2-11 hat selbst festgehalten (`14.2-11-SUMMARY.md`, „affects"): Der Ve
 das **gewünschte Ergebnis** (32 × 32 px) korrekt, nicht den Tailwind-internen Mechanismus
 (`!p-2 sm:!px-3 sm:!py-2` statt eines einfachen `p-2`). Nachgeprüft und bestätigt — keine
 Vertragsänderung nötig.
+
+---
+
+## Aus Plan 14.2-13 — Abschluss der Phase 14.2 (26.08.2026)
+
+Dieser Abschnitt schließt die Sammlung der Phase. Jeder Eintrag, den die Pläne 14.2-01 bis
+14.2-12 hier abgelegt haben, erscheint **in genau einer** der beiden Listen unten: entweder er
+ist als Punkt in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2", angekommen (mit seiner
+`14.2-U`-Nummer), oder er bleibt hier vermerkt, weil er kein menschliches Urteil braucht.
+
+### A — In die UAT-Sammlung gewandert
+
+| Eintrag (Quelle) | UAT-Nummer |
+|---|---|
+| `14.2-NACHWEIS-D01.md`, „Für die UAT-Sammlung", Punkt 1 — E2E-Testdaten-Verschmutzung (auch 14.2-03, 14.2-04, 14.2-05, 14.2-08, 14.2-09) | **14.2-U26** |
+| `14.2-NACHWEIS-D01.md`, „Für die UAT-Sammlung", Punkt 2 — D-01-Referenzwerte weichen von 14.1-01 ab | **14.2-U43** |
+| Aus Plan 14.2-02 (F-1), Punkt 1 — Zusammenklebe-Befund `client.ts:152-155`; ebenso 14.2-06, Punkt 1 (NB-5 Fall 3) | **14.2-U21** |
+| Aus Plan 14.2-03 (F-4), Punkt 1 — zwei datumsabhängige Server-Tests; ebenso „Orchestrator-Nachmessung (26.08.2026)" und 14.2-04 | **14.2-U27** |
+| Aus Plan 14.2-03 (F-4), Punkt 2 — Passwort-Zurücksetzen und Löschen für deaktivierte Konten | **14.2-U11** |
+| Aus Plan 14.2-04 (F-3), Punkt 1 — weitere `<Select>`-Aufrufstellen ohne `name` | **14.2-U34** |
+| Aus Plan 14.2-05 (F-5), Punkt 1 — WR-01/CR-01-Familie, `getOvertimeBalance()` blendet Zukunftsmonate aus | **14.2-U10** |
+| Aus Plan 14.2-05 (F-5), Punkt 2 — Nutzer 48719 (`future-hire`) behält sechs Journalzeilen mit Zukunftsdatum | **14.2-U40** |
+| Aus Plan 14.2-05 (F-5), Punkt 3 — NB-C ist nach diesem Plan neu zu messen (in NB-C aufgenommen) | **14.2-U7** |
+| Aus Plan 14.2-07 (F-7), Punkt 1 — Weg B, eigener Datenbankzustand `cancelled` | **14.2-U1** |
+| Aus Plan 14.2-07 (F-7), Punkt 2 + Nachtrag — abgelehnte Anträge sind über die Oberfläche nicht mehr erreichbar | **14.2-U12** |
+| Aus Plan 14.2-08 (F-2), Punkt 1 — `AbsenceRequestForm.tsx:331`, Hinweistext folgt den Stammdaten | **14.2-U24** |
+| Aus Plan 14.2-08 (F-2), Punkt 3 — Testbestand `user_work_periods.id 26738` | **14.2-U41** |
+| Aus Plan 14.2-08 (F-2), Punkt 4 — ein Stundenwechsel legt Urlaubskonten-Zeilen still nach | **14.2-U37** |
+| Aus Plan 14.2-08 (F-2), SUMMARY Punkt 4 — `11-DESKTOP-DISPOSITION.md` ist überholt | **14.2-U42** |
+| Aus Plan 14.2-09 (F-8), Punkt 1 — `WorkTimePeriodEditModal.tsx` trägt dasselbe Rücknahmemuster | **14.2-U33** |
+| Aus Plan 14.2-09 (F-8), Punkt 2 — zwei Schreibweisen desselben Datums im Dialog | **14.2-U22** |
+| Aus Plan 14.2-09 (F-8), Punkt 3 — der Vorschaudienst meldet `isNoOp` trotz geändertem Stichtag | **14.2-U25** |
+| Aus Plan 14.2-09 (F-8), SUMMARY Punkt 5 — die Kollision steht an drei Stellen | **14.2-U23** |
+| Aus Plan 14.2-10 (D-1), Punkt 1 — `tailwind.config.js` führt keine Palette | **14.2-U31** |
+| Aus Plan 14.2-10 (D-1), Punkt 2 — `text-green-600` in rund 35 weiteren Dateien | **14.2-U28** |
+| Aus Plan 14.2-10 (D-1), Punkt 3 — Symbole in `text-gray-400` (WCAG 1.4.11) | **14.2-U29** |
+| Aus Plan 14.2-10 (D-1), Punkt 4 — `text-gray-500` auf `bg-red-50`, gemessen 4,42 | **14.2-U30** |
+| Aus Plan 14.2-10 (D-1), „Für die UAT-Sammlung", Zeile P12-21 | **14.2-U13** |
+| Aus Plan 14.2-10 (D-1), „Für die UAT-Sammlung", Zeile 13-U1b | **14.2-U14** |
+| Aus Plan 14.2-10 (D-1), „Für die UAT-Sammlung", Zeile 13-U9 | **14.2-U15** |
+| Aus Plan 14.2-10 (D-1), „Für die UAT-Sammlung", Zeile *(neu)* Pflichtfeld-Stern | **14.2-U17** |
+| Aus Plan 14.2-10 (D-1), „Für die UAT-Sammlung", Zeile *(neu)* Kontoauszug grün/rot | **14.2-U18** |
+| Aus Plan 14.2-11 (D-2), Punkt 1 — Spezifitätskollision der `Button`-Primitive | **14.2-U32** |
+| Aus Plan 14.2-12 (V-1), Punkt 1 — der Tastaturverlust | **14.2-U2** |
+| Aus Plan 14.2-12 (V-1), Punkt 2 — Prüflücke: `title` ist mit Playwright nicht beobachtbar | **14.2-U36** |
+| Aus Plan 14.2-12 (V-1), Punkt 3 — `12-UI-SPEC.md` weicht an denselben Stellen ab | **14.2-U35** |
+| `14.2-CONTEXT.md`, D-15 — 14-U6 Punkt 5 („höchstens vier blaue Flächen") | **14.2-U16** |
+| `14.2-CONTEXT.md`, D-15 — 11-U2b, zweiter Teil (Verständlichkeit des DATEV-Satzes) | **14.2-U19** |
+| `14.2-CONTEXT.md`, D-15 — 13-U18b („ist der Satz gut?") | **14.2-U20** |
+| `14-ABNAHME-SERVER.md` § 8 — B-1 (Rest): Port 3000 als Vorgabewert | **14.2-U3** |
+| `14-ABNAHME-SERVER.md` § 8 — B-5: verwaiste `compensation`-Zeilen (Kenntnisnahme) | **14.2-U39** |
+| `14-ABNAHME-SERVER.md` § 8 — B-6: `adminName` nur auf dem Live-Weg | **14.2-U4** |
+| `14-ABNAHME-AUTO.md` § 8 — NB-A: falsche 2026-08-Monatszeilen der Nutzer 3 und 17 | **14.2-U5** |
+| `14-ABNAHME-AUTO.md` § 8 — NB-B: Health-Check belegt die Datenbankverbindung nicht | **14.2-U6** |
+| `14-ABNAHME-AUTO.md` § 8 — NB-C: `overtime_balance` weicht bei 9 von 20 Nutzern ab | **14.2-U7** |
+| `14-ABNAHME-AUTO.md` § 8 — NB-D: `vacation_balance` im Sammel-Export | **14.2-U8** |
+| `14-ABNAHME-AUTO.md` § 8 — NB-E: Testsuite schreibt in die Arbeitsdatenbank | **14.2-U9** |
+| Neu in Plan 14.2-13 — Aufbewahrung der Sicherungen und Probekopien dieser Phase | **14.2-U38** |
+| Neu in Plan 14.2-13 — Bewertung des E2E-Erfolgskriteriums | **14.2-U44** |
+| Neu in Plan 14.2-13 — Bewertung des Kriteriums „ein Vorgang, ein Name" | **14.2-U45** |
+
+### B — Nur hier vermerkt, kein UAT-Punkt
+
+Diese Einträge brauchen **kein** menschliches Urteil. Sie stehen vollständig in ihren
+Abschnitten oben und bleiben dort als Nachweis.
+
+| Eintrag (Quelle) | Warum kein UAT-Punkt |
+|---|---|
+| Aus Plan 14.2-02 (F-1), Punkt 2 — „D-09: Keine WR-Warnung berührt" | Reine Bestätigung einer Nichtberührung. Nichts zu entscheiden |
+| Aus Plan 14.2-04 (F-3), Punkt 2 — „D-09: Keine WR-Warnung berührt" | dito |
+| Aus Plan 14.2-05 (F-5), Punkt 4 — „D-09: Keine WR-Warnung berührt" | dito |
+| Aus Plan 14.2-06 (F-6), Punkt 2 — „D-09: Keine WR-Warnung berührt" | dito |
+| Aus Plan 14.2-07 (F-7), Punkt 3 — „D-09: Keine WR-Warnung berührt" | dito |
+| Aus Plan 14.2-07 (F-7), Nachtrag — die vier Messzeilen sind entfernt, D-01 ist wiederhergestellt | Erledigt (Commit `58ef855`), mit Prüfsummen belegt. Der zugrunde liegende Bedienweg-Befund ist als 14.2-U12 aufgenommen |
+| Aus Plan 14.2-08 (F-2), Punkt 2 — `AbsencesBreakdown.tsx:89 / :305`, geprüft, **kein Fund** | Eine Prüfung ohne Befund. Nichts zu entscheiden |
+| Aus Plan 14.2-11 (D-2), Punkt 2 — die „Löschen"-Schaltfläche trug dieselbe Kollision, mitbehoben | Erledigt (Commit `afd1bdd`), mit Messwerten belegt |
+| Aus Plan 14.2-11 (D-2), Punkt 3 — keine weiteren zu kleinen Trefferflächen gefunden | Eine Prüfung ohne Befund |
+| Aus Plan 14.2-12 (V-1), Punkt 4 — vollständige Suche nach weiteren Vertragsabweichungen, sonst nichts gefunden | Eine Prüfung ohne Befund |
+| Aus Plan 14.2-12 (V-1), Punkt 5 — F-8s Kollisionspanel berührt keine Vertragsstelle | Eine Prüfung ohne Befund |
+| Aus Plan 14.2-12 (V-1), Punkt 6 — die Trefferflächenzusage braucht keinen Nachzug | Bestätigung, dass nichts zu tun ist |
+| Aus Plan 14.2-03 (F-4), SUMMARY — plan-interne Unstimmigkeit „genau drei Commits" gegen vier tatsächliche | Redaktioneller Hinweis zum Plandokument, keine Produkteigenschaft. Die vier Commits sind einzeln revertierbar und unvermischt (D-02 eingehalten) |
+
+**Kontrollsumme:** 45 Einträge in Liste A (deckungsgleich mit den 45 Punkten 14.2-U1 bis
+14.2-U45 in `14-UAT-SAMMLUNG.md`; drei Quellzeilen verweisen auf denselben Punkt, weil
+mehrere Pläne denselben Kandidaten gemeldet haben — 14.2-U7 erscheint zweimal, ebenso ist
+14.2-U26 aus fünf Plänen gespeist), 13 Einträge in Liste B. **Kein Eintrag der Phase steht in
+beiden Listen, keiner in keiner.**
