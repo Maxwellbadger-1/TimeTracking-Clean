@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: verifying
-stopped_at: Phase 14.2 vollstaendig durchgelaufen - 13/13 Plaene, Verifikation human_needed (8/10 Erfolgskriterien voll erfuellt, 2/10 eingeschraenkt: E2E-Reproduzierbarkeit und "ein Vorgang, ein Name"). Keine Umsetzungsluecke. 45 Abnahmepunkte 14.2-U1 bis U45 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.2. Alle elf Befunde F-1 bis F-8, D-1, D-2, V-1 geschlossen, dazu B-1 und B-4. Die fuenf geschuetzten Tabellen unveraendert (895/62/5/105/120, SHA-256 identisch). Kein Push - main steht 112 Commits vor origin/main auf 22f9cdc. Kein Uebergang zur naechsten Phase (--no-transition).
-last_updated: "2026-08-26T03:14:06.543Z"
+stopped_at: Plan 14-11 abgeschlossen - Desktop-Release v1.9.0 veroeffentlicht (Lauf 33005681228, alle vier Matrixjobs success, isDraft false, 17 Artefakte). latest.json traegt alle vier Plattformschluessel, jeder mit gesetzter url UND signature, alle vier URLs HTTP 200 - das Auto-Update ist funktionsfaehig, die Sackgasse aus Plan 14-02 (Server sperrt den alten Weg, neuer Weg nicht installiert) ist aufgeloest. Gates vor und nach dem Tag: tsc Server und Desktop Exit 0, check:rules Exit 0, vitest 578 gruen / genau 3 rot mit den bekannten Titeln. Phase 14 damit 9/11 - OFFEN bleibt Plan 14-09 (realer Umstellungsfall auf der Produktion, 14-UMSTELLUNGSFALL.md existiert nicht); 14-10 ist sachlich erfuellt ueber den Vollaufbau vom 26.08. (+991 Journalzeilen, 15/15 deckungsgleich, 14-AUSLIEFERUNG.md), aber nicht als Plan gefahren. Zuvor: Phase 14.2 vollstaendig durchgelaufen - 13/13 Plaene, Verifikation human_needed (8/10 Erfolgskriterien voll erfuellt, 2/10 eingeschraenkt: E2E-Reproduzierbarkeit und "ein Vorgang, ein Name"). Keine Umsetzungsluecke. 45 Abnahmepunkte 14.2-U1 bis U45 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.2. Alle elf Befunde F-1 bis F-8, D-1, D-2, V-1 geschlossen, dazu B-1 und B-4. Die fuenf geschuetzten Tabellen unveraendert (895/62/5/105/120, SHA-256 identisch). Kein Push - main steht 112 Commits vor origin/main auf 22f9cdc. Kein Uebergang zur naechsten Phase (--no-transition).
+last_updated: "2026-08-26T19:55:00.000Z"
 last_activity: 2026-08-26
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 72
-  completed_plans: 69
+  completed_plans: 70
   percent: 78
 ---
 
@@ -58,7 +58,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 | 11 | Datumsabhängige Berechnung | Complete (11/11 Pläne), Review 2 Iterationen / 33 Fixes, verifiziert 10/10 — REQ-23 bis REQ-25 |
 | 12 | Stundenwechsel bedienen | Geplant (9 Pläne, 5 Wellen), plan-checker PASSED — REQ-26 bis REQ-29 |
 | 13 | Korrigieren und rückgängig machen | Nicht begonnen — UI-SPEC abgenommen, Planung offen — REQ-30 bis REQ-31 |
-| 14 | Absicherung und Auslieferung | Nicht begonnen — Kontext gesetzt — REQ-32 bis REQ-33 |
+| 14 | Absicherung und Auslieferung | 9/11 Pläne — 14-01 bis 14-08 und 14-11 (Release v1.9.0, veröffentlicht 2026-08-26) abgeschlossen. 14-10 sachlich erfüllt über den Vollaufbau vom 26.08., nicht als Plan gefahren. **Offen: 14-09** (realer Umstellungsfall) — REQ-32 bis REQ-33 |
 
 ### Milestone v2.0 (abgeschlossen 2026-08-21)
 
