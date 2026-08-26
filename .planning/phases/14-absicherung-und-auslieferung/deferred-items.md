@@ -985,3 +985,32 @@ vorzumerken (Plan 14.2-13 sammelt).
 Plan 14.2-07 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt sich
 auf `desktop/src/hooks/useAbsenceRequests.ts` und `desktop/src/pages/AbsencesPage.tsx`; keine
 der in den Warnungen genannten Dateien steht in einem seiner Commits.
+
+### Nachtrag zu Plan 14.2-07 — die vier Messzeilen sind entfernt, D-01 ist wiederhergestellt
+
+Plan 14.2-07 hat beim Messen des Storno-Bedienwegs **vier echte Anträge** in
+`absence_requests` erzeugt (ids 12397–12400, Nutzer 15015) und sie nicht zurückgenommen —
+die Oberfläche bietet für `status='rejected'` keine Aktionsschaltfläche mehr. Damit stand die
+Tabelle bei **66 statt 62** Zeilen und verletzte die erste Zusage des Anwenders.
+
+**Der Orchestrator hat das über den Produktweg bereinigt, nicht per SQL:** Sicherung per
+`VACUUM INTO` nach `server/database/backups/development.PRE-14.2-BEREINIGUNG-F7.db`
+(1.613.824 Bytes), danach `DELETE /api/absences/{id}` als `admin` gegen `127.0.0.1:3100` für
+jede der vier ids — alle vier mit HTTP **200**. Der Löschweg ist derselbe, den 14.1-U7a
+geprüft hat; er rechnet dabei ordnungsgemäss neu.
+
+**Nachmessung gegen die Ausgangswerte aus `14.2-NACHWEIS-D01.md` — alle fünf identisch:**
+
+| Tabelle | Zeilen | SHA-256 gleich |
+|---|---:|---|
+| `time_entries` | 895 | ja |
+| `absence_requests` | 62 | ja |
+| `overtime_corrections` | 5 | ja |
+| `vacation_balance` | 105 | ja |
+| `vacation_transactions` | 120 | ja |
+
+**Was daraus zu lernen ist, und was offen bleibt:** Ein stornierter oder abgelehnter Antrag ist
+über die Oberfläche nicht mehr erreichbar — weder korrigierbar noch entfernbar. Für einen
+Messlauf ist das lästig; für einen Anwender, der versehentlich storniert hat, ist es eine
+Sackgasse derselben Art wie F-1 vor dieser Phase. Das ist **keiner der elf Befunde** und
+gehört deshalb nicht in diese Phase — aber es gehört gesehen und ist als UAT-Punkt vorzulegen.
