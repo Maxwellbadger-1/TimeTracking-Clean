@@ -5,8 +5,8 @@ status: revised
 shadcn_initialized: false
 preset: none
 created: 2026-08-21
-revised: 2026-08-21
-revision: 2
+revised: 2026-08-26
+revision: 3
 ---
 
 # Phase 13 — UI Design Contract
@@ -14,6 +14,17 @@ revision: 2
 > Visueller und interaktiver Vertrag für „Korrigieren und rückgängig machen". Erstellt von
 > `gsd-ui-researcher`, zu prüfen durch `gsd-ui-checker`, verbindlich für `gsd-planner` und
 > `gsd-executor`.
+
+**Fortschreibung V-1 (Phase 14.2, Plan 12, 26.08.2026).** Zwei Abschnitte sind auf den
+tatsächlichen Quelltextzustand nachgezogen: „Inhalt der Aktionszelle" und „Barrierefreiheit",
+beide zum Chip „Nicht löschbar". Grund: Korrektur **M-2** der Phase 13
+(`desktop/src/components/worktime/workTimePeriodActions.tsx`) hat das dort ursprünglich
+verlangte anwendungsgezeichnete Tooltip bewusst und mit Messung verworfen — sie ist die
+jüngere, gemessene Entscheidung; dieser Vertrag trug noch die ältere Absicht. Zusätzlich sind
+zwei Farbwerte nachgezogen (Zeile ~131 Accent dunkel, Zeile ~166 Gutschrift hell), die Plan
+14.2-10 (D-1, Kontrastkorrektur) im Quelltext bereits geändert hatte, ohne den Vertrag
+mitzuziehen. **Kein Produktionscode wurde in diesem Plan angefasst** — reine
+Dokumentänderung, siehe `14.2-12-SUMMARY.md`.
 
 **Fortschreibung von Phase 12, kein Neuanfang.** `12-UI-SPEC.md` ist für dieses Dokument bindend.
 Spacing, Typografie, Farbrollen, Semantik-Palette, Modal-Aufbau, Buttonreihenfolge,
@@ -128,8 +139,17 @@ Die Tabelle ist **unverändert** aus `12-UI-SPEC.md` übernommen.
 |-------|------|--------|------------|
 | Dominant (60 %) | `#ffffff` (white) | `#1f2937` (gray-800) | Modalfläche, Kartenfläche, Tabellenhintergrund, Eingabefelder |
 | Secondary (30 %) | `#f9fafb` / `#f3f4f6` (gray-50/100) · Text `#374151` (gray-700) · Linien `#e5e7eb` (gray-200) | `#111827` / `#374151` (gray-900/700) · Text `#d1d5db` (gray-300) · Linien `#374151` (gray-700) | Panelflächen, Trennlinien, Zeilen-Hover, Sekundärtext, Periodenliste, Korrekturblock, Panel „Kein Zugriff", Zustands-Badges |
-| Accent (10 %) | `#2563eb` (blue-600) | `#3b82f6` (blue-500) | siehe Reservierungsliste |
+| Accent (10 %) | `#2563eb` (blue-600) | `#2563eb` (blue-600) als Knopfgrund des Primärbuttons¹; `#3b82f6` (blue-500) bleibt der Fokusring-Ton | siehe Reservierungsliste |
 | Destructive | `#dc2626` (red-600) | `#f87171` (red-400) | siehe Reservierungsliste |
+
+¹ **Nachgezogen (Phase 14.2, Plan 10 → V-1, Plan 12).** Weiß auf `blue-500` maß im Dunkelmodus
+**3,68:1** — unter der Grenze 4,5:1 für Fließtext (D-1). Der Grund des Primärbuttons wurde
+deshalb im Dunkelmodus auf dieselbe Tonstufe wie hell gehoben (`dark:bg-blue-600`, gemessen
+**5,17:1**); `focus:ring-blue-500` blieb unverändert. Die Reservierungsliste unten bleibt
+gültig — nur der Knopfgrund ist betroffen. Der Gefahrenknopfgrund im Dunkelmodus ist inzwischen
+ebenfalls auf `dark:bg-red-600` gezogen (dieselbe Korrektur); die Zeile „Destructive" oben
+bezeichnet den **Text**ton (Pflichtfeld-Stern, negative Werte) und macht dazu keine eigene
+Aussage — sie bleibt unverändert gültig.
 
 ### Accent ist reserviert für — abschließende Liste (Phase 13)
 
@@ -163,11 +183,17 @@ Rot ist ausdrücklich **nicht** die Farbe des Zustands „Kein Zugriff" — Begr
 
 | Bedeutung | Hell / Dunkel | Wo genau in dieser Phase |
 |-----------|---------------|--------------------------|
-| Gutschrift / positiver Saldo | green-600 / green-400 | positive Stundenwerte in Vorschau, Löschbestätigung, Journal- und Storno-Zeile; `TrendingUp` |
+| Gutschrift / positiver Saldo | green-700 / green-400 (Hellmodus nachgezogen²) | positive Stundenwerte in Vorschau, Löschbestätigung, Journal- und Storno-Zeile; `TrendingUp` |
 | Belastung / negativer Saldo | red-600 / red-400 | negative Stundenwerte; `TrendingDown` |
 | Fehler | red-600 / red-400 auf `bg-red-50` / `bg-red-900/20`, Rahmen `border-red-200` / `border-red-800` | Feldfehler, Vorschau-Fehlerbanner, Speicher- und Löschfehlerbanner |
 | Warnung / Tragweite | amber-600 / amber-400 auf `bg-amber-50` / `bg-amber-900/20`, Rahmen `border-amber-200` / `border-amber-800` | Warnbanner „Das ändert die Vergangenheit" im Korrektur-Dialog, rückwirkende Vorschau, `ConfirmDialog variant="warning"` inkl. dessen Icon (siehe Angleichung unten) |
 | Modellwechsel | teal-100/teal-700 hell, teal-900/30 + teal-300 dunkel | Typ-Badge „Modellwechsel" im Kontoauszug — **auch auf der Storno-Zeile** (siehe unten) |
+
+² **Nachgezogen (Phase 14.2, Plan 10 → V-1, Plan 12).** `green-600` maß auf Weiß **3,30:1** und
+auf dem amberfarbenen Vorschau-Panel **3,18:1** — beide unter der Grenze 4,5:1 (D-1). Der
+Hellmodus-Ton wurde deshalb auf `text-green-700` gehoben (gemessen **4,84 bis 5,02:1**, neun
+Stellen einzeln geprüft); der Dunkelmodus-Ton `green-400` ist **unverändert** (gemessen
+**7,92:1**, hielt bereits vorher).
 
 **Angleichung der Warnfarbe im `ConfirmDialog` (vom Orchestrator entschieden).**
 `ConfirmDialog.tsx` Zeile 47 führt `warning: 'text-yellow-600 dark:text-yellow-400'` — **gelb**, nicht
@@ -499,24 +525,41 @@ Inhalt der Aktionszelle (`px-4 py-3 text-right`, `flex items-center justify-end 
 | Fall | Inhalt |
 |------|--------|
 | Normale Periode | `Button variant="ghost" size="sm"` mit `Pencil` + „Korrigieren" · `Button variant="ghost" size="sm"` mit `Trash2` + „Löschen" in rot (Muster `CorrectionsTable.tsx`) |
-| Erste Periode (`isFirst`) | nur „Korrigieren" · daneben ein **fokussierbarer Hinweis-Chip** `Info` + „Nicht löschbar" (`text-xs`, gray-500/400, `tabIndex={0}`, `role="note"`, `aria-label` mit dem vollen Erklärtext). Tooltip-Einblendung siehe Festlegung unten — das Bestandsmuster reicht dafür **nicht**. |
+| Erste Periode (`isFirst`) | nur „Korrigieren" · daneben ein **fokussierbarer Hinweis-Chip** `Info` + „Nicht löschbar" (`text-xs`, gray-500/400, `tabIndex={0}`, `role="note"`, `aria-label` mit dem vollen Erklärtext). Der Chip trägt zusätzlich `title` mit demselben vollen Erklärtext; ein anwendungsgezeichnetes Tooltip gibt es nicht — siehe Festlegung unten. |
 | Löschen läuft für diese Zeile | „Löschen" wird zu `LoadingSpinner size="sm"`, beide Aktionen `disabled` |
 | Kein Admin | `renderActions` wird gar nicht übergeben → die Spalte samt `<th>` entfällt (Phase-12-Verhalten) |
 
-**Tooltip-Einblendung — Bestandsmuster reicht nicht (vom Orchestrator entschieden).** Das Tooltip in
-`OvertimeTransactions.tsx` (Zeile 159 und 227) ist **hover-only**:
-`opacity-0 invisible group-hover:opacity-100 group-hover:visible` an einem `group`-Container mit
-`cursor-help`. Wer es kopiert, erfüllt die Zusage „reagiert auf hover **und** Tastaturfokus" nicht.
-Verbindlich für den Chip „Nicht löschbar" sind deshalb drei Ergänzungen gegenüber dem Bestandsmuster:
+**Tooltip-Einblendung — kein eigenes Tooltip (Korrektur M-2, Phase 13).** Die in Phase 13
+ursprünglich verlangte Ergänzung des Bestandsmusters aus `OvertimeTransactions.tsx` (eine
+zusätzliche Reaktion auf Tastaturfokus neben der bestehenden Reaktion auf `hover`, plus ein
+eigener ESC-Ausblendpfad) ist von Korrektur **M-2** desselben UI-Reviews bewusst verworfen
+worden — begründet und im Quelltext vollständig dokumentiert
+(`desktop/src/components/worktime/workTimePeriodActions.tsx:98-131`):
 
-1. `group-focus-within:opacity-100 group-focus-within:visible` zusätzlich zu den `group-hover:`-Klassen.
-2. Die Einblendung ist mit **ESC** schließbar, ohne dass der Fokus den Chip verlässt (WCAG 2.2, 1.4.13
-   „Content on Hover or Focus"). Der ESC-Handler des Chips ruft `stopPropagation()`, damit er nicht
-   zusätzlich das umgebende Modal schließt — der Modal-Stack aus Phase 12 regelt nur die Rangfolge
-   zwischen Modalen, nicht die zwischen Tooltip und Modal.
-3. Das Tooltip ist rein visuelle Wiederholung. Der **Träger der Information** ist die dauerhaft
-   sichtbare Fußnote unter der Liste, ergänzt um das `aria-label` des Chips. Fällt das Tooltip aus,
-   fehlt keine Aussage.
+1. **Was gilt:** Kein anwendungsgezeichnetes Tooltip. Träger der Aussage sind das `aria-label`
+   des Chips und die dauerhaft sichtbare Fußnote unter der Liste. Für den sehenden Mausnutzer
+   tritt das browsergezeichnete `title` an seine Stelle — dasselbe Paar aus `aria-label` und
+   `title` tragen die beiden Schaltflächen derselben Zelle bereits.
+2. **Warum das frühere Muster verworfen wurde** (gemessen, nicht angenommen — 23.08.2026 in
+   headless Edge, dieselbe Blink/WebView2-Engine wie Tauri unter Windows, Sichtbarkeit über
+   `document.elementFromPoint()`): `overflow-x: auto` lässt `overflow-y` rechnerisch zu `auto`
+   werden (gemessen: `computed overflow-y === 'auto'`) — der Container beschneidet also auch
+   senkrecht. `top-6` ragt bei einer Zeile **54 px** unter den Container, die untere Hälfte ist
+   nicht treffbar. `bottom-full mb-1` trägt **nur ab drei Zeilen** und ragt bei einer Zeile
+   **56 px** über den Container hinaus — und genau dieser Fall ist der häufigste, weil die erste
+   Periode wegen der DESC-Sortierung immer die letzte Zeile ist und ein Nutzer mit nur einer
+   Periode genau eine Zeile hat, die zugleich `isFirst` ist.
+3. **Was dabei verloren geht — ausdrücklich und ohne Beschönigung:** Chromium öffnet ein
+   `title`-Tooltip bei **Tastaturfokus nicht**; ESC schließt es nicht; es liegt außerhalb des
+   DOM und ist mit Playwright **nicht** beobachtbar (das ist der Grund, warum 13-U8 im
+   Abnahmelauf als **NICHT PRÜFBAR** endete). Sehende Tastaturnutzer sehen die Erklärung damit
+   nur über die dauerhaft sichtbare Fußnote, nicht am Chip selbst.
+4. **Warum WCAG 2.2, 1.4.13 nicht mehr greift:** Das Kriterium „Content on Hover or Focus" gilt
+   ausdrücklich **nicht** für Einblendungen des User Agents. Der frühere ESC-Ausblendpfad samt
+   `stopPropagation()` entfällt deshalb ersatzlos.
+5. **Gegenentscheidung möglich:** Dass sehende Tastaturnutzer die Erklärung nicht am Chip sehen,
+   liegt dem Anwender als UAT-Punkt vor (siehe `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2") —
+   der Anwender darf ein eigenes, nicht beschnittenes Tooltip verlangen.
 
 **Keine ausgegraute Löschschaltfläche (vom Orchestrator entschieden).** Ein `disabled`-Button
 erklärt nichts, ist mit der Tastatur nicht erreichbar und trägt seinen Tooltip unzuverlässig. Der
@@ -827,10 +870,12 @@ Breakpoints wie im Bestand: `sm` 640, `md` 768, `lg` 1024.
 - Das schreibgeschützte Feld „Gültig bis" erhält `aria-readonly="true"` und bleibt lesbar
   (`readOnly`, nicht `disabled` — Kontrast ≥ 4,5:1 in beiden Modi, Regel aus Phase 12).
 - Der Chip „Nicht löschbar" ist mit `tabIndex={0}` erreichbar und trägt seine vollständige Erklärung
-  im `aria-label`. Die Tooltip-Einblendung reagiert auf `hover` **und** `focus-within` und ist mit ESC
-  ausblendbar (WCAG 2.2, 1.4.13) — das Bestandsmuster aus `OvertimeTransactions.tsx` ist hover-only
-  und muss dafür ergänzt werden, nicht kopiert. Sehende Tastaturnutzer sind sonst ausgeschlossen;
-  Screenreader wären über das `aria-label` versorgt, die Fußnote trägt beide Gruppen.
+  im `aria-label`. Die Einblendung ist browsergezeichnet (`title`, Korrektur M-2, Phase 13 —
+  Begründung im Abschnitt „Aktionen in `WorkTimePeriodList.tsx`" oben): Chromium öffnet sie bei
+  Tastaturfokus **nicht**, und ESC schließt sie **nicht**. Verbindlicher Träger der Aussage für
+  **alle** Nutzergruppen ist deshalb die dauerhaft sichtbare Fußnote unter der Liste, ergänzt um
+  das `aria-label` des Chips für Screenreader. Sehende Tastaturnutzer sehen die Erklärung damit
+  nicht unmittelbar am Chip — dieser Verlust liegt dem Anwender als UAT-Punkt vor.
 - Die Löschbestätigung nennt im `aria-label` des Bestätigungsknopfes die Periode:
   „Periode vom {TT.MM.JJJJ} löschen und stornieren".
 - Der Beleg-Chip ist ein echtes `<button>` mit `aria-label`; nach dem Sprung erhält die Zielzeile
@@ -908,7 +953,7 @@ bleiben unverändert bestehen.
 | **E5** „Spacing unverändert" trug nicht | Token `sm+` (12 px) aus Phase 12 übernommen; `px-4 py-3`, `gap-3` und `space-x-3` sind damit keine Ausnahmen mehr. Es bleiben die zwei Phase-12-Ausnahmen plus die neue 32-px-Trefferfläche. | Spacing Scale |
 | **E6** `client.ts`-Ausnahme unpräzise | Präfix-/Regex-Vergleich statt `===` (die Endpunkte sind parametrisiert); die Unterdrückung gilt ausdrücklich auch für die schreibenden Endpunkte, dort trägt das Formularbanner die 403-Meldung. | Änderungsliste |
 | **E7** `console.log` in `client.ts` | Phase-12-Regel angewandt: alle 42 `console.log` entfernt, `console.error` bleibt. Die Datei protokolliert heute vollständige PUT-/DELETE-Nutzdaten. | Änderungsliste |
-| **E8** Chip-Tooltip nur hover | `group-focus-within` ergänzt, ESC-Ausblendbarkeit (WCAG 2.2, 1.4.13) gefordert, Bestandsmuster ausdrücklich als unzureichend markiert. | Abschnitt 3, Barrierefreiheit |
+| **E8** Chip-Tooltip nur hover | Ergänzung um eine Reaktion auf Tastaturfokus und ESC-Ausblendbarkeit (WCAG 2.2, 1.4.13) gefordert, Bestandsmuster ausdrücklich als unzureichend markiert. **Überholt seit Revision 3 (V-1, Phase 14.2, Plan 12, 26.08.2026):** Korrektur M-2 hat diesen Weg zugunsten eines browsergezeichneten `title` verworfen — siehe Abschnitt 3, Barrierefreiheit. | Abschnitt 3, Barrierefreiheit |
 | **E9** `renderActions` braucht `isFirst` | Typerweiterung `isFirst`/`isCurrent` am Phase-12-Typ `WorkTimePeriod` ausgewiesen, mit Begründung gegen die Frontend-Ableitung. | Änderungsliste, Datenvertrag |
 | **Streichungen** | `zIndexClass` wird von Phase 12 eingeführt und hier nur gesetzt (vereinheitlicht); „Zähler geöffneter Modale" → **Modal-Stack** mit `isTopModal`; der Altlast-Vermerk zu den `console.log` in `ConfirmDialog.tsx` ist entfallen, weil Phase 12 sie entfernt. | Änderungsliste |
 
