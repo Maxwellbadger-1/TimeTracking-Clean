@@ -1485,3 +1485,42 @@ Abschnitten oben und bleiben dort als Nachweis.
 mehrere Pläne denselben Kandidaten gemeldet haben — 14.2-U7 erscheint zweimal, ebenso ist
 14.2-U26 aus fünf Plänen gespeist), 13 Einträge in Liste B. **Kein Eintrag der Phase steht in
 beiden Listen, keiner in keiner.**
+
+---
+
+## Nachtrag 26.08.2026 — Befund aus der Abnahme am laufenden System
+
+**AB-01 — Der Urlaubs-Kontoauszug zeigt dem Administrator nur sein eigenes Konto.**
+
+Gefunden vom Anwender beim Nachprüfen der ausgelieferten Zahlen, nicht von einem Prüflauf.
+
+*Beobachtung:* Die Seite trägt den Titel „Abwesenheiten (Alle Mitarbeiter)", und der Reiter
+*Anträge* zeigt tatsächlich alle 30 Anträge sämtlicher Mitarbeiter. Der Reiter *Kontoauszug*
+zeigt dagegen ausschließlich das Urlaubskonto des angemeldeten Nutzers. Eine Auswahl, um ein
+anderes Konto einzusehen, gibt es nicht — nur ein Jahr-Auswahlfeld.
+
+*Ursache, am Quelltext belegt:* `desktop/src/pages/AbsencesPage.tsx:385`
+
+```tsx
+{activeTab === 'statement' && <VacationTransactions showYearSelector />}
+```
+
+`VacationTransactions` nimmt laut `VacationTransactionsProps` (`:12-14`) eine optionale
+`userId` entgegen und fällt ohne sie auf den angemeldeten Nutzer zurück. Die Komponente
+könnte das fremde Konto also anzeigen — die Seite übergibt die Kennung nur nicht und bietet
+keinen Weg an, sie zu setzen.
+
+*Einordnung:* Kein Rechenfehler, kein Datenverlust, keine Rechteausweitung. Eine
+Bedienlücke: Der Administrator kann die Urlaubsbuchungen eines Mitarbeiters über diese
+Ansicht nicht einsehen, obwohl die Überschrift es verspricht.
+
+*Warum nicht sofort behoben:* Es ist eine Funktionserweiterung, keine Fehlerbehebung, und sie
+berührt die Frage, wer wessen Urlaubshistorie sehen darf — das ist eine fachliche
+Festlegung des Anwenders, keine technische. Gehört in den Folge-Milestone, gemeinsam mit den
+zehn Warnungen aus `14-WEITERE-BEFUNDE.md`.
+
+*Nebenbefund zur Begriffsklärung:* „Kontoauszug" bezeichnet in dieser Anwendung **zwei**
+verschiedene Ansichten — den Urlaubs-Kontoauszug unter *Abwesenheiten* und die
+Überstunden-Ansicht unter *Überstunden*. Die Planungsdokumente dieses Projekts benutzen den
+Begriff für beide, was beim Abgleich zwischen Dokument und Oberfläche zu Verwechslungen
+führt.
