@@ -679,7 +679,7 @@ Plans:
 - [x] 14.2-05-PLAN.md — **F-5**: unbedingte Deckelung in `overtimeTransactionRebuildService` + Nachweis über alle aktiven Nutzer (schließt B-4)
 - [x] 14.2-06-PLAN.md — **F-6**: Exportfehler als deutscher Satz statt JSON, beide Exportwege
 - [x] 14.2-07-PLAN.md — **F-7**: „Stornieren" meldet „storniert" (Weg A, D-09)
-- [ ] 14.2-08-PLAN.md — **F-2**: Desktop zeigt die Wochenstunden der gültigen Periode, vor *und* nach dem Stichtag gemessen
+- [x] 14.2-08-PLAN.md — **F-2**: Desktop zeigt die Wochenstunden der gültigen Periode, vor *und* nach dem Stichtag gemessen
 - [ ] 14.2-09-PLAN.md — **F-8**: Kollisionsmarkierung erreicht den Anwender (`elementFromPoint`)
 - [ ] 14.2-10-PLAN.md — **D-1**: sechs Kontrastunterschreitungen, hell und dunkel, mit Gegenmessung
 - [ ] 14.2-11-PLAN.md — **D-2**: Trefferflächen ab 32 × 32 px, Spezifitätskollision aufgelöst
