@@ -301,6 +301,18 @@ fielen.
   verifiziert, Trockenlauf gesichtet, dann erst `--apply`. Prüfweg B.
 - `14-U3` — Nach dem Release: `latest.json` enthält alle vier Plattformschlüssel mit Signatur,
   eine installierte Alt-Version zieht das Update. Prüfweg C.
+  **Teilergebnis aus Plan 14-11 (26.08.2026, Release v1.9.0, Lauf `33005681228`):** Der
+  maschinell prüfbare Teil ist **erledigt und belegt**. `latest.json` trägt `version` = `1.9.0`
+  und alle vier Schlüssel, jeder einzeln geprüft — `darwin-aarch64` (url 128 Z., signature
+  436 Z.), `darwin-x86_64` (124 / 436), `linux-x86_64` (130 / 448), `windows-x86_64`
+  (129 / 448); alle Signaturen sind echte minisign-Signaturen, keine Platzhalter. Zusätzlich
+  wurde **jede** der vier URLs mit `curl -sIL` abgerufen: viermal HTTP 200. Artefakte: 2 × `.dmg`,
+  `.exe` + `.msi`, `.AppImage` + `.deb` (+ `.rpm`), `latest.json` genau einmal.
+  Belege: `14-RELEASE.md`, Abschnitte 5 und 6.
+  **Offen bleibt der zweite Teil und nur dieser:** dass ein Anwender mit einer installierten
+  Vorversion das Update tatsächlich zieht, lässt sich nicht vom Repository aus feststellen —
+  das zeigt erst das echte Gerät. Ein vollständiges `latest.json` ist die *Voraussetzung*
+  dafür, nicht der *Nachweis*. Dieser Punkt bleibt Teil der Abnahmesitzung, Gruppe C.
 - `14-U4` — WR-07: entschieden durch Plan 14-02, nur zur Kenntnis. Prüfweg D.
 - `14-U5` — Fünf UI-Korrekturen aus Phase 13 (`13-UI-REVIEW-FIX.md`, M-1 bis M-5, alle fünf
   behoben): rückwirkend-ja/nein kommt vom Server (M-1, Blocker), Tooltip „Nicht löschbar" durch

@@ -179,13 +179,26 @@ der Vorher/Nachher-Saldenvergleich, dann die Laufzeit-/Lastpunkte.
 
 ## Gruppe C — nach dem Release
 
+> ### ✅ Ab jetzt prüfbar — Version **v1.9.0**, veröffentlicht am **26.08.2026**
+>
+> Das Release ist durch. Lauf `33005681228`, alle vier Matrixjobs `success`, Release nicht als
+> Entwurf, 17 Artefakte. **`latest.json` trägt alle vier Plattformschlüssel** — jeder mit
+> gesetzter `url` **und** `signature`, jede der vier URLs mit HTTP 200 gegengeprüft
+> (`14-RELEASE.md`, Abschnitt 6).
+>
+> Die Voraussetzung dieser Gruppe — eine ausgelieferte Desktop-App — ist damit erfüllt. Was
+> maschinell prüfbar war, ist geprüft; **offen bleibt allein der Teil, den nur ein echtes Gerät
+> zeigen kann**: dass eine installierte Vorversion das Update tatsächlich zieht.
+>
+> Release: https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/tag/v1.9.0
+
 **Hinweis:** Diese Gruppe liegt zeitlich **nach** Plan 14-11 (Release) und braucht ein zweites,
 kurzes Fenster in der Sitzung — nicht am selben Tag wie A/B/D lösbar, da sie eine bereits
 ausgelieferte Desktop-App voraussetzt.
 
 | Kennung | Was zu tun ist | Erwartetes Ergebnis | ✓ |
 |---|---|---|---|
-| 14-U3 | `latest.json` nach dem Release herunterladen und prüfen (`gh release view v1.X.Y --json assets`), eine installierte Alt-Version starten | `latest.json` enthält alle vier Plattformschlüssel (`darwin-aarch64`, `darwin-x86_64`, `linux-x86_64`, `windows-x86_64`) mit gesetzter `url` + `signature`; die Alt-Version zieht das Update automatisch | ☐ |
+| 14-U3 | **Erste Hälfte in Plan 14-11 bereits maschinell erledigt** (siehe Kasten oben) — zu tun bleibt: eine installierte Vorversion (v1.8.0) starten und beobachten, ob sie v1.9.0 anbietet und einspielt | `latest.json` enthält alle vier Plattformschlüssel (`darwin-aarch64`, `darwin-x86_64`, `linux-x86_64`, `windows-x86_64`) mit gesetzter `url` + `signature` — **am 26.08.2026 für alle vier belegt, je Schlüssel einzeln, plus HTTP 200 auf jede URL ✅**; die Alt-Version zieht das Update automatisch — **offen, nur am echten Gerät prüfbar** ☐ | ☐ |
 
 ---
 

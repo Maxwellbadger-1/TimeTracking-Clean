@@ -732,12 +732,13 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 8. Kontoauszug | v2.0 | 5/5 | Complete | 2026-08-20 |
 | 9. Ein Maßstab, ein Weg | v3.0 | 5/5 | Complete | 2026-08-22 |
 | 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/? | **Aufgeteilt (Plan 14-07): Backfill läuft in Plan 14-10 mit, Code-Härtung WR-02–WR-05 bleibt offen** | — |
-| 10. Perioden-Fundament | v3.0 | 0/? | Nicht begonnen | — |
-| 11. Datumsabhängige Berechnung | v3.0 | 0/? | Nicht begonnen | — |
+| 10. Perioden-Fundament | v3.0 | 6/6 | Complete — verifiziert 4/4, REQ-20 bis REQ-22 | 2026-08-22 |
+| 11. Datumsabhängige Berechnung | v3.0 | 11/11 | Complete — Review 2 Iterationen / 33 Fixes, verifiziert 10/10, REQ-23 bis REQ-25 | 2026-08-22 |
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
 | 13. Korrigieren und rückgängig machen | v3.0 | 11/11 | Complete — verifiziert 4/4, Code-Review 2 kritisch + 13 Warnungen behoben, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
-| 14. Absicherung und Auslieferung | v3.0 | 0/11 | Geplant (11 Pläne, 8 Wellen) — Wellen 5–7 warten auf Freigabe (D2) | — |
+| 14. Absicherung und Auslieferung | v3.0 | 9/11 | **Ausgeliefert — ein Plan offen.** 14-01 bis 14-08 und 14-11 (Release v1.9.0) abgeschlossen. 14-10 (Journal-Backfill) ist **sachlich** erledigt, aber nicht als Plan gefahren: der Vollaufbau `--all-months` lief am 26.08. im Rahmen der Auslieferung gegen die Produktion (+991 Journalzeilen, 0 Bewegung im angezeigten Saldo, danach 15 von 15 Nutzern deckungsgleich mit dem kanonischen Rechenweg — `14-AUSLIEFERUNG.md`, Abschnitt 5). **Offen: 14-09** — der reale Umstellungsfall ist auf der Produktion noch nicht eingetragen, `14-UMSTELLUNGSFALL.md` existiert nicht | 2026-08-26 |
 | 14.1 Rechenwerk-Blocker aus dem Produktionslauf schließen | v3.0 | 6/6 | **Umsetzung fertig — Abnahme offen** — BL-01 bis BL-05 geschlossen, Datenbereinigung gefahren (100 + 3 Zukunftszeilen entfernt, Wiederherstellungsnachweis Zeile für Zeile geführt); Gates 557 grün / 3 rot, kein Push (D-13). Verifikation `human_needed`: 21/22 Muss-Aussagen belegt, keine Lücke. Offen: 30 Abnahmepunkte (14.1-U1 bis U30) und 6 Code-Review-Blocker, die nach D-09 bewusst nicht behoben wurden — dringendster Punkt 14.1-U26 | 2026-08-25 |
+| 14.2 Restbefunde der Abnahme schließen | v3.0 | 13/13 | **Umsetzung fertig — Abnahme offen** — alle elf Befunde geschlossen (F-7 eingeschränkt: Schaltfläche und Meldung stimmen, die Datenbank speichert weiterhin `rejected`). Verifikation `human_needed`: 8/10 Erfolgskriterien voll erfüllt, 2/10 nachweislich eingeschränkt. Offen: 45 Abnahmepunkte (14.2-U1 bis U45) | 2026-08-26 |
 
 ---
 

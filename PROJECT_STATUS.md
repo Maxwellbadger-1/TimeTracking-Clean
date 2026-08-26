@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-08-20
-**Version:** v1.8.0 (deployed)
+**Last Updated:** 2026-08-26
+**Version:** v1.9.0 (Desktop released) · Server auf `eaf5f5c` (deployed 2026-08-26)
 **Status:** 🟢 Healthy - 2-Tier Workflow Operational
 
 ---
@@ -441,6 +441,7 @@ geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-08-26 | v1.9.0 | MINOR | **Milestone v3.0 — Historisierte Arbeitszeitmodelle.** Stundenwechsel ab Stichtag mit Vorschau vor dem Speichern; Zeiträume korrigierbar und löschbar mit Storno statt Löschung; Differenz als eigene Buchung im Kontoauszug; Wochenstunden nicht mehr an der Historie vorbei änderbar. Dazu die Blocker aus Phase 14.1 (Zukunftsdeckelung, Krankmeldungs-Gutschrift, Historien-Export) und die elf Abnahmebefunde aus Phase 14.2. Serverstand `eaf5f5c` bereits am 26.08. über `deploy-server.yml` in Produktion — dieses Release liefert den Desktop-Anteil nach | ✅ Released |
 | 2026-08-20 | v1.8.0 | MINOR | Urlaubs-Kontoauszug für Mitarbeiter und Admin (Journal-Endpunkt mit Rollenprüfung, Jahreswahl, Antragsverlinkung, Pflichtbegründung bei Admin-Korrekturen); Serveränderungen bereits am 20.08. über `deploy-server.yml` in Produktion | ✅ Deployed |
 | 2026-08-18 | v1.7.3 | PATCH | Urlaubskonto-Fixes (Gegenbuchung bei Storno, `0 \|\| 30`, rückwirkendes entitlement, Transaktionsklammer) + Datenkorrektur Produktion + DB-Stabilisierung | ✅ Deployed |
 | 2026-04-02 | v1.7.2 | PATCH | Notiz-Feld beim Anlegen einer Zeiterfassung | ✅ Deployed |
@@ -453,6 +454,40 @@ geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 | 2026-01-14 | v1.5.0 | MINOR | Strict absence validation | ✅ Deployed |
 | 2026-01-10 | v1.4.0 | MINOR | Position column added | ✅ Deployed |
 | 2025-12-20 | v1.3.0 | MINOR | Weekend bug fix (critical) | ✅ Deployed |
+
+### Produktionslauf Milestone v3.0 — 2026-08-26
+
+Vollständig durchgeführt, kein Abbruch, kein Rückweg nötig. Protokoll:
+[`14-AUSLIEFERUNG.md`](.planning/phases/14-absicherung-und-auslieferung/14-AUSLIEFERUNG.md),
+Rohausgaben unter `14-auslieferung-belege/`.
+
+| Schritt | Ergebnis |
+|---------|----------|
+| Sicherung vor dem Lauf | `production.PRE-RELEASE_20260826_063302.db`, SHA-256 bit-genau gegengeprüft |
+| Server-Deployment | Actions-Lauf `32931242550` → `success`; Serverstand `eaf5f5c`, deckungsgleich mit dem lokalen HEAD |
+| Migrationsstand | 18 Einträge, höchste `015_unique_reversal_of_index` — keine neue Migration nötig |
+| Bereinigung | 100 Journalbuchungen + 3 Monatszeilen mit Zukunftsdatum entfernt, Wiederherstellungsnachweis Zeile für Zeile geführt |
+| Journal-Backfill | Vollaufbau `--all-months` (Variante (b), vom Anwender gewählt): **+991 Journalzeilen**, 100 Monate ohne Abbruch |
+| Wirkung auf die Salden | **0 Bewegung** im angezeigten Saldo — der Backfill hat die Buchungsliste nachgezogen, nicht die Zahl verschoben |
+| Übereinstimmung mit dem kanonischen Rechenweg | **15 von 15** Nutzern deckungsgleich (vorher 10 von 15) |
+| Geschützte Tabellen | `time_entries`, `absence_requests`, `overtime_corrections`, `vacation_balance`, `vacation_transactions` — SHA-256 vor und nach dem Lauf identisch |
+| Nachprüfung durch den Anwender | In der laufenden App bestätigt: alle acht Monate auf die Minute, Saldo +2:00 h, kein Monat in der Zukunft, Urlaub 35 Tage |
+
+**Offen — nicht beschönigt:**
+
+- **Der reale Umstellungsfall ist noch nicht eingetragen** (Plan 14-09,
+  `14-UMSTELLUNGSFALL.md` existiert nicht). Er ist der zweite Schreibzugriff auf echte
+  Mitarbeiterdaten und wartet auf die Freigabe des Anwenders. Mit v1.9.0 steht der dafür
+  nötige Bedienweg jetzt zur Verfügung.
+- **29 Monatszeilen** stimmen weiterhin nicht mit dem Journal überein; 4 der 11 betroffenen
+  Nutzer sind soft-gelöschte Testkonten, die der Backfill bewusst überspringt.
+- **Nebenbefund B-1:** Der Deploy-Workflow schaltet den pausierten Nachtlauf bei jedem
+  Deployment selbsttätig wieder an.
+- **Nebenbefund B-2:** `find server -name "*.mjs" -delete` im Deploy-Workflow löscht die
+  Mess-Werkzeuge `14-ist-stand-report.mjs` und `14-ist-stand-vergleich.mjs` bei jedem
+  Deployment aus dem Server-Checkout.
+- **75 Abnahmepunkte offen** (30 aus Phase 14.1, 45 aus Phase 14.2) — gesammelt in
+  `14-UAT-SAMMLUNG.md`, abzuarbeiten in der Abnahmesitzung.
 
 **Deployment Success Rate (Last 30 Days):** 100% (13/13 deployments successful)
 
