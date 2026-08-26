@@ -103,3 +103,6 @@ backups/
 # Ohne diesen Eintrag zaehlt sie in `git status --porcelain` mit und die Release-Checkliste
 # („git status muss sauber sein“) verleitet dazu, sie zu loeschen — genau das ist am 20.08.2026 passiert.
 .claude/CLAUDETESTOUT.md
+
+# Rohdaten der D-1-Kontrastmessung (Phase 14.2, Plan 10) — erzeugt, ~2 MB
+desktop/tests/messungen/*-rohdaten.json
