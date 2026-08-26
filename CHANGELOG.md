@@ -11,6 +11,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] - 2026-08-26
+
+**Milestone v3.0 — Historisierte Arbeitszeitmodelle.** Eine Änderung der Wochenstunden gilt ab
+einem Stichtag, statt rückwirkend die gesamte Vergangenheit neu zu rechnen.
+
+### ✨ Added
+
+#### Arbeitszeitmodelle mit Stichtag statt einem einzigen Stammdatensatz
+**Was:** Bisher trug ein Mitarbeiter genau einen Satz Wochenstunden. Wurde er geändert, rechnete
+das System die komplette Vergangenheit mit den neuen Stunden nach — ein Wechsel von 40 auf 20
+Stunden verschob rückwirkend jeden Monat. Ab dieser Fassung führt das System für jeden
+Mitarbeiter eine Kette von Zeiträumen mit jeweils eigenen Wochenstunden und eigenem Wochenplan.
+Die Sollstunden eines Tages kommen aus dem Zeitraum, der an diesem Tag galt. Was vor dem
+Stichtag gerechnet wurde, bleibt unangetastet.
+
+**Für den Bestand:** Jeder vorhandene Mitarbeiter erhält beim Update automatisch einen ersten
+Zeitraum ab seinem Eintrittsdatum mit genau den Werten, die bisher hinterlegt waren. Die Salden
+ändern sich dadurch nicht.
+
+#### Stundenwechsel ab Datum — mit Vorschau vor dem Speichern
+**Was:** Neuer Dialog „Stundenwechsel" in der Mitarbeiterbearbeitung. Der Stichtag darf in der
+Zukunft **oder** in der Vergangenheit liegen — ein Vertrag, der seit dem 01.07. gilt, aber erst
+im September eingetragen wird, rechnet ab dem 01.07. neu und lässt alles davor stehen.
+
+Vor dem Speichern zeigt eine Vorschau, was der Wechsel bewirkt: Sollstunden vorher und nachher
+sowie die Saldoänderung, die sich daraus ergibt. Der Wert der Vorschau ist derselbe, der danach
+im Konto steht — beide kommen aus derselben Rechnung, nicht aus einer Schätzung.
+
+#### Die Differenz erscheint als eigene Buchung im Kontoauszug
+**Was:** Der bestehende Überstundensaldo wird bei einem Wechsel **nicht** umgerechnet — Stunden
+bleiben Stunden. Die durch den neuen Maßstab entstehende Differenz wird stattdessen als eigene,
+nachvollziehbare Zeile im Überstunden-Kontoauszug gebucht, mit Begründung und Bezug auf den
+Zeitraum. Wer nachvollziehen will, warum sich der Saldo bewegt hat, findet die Zeile statt einer
+stillen Verschiebung.
+
+#### „Stammdaten korrigieren" als getrennte Aktion mit Pflichtbegründung
+**Was:** Für den Fall, dass die hinterlegten Stunden von jeher falsch waren, gibt es einen
+eigenen Weg mit eigener Warnung. Er ist bewusst vom Stundenwechsel getrennt: Der Wechsel bildet
+eine tatsächliche Änderung ab, die Korrektur einen Eingabefehler. Eine Korrektur ohne Begründung
+wird abgewiesen.
+
+#### Zeiträume bearbeiten und löschen — mit Storno statt Löschung
+**Was:** Ein versehentlich eingetragener Wechsel lässt sich löschen; danach entsprechen die
+Überstunden exakt dem Stand davor, und die entstandene Lücke in der Zeitraum-Kette wird
+geschlossen. Die zugehörigen Buchungen werden dabei **storniert, nicht gelöscht** — der
+Kontoauszug zeigt Buchung und Gegenbuchung als zusammengehöriges Paar mit gemeinsamer
+Belegnummer, nicht eine bereinigte Lücke. Vor dem Löschen zeigt eine Bestätigung, welche
+Buchungen storniert werden und wie sich der Saldo ändert.
+
+#### Erweiterter Überstunden-Kontoauszug
+**Was:** Der Auszug weist stornierte und stornierende Buchungen als solche aus, verlinkt zwischen
+beiden und zählt die Gegenbuchung nicht doppelt in den Saldo.
+
+### 🔄 Changed
+
+#### Wochenstunden lassen sich nicht mehr an der Historie vorbei ändern
+**Was:** Die allgemeine Mitarbeiterbearbeitung nimmt keine Änderung der Wochenstunden oder des
+Wochenplans mehr entgegen — dieser Weg hätte die Zeitraum-Kette umgangen und die Vergangenheit
+wieder rückwirkend verschoben. Stunden ändert man ab jetzt ausschließlich über „Stundenwechsel"
+(für eine echte Änderung ab einem Stichtag) oder „Stammdaten korrigieren" (für einen
+Eingabefehler). Alle übrigen Felder der Mitarbeiterbearbeitung verhalten sich unverändert.
+
+#### Ein einziger Rechenweg für die Sollstunden
+**Was:** Vor dem Umbau ermittelten mehrere Stellen die Soll-Arbeitszeit unabhängig voneinander,
+was zu abweichenden Überstundenwerten zwischen Dashboard und Berichten führen konnte. Alle
+Stellen laufen jetzt über dieselbe Auflösung. Für denselben Mitarbeiter und Monat zeigen
+Dashboard und Berichte denselben Wert.
+
+### 🐛 Fixed
+
+#### Der Saldo über dem Kontoauszug rechnete in die Zukunft, die Liste darunter nicht
+**Issue:** Die Kopfzeile summierte bis zum Monatsende, die Buchungsliste darunter nur bis heute.
+Beide Zahlen widersprachen sich, und in einem gemessenen Fall wurde der Saldo um 8:00 h zu
+niedrig angezeigt.
+**Fix:** Beide Wege decken jetzt einheitlich auf den heutigen Tag.
+
+#### Ein noch nicht begonnener Monat wies Überstunden aus
+**Issue:** Ein Monat in der Zukunft zeigte einen Minussaldo über die noch gar nicht geleisteten
+Sollstunden. Über alle aktiven Mitarbeiter gemessen: 41 von 62 Monatswerten betroffen, danach 0.
+**Fix:** Die Deckelung auf den heutigen Tag greift jetzt auch an dieser Stelle.
+
+#### Eine Krankmeldung wurde nicht gutgeschrieben
+**Issue:** Beim Eintragen einer Krankmeldung unterblieb die Neuberechnung der betroffenen Monate;
+die Gutschrift entstand nur durch einen nächtlichen Nachlauf. Solange dieser ausgesetzt war,
+blieb eine neu eingetragene Krankmeldung ohne Wirkung auf den Saldo.
+**Fix:** Der Krankmeldungs-Weg führt dieselbe Neuberechnung aus wie der reguläre
+Genehmigungsweg.
+
+#### Nach dem Löschen einer genehmigten Abwesenheit wurde nicht neu gerechnet
+**Issue:** Ein Programmierfehler in der Neuberechnungsroutine wurde von einer Fehlerbehandlung
+verschluckt — die Neuberechnung lief nie, ohne dass es auffiel.
+**Fix:** Behoben; die Neuberechnung läuft.
+
+#### Der Historien-Export enthielt abgelehnte Anträge und stillgelegte Konten
+**Issue:** Der Export filterte weder den Antragsstatus noch gelöschte Mitarbeiter. Im Bestand
+betraf das 15 abgelehnte Anträge und 5 stillgelegte Konten.
+**Fix:** Der Export filtert jetzt beides — wie der DATEV-Export es bereits tat.
+
+#### Ein deaktivierter Mitarbeiter ließ sich nicht wieder aktivieren
+**Issue:** Die Reaktivierung antwortete mit „nicht gefunden"; zudem waren deaktivierte
+Mitarbeiter in der Liste weder sichtbar noch bearbeitbar. Wer jemanden deaktiviert hatte, kam
+nicht mehr zurück.
+**Fix:** Reaktivierung funktioniert, deaktivierte Mitarbeiter sind über den Statusfilter
+erreichbar und tragen die Schaltflächen „Bearbeiten" und „Reaktivieren".
+
+#### Die Mitarbeiterliste zeigte die alten Stammdaten statt der gültigen Wochenstunden
+**Issue:** Die Anzeige nannte die Wochenstunden aus den Stammdaten (40 h), während der gültige
+Zeitraum 30 h trug und die Rechnung dem Zeitraum folgte. Das Datum kam aus dem Zeitraum, die
+Zahl aus den Stammdaten.
+**Fix:** Anzeige und Rechnung folgen beide dem heute gültigen Zeitraum.
+
+#### Ein Fehler beim DATEV-Export erschien als roher Programmtext
+**Issue:** Die Fehlermeldung landete unverarbeitet als JSON im Hinweisfenster — sie erschien,
+lesbar war sie nicht.
+**Fix:** Fünf mögliche Antwortformen geprüft, alle ergeben jetzt einen deutschen Satz.
+
+#### „Stornieren" meldete „abgelehnt"
+**Issue:** Der Bedienweg hieß „Stornieren", die Erfolgsmeldung danach „Abwesenheitsantrag
+abgelehnt" — drei verschiedene Wörter für einen Vorgang.
+**Fix:** Schaltfläche und Meldung sprechen jetzt einheitlich von Stornierung. (Intern speichert
+die Datenbank den Vorgang weiterhin als Ablehnung; das bleibt für eine spätere Fassung offen.)
+
+#### Der Hinweis auf einen kollidierenden Zeitraum war nie sichtbar
+**Issue:** Die Markierung lag vollständig unter dem Wechsel-Dialog und wurde beim Schließen
+gelöscht — sie erreichte den Anwender nie.
+**Fix:** Der Hinweis erscheint im Dialog selbst, und die Markierung überlebt dessen Schließen.
+
+#### Sechs Stellen mit zu schwachem Kontrast, zwei zu kleine Schaltflächen
+**Issue:** Über hellen und dunklen Modus hinweg unterschritten sechs Textstellen den
+Kontrastmindestwert — die schwerste davon die Saldoänderung im Vorschaupanel, also genau die
+Zahl, auf die es beim Stundenwechsel ankommt. Die Schaltflächen „Korrigieren" und „Löschen" in
+der Zeitraum-Liste waren zudem kleiner als die empfohlene Mindestfläche.
+**Fix:** Alle sechs Kontraste angehoben, beide Schaltflächen auf mindestens 32 × 32 px.
+
+---
+
 ## [1.8.0] - 2026-08-20
 
 ### ✨ Added
