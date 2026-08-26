@@ -14,9 +14,24 @@ import { formatDate, getCurrentDate } from '../utils/timezone.js';
  * Lesestellen `as any`/`as any[]`; damit war jeder Tippfehler in einem Spaltennamen
  * typkorrekt. Das Projekt hat mit `UserWorkPeriodRow` bereits dasselbe Muster.
  */
-interface UserRow extends Omit<UserPublic, 'workSchedule' | 'isActive'> {
+interface UserRow extends Omit<UserPublic, 'workSchedule' | 'isActive' | 'currentWorkSchedule'> {
   workSchedule: string | null;
   isActive: number;
+}
+
+/**
+ * F-2 (Phase 14.2, NB-2): Zeilenform von `getAllUsers()` — dieselbe `users`-Zeile plus die
+ * drei Spalten der HEUTE gueltigen Periode aus `user_work_periods`. `currentWorkSchedule` ist
+ * hier die rohe JSON-Zeichenkette, genau wie `workSchedule` in `UserRow`; beide werden im
+ * `map` unten mit `JSON.parse` aufgeloest.
+ *
+ * Eigener Typ statt einer Erweiterung von `UserRow`, damit `getUserById()` und die uebrigen
+ * Lesestellen unveraendert bleiben — sie liefern diese Spalten nicht.
+ */
+interface UserRowWithCurrentPeriod extends UserRow {
+  currentWeeklyHours: number | null;
+  currentWorkSchedule: string | null;
+  currentValidFrom: string | null;
 }
 
 /**
@@ -249,22 +264,69 @@ export function mirrorUserToWorkPeriod(user: UserPublic): void {
 
 /**
  * Get all users (including deleted for archive view)
+ *
+ * F-2 (Phase 14.2, NB-2): Liefert zusaetzlich die HEUTE gueltige Arbeitszeitperiode je
+ * Nutzer (`currentWeeklyHours`, `currentWorkSchedule`, `currentValidFrom`) — in DERSELBEN
+ * Abfrage, ueber drei korrelierte Unterabfragen. Bewusst KEINE Schleife ueber die Nutzer und
+ * kein Aufruf von `resolveWorkPeriodAt()` je Zeile: das waere eine N+1-Abfrage auf einer
+ * Liste, die beide Aufrufer (`GET /api/users`, `GET /api/users/active`) vollstaendig laden.
  */
 export function getAllUsers(): UserPublic[] {
   try {
+    // F-2: Das "heute" der Periodenaufloesung ist ein GEBUNDENER PARAMETER, gebildet in
+    // Europe/Berlin. Bewusst NICHT SQLites eingebaute Datumsfunktion mit dem Argument
+    // "now" (die Schreibweise steht absichtlich nicht woertlich hier, damit die Pruefung des
+    // Abnahmekriteriums sie nicht faelschlich als Verwendung zaehlt): SQLite rechnet sie in
+    // UTC und liefert in Europe/Berlin zwischen Mitternacht und 01:00 (Winterzeit) bzw.
+    // 02:00 (Sommerzeit) den VORTAG. Genau an einem Stichtag waehlte die Abfrage dann nachts
+    // die falsche Periode — die Fehlerklasse, die `.claude/CLAUDE.md` unter "Timezone Bugs"
+    // verbietet.
+    const today = formatDate(getCurrentDate(), 'yyyy-MM-dd');
+
+    // F-2: Die Geltungsregel ist ZEICHENGLEICH zu `resolveWorkPeriodIn()`
+    // (workPeriodService.ts) — `validFrom <= date AND (validTo IS NULL OR validTo > date)`,
+    // halboffenes Intervall, plus `deletedAt IS NULL` wie in `getWorkPeriods()`.
+    //
+    // `ORDER BY validFrom ASC LIMIT 1` ist die Absicherung fuer den Datenfehlerfall, dass
+    // mehrere Perioden denselben Tag ueberdecken (die Trigger aus Migration 008 verhindern
+    // das, aber die Abfrage darf sich nicht darauf verlassen). ASC, NICHT DESC: `getWorkPeriods()`
+    // sortiert `validFrom ASC` und `resolveWorkPeriodIn()` gibt den ERSTEN Treffer dieser
+    // Reihenfolge zurueck — also den mit dem KLEINSTEN `validFrom`. Ein `DESC` waehlte bei
+    // Ueberdeckung eine andere Zeile als die Serverberechnung und waere ein
+    // Dual-Calculation-Fehler.
+    const currentPeriodWhere = `
+      FROM user_work_periods p
+      WHERE p.userId = users.id
+        AND p.deletedAt IS NULL
+        AND p.validFrom <= ?
+        AND (p.validTo IS NULL OR p.validTo > ?)
+      ORDER BY p.validFrom ASC
+      LIMIT 1
+    `;
+
     const stmt = db.prepare(`
       SELECT id, username, email, firstName, lastName, role,
              department, position, weeklyHours, workSchedule, vacationDaysPerYear, hireDate, endDate, status, privacyConsentAt, createdAt, deletedAt,
-             CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive
+             CASE WHEN status = 'active' AND deletedAt IS NULL THEN 1 ELSE 0 END as isActive,
+             (SELECT p.weeklyHours   ${currentPeriodWhere}) as currentWeeklyHours,
+             (SELECT p.workSchedule  ${currentPeriodWhere}) as currentWorkSchedule,
+             (SELECT p.validFrom     ${currentPeriodWhere}) as currentValidFrom
       FROM users
       ORDER BY createdAt DESC
     `);
 
-    const users = stmt.all() as UserRow[];
+    const users = stmt.all(today, today, today, today, today, today) as UserRowWithCurrentPeriod[];
     // Parse workSchedule JSON
     return users.map(user => ({
       ...user,
-      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null
+      workSchedule: user.workSchedule ? JSON.parse(user.workSchedule) : null,
+      // F-2: dieselbe JSON-Aufloesung und dasselbe `? … : null`-Muster wie eine Zeile hoeher.
+      // `currentWeeklyHours` und `currentValidFrom` kommen bereits in der richtigen Form aus
+      // SQLite (REAL bzw. TEXT) und brauchen keine Umwandlung; `?? null` macht aus einem
+      // fehlenden Treffer ausdruecklich `null` statt `undefined`.
+      currentWeeklyHours: user.currentWeeklyHours ?? null,
+      currentWorkSchedule: user.currentWorkSchedule ? JSON.parse(user.currentWorkSchedule) : null,
+      currentValidFrom: user.currentValidFrom ?? null
     // WR-09: Der Zeilentyp `UserRow` ersetzt das frühere `as any` — Tippfehler in einem
     // Spaltennamen fallen jetzt beim Übersetzen auf. Der Weg über `unknown` bleibt
     // NÖTIG und ist kein verstecktes `any`: SQLite liefert `isActive` als 0/1-Zahl,

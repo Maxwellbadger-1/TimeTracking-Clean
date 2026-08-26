@@ -70,6 +70,22 @@ export interface UserPublic {
   createdAt: string;
   deletedAt?: string | null;
   isActive?: boolean;
+  /** F-2 (Phase 14.2, NB-2): Wochenstunden der HEUTE gueltigen Periode aus
+   *  `user_work_periods`. NULL, wenn heute keine Periode gilt (dann faellt die Anzeige
+   *  clientseitig auf die Stammdaten zurueck).
+   *
+   *  Die Stammdatenfelder `weeklyHours`/`workSchedule` bleiben unveraendert — sie sind die
+   *  bearbeitbaren Stammdaten (EditUserModal), diese drei Felder sind der Anzeigekontext.
+   *  Vorher zeigte der Desktop die Stammdaten an, waehrend die Sollstundenrechnung der
+   *  Periode folgte; der Mitarbeiter las ein Modell, nach dem nicht gerechnet wurde.
+   *
+   *  Alle drei optional, damit kein bestehender Erzeuger von `UserPublic` bricht — nur
+   *  `getAllUsers()` fuellt sie. */
+  currentWeeklyHours?: number | null;
+  /** F-2: Tagesplan der HEUTE gueltigen Periode, oder NULL. Siehe `currentWeeklyHours`. */
+  currentWorkSchedule?: WorkSchedule | null;
+  /** F-2: Erster Geltungstag der HEUTE gueltigen Periode (YYYY-MM-DD), oder NULL. */
+  currentValidFrom?: string | null;
 }
 
 // Session Types
