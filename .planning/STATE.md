@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
-status: executing
-stopped_at: Completed 14.2-13-PLAN.md — Phase 14.2 abgeschlossen (13/13)
+status: verifying
+stopped_at: Phase 14.2 vollstaendig durchgelaufen - 13/13 Plaene, Verifikation human_needed (8/10 Erfolgskriterien voll erfuellt, 2/10 eingeschraenkt: E2E-Reproduzierbarkeit und "ein Vorgang, ein Name"). Keine Umsetzungsluecke. 45 Abnahmepunkte 14.2-U1 bis U45 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.2. Alle elf Befunde F-1 bis F-8, D-1, D-2, V-1 geschlossen, dazu B-1 und B-4. Die fuenf geschuetzten Tabellen unveraendert (895/62/5/105/120, SHA-256 identisch). Kein Push - main steht 112 Commits vor origin/main auf 22f9cdc. Kein Uebergang zur naechsten Phase (--no-transition).
 last_updated: "2026-08-26T03:14:06.543Z"
 last_activity: 2026-08-26
 progress:
