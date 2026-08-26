@@ -40,13 +40,55 @@ const DAY_LABELS_FULL: Record<keyof WorkSchedule, string> = {
 };
 
 export function WorkScheduleDisplay({ user, mode, onDetailsClick }: WorkScheduleDisplayProps) {
+  const { data: periods } = useWorkPeriods(user.id);
+  const todayStr = getTodayDate();
+
   // Calculate schedule data
   const scheduleData = useMemo(() => {
-    const hasIndividualSchedule = !!user.workSchedule;
+    // F-2 (Phase 14.2, NB-2): Dieser Baustein zeigte bisher AUSSCHLIESSLICH die Stammdaten
+    // (`user.workSchedule` / `user.weeklyHours`) und holte aus der Periode nur das Datum.
+    // Der frueher hier stehende Kommentar behauptete, die Stammdaten seien "identisch zur
+    // offenen Periode" — genau das ist widerlegt: Nutzer `abnahme.vollstaendig` trug 40 h in
+    // den Stammdaten, waehrend die seit dem Stichtag gueltige Periode 30 h fuehrte und die
+    // Sollstundenrechnung ihr folgte. Der Mitarbeiter las ein Modell, nach dem nicht
+    // gerechnet wurde.
+    //
+    // Die Quelle wird deshalb in DREI Stufen gewaehlt. Der letzte Rueckfall auf die
+    // Stammdaten ist keine Bequemlichkeit, sondern Absicht: die Anzeige darf nie leer
+    // bleiben oder "NaN" zeigen — der Mitarbeiter braucht eine Zahl, auch wenn die Perioden
+    // gerade nicht ladbar sind.
+    //
+    // Es entsteht KEIN N+1: dieser Baustein zeigt je Aufruf genau einen Nutzer
+    // (EmployeeDashboard.tsx:178 compact, :296 detailed), nicht eine Liste.
 
-    if (hasIndividualSchedule && user.workSchedule) {
+    // Stufe 1 — die heute gueltige Periode, ueber DIE EINE Aufloesungsstelle des Desktops
+    // (zeichengleich zur Serverregel, siehe timeUtils.ts).
+    const periodToday = periods ? resolveWorkTimePeriodIn(periods, todayStr) : null;
+
+    let sourceWeeklyHours: number;
+    let sourceWorkSchedule: WorkSchedule | null;
+
+    if (periodToday) {
+      sourceWeeklyHours = periodToday.weeklyHours;
+      sourceWorkSchedule = periodToday.workSchedule;
+    } else if (user.currentWeeklyHours !== undefined && user.currentWeeklyHours !== null) {
+      // Stufe 2 — der serverseitig aufgeloeste Anzeigekontext aus `GET /api/users`
+      // (F-2, Serverhaelfte). Greift, solange die Periodenabfrage noch laeuft oder der
+      // Nutzer sie nicht laden darf.
+      sourceWeeklyHours = user.currentWeeklyHours;
+      sourceWorkSchedule = user.currentWorkSchedule ?? null;
+    } else {
+      // Stufe 3 — Stammdaten. Perioden nicht geladen, Ladefehler, oder es gilt heute gar
+      // keine Periode.
+      sourceWeeklyHours = user.weeklyHours;
+      sourceWorkSchedule = user.workSchedule ?? null;
+    }
+
+    const hasIndividualSchedule = !!sourceWorkSchedule;
+
+    if (hasIndividualSchedule && sourceWorkSchedule) {
       // Use individual schedule
-      const schedule = user.workSchedule;
+      const schedule = sourceWorkSchedule;
       const totalHours = Object.values(schedule).reduce((sum, hours) => sum + hours, 0);
       const workingDays = Object.values(schedule).filter(hours => hours > 0).length;
 
@@ -59,7 +101,7 @@ export function WorkScheduleDisplay({ user, mode, onDetailsClick }: WorkSchedule
       };
     } else {
       // Standard 5-day week (fallback)
-      const dailyHours = user.weeklyHours / 5;
+      const dailyHours = sourceWeeklyHours / 5;
       const schedule: WorkSchedule = {
         monday: dailyHours,
         tuesday: dailyHours,
@@ -73,18 +115,25 @@ export function WorkScheduleDisplay({ user, mode, onDetailsClick }: WorkSchedule
       return {
         type: 'standard' as const,
         schedule,
-        totalHours: user.weeklyHours,
+        totalHours: sourceWeeklyHours,
         workingDays: 5,
         avgHoursPerWorkingDay: dailyHours,
       };
     }
-  }, [user.workSchedule, user.weeklyHours]);
+  }, [
+    periods,
+    todayStr,
+    user.currentWorkSchedule,
+    user.currentWeeklyHours,
+    user.workSchedule,
+    user.weeklyHours,
+  ]);
 
-  // Stichtag der heute gueltigen Periode (WR-12-Nachzug, Plan 12-08): die Berechnung oben
-  // bleibt unveraendert der heutige Stammdatensatz (identisch zur offenen Periode, siehe
-  // userService), diese Zeile nennt nur zusaetzlich, seit wann er gilt. Sind Perioden nicht
-  // geladen oder gibt es keine treffende, entfaellt die Zeile ersatzlos.
-  const { data: periods } = useWorkPeriods(user.id);
+  // Stichtag der heute gueltigen Periode (WR-12-Nachzug, Plan 12-08): diese Zeile nennt,
+  // seit wann das oben gezeigte Modell gilt. Sind Perioden nicht geladen oder gibt es keine
+  // treffende, entfaellt die Zeile ersatzlos. F-2 (Phase 14.2): sie war schon richtig — ihr
+  // Widerspruch zur Zahl darueber verschwindet dadurch, dass die Zahl jetzt derselben
+  // Periode folgt.
   const currentPeriodValidFrom = useMemo(() => {
     if (!periods) return null;
     const current = resolveWorkTimePeriodIn(periods, getTodayDate());

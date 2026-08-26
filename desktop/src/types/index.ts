@@ -32,6 +32,20 @@ export interface User {
   privacyConsentAt?: string | null; // DSGVO Privacy Consent Timestamp
   createdAt: string;
   deletedAt?: string | null;
+  /** F-2 (Phase 14.2, NB-2): Wochenstunden der HEUTE gueltigen Periode aus
+   *  `user_work_periods`, serverseitig aufgeloest von `getAllUsers()`. NULL/undefined, wenn
+   *  heute keine Periode gilt oder der Erzeuger dieses Objekts sie nicht mitliefert (nur
+   *  `GET /api/users` und `GET /api/users/active` tun das).
+   *
+   *  Die Stammdatenfelder `weeklyHours`/`workSchedule` bleiben unveraendert — sie sind die
+   *  bearbeitbaren Stammdaten (EditUserModal), diese drei Felder sind der Anzeigekontext.
+   *  Wer eine Zahl ANZEIGT, nimmt diese Felder; wer Stammdaten BEARBEITET, nimmt die alten.
+   *  Spiegel von `UserPublic` im Server (server/src/types/index.ts). */
+  currentWeeklyHours?: number | null;
+  /** F-2: Tagesplan der HEUTE gueltigen Periode, oder NULL. Siehe `currentWeeklyHours`. */
+  currentWorkSchedule?: WorkSchedule | null;
+  /** F-2: Erster Geltungstag der HEUTE gueltigen Periode (YYYY-MM-DD), oder NULL. */
+  currentValidFrom?: string | null;
 }
 
 export interface TimeEntry {

@@ -332,8 +332,15 @@ export function AdminDashboard() {
                         }`}>
                           {isWorkingToday ? 'Im Dienst' : 'Nicht im Dienst'}
                         </p>
+                        {/* F-2 (Phase 14.2, NB-2): Wochenstunden der HEUTE gueltigen
+                            Periode, serverseitig in derselben Abfrage aufgeloest
+                            (getAllUsers()). Bewusst KEIN Perioden-Hook je Mitarbeiter hier —
+                            das waere ein Hook-Aufruf in einer Listenschleife (Regelverstoss)
+                            und eine N+1-Anfrage; das Abnahmekriterium prueft ausdruecklich,
+                            dass der Hookname in dieser Datei nicht vorkommt. Rueckfall auf
+                            die Stammdaten, wenn heute keine Periode gilt. */}
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatHours(employee.weeklyHours)}/Woche
+                          {formatHours(employee.currentWeeklyHours ?? employee.weeklyHours)}/Woche
                         </p>
                       </div>
                     </div>

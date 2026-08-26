@@ -478,8 +478,13 @@ export function UserManagementPage() {
                             {statusBadge.label}
                           </span>
                         </td>
+                        {/* F-2 (Phase 14.2, NB-2): Wochenstunden der HEUTE gueltigen Periode
+                            statt der Stammdaten — nach einem Wechsel auf 20 h zeigte diese
+                            Spalte weiterhin 40 h. Der Wert kommt serverseitig aufgeloest aus
+                            derselben Abfrage (getAllUsers()), es entsteht keine N+1-Anfrage.
+                            Dreistufiger Rueckfall: Periode, Stammdaten, 40. */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                          {user.weeklyHours ?? 40}h
+                          {user.currentWeeklyHours ?? user.weeklyHours ?? 40}h
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
