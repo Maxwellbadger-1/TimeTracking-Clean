@@ -1538,3 +1538,40 @@ verschiedene Ansichten — den Urlaubs-Kontoauszug unter *Abwesenheiten* und die
 Überstunden-Ansicht unter *Überstunden*. Die Planungsdokumente dieses Projekts benutzen den
 Begriff für beide, was beim Abgleich zwischen Dokument und Oberfläche zu Verwechslungen
 führt.
+
+---
+
+**AB-02 — Die Periodentabelle erzwingt seitliches Scrollen; Datum und Aktion sind nie
+gleichzeitig sichtbar.**
+
+Gefunden vom Anwender am 26.08.2026 in der frisch installierten v1.9.0, nicht von einem
+Prüflauf.
+
+*Beobachtung:* In `EditUserModal` → „Arbeitszeitmodell — Perioden" trägt die Tabelle einen
+waagerechten Rollbalken. Ungescrollt ist die Spalte „Aktionen" angeschnitten („Ak…"),
+gescrollt ist die Spalte „Gültig ab" angeschnitten — vom Datum `1.1.2026` bleibt eine `6`.
+Der Anwender kann also nicht gleichzeitig sehen, **welche** Periode er bearbeitet und
+**welche** Aktion er auslöst. Bei fünf Spalten in einem breiten Dialog ist das unnötig.
+
+*Ursache:* `WorkTimePeriodList.tsx:154-155` — `<div className="overflow-x-auto">` mit
+`<table className="w-full">`. Die Mindestbreite der Zellinhalte (Schaltfläche „Korrigieren"
+plus Statustext „Nicht löschbar" plus Abstände) übersteigt die verfügbare Dialogbreite, also
+greift der Rollbalken.
+
+*Warum das ärgerlich ist:* In derselben Datei, Zeile 192-194, steht ein Kommentar, der genau
+diese `overflow-x`-Falle für ein anderes Element beschreibt — die Zeilenmarkierung, die in
+Phase 12 deshalb umgebaut wurde. Dieselbe Ursache an zwei Stellen derselben Datei, eine
+erkannt, eine übersehen. Die Sichtprüfung der Abnahme hat sie ebenfalls nicht gemeldet, weil
+sie auf Trefferflächen und Kontraste zielte, nicht auf Spaltenbreiten.
+
+*Einordnung:* Kein Rechenfehler, kein Datenverlust. Bedienbarkeit — und zwar an der Stelle,
+an der ein Admin über die Historie eines Mitarbeiters entscheidet. Der Fehlgriff „falsche
+Periode korrigiert" wird dadurch wahrscheinlicher.
+
+*Vorschlag für den Folge-Milestone:* Die Statusspalte „Nicht löschbar" als Symbol mit
+zugänglichem Namen statt als Fließtext, oder die Aktionsspalte unter das Datum umbrechen
+lassen, sobald die Breite nicht reicht. Beides ohne Eingriff ins Rechenwerk.
+
+*Nicht sofort behoben:* Das Release v1.9.0 ist zwei Stunden alt und beim Anwender
+angekommen. Eine Beschriftungs- und Layoutkorrektur rechtfertigt kein zweites Release am
+selben Tag; sie geht mit AB-01 und den zehn Warnungen gemeinsam raus.
