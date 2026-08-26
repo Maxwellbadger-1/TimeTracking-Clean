@@ -61,6 +61,24 @@ export function WorkTimePeriodActions({
 
   return (
     <div className="flex items-center justify-end gap-2">
+      {/*
+       * D-2 (Phase 14.2, Plan 11): Gemessene Ausgangswerte 40 x 28 px, Soll 32 x 32 px
+       * (13-UI-SPEC.md, Abschnitte "Responsive" und "Barrierefreiheit"). Ursache war NICHT ein
+       * fehlendes `p-2` — die vorige Polsterung ('p-2' unterhalb, 'px-3 py-1.5' ab `sm`) stand
+       * hier bereits, wirkte aber nie: Tailwind ordnet Utility-Regeln im erzeugten Stylesheet
+       * nach Entdeckungsreihenfolge
+       * beim Build, nicht nach Reihenfolge im `class`-Attribut. `Button.tsx`s `sizeStyles.sm`
+       * ('px-3 py-1.5 text-sm') wird VOR dieser lokalen Klasse entdeckt und gewinnt die
+       * Spezifitaetskollision — die lokale Polsterung war tote Klasse. Ohne `!`-Praefix haette
+       * ein zweites `p-2` dasselbe Schicksal erlitten.
+       * Das Projekt fuehrt kein `tailwind-merge` und kein `clsx`/`classnames`
+       * (desktop/package.json, geprueft) — die etablierte Loesung fuer genau diesen Konflikt ist
+       * Tailwinds `!`-Modifier, bereits im Bestand vorgezeichnet in
+       * desktop/src/components/users/EditUserModal.tsx (Zeile 908, Stand 26.08.2026 — der Plan
+       * zitiert Zeile 882; die Datei ist seither gewachsen, das Muster ist dasselbe):
+       * `hover:!border-gray-300 dark:hover:!border-gray-600 hover:!shadow-sm`.
+       * `Button.tsx` selbst bleibt unangetastet — der Konflikt wird hier, am Aufrufer, geloest.
+       */}
       <Button
         type="button"
         variant="ghost"
@@ -70,7 +88,7 @@ export function WorkTimePeriodActions({
         disabled={isDeleting}
         aria-label="Korrigieren"
         title="Korrigieren"
-        className="p-2 sm:px-3 sm:py-1.5"
+        className="!p-2 sm:!px-3 sm:!py-2"
       >
         <Pencil className="w-4 h-4" />
         <span className="hidden sm:inline sm:ml-1.5">Korrigieren</span>
@@ -116,7 +134,7 @@ export function WorkTimePeriodActions({
           role="note"
           aria-label={ariaLabelFirst}
           title={ariaLabelFirst}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="inline-flex items-center gap-1 px-2 py-2 text-xs text-gray-500 dark:text-gray-400 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <Info className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Nicht löschbar</span>
