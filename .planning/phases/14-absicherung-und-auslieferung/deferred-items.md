@@ -1014,3 +1014,82 @@ geprüft hat; er rechnet dabei ordnungsgemäss neu.
 Messlauf ist das lästig; für einen Anwender, der versehentlich storniert hat, ist es eine
 Sackgasse derselben Art wie F-1 vor dieser Phase. Das ist **keiner der elf Befunde** und
 gehört deshalb nicht in diese Phase — aber es gehört gesehen und ist als UAT-Punkt vorzulegen.
+
+---
+
+## Aus Plan 14.2-08 (26.08.2026) — F-2
+
+### 1. `AbsenceRequestForm.tsx:331` — Hinweistext folgt den Stammdaten, die Zahlen daneben der Periode
+
+**Gefunden:** Plan 14.2-08, Task 2, bei der von D-05 verlangten systematischen Suche.
+**Kategorie (b) — Anzeigekontext.** **Nicht behoben. Begründung:**
+
+`{selectedUser?.workSchedule && ( … ⚠️ Tage mit 0h zählen nicht als Arbeitstage … )}` steuert
+ausschließlich, ob ein Hinweissatz erscheint — die Zeile trägt **keine Zahl**. Die tatsächliche
+Berechnung von `requiredDays`/`requiredHours` läuft nachweislich periodenbasiert über
+`useWorkPeriods(selectedUserId)` (Zeile 66-70). Es ist damit kein numerischer Fehler und keiner
+der gemessenen vier Anzeigestellen von NB-2.
+
+**Was trotzdem offen bleibt:** Hat die heute gültige Periode einen Tagesplan, die Stammdaten
+aber nicht (oder umgekehrt), erscheint bzw. fehlt der Hinweissatz falsch. Eine Korrektur würde
+`AbsenceRequestForm.tsx` anfassen — eine Datei, die zu **keinem** der elf Befunde dieser Phase
+gehört und deren Antragsweg eine eigene Prüfung verlangte. Scope Fence (D-02, 14.2-CONTEXT.md).
+
+### 2. `AbsencesBreakdown.tsx:89 / :305` — geprüft, **kein Fund**
+
+**Gefunden:** Plan 14.2-08, Task 2, ausdrücklich am Quelltext nachgeprüft (D-05).
+Zeile 89 ist ein Kommentar; die Zeilen 92-98 verwenden `absence.calculatedHours`, den vom Server
+gerechneten Wert. Zeile 305 ist ein reiner Infotext im Hinweiskasten. **Beide lesen keine
+Stammdaten.** Kein Handlungsbedarf — und niemand muss sie ein zweites Mal suchen.
+
+### 3. Testbestand aus dem Messlauf: `user_work_periods.id 26738`
+
+Fall B der Messung (`desktop/tests/messungen/f2-wochenstunden.mjs`) hat über die Oberfläche
+einen Stundenwechsel mit künftigem Stichtag angelegt:
+
+| Tabelle | id | Nutzer | validFrom | validTo | weeklyHours | Herkunft |
+|---|---:|---:|---|---|---:|---|
+| `user_work_periods` | **26738** | 48714 (`t1109-modellwechsel-2026-05-14`) | 2026-09-25 | NULL | 12 | Messung F-2, Fall B |
+
+Die Vorgängerperiode 22950 wurde dabei planmäßig auf `validTo = 2026-09-25` geschlossen (vorher
+offen). `user_work_periods` steht **nicht** unter D-01 (14.2-CONTEXT.md). Die Periode bleibt
+stehen, damit der Zukunftsfall reproduzierbar bleibt; sie ist hier verzeichnet, damit sie
+auffindbar ist und nicht später als unerklärter Bestand auftaucht.
+
+Ebenfalls verändert und ebenfalls nicht D-01-geschützt: `users.privacyConsentAt` für Nutzer
+48714 — der DSGVO-Zustimmungsdialog des Mitarbeiterkontos musste über den Produktweg beantwortet
+werden, um an dessen Dashboard zu gelangen.
+
+### 4. Ein Stundenwechsel legt fehlende Urlaubskonten-Zeilen still nach — **D-01 wiederhergestellt**
+
+Der Wechsel aus Punkt 3 hat für Nutzer 48714 eine bis dahin fehlende Urlaubskontozeile für 2026
+**nachgelegt**: `vacation_balance.id 39415` (`entitlement 30`) und `vacation_transactions.id
+39497` (`type='entitlement'`, `days=30`, `createdAt 2026-08-26 00:31:40`). Beide Tabellen stehen
+unter D-01.
+
+**Wiederhergestellt:** Sicherung nach
+`server/database/backups/development.PRE-14.2-08-D01-WIEDERHERSTELLUNG.db`, danach genau diese
+beiden Zeilen entfernt. Nachmessung: alle fünf Zeilenzahlen **und** alle fünf SHA-256 identisch
+zum Ausgangswert (895 / 62 / 5 / 105 / 120) — siehe `14.2-NACHWEIS-F2.md`, Abschnitt 7.
+
+**Was offen bleibt (UAT-Kandidat):** Dass eine Arbeitszeitänderung als Nebenwirkung in zwei
+besonders geschützte Tabellen schreibt, ist fachlich vermutlich richtig, aber nicht
+offensichtlich und nicht protokolliert. Ein Mensch sollte entscheiden, ob das so gewollt ist.
+
+### 5. E2E-Testdaten-Verschmutzung — zum zweiten Mal gemessen, weiterhin ungelöst
+
+Der Abschlusslauf ergab **12 passed / 9 failed / 2 skipped** — dieselbe Menge und dieselben neun
+Fälle wie der Ausgangsstand in `14.2-NACHWEIS-D01.md`, Abschnitt 2. Ursache gemessen: alle neun
+fest verdrahteten Benutzernamen stehen bereits in `development.db` (Tabelle in
+`14.2-NACHWEIS-F2.md`, Abschnitt 9); der Anlage-Dialog bleibt nach der `UNIQUE`-Kollision offen
+und fängt jeden weiteren Klick ab.
+
+**Bemerkenswert:** Plan 14.2-03 hatte `user-edit.spec.ts:221` bereits grün — **derselbe Lauf hat
+den kollidierenden Nutzer neu erzeugt** (`deactivate-user` id 52117 und `role-change-user`
+id 52118, beide 25.08.2026 23:04). Die Bereinigung hält also nur bis zum nächsten Lauf.
+
+**Nicht behoben, mit Begründung:** Eine Bereinigung erzeugt bei jedem erfolgreichen Lauf erneut
+je zwei Zeilen in `vacation_balance`/`vacation_transactions` (Plan 14.2-03 hat das gemessen) —
+also **D-01 wiederholt zu verletzen, um ein Gate zu erfüllen**. Das ist die falsche Reihenfolge
+der Zusagen. Der tragfähige Weg (Zufallsnamen oder `afterEach`-Aufräumen in den drei
+Spec-Dateien) ist eine Entscheidung des Anwenders und gehört in die UAT-Sammlung.
