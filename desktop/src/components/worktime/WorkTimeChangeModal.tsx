@@ -291,6 +291,14 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
           if (seq !== previewSeqRef.current || !data) return;
           setPreview(data);
           setFormError('');
+          // F-8 (Phase 14.2, Plan 09): Hier — und nicht mehr in `resetForm()` — wird die
+          // Zeilenmarkierung zurueckgenommen. Eine gueltige Vorschau kommt nur fuer einen
+          // KOLLISIONSFREIEN Stichtag zurueck (ein belegter Stichtag faellt in den
+          // `onError`-Zweig unten); genau dort hat die Markierung ihren Zweck erfuellt.
+          // Ausgangsbefund 14-U6 Punkt 3: `resetForm()` loeschte sie unbedingt, also auch
+          // beim blossen Schliessen des Dialogs — nach `handleClose` mass die Abnahme auf
+          // der zuvor markierten Zelle `bg rgba(0,0,0,0)` und `borderLeft 0px`.
+          onConflict?.(null);
         },
         onError: (error) => {
           if (seq !== previewSeqRef.current) return;
@@ -451,6 +459,24 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
     return true;
   }
 
+  /**
+   * F-8 (Phase 14.2, Plan 09): Hier stand als letzte Zeile `onConflict?.(null); // WR-11`.
+   * Weil `handleClose()` `resetForm()` aufruft, nahm ein blosses „Abbrechen" die
+   * Kollisionsmarkierung in der Periodenliste mit — und die Liste ist der einzige Ort, an
+   * dem sie ueberhaupt sichtbar werden kann, solange der Wechsel-Dialog mit `z-[60]` ueber
+   * dem `EditUserModal` (`z-50`) liegt. Gemessener Ausgangsbefund (14-U6 Punkt 3):
+   * `document.elementFromPoint()` auf der markierten Zelle traf bei offenem Dialog
+   * `DIV.rounded-lg border p-4 space-y-3 …` (das Vorschaupanel), und nach dem Schliessen
+   * mass dieselbe Zelle `bg rgba(0,0,0,0)` / `borderLeft 0px` — die Markierung erreichte
+   * den Anwender nie.
+   *
+   * Die Ruecknahme verschwindet nicht, sie wandert an die Stellen, an denen die Kollision
+   * tatsaechlich erledigt ist: an den kollisionsfreien Vorschauerfolg (`requestPreview`
+   * → `onSuccess`), an den Erfolgspfad von `performSave()` und — als Endstelle — an das
+   * Schliessen des `EditUserModal` selbst (`EditUserModal.tsx`, `handleClose`).
+   *
+   * Die uebrigen zehn Ruecksetzungen bleiben zeichengleich.
+   */
   function resetForm() {
     setValidFrom('');
     setWeeklyHours(String(user.weeklyHours));
@@ -462,7 +488,6 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
     setPreviewErrorMessage(null);
     setStaleFailureCount(0);
     setShowConfirm(false);
-    onConflict?.(null); // WR-11
   }
 
   function handleClose() {
@@ -487,6 +512,11 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
       });
       setStaleFailureCount(0);
       resetForm();
+      // F-8: Nach erfolgreichem Speichern ist die Kollision aufgeloest — eine stehende
+      // Markierung wuerde eine Kollision benennen, die es nicht mehr gibt. `EditUserModal`
+      // nimmt sie in seinem `onSaved`-Handler bereits zurueck; dieser Aufruf deckt den
+      // Randfall ab, in dem `result` leer ist und `onSaved` deshalb gar nicht laeuft.
+      onConflict?.(null);
       if (result) {
         onSaved?.(result);
       }
@@ -588,6 +618,21 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
     return null;
   }
 
+  /**
+   * F-8 (Phase 14.2, Plan 09): Die kollidierende Periode als abgeleitete Groesse fuer die
+   * Anzeige im Dialog. Sie wird bewusst NICHT aus `fieldErrors.validFrom` abgeleitet — der
+   * Feldfehler entsteht erst beim Absenden oder ueber die Serverantwort, die Information
+   * steht aber schon mit der Eingabe fest.
+   *
+   * Warum ueberhaupt im Dialog: Die Zeilenmarkierung in der Periodenliste liegt strukturell
+   * unter diesem Dialog (`z-[60]` ueber `z-50`, unter P12-31/P12-5 abgenommen und deshalb
+   * unveraendert). `document.elementFromPoint()` auf der markierten Zelle traf bei offenem
+   * Dialog `DIV.rounded-lg border p-4 space-y-3 …`, das Vorschaupanel — die Markierung
+   * erreichte den Anwender nie (14-U6 Punkt 3). Die Information muss deshalb IM Dialog
+   * ankommen, nicht dadurch, dass die Zeile darunter hervorgeholt wird.
+   */
+  const collidingPeriod = validFrom ? findCollidingPeriod(validFrom) : null;
+
   const primaryButtonDisabled = !preview || preview.isNoOp || isSaving;
   const primaryButtonLabel = preview?.isRetroactive ? 'Rückwirkend speichern' : 'Stundenwechsel speichern';
 
@@ -637,6 +682,46 @@ export function WorkTimeChangeModal({ isOpen, onClose, user, onSaved, onConflict
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-red-900 dark:text-red-100">{formError}</p>
+          </div>
+        )}
+
+        {/* 2b. Kollisionspanel (F-8, Phase 14.2, Plan 09) */}
+        {/* Steht oberhalb des Vorschaupanels und in derselben einspaltigen Bahn des
+            Formulars — damit es nicht seinerseits von etwas ueberdeckt wird (genau das ist
+            mit `document.elementFromPoint()` gemessen, siehe 14.2-NACHWEIS-F8.md, Zustand 1).
+            Die Position direkt unter dem Formularfehler-Banner ist gewaehlt, weil die
+            Aussage dieselbe Reichweite braucht wie ein Formularfehler: sie muss ohne
+            Scrollen ankommen. Der Feldfehler am Stichtag bleibt daneben unveraendert
+            bestehen (D-10).
+
+            `role="status"` statt `role="alert"`: Der Feldfehler ist bereits die Warnung;
+            zwei gleichzeitige `alert`-Ausgaben ueberlagern sich fuer Screenreader
+            (T-14.2-09-05). Keine Interaktionsflaeche. */}
+        {collidingPeriod && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2"
+            data-testid="worktime-change-collision-panel"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-300 flex-shrink-0" />
+              <h3 className="text-base font-semibold text-red-900 dark:text-red-100">
+                Diese Periode belegt den Stichtag bereits
+              </h3>
+            </div>
+            <p className="text-sm text-red-900 dark:text-red-100">
+              Gültig ab {formatGermanDate(collidingPeriod.validFrom)}
+              {collidingPeriod.validTo
+                ? ` bis ${formatGermanDate(collidingPeriod.validTo)}`
+                : ' — laufend'}
+              {' · '}
+              {formatWeeklyHoursDe(collidingPeriod.weeklyHours)} h/Woche
+            </p>
+            <p className="text-sm text-red-900 dark:text-red-100">
+              Dieselbe Zeile ist in der Periodenliste hinter diesem Dialog rot markiert. Die
+              Markierung bleibt dort stehen, wenn Sie diesen Dialog schließen.
+            </p>
           </div>
         )}
 
