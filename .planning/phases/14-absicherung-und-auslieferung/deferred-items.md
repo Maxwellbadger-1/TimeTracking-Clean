@@ -904,3 +904,84 @@ Plan 14.2-06 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Die Fix
 sich auf `desktop/src/api/exports.ts`; `desktop/src/api/client.ts`,
 `server/src/routes/exports.ts` und `server/src/services/exportService.ts` stehen in keinem
 seiner Commits (Scope Fence, D-08-Festlegung im Plan).
+
+---
+
+## Aus Plan 14.2-07 (26.08.2026) — F-7
+
+### 1. Weg B (eigener Datenbankzustand `cancelled`) — UAT-Kandidat (D-09)
+
+**Gefunden:** `14.2-CONTEXT.md`, Abschnitt D-09 — bereits vor Planbeginn als offene fachliche
+Entscheidung benannt, hier zur Sammlung übernommen.
+**Nicht umgesetzt** — ausdrücklicher Scope Fence dieses Plans (Weg A ist festgelegt).
+
+Der Stornoweg der Abwesenheiten läuft weiterhin über dieselbe Mutation wie der Ablehnweg
+(`POST /absences/:id/reject`) und speichert `status='rejected'` — Task 1 hat ausschließlich
+die **Client-Meldung** angeglichen (`sourceStatus:'approved'` → Toast „Abwesenheitsantrag
+storniert"). Ein eigener Datenbankzustand `cancelled` (Weg B) würde `absence_requests`
+schemaseitig ändern und damit D-01 verletzen; außerdem hängt daran der unter 14.1-U12a
+geprüfte Filter „abgelehnte Anträge nicht mehr im Historien-Export" (NB-6) — ein Antrag, der
+künftig als `cancelled` statt `rejected` markiert wäre, führe an diesem Filter vorbei, sofern
+er nicht mitgezogen wird.
+
+**Wirkung:** Das sechste Erfolgskriterium der Phase („Ein Vorgang trägt in Schaltfläche,
+Meldung und Datenbank denselben Namen") ist für **Schaltfläche und Meldung** erfüllt, für die
+**Datenbank** nicht — sie speichert weiterhin `rejected`, nicht `storniert`/`cancelled`.
+
+**Für die UAT-Sammlung:** ob ein eigener Datenbankzustand `cancelled` eingeführt werden soll
+(mit den Folgen für den Historien-Export-Filter aus 14.1-U12a) ist eine fachliche Entscheidung
+des Anwenders — als `14.2-U…` in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2" vorzumerken
+(Plan 14.2-13 sammelt).
+
+### 2. Vier Testanträge bleiben in `absence_requests` stehen — über die Oberfläche nicht entfernbar
+
+**Gefunden:** Plan 14.2-07, Task 2/3, beim D-01-Nachweis nach der Messung.
+**Nicht per DELETE geglättet** — ausdrücklich verboten (D-01, hard constraint des Plans).
+
+Die Messung in Task 2 legt für den Testnutzer `test.vollzeit` (id 15015) zwei Anträge an: einen
+`sick`-Antrag (automatisch genehmigt) und einen `vacation`-Antrag (offen). Beide werden danach
+über den jeweiligen Bedienweg storniert bzw. abgelehnt und enden mit `status='rejected'`. Ein
+erster Skriptlauf scheiterte an einem Fehler **im Messskript selbst** (Sonner-Toast-Überlagerung
+— derselbe Fallstrick wie in Plan 14.2-06 bereits einmal aufgetreten, siehe dortiges
+`f6-exportfehler.mjs`; behoben durch ein Warten auf `[data-sonner-toast]`-Anzahl `0` vor der
+nächsten Aktion). Die dabei bereits vollständig durchgeführten Server-Operationen (Anlegen,
+Stornieren/Ablehnen) waren korrekt — nur die Toast-Text-Prüfung im Skript schlug fehl. Der
+zweite, korrigierte Lauf legte zwei **weitere** Anträge desselben Musters an. In Summe stehen
+vier Zeilen:
+
+| id | type | Ausgangszustand | Vorgang | Endzustand |
+|---:|---|---|---|---|
+| 12397 | sick | approved (auto) | Stornieren | rejected |
+| 12398 | vacation | pending | Ablehnen | rejected |
+| 12399 | sick | approved (auto) | Stornieren | rejected |
+| 12400 | vacation | pending | Ablehnen | rejected |
+
+**Warum nicht entfernbar:** `AbsencesPage.tsx` zeigt für `status==='approved'` ausschließlich
+„Stornieren" und für `status==='pending'` „Genehmigen"/„Ablehnen" — für `status==='rejected'`
+zeigt die Admin-Ansicht **keine** Aktionsschaltfläche mehr. Der `DELETE /api/absences/:id`-
+Endpunkt erlaubt einem Admin serverseitig zwar das Löschen jedes Status (`server/src/routes/
+absences.ts:614-618`), aber kein UI-Element dieser Seite ruft ihn für einen nicht-`pending`-
+Antrag auf; der `Löschen`-Knopf ist ausdrücklich auf `isEmployee && isPending` beschränkt
+(`AbsencesPage.tsx:558-560`). „Über die Oberfläche wieder entfernen" (Task-2-Auftrag) ist für
+beide Test-Endzustände deshalb nicht möglich — die Zeilen bleiben stehen, wie der Plan es für
+genau diesen Fall vorsieht.
+
+**Gemessene Wirkung auf D-01 (Plan 14.2-07-SUMMARY.md, Abschnitt „D-01"):** `absence_requests`
+62 → 66 Zeilen (+4), SHA-256 verschieden. Die vier übrigen geschützten Tabellen
+(`time_entries`, `overtime_corrections`, `vacation_balance`, `vacation_transactions`) sind
+nachweislich unverändert (Zeilenzahl und SHA-256 identisch) — am Quelltext verifiziert, dass
+weder die Anlage einer Krankmeldung noch ihr Storno, weder die Anlage eines offenen
+Urlaubsantrags noch seine Ablehnung eine dieser vier Tabellen berühren (`incrementVacation-
+Pending`/`decrementVacationPending` sind No-ops, sick leave erzeugt seit der Best-Practice-
+Umstellung keine `time_entries` mehr).
+
+**Für die UAT-Sammlung:** ob die vier Testzeilen gelöscht werden dürfen (und ob dafür ein
+UI-Löschweg für Admin auch bei `rejected`/`approved` ergänzt werden soll), ist eine
+Entscheidung des Anwenders — als `14.2-U…` in `14-UAT-SAMMLUNG.md`, Abschnitt „Phase 14.2"
+vorzumerken (Plan 14.2-13 sammelt).
+
+### 3. D-09: Keine WR-Warnung berührt
+
+Plan 14.2-07 hat keine Stelle angefasst, die zu WR-01 bis WR-10 gehört. Der Fix beschränkt sich
+auf `desktop/src/hooks/useAbsenceRequests.ts` und `desktop/src/pages/AbsencesPage.tsx`; keine
+der in den Warnungen genannten Dateien steht in einem seiner Commits.
