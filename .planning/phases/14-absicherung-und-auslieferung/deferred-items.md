@@ -1315,3 +1315,86 @@ weiteren Trefferflächen unter 32 × 32 px gemessen. Eine Suche außerhalb diese
 (13-UI-SPEC.md bezieht sich ausdrücklich nur auf die Aktionszelle der Periodenliste) lag
 außerhalb des Auftrags — sollte eine kleine Fläche an anderer Stelle auffallen, ist sie noch
 nicht geprüft.
+
+---
+
+## Aus Plan 14.2-12 (V-1)
+
+### 1. Der Tastaturverlust als UAT-Kandidat
+
+Der Chip „Nicht löschbar" trägt seine Erklärung seit Korrektur M-2 (Phase 13) über das
+browsergezeichnete `title`-Attribut statt über ein anwendungsgezeichnetes Tooltip. **Sehende
+Tastaturnutzer sehen diese Erklärung nicht mehr unmittelbar am Chip**, weil Chromium `title` bei
+reinem Tastaturfokus nicht öffnet (nur bei Mausposition). Träger der Aussage bleibt für diese
+Gruppe ausschließlich die dauerhaft sichtbare Fußnote unter der Periodenliste — die Aussage
+selbst geht nicht verloren, nur der zweite, redundante Zugang dazu.
+
+**Ausdrücklich als Gegenentscheidung des Anwenders möglich markiert (D-13):** Der Anwender darf
+verlangen, dass ein eigenes, nicht vom `overflow-x-auto`-Container beschnittenes Tooltip gebaut
+wird (z. B. über ein Portal, das aus dem beschneidenden Container heraus rendert). Das wäre eine
+Architekturänderung (neue Rendering-Strategie für ein einzelnes UI-Element) und gehört, falls
+gewünscht, in einen eigenen Plan — nicht in diese reine Vertragsklärung.
+
+**Für Plan 14.2-13 (UAT-Sammlung) vorgemerkt.**
+
+### 2. Die Prüflücke: `title` ist mit Playwright dauerhaft nicht beobachtbar
+
+Ein `title`-Attribut wird vom Browser als natives Tooltip außerhalb des DOM gerendert — es
+existiert kein Element, das `document.elementFromPoint()` oder ein DOM-Query träfe, solange die
+Maus nicht in Position ist und keine echte Betriebssystem-Zeitsteuerung abgewartet wird.
+`13-U8` bleibt deshalb in diesem Teil **dauerhaft nicht maschinell prüfbar** — das ist keine
+Lücke dieser Phase, sondern eine strukturelle Eigenschaft des gewählten `title`-Wegs. Sichtbar
+und geprüft ist stattdessen, was tatsächlich automatisierbar ist: `tabIndex={0}`,
+`document.activeElement === chip`, das vollständige `aria-label`, die Tab-Reihenfolge und der
+Fokusring (alle in Plan 14.2-11/`14-ABNAHME-SICHT.md` bereits belegt).
+
+### 3. `12-UI-SPEC.md` weicht an denselben drei Stellen vom Quelltext ab wie `13-UI-SPEC.md` vorher — nicht geändert (Scope Fence)
+
+**Gesucht und gefunden**, nicht schweigend übergangen: `12-UI-SPEC.md` ist laut `13-UI-SPEC.md`
+("Fortschreibung von Phase 12, kein Neuanfang") für dieses Dokument **bindend** und wurde von
+Plan 14.2-10 (D-1) — genau wie `13-UI-SPEC.md` — nicht mitgezogen, als die zugrundeliegenden
+Farbklassen im Quelltext geändert wurden. Drei Fundstellen, alle durch dieselbe Korrektur (D-1,
+Plan 14.2-10) überholt:
+
+| Zeile | `12-UI-SPEC.md` sagt | Quelltext jetzt |
+|---|---|---|
+| 146 | Accent dunkel: `#3b82f6` (blue-500) | `#2563eb` (blue-600) als Primärbutton-Grund im Dunkelmodus (`Button.tsx`); `focus:ring-blue-500` unverändert |
+| 170 | Gutschrift / positiver Saldo: green-600 / green-400 | Hellmodus auf `text-green-700` gehoben; `green-400` (dunkel) unverändert |
+| 722 | `documentedDeltaToneClass()`: „green-600/400 bei > 0" | `overtimeTransactionFormat.ts:61` liefert seit demselben Fix `text-green-700 dark:text-green-400` |
+
+**Nicht geändert**, weil Task 1 dieses Plans (14.2-12) `12-UI-SPEC.md` ausdrücklich von der
+Bearbeitung ausnimmt ("es ist für dieses Dokument bindend und bleibt unberührt", Scope Fence,
+D-13) — dieser Plan trägt ausschließlich V-1, und V-1 ist als Vertragsklärung von `13-UI-SPEC.md`
+definiert, nicht von `12-UI-SPEC.md`. Eine Fortschreibung von `12-UI-SPEC.md` wäre ein eigener,
+unvermischter Commit-Satz (D-02) und liegt außerhalb dieses Auftrags.
+
+**Kandidat für einen eigenen Vorgang** (Dokumentnachzug, keine Codeänderung, dieselbe Art wie
+14.2-12 selbst) — oder als UAT-Punkt, falls der Anwender entscheidet, dass sich der Aufwand für
+zwei Zeilen historischer Provenienz nicht lohnt.
+
+### 4. Vollständige Suche nach weiteren Vertragsabweichungen in `13-UI-SPEC.md` — sonst nichts gefunden
+
+Die gesamte Datei (1003 Zeilen vor diesem Plan) wurde gelesen, nicht nur die zwei im Plan
+benannten Abschnitte. Über die beiden Tooltip-Stellen und die zwei Farbwerte hinaus wurden **zwei
+weitere, kleinere historische Verweise** auf das verworfene `group-focus-within`/ESC-Muster
+gefunden und ebenfalls als überholt markiert (Revisionsvermerk-Tabelle „E8", Tabelle „Herkunft
+der Festlegungen, Revision 2") — beide ohne Streichung der ursprünglichen Begründung (D-13).
+**Kein weiterer Fund** in den übrigen ~750 Zeilen (Design System, Spacing, Typography, Copywriting
+Contract, Textbuch, Zustände 1–28, Änderungen an Bestandskomponenten, Rollen- und
+Rechtezustände, Responsive, Registry Safety, Abgrenzung).
+
+### 5. F-8s Kollisionspanel (Plan 14.2-09) berührt keine Vertragsstelle — geprüft, nichts gefunden
+
+`14.2-09-SUMMARY.md` wurde daraufhin geprüft, ob das dort neu eingeführte Kollisionspanel in
+`WorkTimeChangeModal.tsx` eine Zusicherung aus `13-UI-SPEC.md` verletzt oder eine neue verlangt.
+Ergebnis: **keine.** `13-UI-SPEC.md` macht an keiner Stelle eine Aussage über ein Kollisionspanel
+im Wechsel-Dialog — der Wechsel-Dialog selbst (`WorkTimeChangeModal.tsx`) ist ohnehin Gegenstand
+von Phase 12, nicht Phase 13 (`13-UI-SPEC.md` beschreibt den Korrektur-Dialog und die
+Periodenliste, nicht den Wechsel-Dialog). Kein Nachzug nötig.
+
+### 6. Die Trefferflächenzusage `p-2` / 32 × 32 px braucht keinen Nachzug — bestätigt
+
+Plan 14.2-11 hat selbst festgehalten (`14.2-11-SUMMARY.md`, „affects"): Der Vertrag beschreibt
+das **gewünschte Ergebnis** (32 × 32 px) korrekt, nicht den Tailwind-internen Mechanismus
+(`!p-2 sm:!px-3 sm:!py-2` statt eines einfachen `p-2`). Nachgeprüft und bestätigt — keine
+Vertragsänderung nötig.
