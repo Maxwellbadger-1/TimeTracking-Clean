@@ -1,773 +1,316 @@
-# TimeTracking System - AI Development Guidelines
+# TimeTracking System — Entwicklungsleitlinien
 
-**Version:** 2.2
-**Last Updated:** 2026-02-11
-**Purpose:** AI-friendly development guidelines for efficient context loading
+**Stand:** 2026-08-27 · Milestone v3.0 ausgeliefert · Desktop v1.9.0 · Server `eaf5f5c`
 
 ---
 
-# 📚 CORE DOCS - Definition & Hierarchy
+# 📚 Wo steht was
 
-## Was sind "Core Docs"?
+| Frage | Datei |
+|---|---|
+| Wo stehen wir gerade? | `.planning/STATE.md` (GSD-Zustand, offene Pläne) |
+| Was ist ausgeliefert / bekannt kaputt? | `PROJECT_STATUS.md` |
+| WIE ist das System gebaut? | `ARCHITECTURE.md` (Patterns, ADRs) |
+| WAS tut das System? | `PROJECT_SPEC.md` (Requirements, API, Datenmodell) |
+| Wann funktionierte es zuletzt? | `CHANGELOG.md` |
+| Umgebung, SSH, Deployment-Variablen | `ENV.md` |
 
-**"Core Docs" = Die 5 Haupt-Dokumentationen des Projekts:**
+**„Core Docs"** = PROJECT_STATUS · ARCHITECTURE · PROJECT_SPEC · CHANGELOG · ENV.
 
-1. **PROJECT_STATUS.md** (~400 lines) - Aktueller Projektstatus
-2. **ARCHITECTURE.md** (~850 lines) - WIE das System gebaut ist
-3. **PROJECT_SPEC.md** (~1500 lines) - WAS das System tut
-4. **CHANGELOG.md** (~300 lines) - Version History
-5. **ENV.md** (~429 lines) - Environment Configuration
-
-**Wenn User sagt "lies Core Docs" oder "Core Docs" erwähnt** → Er meint diese 5 Dateien!
-
-## 🔍 Decision Tree: Welches Doc wann lesen?
-
-```
-START JEDER SESSION
-└─ Read: PROJECT_STATUS.md (Quick Stats, Current Sprint)
-└─ Read: CHANGELOG.md (Recent Changes)
-
-FEATURE ENTWICKLUNG
-└─ Read: PROJECT_SPEC.md (Requirements, API Spec, Data Model)
-└─ Read: ARCHITECTURE.md (Tech Stack, Patterns, ADRs)
-
-BUG FIX
-└─ Read: PROJECT_STATUS.md (Known Issues)
-└─ Read: CHANGELOG.md (When was it last working?)
-└─ Read: ARCHITECTURE.md (System behavior)
-
-DEPLOYMENT / SCRIPTS
-└─ Read: ENV.md (Environment Config, SSH, Scripts)
-└─ Read: ARCHITECTURE.md (Deployment View)
-└─ IMPORTANT: SSH Keys sind im Projekt-Root: .ssh/oracle_server.key
-
-ARCHITECTURE CHANGE
-└─ Read: ARCHITECTURE.md (ADRs, Building Blocks)
-└─ Update: ARCHITECTURE.md + PROJECT_SPEC.md (if API changed)
-
-RELEASE
-└─ Update: CHANGELOG.md (New version entry)
-└─ Update: PROJECT_STATUS.md (Deployment status)
-└─ Follow: Release Checklist (siehe unten)
-```
-
-## 🧠 AI Context Loading Strategy
-
-**Best Practice:** Load docs in this order for optimal context:
-
-1. **Quick Context** (30 sec): PROJECT_STATUS.md Sections 1-3
-2. **Task Context** (2-5 min): Relevante Sections aus PROJECT_SPEC.md oder ARCHITECTURE.md
-3. **Details On-Demand**: ENV.md, CHANGELOG.md nur wenn gebraucht
-
-**Warum diese Struktur?**
-- **Guidelines (CLAUDE.md)**: WIE entwickeln (Prozesse, Rules, Workflows)
-- **Core Docs**: WAS/WIE gebaut ist (Specs, Architecture, Status)
-- **Klare Trennung**: Keine Redundanz, effizientes Context Loading
+- **Session-Start:** `.planning/STATE.md` + `PROJECT_STATUS.md`. Alles Weitere bei Bedarf.
+- **Feature:** PROJECT_SPEC (Requirements) + ARCHITECTURE (Patterns) → Plan → Umsetzung.
+- **Bugfix:** CHANGELOG (seit wann?) + ARCHITECTURE (Sollverhalten) → reproduzieren → Root Cause.
+- **Deployment/Skripte:** ENV.md. SSH-Key liegt im Projekt-Root unter `.ssh/oracle_server.key`.
 
 ---
 
-# 🎯 KERN-PRINZIPIEN
+# 🎯 Kern-Prinzipien
 
-## 0. ZERO HALLUCINATION POLICY (KRITISCH!)
+## 0. Keine Halluzinationen
 
-**AI darf NIEMALS Annahmen treffen oder Code "interpretieren"!**
+Keine Annahmen, keine Interpretationen. Verboten sind Sätze wie „sieht korrekt aus",
+„sollte funktionieren", „der Rest ist ähnlich" — und jede Erwähnung einer Funktion, die
+nicht gelesen wurde.
 
-### Verbotene Verhaltensweisen:
-- ❌ "Das sieht korrekt aus" ohne EXAKTEN Vergleich
-- ❌ "Ab hier sollte es funktionieren" ohne vollständige Verifikation
-- ❌ "Wahrscheinlich macht es X" ohne Code-Beweis
-- ❌ Analyse stoppen weil "der Rest ähnlich aussieht"
-- ❌ Funktionen erwähnen ohne sie gelesen zu haben
+Bei Code-Vergleichen gilt: jede relevante Funktion **gelesen**, jede SQL-Abfrage **exakt**
+verglichen, jede Berechnung Schritt für Schritt nachvollzogen, jede Abweichung notiert
+(auch kleine), jeder Fix mit echten Daten verifiziert. Belege mit Datei und Zeilennummer,
+nicht mit Eindrücken.
 
-### Pflicht bei Code-Vergleichen:
-1. ✅ **JEDE Zeile** der relevanten Source-Funktionen lesen
-2. ✅ **JEDE SQL Query** exakt vergleichen (nicht nur "ähnlich")
-3. ✅ **JEDE Berechnung** Schritt-für-Schritt nachvollziehen
-4. ✅ **JEDE Abweichung** dokumentieren (auch kleine!)
-5. ✅ **JEDEN Fix** mit echten Test-Daten verifizieren
+Sagt der Anwender „durchforste komplett" oder „keine Halluzinationen" → gilt das absolut.
 
-### Beispiel - FALSCH:
-```
-"overtimeService nutzt getDailyTargetHours, validateScript auch → sollte passen ✅"
-```
+## 1. Keine Regression
+Funktionierende Features dürfen nicht kaputtgehen. Vor jeder Änderung: Plan → Freigabe →
+Umsetzung → Test (Happy Path **und** Randfälle).
 
-### Beispiel - RICHTIG:
-```
-"overtimeService.ts Line 467:
-  const corrections = getTotalCorrectionsForUserInMonth(userId, month)
-validateScript.ts Line 291-302:
-  const corrections = db.prepare(SELECT...).all(...)
-  const totalCorrections = corrections.reduce(...)
-→ Beide laden Corrections, aber unterschiedliche Implementierung!
-→ Muss prüfen ob getTotalCorrectionsForUserInMonth intern gleiche Query nutzt..."
-[Liest getTotalCorrectionsForUserInMonth Code]
-"Line 285-290: SELECT COALESCE(SUM(hours), 0)... WHERE userId = ? AND strftime...
-→ UNTERSCHIED! Service nutzt SUM(), Script nutzt reduce()
-→ ABER: Ergebnis mathematisch identisch ✅ (verifiziert mit Test)"
-```
+## 2. Plan zuerst
+Nie direkt drauflos coden. Bei Komplexität „think hard" nutzen.
 
-### Wann ist eine Analyse "komplett"?
-**NUR wenn:**
-- Alle relevanten Funktionen gelesen & verglichen ✅
-- Alle SQL Queries verifiziert ✅
-- Alle Berechnungen nachvollzogen ✅
-- Alle Unterschiede dokumentiert ✅
-- Alle Fixes getestet ✅
-
-**User-Trigger-Phrase:**
-Wenn User sagt "durchforste komplett" oder "keine Halluzinationen" → Diese Policy gilt ABSOLUT!
+## 3. Dokumentation mitführen
+Core Docs vorher lesen, während der Arbeit aktualisieren. Commit-Nachricht erklärt das WARUM.
 
 ---
 
-## 1. NO REGRESSION
+# ⚡ Kritische Regeln
 
-**Funktionierende Features dürfen NIEMALS kaputt gehen!**
+## 🛑 Produktionsdatenbank: niemals aus einem eigenen Prozess öffnen
 
-Vor JEDER Änderung:
-1. ✅ Plan erstellen → User Review → Implementation
-2. ✅ Tests schreiben & ausführen
-3. ✅ Manuelle Prüfung (Happy Path + Edge Cases)
+`/home/ubuntu/databases/production.db` darf **nie** aus einem eigenen Prozess geöffnet
+werden — **auch nicht `readonly`, auch nicht mit `VACUUM INTO`.** Ein Lesezugriff wirkt
+harmlos, ist es aber nicht: SQLite räumt WAL- und SHM-Datei auf, sobald sich eine
+Verbindung für die letzte hält, und übersieht dabei den laufenden Serverprozess.
 
-## 2. PLAN-FIRST APPROACH
+Zwei Vorfälle dieser Art: `.planning/debug/db-stabilisierung-20260818.md` und
+`.planning/debug/wal-abgehaengt-20260827.md` (der Server schrieb neun Stunden lang in eine
+aus dem Dateisystem gelöschte WAL-Datei; ein Neustart hätte alles seit 11:26 UTC vernichtet).
 
-- ❌ **NIEMALS** direkt coden ohne Plan
-- ✅ **IMMER** Plan mit User reviewen
-- ✅ Bei Komplexität: "think hard" nutzen
+**Stattdessen:** über die API der laufenden Anwendung prüfen, `pm2 logs` lesen, den
+Anwender um ein Backup **über die App** bitten, oder auf einer bereits vorhandenen Kopie
+arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offen hält.
 
-## 3. DOCUMENTATION-FIRST
+## 🗄️ Datenbank-Regeln
 
-- ✅ Core Docs VOR Arbeitsbeginn lesen
-- ✅ Core Docs WÄHREND Arbeit aktualisieren
-- ✅ Commit Message erklärt WARUM, nicht nur WAS
+1. **`DATABASE_PATH` immer explizit setzen.** Auf dem Server existiert **kein Symlink**
+   `server/database.db` mehr (entfernt 20.08.2026):
+   ```bash
+   DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx <skript>
+   ```
+   Ohne die Variable legt ein Skript eine leere Datenbank an und fällt sofort mit 0
+   Datensätzen auf — statt still die Produktion zu gefährden.
+   - Produktion: `/home/ubuntu/databases/production.db` (PM2-Konfiguration)
+   - Lokal: `server/database/development.db` (`server/.env.development`)
+2. **`server/database.db` ist NICHT die Arbeitsdatenbank.** Unmigrierter Altbestand von
+   April 2026 (ohne `user_work_periods`) — wer sie öffnet, sieht ein Schema von vor v3.0.
+3. **WAL-Modus** (`journal_mode = WAL`). Beim Beenden setzt `shutdownDatabase()`
+   (`server/src/database/connection.ts`) einen `wal_checkpoint(TRUNCATE)` und schließt die
+   Verbindung; `server/src/server.ts` ruft das bei `SIGTERM`/`SIGINT` auf (seit 27.08.2026 —
+   davor starb der Prozess ungefragt). Auch ohne das wäre ein `pm2 restart` im Regelfall
+   folgenlos: die WAL bleibt liegen und wird beim nächsten Start eingelesen. Gefährlich ist
+   nur eine vom Dateisystem **abgehängte** WAL — sie hängt dann allein am offenen
+   Dateizeiger des Prozesses und verschwindet mit ihm. Ursache war beide Male ein
+   Fremdzugriff auf die laufende Datei (siehe oben). Vor Neustart/Deployment prüfen (lesend):
+   ```bash
+   PID=$(pm2 jlist | jq -r '.[]|select(.name=="timetracking-server").pid')
+   ls -l /proc/$PID/fd | grep production.db     # steht "(deleted)" dabei → STOPP
+   ```
+   Bei `(deleted)`: **nicht neu starten.** Erst in der App über „Datenbank Backups" →
+   „Backup erstellen" einen Prüfpunkt erzwingen — `createBackup()`
+   (`server/src/services/backupService.ts:39-41`) führt `wal_checkpoint(TRUNCATE)` auf der
+   *eigenen* Verbindung des Servers aus und ist der einzige Weg, der eine abgehängte WAL
+   noch rettet. Danach muss `stat -L -c%s /proc/$PID/fd/20` den Wert `0` liefern.
+4. **Prepared Statements** — Pflicht (SQL-Injection).
+5. **Soft Delete** (`deletedAt`) statt `DELETE`.
 
----
+**21 Tabellen:** users, time_entries, absence_requests, vacation_balance,
+vacation_transactions, overtime_balance, overtime_daily, overtime_weekly,
+overtime_transactions, overtime_corrections, work_time_accounts, user_work_periods,
+work_period_chain_guard, departments, projects, activities, holidays, notifications,
+audit_log, password_change_log, migrations.
 
-# ⚡ CRITICAL RULES (Must-Know!)
+## 📊 Überstunden (geschäftskritisch)
 
-## 🔒 TypeScript Strict Mode (PFLICHT!)
+```
+Überstunden = Ist-Stunden − Soll-Stunden
+```
+
+1. **Referenz-Datum ist immer heute** — nie das Monatsende. Für Tage in der Zukunft wird
+   nichts gerechnet und nichts geschrieben.
+2. **Das Arbeitszeitmodell kommt seit v3.0 aus `user_work_periods`**, nicht aus den
+   Stammdaten: `resolveWorkPeriodAt(userId, date)` bzw.
+   `getDailyTargetHours(user, date, periods)` (`server/src/utils/workingDays.ts:176`). Ohne
+   passende Periode wirft die Funktion `MissingWorkPeriodError` — **kein stiller Rückfall**
+   auf `user.weeklyHours`/`user.workSchedule`. Eine Stundenumstellung gilt ab ihrem Stichtag
+   und verschiebt keine Vergangenheit.
+3. **Reihenfolge innerhalb einer Periode:** Feiertag (→ 0 h) überschreibt alles, dann
+   `period.workSchedule`, sonst `period.weeklyHours / 5` (Wochenende 0 h).
+4. **Krankheit, Urlaub und Sonderurlaub** zählen als gearbeitete Stunden (Gutschrift).
+   **Unbezahlter Urlaub** reduziert das Soll und gibt **keine** Gutschrift.
+5. **Live berechnen, nie cachen.**
+
+**Zwei Rechenwege — Gefahrenquelle:** Backend `overtimeService.ts` → `overtime_balance`
+(maßgeblich) und Frontend `reportService.ts` → API-Antwort. Bei Abweichungen immer beide
+Seiten messen, nie nur eine.
+
+**Zeitzonen:** `date.toISOString().split('T')[0]` verschiebt das Datum über UTC → falscher
+Tag. Immer `formatDate(date, 'yyyy-MM-dd')`.
+
+**Werkzeuge** (laufen in `server/`):
+```bash
+cd server
+npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
+npm run verify:balance-vs-journal      # kanonischer Weg gegen Journal
+npm run verify:future-overtime         # Zeilen für Monate in der Zukunft
+```
+**Details:** `ARCHITECTURE.md` 6.3.9 / 6.3.10 / ADR-006, `PROJECT_SPEC.md` 6.3.5.
+
+## 🖥️ Tauri
 
 ```typescript
-// ❌ NIEMALS
-const data: any = response.data;
-
-// ✅ IMMER
-const data: unknown = response.data;
-if (isValidData(data)) { /* Type Guard */ }
-```
-
-**Regel:** Null Type Guards verwenden, kein `any`, optional chaining überall!
-
-## 🖥️ Tauri Session Management (KRITISCH!)
-
-```typescript
-// ❌ FALSCH - Session Cookies gehen verloren
+// ❌ verliert Session-Cookies bei Cross-Origin
 await fetch('http://localhost:3000/api/...', { credentials: 'include' });
 
-// ✅ RICHTIG - Nutze universalFetch
+// ✅
 import { universalFetch } from '../lib/tauriHttpClient';
 await universalFetch('http://localhost:3000/api/...', { credentials: 'include' });
 ```
 
-**Warum?** Browser `fetch()` sendet keine Cookies bei Tauri Cross-Origin!
-**Details:** ARCHITECTURE.md → Section "Tauri HTTP Client"
-
-## 📊 Überstunden-Berechnung (BUSINESS-CRITICAL!)
-
-```
-Überstunden = Ist-Stunden - Soll-Stunden
-```
-
-**Grundregeln (HR-System-Kompatibel):**
-1. **Referenz-Datum:** IMMER heute (nicht Ende Monat!)
-2. **Krankheit/Urlaub:** Als gearbeitete Stunden zählen (Gutschrift!)
-3. **Unbezahlter Urlaub:** Reduziert Soll-Stunden (keine Gutschrift)
-4. **Live-Berechnung:** ON-DEMAND berechnen, NIE cachen!
-
-**Details:** PROJECT_SPEC.md → Section 6.2, ARCHITECTURE.md → Section 6.3.9
-
-### 🔍 Wichtigste Faktoren (Kurzversion)
-
-**User-Daten:** workSchedule (höchste Priorität!), weeklyHours, hireDate, endDate
-**Zeitraum:** Feiertage (überschreiben workSchedule!), Wochenenden, "heute" als Referenz
-**Abwesenheiten:** vacation/sick/special (MIT Gutschrift), unpaid (OHNE Gutschrift, reduziert Soll)
-**Berechnung:** time_entries + absence credits + corrections = Ist | workSchedule/weeklyHours = Soll
-
-**Häufige Fehler:**
-- workSchedule existiert → weeklyHours wird IGNORIERT!
-- Feiertag ÜBERSCHREIBT workSchedule → 0h (auch wenn workSchedule > 0!)
-- Unbezahlter Urlaub: REDUZIERT Soll, gibt KEINE Ist-Gutschrift!
-
-### ⚠️ DUAL CALCULATION SYSTEM (CRITICAL!)
-
-**GEFAHR:** System hat ZWEI unabhängige Berechnungswege!
-- Backend: overtimeService.ts → overtime_balance (Source of Truth)
-- Frontend: reportService.ts → API response (kann abweichen!)
-
-**Timezone Bugs:**
-```typescript
-// ❌ NIEMALS:
-date.toISOString().split('T')[0]  // UTC shift → falsches Datum!
-
-// ✅ IMMER:
-formatDate(date, 'yyyy-MM-dd')  // Timezone-safe
-```
-
-**Details:** ARCHITECTURE.md → Section 6.3.9
-
-### 🛠️ Validation Tools
-
+⚠️ **Downloads aus der App: erst ab Desktop-Release > 1.9.0 brauchbar.** `tauriHttpClient.ts`
+las den Antwortkörper früher mit `response.text()` und baute ihn mit `new Response(text)`
+wieder auf — UTF-8 rein, UTF-8 raus. Binärdateien wurden dabei zerstört (+8–10 % Größe,
+nicht mehr öffenbar): Datenbank-Sicherungen sowie Excel- und PDF-Exporte
+(`desktop/src/api/exports.ts`). CSV war nie betroffen (`text/csv; charset=utf-8`). Behoben
+am 27.08.2026 (Regressionstest `desktop/src/lib/tauriHttpClient.test.ts`), **aber die beim
+Anwender installierte v1.9.0 trägt den Defekt noch.** Bis zum nächsten Release:
 ```bash
-# Detailed Analysis (empfohlen!)
-npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
-
-# Quick Check
-npm run validate:overtime -- --userId=X
-
-# Unit Tests
-npm test -- workingDays
-
-# Backend vs Frontend Compare
-sqlite3 server/database/development.db "SELECT * FROM overtime_balance WHERE userId=X"
-curl http://localhost:3000/api/reports/overtime/user/X?year=YYYY&month=MM
+scp -i .ssh/oracle_server.key \
+  ubuntu@129.159.8.19:/home/ubuntu/TimeTracking-Clean/backups/<datei>.db ~/Downloads/
 ```
+Die Sicherungen auf dem Server sind intakt (geprüft 27.08.2026, `integrity_check: ok`) —
+der Fehler lag nie in `createBackup()`.
 
-## 🗄️ Database Rules
+## 🔒 TypeScript
 
-1. **One Database:** Production at `/home/ubuntu/databases/production.db`, lokal `server/database/development.db`
-
-   ⚠️ **KEIN Symlink mehr auf dem Server** (entfernt 20.08.2026). `server/database.db` existiert
-   dort nicht — jedes Skript MUSS `DATABASE_PATH` explizit setzen:
-   ```bash
-   DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx <skript>
-   ```
-   **Warum:** SQLite legt die WAL-Datei neben dem *geöffneten* Pfad an, nicht neben dem
-   Symlink-Ziel. Ein Skript ohne `DATABASE_PATH` öffnete die Produktionsdatenbank über den
-   Symlink und erzeugte eine zweite WAL/SHM auf dieselbe Datei — zwei Prozesse mit getrennten
-   Sperrbereichen. Ergebnis: Die Datenbank war nicht mehr neustartfähig (`SQLITE_CORRUPT` bei
-   jedem neuen Verbindungsaufbau), der nächste Reboot hätte das System lahmgelegt.
-   Vorfall: `.planning/debug/db-stabilisierung-20260818.md`
-
-   Ohne `DATABASE_PATH` legt ein Skript jetzt eine leere Datenbank an und fällt sofort mit
-   0 Datensätzen auf — statt still die Produktion zu gefährden.
-   - `DATABASE_PATH=/home/ubuntu/databases/production.db` (server PM2 config)
-   - Local: `DATABASE_PATH=./database/development.db` (server/.env.development)
-
-   ⚠️ **`server/database.db` ist NICHT die Arbeitsdatenbank.** Die Datei existiert lokal noch als
-   unmigrierter Altbestand (Stand April 2026, ohne `user_work_periods`). Wer sie öffnet, sieht ein
-   Schema von vor Milestone v3.0 und zieht falsche Schlüsse. Maßgeblich ist ausschließlich der Pfad
-   aus `server/.env.development`.
-2. **WAL Mode:** `db.pragma('journal_mode = WAL')` für Multi-User
-3. **Prepared Statements:** SQL Injection Schutz (PFLICHT!)
-4. **Soft Delete:** `UPDATE ... SET deletedAt = NOW()` statt `DELETE`
-
-**Details:** ARCHITECTURE.md → Section "Data Layer"
-
-## 🚀 CI/CD & Production
-
-### Environment Variables (CRITICAL!)
-
-Server benötigt diese Variables für korrekten Betrieb:
-
-```bash
-TZ=Europe/Berlin                  # Deutsche Zeitzone (Überstunden!)
-NODE_ENV=production               # Production Mode
-SESSION_SECRET=<secure-random>    # Cookie Encryption
-```
-
-**Warum kritisch?**
-- ❌ Ohne `TZ=Europe/Berlin`: Zeitberechnungen nutzen UTC → falsche Überstunden!
-- ❌ Ohne `NODE_ENV=production`: Future-date time entries erlaubt (Dev-Mode)
-- ❌ Ohne `SESSION_SECRET`: Server startet nicht
-
-**Details:** ENV.md → Section "Production Server Setup"
-
-### Deployment Workflow
-
-**Auto-Deploy:** `git push origin main` (wenn `server/**` geändert)
-
-```bash
-# Workflow triggered automatisch:
-1. TypeScript Type Check
-2. Security Audit
-3. SSH zu Oracle Cloud
-4. Database Backup
-5. Build & PM2 Restart
-6. Health Check
-```
-
-**Monitor:** http://129.159.8.19:3000/api/health
-
-### Deployment Verification Rules (CRITICAL!)
-
-**User Request (2026-02-08):** "du checkst in zukunft bitte immer ab ob die deployments und releases auch wirklich durchgegangen sind. und wenn nicht was die fehler sind. schreibe das als regel"
-
-**PFLICHT nach JEDEM Deployment oder Release:**
-
-```bash
-# 1. GitHub Actions Status prüfen (SOFORT nach Push)
-gh run list --workflow="deploy-server.yml" --limit 1
-# Erwartung: Status = "completed" + Conclusion = "success"
-# Bei "failure": Logs analysieren mit gh run view <run-id>
-
-# 2. Health Check ausführen (nach 2-3 Min Wartezeit)
-curl -s http://129.159.8.19:3000/api/health | jq
-# Erwartung: {"status":"ok","database":"connected","timestamp":"..."}
-# Bei Fehler: pm2 logs timetracking-server prüfen
-
-# 3. Funktionstest durchführen
-# Test 1: Login testen (Production App oder localhost:1420)
-# Test 2: Zeiterfassung erstellen
-# Test 3: Überstunden prüfen
-# Bei 500 Errors: Server logs analysieren
-
-# 4. Bei Fehler: Rollback-Plan
-# - Database Backup vorhanden? (database.backup.TIMESTAMP.db)
-# - Letzter funktionierender Commit bekannt?
-# - Server Logs gesichert?
-```
-
-**Häufige Fehlerquellen:**
-- ❌ Deployment failed wegen TypeScript Errors → `npx tsc --noEmit` lokal prüfen
-- ❌ Migration failed → Manuell via `manual-migration.yml` ausführen
-- ❌ PM2 restart failed → SSH + `pm2 status` + `pm2 logs` prüfen
-- ❌ Health Check 502/503 → Server ist down, PM2 restart nötig
-- ❌ 500 Errors bei API Calls → Server logs analysieren, CHECK constraints prüfen
-
-**Dokumentation:**
-- Jedes fehlgeschlagene Deployment in console.md dokumentieren
-- Fix in CHANGELOG.md unter [Unreleased] eintragen
-- Bei Production Issues: Sofortiges Rollback erwägen
+Strict Mode. Kein `any` → `unknown` plus Type Guards. Null-Checks und Optional Chaining
+überall.
 
 ---
 
-# 🔄 WORKFLOWS (Kompakt)
+# 🚀 Betrieb
 
-## Session Start (3 Steps)
+## Umgebungsvariablen (Server)
 
 ```bash
-1. Read: PROJECT_STATUS.md (Current Sprint, Health)
-2. Read: CHANGELOG.md (Recent Changes)
-3. Read: Relevante Section aus ARCHITECTURE.md oder PROJECT_SPEC.md
+TZ=Europe/Berlin        # ohne: Zeitberechnungen laufen in UTC → falsche Überstunden
+NODE_ENV=production     # ohne: Zeitbuchungen in der Zukunft erlaubt (Dev-Modus)
+SESSION_SECRET=<...>    # ohne: Server startet nicht
 ```
 
-## Feature Development
+## Deployment
 
+Ablauf: lokal entwickeln → `git push origin main` → Auto-Deploy auf Blue (Port 3000) über
+`deploy-server.yml` (Type-Check → Security-Audit → SSH → DB-Backup → Build → PM2 →
+Health-Check). Frische Produktionsdaten lokal: `npm run sync-dev-db`.
+
+Der Green-Server (`/green`, `/sync-green`, Port 3001) ist optional für isolierte Tests,
+nicht Teil des Standardwegs. `/promote-to-prod` und `/rollback-prod` sind Notfallwerkzeuge.
+Migrationen müssen abwärtskompatibel sein.
+
+**Nach jedem Deployment Pflicht — Anweisung des Anwenders vom 2026-02-08:**
 ```bash
-1. Read: PROJECT_SPEC.md (Requirements für Feature)
-2. Read: ARCHITECTURE.md (Tech Patterns, ADRs)
-3. Plan erstellen → User Review
-4. Implementieren & Lokal testen (localhost:3000 + server/database/development.db)
-5. Push zu main branch → Auto-Deploy Blue Server (Production)
-6. Verify: curl http://129.159.8.19:3000/api/health
-7. Optional: Use Green Server (/green) for isolated testing before main push
-8. Update: PROJECT_STATUS.md (Sprint Items completed)
+gh run list --workflow="deploy-server.yml" --limit 1   # completed + success?
+curl -s http://129.159.8.19:3000/api/health | jq       # nach 2–3 Min
+# dann Funktionstest: Login, Zeitbuchung, Überstunden
 ```
+Bei Fehlschlag: `gh run view <run-id>`, `pm2 logs timetracking-server`, Rollback erwägen.
+Häufige Ursachen: TypeScript-Fehler (lokal `npx tsc --noEmit`), fehlgeschlagene Migration
+(`manual-migration.yml`), PM2 nicht hochgekommen (502/503), CHECK-Constraints (500er).
+Fehlgeschlagene Deployments in `CHANGELOG.md` unter `[Unreleased]` festhalten.
 
-**Standard Flow:** Development (local) -> git push main -> Auto-Deploy Blue Server
-**Optional:** Use staging branch + Green Server for isolated testing (on-demand only)
-Siehe "Production Deployment (2-Tier Workflow)" für Details.
-
-## Bug Fix
-
-```bash
-1. Read: CHANGELOG.md (Wann funktionierte es?)
-2. Read: ARCHITECTURE.md (System Behavior)
-3. Reproduzieren → Root Cause finden
-4. Fix implementieren (mit Test!)
-5. Update: CHANGELOG.md (Fixed section im Unreleased)
-```
-
-### Overtime Bug Fix (Special Case)
+## Release (Desktop-App)
 
 ```bash
-# Wenn Überstunden falsch berechnet werden:
-1. Read: ARCHITECTURE.md Section 6.3.9 (Dual Calculation System)
-2. Run: npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
-3. Compare: Backend (overtime_balance) vs Frontend (reportService API)
-4. Check: Timezone bugs (toISOString() usage)
-5. Verify: workSchedule vs weeklyHours priority
-6. Test: All 19 calculation factors (siehe Validation Checklist)
-```
-
-## PC Wechsel (Mac ↔ Windows)
-
-**WICHTIG:** Wenn User sagt "wechseln wir auf den PC" → Kontext ist Windows PC, nicht Mac!
-
-### Erstes Mal Setup (Windows PC)
-
-**User Intent:** "Setup auf Windows PC" oder "Projekt auf Windows einrichten"
-
-```bash
-# 1. Check Prerequisites
-# - Git installiert? (git --version)
-# - Node.js installiert? (node --version)
-# - Falls nicht: Installationsanleitung geben
-
-# 2. Projekt clonen (lädt NUR Source Code, ~90 MB!)
-cd C:\Projects
-git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git
-cd TimeTracking-Clean
-
-# 3. Dependencies installieren
-npm install                          # Root (~1-2 Min)
-cd desktop && npm install            # Desktop (~1 Min)
-cd ../server && npm install          # Server (~30 Sek)
-
-# 4. Verify Setup
-git status                           # Sollte clean sein
-du -sh . 2>/dev/null || echo "Windows: Check mit 'dir' command"
-
-# 5. Entwicklung starten
-# Option A: Server + Desktop separat
-cd server && npm run dev             # Terminal 1 (Server)
-cd desktop && npm run dev            # Terminal 2 (Desktop, ~5-10 Min beim ersten Mal)
-
-# Option B: /dev Command (wenn auf Windows)
-/dev                                 # Startet Server + Desktop automatisch
-```
-
-**Dauer:** ~15 Minuten Setup (einmalig), davon ~5-10 Min Tauri Build beim ersten Mal
-
-**Erwartete Ergebnisse:**
-- ✅ Projekt-Größe: ~500 MB (mit node_modules)
-- ✅ Server läuft auf localhost:3000
-- ✅ Desktop App öffnet sich automatisch
-- ✅ Beim ersten Build: `desktop/src-tauri/target/` wird erstellt (~6-8 GB)
-
-### Täglicher Wechsel (Windows PC)
-
-**User Intent:** "Wechseln wir auf den PC" oder "Arbeite jetzt auf Windows"
-
-```bash
-# 1. Hole neueste Änderungen
-cd C:\Projects\TimeTracking-Clean
-git pull origin main                 # ~5 Sekunden
-
-# 2. Check ob Dependencies aktualisiert wurden
-git log -1 --name-only | grep package.json
-# Falls package.json geändert → npm install
-
-# 3. Entwicklung starten
-cd server && npm run dev             # Server
-cd desktop && npm run dev            # Desktop App
-```
-
-**Dauer:** ~5-10 Sekunden (nur `git pull`, kein Rebuild nötig!)
-
-### Zurück zu Mac
-
-**User Intent:** "Zurück auf Mac" oder "Wechseln wir zurück auf Mac"
-
-```bash
-# AUF WINDOWS (vor Wechsel):
-git add .
-git commit -m "feat: Changes from Windows PC"
-git push origin main                 # ~10 Sekunden
-
-# AUF MAC (nach Wechsel):
-cd ~/Desktop/TimeTracking-Clean
-git pull origin main                 # ~5 Sekunden
-# Optional: npm install (falls package.json geändert)
-```
-
-### Troubleshooting (Windows)
-
-**Problem: Git nicht installiert**
-```bash
-# Download & Install: https://git-scm.com/download/win
-# Verify: git --version
-```
-
-**Problem: Node.js nicht installiert**
-```bash
-# Download & Install: https://nodejs.org/
-# Verify: node --version && npm --version
-```
-
-**Problem: Projekt zu groß (> 2 GB)?**
-```bash
-# Cleanup: Lösche Build-Artifacts
-rm -rf desktop/src-tauri/target node_modules desktop/node_modules server/node_modules
-# Dann: npm install (Dependencies neu installieren)
-```
-
-**Problem: Tauri Build schlägt fehl**
-```bash
-# Install Rust & dependencies (Windows):
-# 1. Rust: https://rustup.rs/
-# 2. Visual Studio Build Tools: https://visualstudio.microsoft.com/downloads/
-# 3. WebView2: https://developer.microsoft.com/en-us/microsoft-edge/webview2/
-```
-
-**Details:** shortcuts.md → "Git Workflow & Speicherplatz-Management"
-
-## Production Deployment (2-Tier Workflow)
-
-**Code-Flow:** Local -> `main` branch -> Blue Server:3000 (auto-deploy via deploy-server.yml)
-**Data-Flow:** Production DB -> `npm run sync-dev-db` -> Local `server/database/development.db`
-
-### Deployment Steps
-
-```bash
-# 1. Development (Local)
-npm run sync-dev-db              # Pull fresh production DB
-npm run dev                      # Develop & test locally
-
-# 2. Deploy to Production
-git add . && git commit -m "feat: ..."
-git push origin main             # Auto-Deploy -> Blue Server:3000
-
-# 3. Verify
-curl -s http://129.159.8.19:3000/api/health
-# GitHub Actions also runs DB path verification automatically
-
-# 4. EMERGENCY Rollback
-/rollback-prod                   # Git revert + Auto-Deploy
-```
-
-**Best Practices:**
-- Standard flow: develop on main, push to deploy
-- Green Server (/green, /sync-green) available for isolated testing but NOT required
-- /promote-to-prod and /rollback-prod commands still work as emergency tools
-- Database migrations must be backward-compatible
-- After deployment: check CHANGELOG.md
-
-**Details:** `.claude/commands/promote-to-prod.md`, `.claude/commands/rollback-prod.md`
-
-## Release (Desktop App)
-
-```bash
-# Pre-Checks (PFLICHT!)
-1. cd desktop && npx tsc --noEmit  # MUSS ohne Fehler laufen!
-2. git status                       # MUSS clean sein
-
-# Version Bump (3 Files!)
-3. desktop/package.json            → version: "1.X.Y"
-4. desktop/src-tauri/Cargo.toml    → version = "1.X.Y"
-5. desktop/src-tauri/tauri.conf.json → version: "1.X.Y"
-
-# Release erstellen
-6. git commit -m "chore: Bump version to v1.X.Y"
-7. git push origin main
-8. git tag v1.X.Y && git push origin v1.X.Y
-9. gh release create v1.X.Y --title "..." --notes "..."
-
-# Verification (nach 8-12 Min)
-10. Check: *.dmg, *.exe, *.msi, *.AppImage, *.deb vorhanden
-11. Check: latest.json enthält Windows + macOS + Linux!
-
-# Documentation Updates
-12. Update: CHANGELOG.md (neue Version mit Changes)
-13. Update: PROJECT_STATUS.md (Recent Deployments)
-```
-
-**KRITISCH:** `latest.json` MUSS alle Plattformen enthalten, sonst Auto-Update kaputt!
-
-**Details & Troubleshooting:** Siehe CLAUDE.md.backup (alte Version) oder frag User
-
----
-
-# 🚫 VERBOTE (Never Do!)
-
-## Code Quality
-- ❌ `any` Type verwenden → `unknown` + Type Guards nutzen
-- ❌ Code duplizieren → DRY Principle
-- ❌ Business Logic in mehreren Services → Extract to shared service
-- ❌ `console.log` in Production → Entfernen vor Commit
-
-## Database & Date Handling
-- ❌ Neue DB-Files erstellen → Nur die Datenbank aus `DATABASE_PATH` (`server/database/development.db`)!
-- ❌ SQL Injection → IMMER Prepared Statements
-- ❌ Hard Delete → Soft Delete (`deletedAt`)
-- ❌ `toISOString().split('T')[0]` → Timezone bugs! Use `formatDate(date, 'yyyy-MM-dd')`
-
-## Workflow
-- ❌ Direkt coden ohne Plan → IMMER Plan-First!
-- ❌ Direkt auf Production server arbeiten → Immer lokal entwickeln und via git push deployen
-- ❌ Mergen ohne Testing → Tests & Manual Check
-
-## Security
-- ❌ Passwörter Klartext → bcrypt Hashing
-- ❌ Input nicht validieren → XSS/SQL Injection Gefahr
-- ❌ Session-Secrets hardcoden → .env nutzen
-
-## Tauri/Desktop
-- ❌ Browser `fetch()` direkt → `universalFetch` nutzen!
-- ❌ localStorage für sensible Daten → Tauri Secure Storage
-
-## Environment Switching
-- ❌ **NIEMALS** `export VITE_API_URL=...` → Shell vars override ALL .env files!
-- ✅ **IMMER** `/dev` (localhost:3000), `/green` (staging), `/promote-to-prod` (production) Commands nutzen
-- **Troubleshooting:** `printenv | grep VITE_API_URL` → Falls gesetzt: `unset VITE_API_URL`
-
-**Details:** ENV.md → "Desktop app connects to wrong server"
-
-## Overtime Calculation
-- ❌ Neue Calculation Logic erstellen → Use UnifiedOvertimeService!
-- ❌ Ohne Validation Tool testen → `npm run validate:overtime:detailed` nutzen
-- ❌ Nur Backend ODER Frontend prüfen → Beide vergleichen!
-
-## Green Server Troubleshooting
-**Wenn Green Server Probleme:** `pm2 list` → `pm2 env <ID>` → `pm2 logs timetracking-staging`
-**Häufig:** DATABASE_PATH falsch, Port 3000/3001 conflict, ENV vars nicht als PREFIX gesetzt
-**Details:** ENV.md → "Green Server Deployment"
-
----
-
-# ✅ QUALITY GATES
-
-## Pre-Commit Checklist
-
-```bash
-# TypeScript & Code Quality
-☐ npx tsc --noEmit                # Keine TypeScript Fehler
-☐ Keine `any` Types               # unknown + Type Guards
-☐ Error Handling implementiert    # try/catch, null checks
-☐ Optional Chaining genutzt       # obj?.prop, arr?.[0]
-
-# UI/UX
-☐ Dark Mode Styles                # dark:bg-gray-800
-☐ Responsive Design               # sm:, md:, lg: breakpoints
-☐ Loading/Error States            # isLoading, error handling
-
-# Security & Best Practices
-☐ Debug console.logs entfernt     # Keine Logs in Production
-☐ Keine hardcoded Secrets         # .env nutzen
-☐ Prepared Statements             # SQL Injection Schutz
-☐ Input Validation (BE + FE)      # XSS Schutz
-
-# Testing
-☐ Manuell getestet               # Happy Path + Edge Cases
-☐ Browser Console: Keine Errors  # F12 → Console leer
-```
-
-## Release Checklist (Desktop App)
-
-```bash
-☐ TypeScript kompiliert (npx tsc --noEmit)
-☐ Version in 3 Files gebumpt
-☐ Commit & Tag erstellt
-☐ Release auf GitHub erstellt
-☐ Build Status geprüft (8-12 Min)
-☐ Binaries vorhanden (*.dmg, *.exe, *.msi, *.AppImage, *.deb)
-☐ latest.json enthält ALLE Plattformen (Windows!)
-☐ CHANGELOG.md aktualisiert
-☐ PROJECT_STATUS.md aktualisiert
-```
-
----
-
-# 🔗 QUICK REFERENCE
-
-**Core Docs:** PROJECT_STATUS.md, ARCHITECTURE.md, PROJECT_SPEC.md, CHANGELOG.md, ENV.md
-**Codebase:** `server/` (Backend), `desktop/` (Tauri), `.github/workflows/` (CI/CD)
-
-## Essential Commands
-
-```bash
-# Development
-npm run dev                                      # Server/Desktop
-/dev | /green | /sync-green | /promote-to-prod  # Environment switching
-
-# Validation & Testing
-npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
-npx tsc --noEmit                                 # TypeScript check
-
-# Database
-sqlite3 server/database/development.db "SELECT * FROM overtime_balance WHERE userId=X"
-
-# Production
-ssh ubuntu@129.159.8.19
-pm2 logs timetracking-server
-curl http://129.159.8.19:3000/api/health
-
-# Release
+cd desktop && npx tsc --noEmit     # muss sauber sein
+git status                         # muss sauber sein
+
+# Version in DREI Dateien bumpen:
+#   desktop/package.json · desktop/src-tauri/Cargo.toml · desktop/src-tauri/tauri.conf.json
+
+git commit -m "chore: Bump version to v1.X.Y"
+git push origin main
+git tag v1.X.Y && git push origin v1.X.Y
 gh release create v1.X.Y --title "..." --notes "..."
 ```
+Nach 8–12 Min prüfen: `*.dmg`, `*.exe`, `*.msi`, `*.AppImage`, `*.deb` vorhanden — und
+**`latest.json` enthält alle Plattformen** (sonst ist das Auto-Update kaputt). Danach
+`CHANGELOG.md` und `PROJECT_STATUS.md` nachziehen.
+
+## Rechnerwechsel (Mac ↔ Windows)
+
+Sagt der Anwender „wechseln wir auf den PC", ist Windows gemeint. Übertragen wird
+ausschließlich über Git: vorher `git add . && git commit && git push origin main`, nachher
+`git pull origin main`. `npm install` nur, wenn sich eine `package.json` geändert hat
+(`git log -1 --name-only | grep package.json`). Kein Rebuild nötig.
+
+Erstaufsetzung: `git clone` → `npm install` in Root, `desktop/` und `server/` → Server und
+Desktop je `npm run dev` (erster Tauri-Build 5–10 Min; braucht Rust, Visual Studio Build
+Tools und WebView2). Platz freimachen: `/cleanup` (entfernt `desktop/src-tauri/target/`).
 
 ---
 
-# 🏗️ PROJEKT-ÜBERSICHT
+# 🚫 Verbote
 
-## Tech Stack
+**Datenbank**
+- Produktions-DB aus einem eigenen Prozess öffnen — auch nicht lesend (siehe oben)
+- Neue DB-Dateien anlegen → nur der Pfad aus `DATABASE_PATH`
+- String-Konkatenation in SQL → Prepared Statements
+- Hard Delete → Soft Delete
+- `toISOString().split('T')[0]` → `formatDate(date, 'yyyy-MM-dd')`
 
-- **Frontend:** Tauri 2.x, React 18, TypeScript, TanStack Query, Zustand, Tailwind CSS
-- **Backend:** Node.js 20, Express, TypeScript, SQLite (WAL Mode)
-- **Desktop:** Tauri (Rust) - 15 MB App Size
-- **Deployment:** Oracle Cloud Frankfurt (Free Tier)
-- **CI/CD:** GitHub Actions (Auto-Deploy)
+**Überstunden**
+- Eigene Berechnungslogik danebenbauen → `UnifiedOvertimeService` nutzen
+- `user.weeklyHours` direkt lesen, wo ein Datum im Spiel ist → Periode auflösen
+- Nur eine Seite prüfen → Backend und Frontend vergleichen
 
-**Details:** ARCHITECTURE.md → Section 1 "Technology Stack"
+**Code**
+- `any`, Duplikate, `console.log` in Produktion, Geschäftslogik in mehreren Services
 
-## Database Schema (11 Tabellen)
+**Workflow**
+- Ohne Plan coden · direkt auf dem Produktionsserver arbeiten · ohne Test mergen
 
-users, time_entries, absence_requests, vacation_balance, overtime_balance, departments, projects, activities, holidays, notifications, audit_log
+**Sicherheit**
+- Passwörter im Klartext (bcrypt nutzen) · unvalidierte Eingaben · Secrets im Code
 
-**Details:** ARCHITECTURE.md → Section "Data Model"
+**Tauri**
+- `fetch()` statt `universalFetch` · sensible Daten im `localStorage`
 
-## Key Features
-
-- Multi-User Time Tracking
-- Overtime Calculation (German Labor Law compliant)
-- Absence Management (Vacation, Sick Leave, Overtime Comp)
-- Real-time Sync (WebSocket)
-- Auto-Update System (Desktop Apps)
-- Dark Mode Support
-- German Public Holidays
-- CSV Export (DATEV format)
-
-**Details:** PROJECT_SPEC.md → Section 3 "Functional Requirements"
+**Umgebung**
+- `export VITE_API_URL=...` — Shell-Variablen überschreiben **alle** `.env`-Dateien.
+  Stattdessen `/dev`, `/green`, `/promote-to-prod`.
+  Prüfen: `printenv | grep VITE_API_URL` → falls gesetzt: `unset VITE_API_URL`
 
 ---
 
-# 📞 SUPPORT & LINKS
+# ✅ Prüfliste vor dem Commit
 
-## GitHub
-
-- **Repository:** https://github.com/Maxwellbadger-1/TimeTracking-Clean
-- **Latest Release:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/releases/latest
-- **Issues:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/issues
-- **Actions:** https://github.com/Maxwellbadger-1/TimeTracking-Clean/actions
-
-## Production
-
-- **Health Check:** http://129.159.8.19:3000/api/health
-- **Server:** Oracle Cloud (Frankfurt, Germany)
-- **SSH:** ubuntu@129.159.8.19
-
-## Backup & Restore
-
-Falls diese neue CLAUDE.md Probleme verursacht:
-
-```bash
-# Restore alte Version (1093 lines)
-cp .claude/CLAUDE.md.backup .claude/CLAUDE.md
-
-# Backup liegt auch in Git:
-git show HEAD~1:.claude/CLAUDE.md > .claude/CLAUDE.md
+```
+☐ npx tsc --noEmit sauber          ☐ Dark-Mode-Klassen (dark:)
+☐ kein `any`                       ☐ Responsive (sm:/md:/lg:)
+☐ Fehlerbehandlung + Null-Checks   ☐ Lade- und Fehlerzustände
+☐ Debug-Logs entfernt              ☐ Eingaben validiert (Backend + Frontend)
+☐ keine Secrets im Code            ☐ manuell getestet, Konsole fehlerfrei
 ```
 
+Beim Release zusätzlich: Version in 3 Dateien · Tag und GitHub-Release · Binaries aller
+Plattformen · `latest.json` vollständig · CHANGELOG und PROJECT_STATUS aktualisiert.
+
 ---
 
-**Version:** 2.4 (Mac ↔ Windows Workflow)
-**Lines:** ~750 (+107 lines for PC Wechsel Workflow)
-**Last Updated:** 2026-02-11
-**Status:** ✅ AKTIV
+# 🔗 Kurzreferenz
 
-**Changelog:**
-- v2.4 (2026-02-11): Mac ↔ Windows Workflow & Speicherplatz-Management
-  - **NEW:** Complete "PC Wechsel (Mac ↔ Windows)" workflow section in CLAUDE.md
-  - Added: Erstes Mal Setup (Windows PC) - ~15 Min initial setup guide
-  - Added: Täglicher Wechsel - Fast git pull workflow (~5 sec)
-  - Added: Zurück zu Mac - Bidirectional workflow
-  - Added: Windows-specific troubleshooting (Git, Node.js, Rust, Tauri)
-  - **NEW:** `/cleanup` command for build-artifact removal (saves 6.8 GB)
-  - **NEW:** Pre-commit hook to prevent large files (> 10 MB)
-  - shortcuts.md: Added complete Git workflow & best practices
-  - **RESULT:** 7.3 GB → 458 MB project size (93.7% reduction)
-  - User can now seamlessly switch between Mac & Windows PC
-- v2.3 (2026-02-11): Streamlined & Optimized (-48.5% reduction)
-- v2.2 (2026-02-11): Production Deployment Workflow (3-Tier System)
-- v2.1 (2026-01-24): Overtime System Architecture & Debugging Tools
-- v2.0 (2026-01-15): AI-freundliche Neustrukturierung, Core Docs Integration
-- v1.0 (2025-11-01): Initial Version
+```bash
+# Entwicklung
+npm run dev                        # Server bzw. Desktop
+/dev | /green | /sync-green | /promote-to-prod | /rollback-prod | /cleanup
+
+# Prüfen
+npx tsc --noEmit
+cd server && npm run validate:overtime:detailed -- --userId=X --month=YYYY-MM
+sqlite3 server/database/development.db "SELECT * FROM overtime_balance WHERE userId=X"
+
+# Produktion
+ssh ubuntu@129.159.8.19            # Key: .ssh/oracle_server.key
+pm2 logs timetracking-server
+curl http://129.159.8.19:3000/api/health
+```
+
+**Stack:** Tauri 2 + React 18 + TypeScript + TanStack Query + Zustand + Tailwind ·
+Node 20 + Express + SQLite (WAL) · Oracle Cloud Frankfurt · GitHub Actions.
+
+**Verzeichnisse:** `server/` (Backend), `desktop/` (Tauri-App),
+`.github/workflows/` (CI/CD), `.planning/` (GSD-Pläne, Phasen, Debug-Protokolle).
+
+**Funktionsumfang:** Mehrbenutzer-Zeiterfassung · Überstunden nach deutschem Arbeitsrecht ·
+historisierte Arbeitszeitmodelle · Abwesenheiten (Urlaub, Krankheit, Überstundenausgleich) ·
+WebSocket-Synchronisation · Auto-Update · Dark Mode · deutsche Feiertage · DATEV-Export.
+
+**GitHub:** https://github.com/Maxwellbadger-1/TimeTracking-Clean

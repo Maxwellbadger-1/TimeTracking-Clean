@@ -303,6 +303,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-08-27 | claude-md-verschlanken | `.claude/CLAUDE.md` 801 → 303 Zeilen (28,4 → 13,5 KB). Entfernt: Selbst-Changelog, Verweise auf CLAUDE.md.backup, generische Windows-Einrichtungsanleitung, ausführliches Halluzinations-Beispiel. Korrigiert: 11 → 21 Tabellen, falscher Verweis PROJECT_SPEC 6.2, `validate:overtime` läuft in `server/`. Ergänzt: Produktions-DB-Regel (Vorfall 27.08.), `user_work_periods` als Quelle des Arbeitszeitmodells, Binärdownload-Fehler, `.planning/STATE.md` als Einstiegspunkt. |
 | 2026-08-18 | urlaubskonto-korrektheit | 5 Bugfixes deployed + Produktionsdaten korrigiert. Urlaubstage gingen beim Ablehnen genehmigter Anträge verloren (Carmen 6, Benedikt 10); `0 \|\| 30` gab 6 Mitarbeitern je 30 statt 0 Tage. Gesamt Verbleibend 257,5 → 98 Tage. Siehe `.planning/quick/20260818-urlaubskonto-korrektheit/SUMMARY.md` |
 
 ## Ungeplante Eingriffe (Produktion)
