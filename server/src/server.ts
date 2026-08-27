@@ -9,7 +9,7 @@ import './database/connection.js'; // Initialize database
 import { seedDatabase } from './database/seed.js';
 import { runMigrations } from './database/migrationRunner.js';
 import { resetStaleChainGuardSuspension } from './services/workPeriodService.js';
-import { db } from './database/connection.js';
+import { db, shutdownDatabase } from './database/connection.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import departmentsRoutes from './routes/departments.js';
@@ -259,6 +259,47 @@ async function startServer() {
     // Initialize WebSocket server
     initializeWebSocket(httpServer);
     logger.info(`🔌 WebSocket endpoint: ws://0.0.0.0:${PORT}/ws`);
+
+    // ========================================
+    // Kontrolliertes Herunterfahren
+    // ========================================
+    // Bis 27.08.2026 gab es hier keinen Signalbehandler: PM2 schickte SIGINT, der Prozess
+    // starb ohne db.close(). Im Regelfall harmlos - die WAL bleibt liegen und wird beim
+    // naechsten Start eingelesen. War die WAL aber vom Dateisystem abgehaengt, ging der
+    // Stand mit dem Prozess verloren. Vorfall: .planning/debug/wal-abgehaengt-20260827.md
+    //
+    // Reihenfolge ist bewusst gewaehlt: Der Pruefpunkt laeuft SOFORT, nicht erst im
+    // close()-Rueckruf. PM2 raeumt nach `kill_timeout` (Standard 1600 ms) mit SIGKILL auf,
+    // und offene WebSocket-Verbindungen koennen httpServer.close() beliebig lange
+    // hinhalten. Das Wichtigste - der Pruefpunkt - darf davon nicht abhaengen.
+    let shutdownInProgress = false;
+
+    const shutdown = (signal: NodeJS.Signals) => {
+      if (shutdownInProgress) {
+        return;
+      }
+      shutdownInProgress = true;
+      logger.info({ signal }, '🛑 Herunterfahren eingeleitet');
+
+      // 1. Keine neuen Verbindungen mehr annehmen (blockiert nicht).
+      httpServer.close(() => {
+        logger.info('🔌 HTTP-Server geschlossen');
+      });
+
+      // 2. Pruefpunkt setzen und Datenbank schliessen - sofort, wenige Millisekunden.
+      shutdownDatabase();
+
+      // 3. Beenden. Der Timer ist ent-referenziert: haelt nichts mehr den Ereignisring
+      //    offen, endet der Prozess von selbst. Halten offene WebSocket-Verbindungen ihn
+      //    fest, greift nach 500 ms der harte Ausstieg - immer noch weit unter PM2s
+      //    kill_timeout von 1600 ms. Die Datenbank ist zu diesem Zeitpunkt bereits sicher.
+      logger.info('👋 Server beendet');
+      setTimeout(() => process.exit(0), 500).unref();
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    logger.info('🛡️  Signalbehandlung aktiv (SIGTERM/SIGINT) - WAL-Pruefpunkt beim Beenden');
   } catch (error) {
     logger.error({ err: error }, '❌ Failed to start server');
     process.exit(1);
