@@ -52,7 +52,7 @@ function containsInternalDetails(text: string): boolean {
  * (response.clone().text() vorhalten, response.json() versuchen, Fallback bei Parse-Fehler).
  *
  * Reihenfolge:
- * 1. Koerper EINMAL als Text lesen und vorhalten. universalFetch (tauriHttpClient.ts:129-133)
+ * 1. Koerper EINMAL als Text lesen und vorhalten. universalFetch (tauriHttpClient.ts:148-158)
  *    liefert eine echte `Response`-Instanz, `clone()` ist also verfuegbar; der Fallback
  *    (einmaliges `response.text()`) greift nur, falls das doch nicht der Fall sein sollte —
  *    der Koerper wird so oder so nur einmal konsumiert.

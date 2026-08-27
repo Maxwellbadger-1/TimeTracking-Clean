@@ -77,14 +77,34 @@ export async function universalFetch(
     console.log('  🌐 Response URL differs from request?', response.url !== url.toString());
     console.log('');
 
-    // Read response
-    const text = await response.text();
-    let data: any;
+    // Koerper als BYTES lesen, niemals als Text.
+    //
+    // Frueher stand hier `await response.text()`. Das dekodiert den Koerper als UTF-8:
+    // jedes Byte, das keine gueltige UTF-8-Sequenz bildet, wird durch U+FFFD ersetzt und
+    // ist unwiederbringlich verloren. Beim anschliessenden `new Response(text)` wurde das
+    // Ergebnis erneut als UTF-8 kodiert. Binaerdownloads (Datenbanksicherungen) kamen
+    // dadurch um 8-10 % aufgeblaeht und unbrauchbar beim Anwender an.
+    // Vorfall: .planning/debug/wal-abgehaengt-20260827.md
+    const buffer = await response.arrayBuffer();
 
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
+    // Fuer das Protokoll nur dann dekodieren, wenn der Inhalt Text IST. Der Content-Type
+    // entscheidet ausschliesslich ueber die Protokollierung - der Koerper selbst wird in
+    // jedem Fall unveraendert als Bytes weitergereicht.
+    const contentType = response.headers.get('content-type') || '';
+    const isTextual = /^(?:text\/|application\/(?:json|xml|javascript|x-www-form-urlencoded))/i.test(
+      contentType
+    );
+
+    let data: any;
+    if (isTextual || buffer.byteLength === 0) {
+      const text = new TextDecoder().decode(buffer);
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    } else {
+      data = `[Binaerdaten: ${buffer.byteLength} Bytes, ${contentType || 'ohne Content-Type'}]`;
     }
 
     // Log response
@@ -125,8 +145,13 @@ export async function universalFetch(
       });
     }
 
-    // Return response with text already consumed, re-create it
-    return new Response(text, {
+    // Der Koerper wurde oben bereits konsumiert - Antwort aus den Rohbytes neu aufbauen.
+    // 204/205/304 duerfen laut Fetch-Spezifikation keinen Koerper tragen; `new Response`
+    // wirft dort einen TypeError, wenn man einen mitgibt.
+    const bodylessStatus =
+      response.status === 204 || response.status === 205 || response.status === 304;
+
+    return new Response(bodylessStatus ? null : buffer, {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
