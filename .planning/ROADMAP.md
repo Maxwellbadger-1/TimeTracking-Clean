@@ -431,21 +431,23 @@ Plans:
 - [x] 14-06-PLAN.md — Rückweg erproben und als Runbook festschreiben (D8)
 - [x] 14-07-PLAN.md — Urteil zu Phase 9.1, Backfill-Werkzeug bauen und auf einer Produktionskopie proben
 
-**Welle 5** *(blocked on Welle 4 — Produktionsfenster, wartet auf Freigabe)*
+**Welle 5** *(Produktionsfenster, Freigabe erteilt — gelaufen am 23.08.2026)*
 
-- [ ] 14-08-PLAN.md — Freigabe, Sicherung, Auslieferung, Migrationsverifikation auf der Produktion (D1, D2)
+- [x] 14-08-PLAN.md — Freigabe, Sicherung, Auslieferung, Migrationsverifikation auf der Produktion (D1, D2)
 
-**Welle 6** *(blocked on Welle 5 — wartet auf Freigabe)*
+**Welle 6** *(gelaufen am 27.08.2026)*
 
-- [ ] 14-09-PLAN.md — Der reale Umstellungsfall (D6): Werte erfragen, Trockenlauf, Schreiblauf, Verifikation
+- [x] 14-09-PLAN.md — Der reale Umstellungsfall (D6): Werte erfragen, Trockenlauf, Schreiblauf, Verifikation
+  *(Abweichung: vom Anwender in der Desktop-App eingetragen statt über `applyModelChange.ts`; Beleg `14-UMSTELLUNGSFALL.md`, SUMMARY am 28.08.2026 nachgetragen)*
 
-**Welle 7** *(blocked on Welle 6 — wartet auf Freigabe)*
+**Welle 7** *(gelaufen am 26.08.2026 — vor Welle 6, siehe Abweichung)*
 
-- [ ] 14-10-PLAN.md — Journal-Backfill der Phase 9.1 als zweiter gated Schritt im selben Fenster
+- [x] 14-10-PLAN.md — Journal-Backfill der Phase 9.1 als zweiter gated Schritt im selben Fenster
+  *(Abweichung: lief einen Tag vor Welle 6; unschädlich und mit Zahlen belegt in `14-BACKFILL-PRODUKTION.md`, Abschnitt 6. SUMMARY am 28.08.2026 nachgetragen)*
 
-**Welle 8** *(blocked on Welle 7)*
+**Welle 8** *(gelaufen am 26.08.2026)*
 
-- [ ] 14-11-PLAN.md — Release v1.9.0, `latest.json` plattformweise prüfen, Dokumentation nachziehen (D7)
+- [x] 14-11-PLAN.md — Release v1.9.0, `latest.json` plattformweise prüfen, Dokumentation nachziehen (D7)
 
 ---
 
