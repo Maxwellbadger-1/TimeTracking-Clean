@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: verifying
-stopped_at: Plan 14-11 abgeschlossen - Desktop-Release v1.9.0 veroeffentlicht (Lauf 33005681228, alle vier Matrixjobs success, isDraft false, 17 Artefakte). latest.json traegt alle vier Plattformschluessel, jeder mit gesetzter url UND signature, alle vier URLs HTTP 200 - das Auto-Update ist funktionsfaehig, die Sackgasse aus Plan 14-02 (Server sperrt den alten Weg, neuer Weg nicht installiert) ist aufgeloest. Gates vor und nach dem Tag: tsc Server und Desktop Exit 0, check:rules Exit 0, vitest 578 gruen / genau 3 rot mit den bekannten Titeln. Phase 14 damit 9/11 - OFFEN bleibt Plan 14-09 (realer Umstellungsfall auf der Produktion, 14-UMSTELLUNGSFALL.md existiert nicht); 14-10 ist sachlich erfuellt ueber den Vollaufbau vom 26.08. (+991 Journalzeilen, 15/15 deckungsgleich, 14-AUSLIEFERUNG.md), aber nicht als Plan gefahren. Zuvor: Phase 14.2 vollstaendig durchgelaufen - 13/13 Plaene, Verifikation human_needed (8/10 Erfolgskriterien voll erfuellt, 2/10 eingeschraenkt: E2E-Reproduzierbarkeit und "ein Vorgang, ein Name"). Keine Umsetzungsluecke. 45 Abnahmepunkte 14.2-U1 bis U45 in 14-UAT-SAMMLUNG.md, Abschnitt Phase 14.2. Alle elf Befunde F-1 bis F-8, D-1, D-2, V-1 geschlossen, dazu B-1 und B-4. Die fuenf geschuetzten Tabellen unveraendert (895/62/5/105/120, SHA-256 identisch). Kein Push - main steht 112 Commits vor origin/main auf 22f9cdc. Kein Uebergang zur naechsten Phase (--no-transition).
-last_updated: "2026-08-26T19:55:00.000Z"
-last_activity: 2026-08-26
+stopped_at: "Milestone-Audit v3.0 gelaufen (28.08.2026) - Bericht .planning/v3.0-MILESTONE-AUDIT.md, Status gaps_found. Ergebnis: 17/17 Requirements erfuellt, 8/9 Phasen verifiziert, Integration 8/9 Verbindungen sauber (0 Blocker), 3/3 E2E-Kernablaeufe durchgaengig. Drei Luecken gefunden, zwei am selben Tag geschlossen: (1) Phase 14 hatte als einzige Phase keine Verifikation - 14-VERIFICATION.md nachgetragen, status human_needed, 3/4 ROADMAP-Erfolgskriterien voll erfuellt; Erfolgskriterium 1 eingeschraenkt, weil das Deployment vom 23.08. Migration UND Rechenfixes der Phasen 9/11 gemeinsam trug (99 Abweichungen bei 8 von 20 Nutzern, jede Zahl in 14-KUNDENNACHWEIS.md unabhaengig nachgerechnet, Rohdatentabellen pruefsummengleich - die Nullwirkung der Migration allein ist mit Differenz exakt 0 belegt). (2) Plaene 14-09 und 14-10 waren sachlich gelaufen, aber nie abgeschlossen - 14-UMSTELLUNGSFALL.md, 14-BACKFILL-PRODUKTION.md und beide SUMMARYs nachgetragen, ROADMAP-Checkboxen der Wellen 5-8 gesetzt, zwei Abweichungen offen benannt (14-09 vom Anwender in der App statt per Skript eingetragen; 14-10 lief einen Tag vor 14-09). OFFEN als einzige Luecke: Phase 9.1 existiert nur in der ROADMAP - der Backfill-Anteil ist erledigt und dokumentiert, die Code-Haertung WR-02 bis WR-05 (Fehlerisolierung in fix-overtime.ts, PRAGMA busy_timeout, server/scripts unter tsc, Servicefunktionen ohne Tests) nicht. Drei Wege im Audit Abschnitt 7 beschrieben. Ausserdem nicht ausgeliefert: die drei Commits vom 27.08. (ded14d3 tauriHttpClient binaersicher, ad48068 WAL-Pruefpunkt bei SIGTERM/SIGINT, c0acb59 Doku) - origin/main steht auf c8b65bf, die beim Anwender laufende v1.9.0 traegt den Backup-Download-Defekt weiter."
+last_updated: "2026-08-28T00:00:00.000Z"
+last_activity: 2026-08-28
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 72
-  completed_plans: 70
-  percent: 78
+  completed_plans: 72
+  percent: 89
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Phase 14.2 — restbefunde-der-abnahme-schliessen
+**Current focus:** Milestone-Abschluss v3.0 — Audit gelaufen, offen ist nur noch die Entscheidung zu Phase 9.1 (Code-Härtung WR-02 bis WR-05), siehe `.planning/v3.0-MILESTONE-AUDIT.md`, Abschnitt 7
 
 ## Current Status
 
