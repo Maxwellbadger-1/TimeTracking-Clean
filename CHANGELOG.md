@@ -11,6 +11,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.1] - 2026-08-28
+
+Fehlerbehebung. Zwei Defekte aus dem Vorfall vom 27.08.2026, beide mit Regressionstests
+abgesichert. Keine fachlichen Änderungen, keine Datenbankmigration.
+
+### 🐛 Fixed
+
+#### Heruntergeladene Datenbank-Sicherungen sind wieder brauchbar
+**Was:** Sicherungen, die über „Datenbank Backups" → „Herunterladen" geholt wurden, ließen sich
+nicht öffnen. Sie kamen um 8–10 % zu groß und mit zerstörtem Inhalt an. Betroffen war
+ausschließlich dieser eine Weg — die Sicherungen **auf dem Server waren zu jeder Zeit
+einwandfrei**, und die Funktion, die sie anlegt, war nie fehlerhaft.
+
+**Ursache:** Der HTTP-Client der Desktop-App las jede Serverantwort als Text (`response.text()`)
+und baute sie danach neu auf. Bei Textinhalten ist das folgenlos; bei einer Binärdatei wird jedes
+Byte, das keine gültige UTF-8-Sequenz bildet, durch ein Ersatzzeichen ersetzt und ist
+unwiederbringlich verloren. Der Körper wird jetzt immer unverändert als Bytes durchgereicht; der
+Content-Type entscheidet nur noch darüber, was ins Protokoll geschrieben wird.
+
+**Nicht betroffen:** CSV- und DATEV-Exporte. Beide Routen senden `text/csv; charset=utf-8`, und
+UTF-8-Text übersteht den alten Weg verlustfrei.
+
+*Abgesichert durch `desktop/src/lib/tauriHttpClient.test.ts` (6 Fälle). Gegenprobe gegen den
+alten Code: 3 Fälle schlagen fehl, die Binärdaten kommen mit 66 statt 36 Bytes an — exakt das
+Schadensbild.*
+
+#### Der Server setzt beim Beenden einen Prüfpunkt
+**Was:** Beim Herunterfahren schrieb der Server sein Schreibprotokoll (WAL) nicht in die
+Hauptdatei zurück und schloss die Datenbankverbindung nicht. Im Regelfall war das folgenlos —
+die WAL bleibt liegen und wird beim nächsten Start eingelesen. Gefährlich wurde es, wenn die
+WAL-Datei zuvor durch einen Fremdzugriff aus dem Dateisystem gelöst worden war: dann hing sie
+allein am offenen Dateizeiger des Prozesses und wäre mit ihm verschwunden.
+
+**Jetzt:** `SIGTERM` und `SIGINT` lösen `wal_checkpoint(TRUNCATE)` und `close()` aus, bevor der
+Prozess endet. Der Prüfpunkt läuft sofort und nicht im Rückruf des Servers, weil PM2 nach
+1600 ms mit `SIGKILL` nachsetzt und offene WebSocket-Verbindungen das Schließen beliebig lange
+hinhalten können. Während des Herunterfahrens verweigert die Verbindungsschicht den
+automatischen Wiederaufbau, damit ein noch feuernder Cron-Lauf nicht kurz vor Schluss eine
+frische WAL anlegt.
+
+*Abgesichert durch `server/src/database/connection.shutdown.test.ts` (3 Fälle) auf einer eigenen
+Temp-Datenbank.*
+
+*Vorfall und Untersuchung: `.planning/debug/wal-abgehaengt-20260827.md`*
+
+---
+
 ## [1.9.0] - 2026-08-26
 
 **Milestone v3.0 — Historisierte Arbeitszeitmodelle.** Eine Änderung der Wochenstunden gilt ab
