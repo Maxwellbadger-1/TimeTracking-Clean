@@ -157,8 +157,11 @@ await universalFetch('http://localhost:3000/api/...', { credentials: 'include' }
 ⚠️ **Downloads aus der App: erst ab Desktop-Release > 1.9.0 brauchbar.** `tauriHttpClient.ts`
 las den Antwortkörper früher mit `response.text()` und baute ihn mit `new Response(text)`
 wieder auf — UTF-8 rein, UTF-8 raus. Binärdateien wurden dabei zerstört (+8–10 % Größe,
-nicht mehr öffenbar): Datenbank-Sicherungen sowie Excel- und PDF-Exporte
-(`desktop/src/api/exports.ts`). CSV war nie betroffen (`text/csv; charset=utf-8`). Behoben
+nicht mehr öffenbar). **Betroffen war ausschließlich der Backup-Download** — die einzige
+echte Binärdatei der App. Excel- und PDF-Exporte gibt es im Projekt nicht; `exports.ts`
+kennt nur `exportDATEV()` und `exportHistoricalCSV()`, und beide Routen senden
+`text/csv; charset=utf-8` (`server/src/routes/exports.ts:107,273`) — UTF-8-Text übersteht
+den Umweg über `text()` verlustfrei. Behoben
 am 27.08.2026 (Regressionstest `desktop/src/lib/tauriHttpClient.test.ts`), **aber die beim
 Anwender installierte v1.9.0 trägt den Defekt noch.** Bis zum nächsten Release:
 ```bash
