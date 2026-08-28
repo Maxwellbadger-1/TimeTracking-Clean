@@ -114,6 +114,26 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
     (ein defekter Datensatz bricht den gesamten täglichen Cron-Lauf ab) und ruft
     `db.close()` im Fehlerpfad nicht auf
 
+    > **Nachtrag 28.08.2026 — der Punkt wiegt schwerer als hier beschrieben.**
+    > Der Nachtlauf ist die Ursache der wiederkehrenden abgehängten WAL, nicht bloß ein
+    > Robustheitsmangel. Gemessen: Der Cron um 03:00 startet das Skript als **eigenen**
+    > `npx tsx`-Prozess auf `production.db` und ruft am Ende `db.close()` (Zeile 93).
+    > SQLite räumt WAL und SHM beim Schließen auf, sobald der schließende Prozess kurz die
+    > exklusive Sperre bekommt — nachts ist der Server idle, also bekommt er sie. Danach
+    > schreibt der Serverprozess in eine aus dem Dateisystem gelöste Datei. Am 28.08.2026
+    > standen die Dateizeiger 20 und 21 des Servers erneut auf `(deleted)`; die
+    > Verzeichnis-mtime von `databases/` trug `03:00`.
+    >
+    > **Beide Vorfälle (18.08. und 27.08.) hatten damit vermutlich dieselbe Ursache** — es
+    > wurde bisher immer ein manueller Fremdzugriff verdächtigt. Der am 28.08. ausgelieferte
+    > `SIGTERM`/`SIGINT`-Prüfpunkt (`ad48068`) entschärft die Folgen eines Neustarts, aber
+    > **nicht die Ursache**: zwischen 03:00 und dem nächsten Prüfpunkt hängt der Schreibstand
+    > weiterhin allein am offenen Dateizeiger.
+    >
+    > Der Umfang ist damit größer als „try/catch ergänzen": zu entscheiden ist, ob der
+    > Nachtlauf überhaupt eine eigene Datenbankverbindung öffnen darf, oder ob er über den
+    > laufenden Server gehen muss (ein Prozess, eine Verbindung).
+
   - **WR-03 (Restpunkt)** — kein `busy_timeout`-Pragma im Projekt (`grep -rn
     "busy_timeout" server/src` liefert keinen Treffer, unabhängig in Plan 09-05 erneut
     bestätigt); ein täglicher Cron-Prozess und der Server-Prozess halten getrennte
