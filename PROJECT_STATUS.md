@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-08-26
-**Version:** v1.9.0 (Desktop released) · Server auf `eaf5f5c` (deployed 2026-08-26)
+**Last Updated:** 2026-08-28
+**Version:** v1.9.1 (Desktop released) · Server auf `bbaac01` (deployed 2026-08-28)
 **Status:** 🟢 Healthy - 2-Tier Workflow Operational
 
 ---
@@ -441,6 +441,7 @@ geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-08-28 | v1.9.1 | PATCH | **Fehlerbehebung aus dem Vorfall vom 27.08.** Heruntergeladene Datenbank-Sicherungen sind wieder brauchbar — der HTTP-Client der Desktop-App las Binärantworten als UTF-8-Text und zerstörte sie dabei (+8–10 % Größe); Sicherungen auf dem Server waren nie betroffen, CSV-/DATEV-Exporte ebenso wenig. Dazu setzt der Server bei `SIGTERM`/`SIGINT` jetzt einen `wal_checkpoint(TRUNCATE)` und schließt die Verbindung, bevor er endet. Keine fachlichen Änderungen, keine Migration. Serverstand `bbaac01`, Release mit 17 Artefakten, `latest.json` mit vier signierten Plattformschlüsseln (alle HTTP 200) | ✅ Released |
 | 2026-08-26 | v1.9.0 | MINOR | **Milestone v3.0 — Historisierte Arbeitszeitmodelle.** Stundenwechsel ab Stichtag mit Vorschau vor dem Speichern; Zeiträume korrigierbar und löschbar mit Storno statt Löschung; Differenz als eigene Buchung im Kontoauszug; Wochenstunden nicht mehr an der Historie vorbei änderbar. Dazu die Blocker aus Phase 14.1 (Zukunftsdeckelung, Krankmeldungs-Gutschrift, Historien-Export) und die elf Abnahmebefunde aus Phase 14.2. Serverstand `eaf5f5c` bereits am 26.08. über `deploy-server.yml` in Produktion — dieses Release liefert den Desktop-Anteil nach | ✅ Released |
 | 2026-08-20 | v1.8.0 | MINOR | Urlaubs-Kontoauszug für Mitarbeiter und Admin (Journal-Endpunkt mit Rollenprüfung, Jahreswahl, Antragsverlinkung, Pflichtbegründung bei Admin-Korrekturen); Serveränderungen bereits am 20.08. über `deploy-server.yml` in Produktion | ✅ Deployed |
 | 2026-08-18 | v1.7.3 | PATCH | Urlaubskonto-Fixes (Gegenbuchung bei Storno, `0 \|\| 30`, rückwirkendes entitlement, Transaktionsklammer) + Datenkorrektur Produktion + DB-Stabilisierung | ✅ Deployed |

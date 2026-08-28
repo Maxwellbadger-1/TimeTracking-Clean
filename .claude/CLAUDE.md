@@ -1,6 +1,6 @@
 # TimeTracking System — Entwicklungsleitlinien
 
-**Stand:** 2026-08-27 · Milestone v3.0 ausgeliefert · Desktop v1.9.0 · Server `eaf5f5c`
+**Stand:** 2026-08-28 · Milestone v3.0 ausgeliefert · Desktop v1.9.1 · Server `bbaac01`
 
 ---
 
@@ -87,8 +87,16 @@ arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offe
    davor starb der Prozess ungefragt). Auch ohne das wäre ein `pm2 restart` im Regelfall
    folgenlos: die WAL bleibt liegen und wird beim nächsten Start eingelesen. Gefährlich ist
    nur eine vom Dateisystem **abgehängte** WAL — sie hängt dann allein am offenen
-   Dateizeiger des Prozesses und verschwindet mit ihm. Ursache war beide Male ein
-   Fremdzugriff auf die laufende Datei (siehe oben). Vor Neustart/Deployment prüfen (lesend):
+   Dateizeiger des Prozesses und verschwindet mit ihm.
+
+   **Die Ursache ist der Nachtlauf, nicht nur manuelle Fremdzugriffe** (gemessen 28.08.2026):
+   Der Cron um 03:00 startet `scripts/fix-overtime.ts` als **eigenen** `npx tsx`-Prozess auf
+   `production.db` und ruft am Ende `db.close()`. SQLite räumt WAL und SHM beim Schließen auf,
+   sobald der schließende Prozess kurz die exklusive Sperre bekommt — nachts um 03:00 ist der
+   Server idle, also bekommt er sie. Danach schreibt der Serverprozess in eine gelöste Datei.
+   **Das passiert jede Nacht.** Behebung ist Umfang der Phase 9.1 (WR-05/WR-03).
+
+   Vor Neustart/Deployment prüfen (lesend):
    ```bash
    PID=$(pm2 jlist | jq -r '.[]|select(.name=="timetracking-server").pid')
    ls -l /proc/$PID/fd | grep production.db     # steht "(deleted)" dabei → STOPP
@@ -154,22 +162,24 @@ import { universalFetch } from '../lib/tauriHttpClient';
 await universalFetch('http://localhost:3000/api/...', { credentials: 'include' });
 ```
 
-⚠️ **Downloads aus der App: erst ab Desktop-Release > 1.9.0 brauchbar.** `tauriHttpClient.ts`
+✅ **Downloads aus der App: ab v1.9.1 in Ordnung** (Release 28.08.2026). `tauriHttpClient.ts`
 las den Antwortkörper früher mit `response.text()` und baute ihn mit `new Response(text)`
 wieder auf — UTF-8 rein, UTF-8 raus. Binärdateien wurden dabei zerstört (+8–10 % Größe,
 nicht mehr öffenbar). **Betroffen war ausschließlich der Backup-Download** — die einzige
 echte Binärdatei der App. Excel- und PDF-Exporte gibt es im Projekt nicht; `exports.ts`
 kennt nur `exportDATEV()` und `exportHistoricalCSV()`, und beide Routen senden
 `text/csv; charset=utf-8` (`server/src/routes/exports.ts:107,273`) — UTF-8-Text übersteht
-den Umweg über `text()` verlustfrei. Behoben
-am 27.08.2026 (Regressionstest `desktop/src/lib/tauriHttpClient.test.ts`), **aber die beim
-Anwender installierte v1.9.0 trägt den Defekt noch.** Bis zum nächsten Release:
+den Umweg über `text()` verlustfrei. Der Körper wird jetzt immer als `arrayBuffer()` gelesen
+und unverändert weitergereicht; der Content-Type entscheidet nur noch über die
+Protokollierung. Regressionstest: `desktop/src/lib/tauriHttpClient.test.ts` (6 Fälle).
+
+Wer noch eine Fassung ≤ 1.9.0 installiert hat, holt Sicherungen weiterhin so:
 ```bash
 scp -i .ssh/oracle_server.key \
   ubuntu@129.159.8.19:/home/ubuntu/TimeTracking-Clean/backups/<datei>.db ~/Downloads/
 ```
-Die Sicherungen auf dem Server sind intakt (geprüft 27.08.2026, `integrity_check: ok`) —
-der Fehler lag nie in `createBackup()`.
+Die Sicherungen auf dem Server waren zu keiner Zeit betroffen (geprüft 27.08.2026,
+`integrity_check: ok`) — der Fehler lag nie in `createBackup()`.
 
 ## 🔒 TypeScript
 
