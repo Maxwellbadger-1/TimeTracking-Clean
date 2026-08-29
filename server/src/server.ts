@@ -33,7 +33,8 @@ import yearEndRolloverRoutes from './routes/yearEndRollover.js';
 import adminRoutes from './routes/admin.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { performanceMonitor } from './middleware/performanceMonitor.js';
-import { startBackupScheduler, startYearEndRolloverScheduler } from './services/cronService.js';
+import { startBackupScheduler, startYearEndRolloverScheduler, startOvertimeRecalcScheduler } from './services/cronService.js';
+import { runOvertimeRecalcForAllUsers } from './services/overtimeRecalcRunner.js';
 import { initializeHolidays, autoUpdateHolidays } from './services/holidayService.js';
 import { initializeWebSocket } from './websocket/server.js';
 import cron from 'node-cron';
@@ -237,6 +238,12 @@ async function startServer() {
     // Start year-end rollover scheduler (January 1st at 00:05 AM Europe/Berlin)
     startYearEndRolloverScheduler();
 
+    // Start overtime recalculation scheduler (WR-05, D-01, D-02) - daily at 03:15 AM
+    // Europe/Berlin, im Serverprozess ueber die geteilte Verbindung statt als eigener
+    // Prozess (Begruendung im Kopfkommentar der Startfunktion in cronService.ts).
+    startOvertimeRecalcScheduler();
+    logger.info('🔄 Overtime recalc scheduler scheduled (daily at 03:15 AM Europe/Berlin)');
+
     // Schedule daily holiday auto-update (03:00 AM Europe/Berlin)
     // Ensures we always have coverage for future years and historical data
     cron.schedule('0 3 * * *', async () => {
@@ -259,6 +266,28 @@ async function startServer() {
     // Initialize WebSocket server
     initializeWebSocket(httpServer);
     logger.info(`🔌 WebSocket endpoint: ws://0.0.0.0:${PORT}/ws`);
+
+    // ========================================
+    // Einmaliger Überstunden-Neuberechnungslauf nach Serverstart (WR-05, D-04)
+    // ========================================
+    // MUSS nach runMigrations(db) liegen: Die TypeScript-Migrationen 008-015 laufen NICHT in
+    // `npm run migrate:prod` (das filtert auf `.sql`), sondern erst hier im Serverprozess;
+    // `user_work_periods` entsteht erst durch Migration 008/009, und
+    // `ensureOvertimeBalanceEntries()` löst darüber auf (übernommen aus
+    // `.github/workflows/deploy-server.yml`, Begründungsblock vor dem alten Post-Deploy-Aufruf).
+    //
+    // Läuft NICHT blockierend vor `app.listen()`, sondern nachgelagert wie
+    // `initializeHolidays()` - kein `await` hier, damit der Health-Check des Deployments nicht
+    // auf ihn wartet. `.catch()` fängt eine unbehandelte Ablehnung ab, die sonst den
+    // Serverprozess beenden würde (T-09.1-18).
+    //
+    // Ersetzt die beiden Workflow-Aufrufe `deploy-server.yml:206` und
+    // `deploy-staging.yml:111`, die in Plan 09.1-05 entfallen. Läuft bei JEDEM Serverstart,
+    // nicht nur bei einem Deployment - unschädlich, weil `ensureOvertimeBalanceEntries()`
+    // idempotent ist (zugesichert in `overtimeService.test.ts`, Plan 09.1-02).
+    runOvertimeRecalcForAllUsers({ anlass: 'serverstart' }).catch((err) => {
+      logger.error({ err }, '❌ Überstunden-Neuberechnungslauf nach Serverstart fehlgeschlagen');
+    });
 
     // ========================================
     // Kontrolliertes Herunterfahren
