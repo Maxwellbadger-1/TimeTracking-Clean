@@ -14,20 +14,20 @@ import { copyFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { databaseConfig } from '../src/config/database.js';
+import { databaseConfig } from '../config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ORACLE_HOST = '129.159.8.19';
 const ORACLE_USER = 'ubuntu';
-const ORACLE_KEY_PATH = path.join(__dirname, '../../.ssh/oracle_key');
+const ORACLE_KEY_PATH = path.join(__dirname, '../../../.ssh/oracle_key');
 const ORACLE_DB_PATH = '/home/ubuntu/TimeTracking-Clean/server/database.db';
 
 /**
  * Sync database from local production to development
  */
-function syncLocal(): void {
+async function syncLocal(): Promise<void> {
   console.log('🔄 Syncing Production → Development (Local)...\n');
 
   const productionPath = databaseConfig.productionPath;
@@ -79,7 +79,7 @@ function syncLocal(): void {
 /**
  * Sync database from Oracle Cloud server (SSH)
  */
-function syncRemote(): void {
+async function syncRemote(): Promise<void> {
   console.log('🔄 Syncing Production → Development (Remote via SSH)...\n');
 
   const developmentPath = databaseConfig.developmentPath;

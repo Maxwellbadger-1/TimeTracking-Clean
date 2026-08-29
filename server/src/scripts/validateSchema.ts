@@ -11,7 +11,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { databaseConfig } from '../src/config/database.js';
+import { databaseConfig } from '../config/database.js';
 
 // Database path: respektiert DATABASE_PATH (hoechste Prioritaet), sonst NODE_ENV-basierter
 // Fallback - siehe getDatabasePath() in src/config/database.ts. Beide Zweige zeigten hier

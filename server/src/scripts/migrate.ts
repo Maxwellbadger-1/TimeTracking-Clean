@@ -11,16 +11,27 @@
  *   npm run migrate:create       # Create a new migration file
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
-import { databaseConfig } from '../src/config/database.js';
+import { databaseConfig } from '../config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MIGRATIONS_DIR = path.join(__dirname, '../database/migrations');
+const MIGRATIONS_DIR = path.join(__dirname, '../../database/migrations');
+
+// D-09/T-09.1-11: server/src/database/migrations/ existiert (21 .ts-Dateien) und liegt genau
+// eine Ebene neben dem hier korrigierten Pfad. Zeigte MIGRATIONS_DIR versehentlich dorthin,
+// faende der .sql-Filter unten null Dateien und der Lauf meldete "keine ausstehenden
+// Migrationen" - ein stiller Ausfall gegen die Produktionsdatenbank. Ein leerer oder fehlender
+// Migrationsordner ist in diesem Projekt immer ein Fehler, nie ein gueltiger Zustand.
+if (!existsSync(MIGRATIONS_DIR) || readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).length === 0) {
+  console.error(`❌ FATAL: Migrationsordner leer oder nicht gefunden: ${MIGRATIONS_DIR}`);
+  console.error('   Erwartet werden .sql-Dateien unter server/database/migrations.');
+  process.exit(1);
+}
 
 interface Migration {
   id: number;
