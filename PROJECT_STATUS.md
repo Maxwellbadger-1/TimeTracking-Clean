@@ -1,7 +1,8 @@
 # Project Status Dashboard
 
-**Last Updated:** 2026-08-28
-**Version:** v1.9.1 (Desktop released) · Server auf `bbaac01` (deployed 2026-08-28)
+**Last Updated:** 2026-08-29
+**Version:** v1.9.1 (Desktop released) · Server auf `e4866a4` (deployed 2026-08-29, Phase 9.1
+Betriebs-Härtung)
 **Status:** 🟢 Healthy - 2-Tier Workflow Operational
 
 ---
@@ -441,6 +442,7 @@ geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 
 | Date | Version | Type | Changes | Status |
 |------|---------|------|---------|--------|
+| 2026-08-29 | Server `e4866a4` | Server-Deployment | **Betriebs-Härtung Phase 9.1.** Nächtliche Überstunden-Neuberechnung vom externen Cronjob (`fix-overtime.ts`, 03:00 Uhr, eigener Prozess) in den Serverprozess selbst verlagert (03:15 Uhr Europe/Berlin, geteilte Verbindung, Fehlerisolierung je Nutzer); beide externen crontab-Einträge entfernt (verifiziert: `crontab -l` zeigt nur noch den unveränderten wöchentlichen `sync-prod-to-staging`); `PRAGMA busy_timeout = 5000` zentral gesetzt; `server/scripts/` nach `server/src/scripts/` aufgelöst und typisiert. Nach dem Deployment sind die Dateizeiger der Produktionsdatenbank erstmals seit dem 27.08. wieder regulär verknüpft (kein `(deleted)` mehr) — die Beobachtung über mindestens zwei Nächte läuft noch (Plan 09.1-08). GitHub-Actions-Lauf `33270724872` formal `failure` (Health-Check-Wettlauf, kein Codedefekt, siehe `deferred-items.md` Plan 09.1-07 Befund 4); Server unabhängig als gesund bestätigt (`HTTP 200`, 19:31:48 UTC). Nachweis: `.planning/phases/09.1-journal-backfill-und-betriebs-h-rtung/09.1-NACHWEIS-PRODUKTION.md` | ✅ Deployed (Server) |
 | 2026-08-28 | v1.9.1 | PATCH | **Fehlerbehebung aus dem Vorfall vom 27.08.** Heruntergeladene Datenbank-Sicherungen sind wieder brauchbar — der HTTP-Client der Desktop-App las Binärantworten als UTF-8-Text und zerstörte sie dabei (+8–10 % Größe); Sicherungen auf dem Server waren nie betroffen, CSV-/DATEV-Exporte ebenso wenig. Dazu setzt der Server bei `SIGTERM`/`SIGINT` jetzt einen `wal_checkpoint(TRUNCATE)` und schließt die Verbindung, bevor er endet. Keine fachlichen Änderungen, keine Migration. Serverstand `bbaac01`, Release mit 17 Artefakten, `latest.json` mit vier signierten Plattformschlüsseln (alle HTTP 200) | ✅ Released |
 | 2026-08-26 | v1.9.0 | MINOR | **Milestone v3.0 — Historisierte Arbeitszeitmodelle.** Stundenwechsel ab Stichtag mit Vorschau vor dem Speichern; Zeiträume korrigierbar und löschbar mit Storno statt Löschung; Differenz als eigene Buchung im Kontoauszug; Wochenstunden nicht mehr an der Historie vorbei änderbar. Dazu die Blocker aus Phase 14.1 (Zukunftsdeckelung, Krankmeldungs-Gutschrift, Historien-Export) und die elf Abnahmebefunde aus Phase 14.2. Serverstand `eaf5f5c` bereits am 26.08. über `deploy-server.yml` in Produktion — dieses Release liefert den Desktop-Anteil nach | ✅ Released |
 | 2026-08-20 | v1.8.0 | MINOR | Urlaubs-Kontoauszug für Mitarbeiter und Admin (Journal-Endpunkt mit Rollenprüfung, Jahreswahl, Antragsverlinkung, Pflichtbegründung bei Admin-Korrekturen); Serveränderungen bereits am 20.08. über `deploy-server.yml` in Produktion | ✅ Deployed |
@@ -482,8 +484,12 @@ Rohausgaben unter `14-auslieferung-belege/`.
   nötige Bedienweg jetzt zur Verfügung.
 - **29 Monatszeilen** stimmen weiterhin nicht mit dem Journal überein; 4 der 11 betroffenen
   Nutzer sind soft-gelöschte Testkonten, die der Backfill bewusst überspringt.
-- **Nebenbefund B-1:** Der Deploy-Workflow schaltet den pausierten Nachtlauf bei jedem
-  Deployment selbsttätig wieder an.
+- **Nebenbefund B-1 — behoben (29.08.2026, Phase 9.1):** Der externe Nachtlauf, den der
+  Deploy-Workflow bei jedem Deployment selbsttätig wieder anschaltete, existiert seit dem
+  Server-Deployment `e4866a4` nicht mehr — die Neuberechnung läuft jetzt im Serverprozess
+  selbst (03:15 Uhr Europe/Berlin), es gibt keinen externen crontab-Eintrag mehr, der
+  wiederangeschaltet werden könnte. Nachweis:
+  `.planning/phases/09.1-journal-backfill-und-betriebs-h-rtung/09.1-NACHWEIS-PRODUKTION.md`.
 - **Nebenbefund B-2:** `find server -name "*.mjs" -delete` im Deploy-Workflow löscht die
   Mess-Werkzeuge `14-ist-stand-report.mjs` und `14-ist-stand-vergleich.mjs` bei jedem
   Deployment aus dem Server-Checkout.

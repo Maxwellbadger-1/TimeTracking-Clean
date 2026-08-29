@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🛠️ Changed
+
+#### Betriebs-Härtung: Nachtlauf, Nebenläufigkeit und Skripte (Phase 9.1)
+**Was:** Die nächtliche Überstunden-Neuberechnung lief bisher als eigener `npx tsx`-Prozess
+über einen externen Cronjob (`fix-overtime.ts`, 03:00 Uhr). Dieser Prozess öffnete
+`production.db` und schloss seine eigene Verbindung am Ende — genau der Vorgang, der die WAL
+vom Dateisystem abhängte, sobald er nachts die exklusive Sperre bekam (siehe
+`.planning/debug/wal-abgehaengt-20260827.md`). Ausgeliefert auf Produktion am 29.08.2026,
+Server-Commit `e4866a4`:
+- Der Nachtlauf läuft jetzt im Serverprozess selbst, über dieselbe Datenbankverbindung wie
+  der übrige Betrieb, geplant auf 03:15 Uhr Europe/Berlin, mit Fehlerisolierung je Nutzer und
+  einer Bilanzzeile im Protokoll.
+- Beide externen crontab-Einträge und die zugehörigen Post-Deploy-Aufrufe sind entfernt; das
+  Skript bleibt als gehärtetes Handbetriebs-Werkzeug erhalten.
+- `PRAGMA busy_timeout = 5000` ist zentral gesetzt, mit echtem Nebenläufigkeitstest
+  abgesichert.
+- `server/scripts/` enthält keine TypeScript-Datei mehr; alle aktiven Skripte liegen typisiert
+  unter `server/src/scripts/`.
+- Tests für den Rebuild-Weg (`handleAbsenceDay()`, `updateOvertimeBalanceForMonth()`) und für
+  `ensureOvertimeBalanceEntries()` ergänzt.
+
+**Zur abgehängten WAL — behoben, aber die Beobachtung läuft noch:** Die Produktions-WAL war
+vor dieser Auslieferung abgehängt (`(deleted)` an den Dateizeigern des Serverprozesses,
+gemessen 27.08.–29.08.2026). Nach dem Deployment sind die Dateizeiger regulär verknüpft, kein
+`(deleted)` mehr — der wahrscheinliche Auslöser (externer Nachtlauf) ist entfernt. Dieser
+Zustand ist **nicht bereits als endgültig behoben belegt** — der Nachweis über mindestens zwei
+Nächte (inklusive des 03:15-Laufs im Serverprozess) ist Gegenstand von Plan 09.1-08
+(`09.1-NACHWEIS-BEOBACHTUNG.md`).
+
+*Nachweis:* `.planning/phases/09.1-journal-backfill-und-betriebs-h-rtung/09.1-NACHWEIS-STAGING.md`
+(Green) und `09.1-NACHWEIS-PRODUKTION.md` (Blue).
+
+### 🐛 Known Issues (nicht diese Phase)
+
+- Das Deployment vom 29.08.2026 (Lauf `33270724872`, Commit `e4866a4`) ist auf GitHub Actions
+  formal als `failure` markiert, obwohl die Auslieferung inhaltlich vollständig und korrekt
+  war (Migration, crontab-Bereinigung, PM2-Neustart, Scheduler/Anlauf alle erfolgreich). Der
+  Health-Check-Schritt wartete nur 5 Sekunden nach dem PM2-Neustart und lief bei einem
+  ungewöhnlich langen `npm install` (ca. 4 Minuten, wegen einer npm-Neuinstallation) auf einen
+  Server, der noch initialisierte — `curl` scheiterte mit Exitcode 7. Eigene Nachprüfung
+  (19:29:55 UTC) und unabhängige Prüfung durch den Orchestrator (19:31:48 UTC) bestätigen HTTP
+  200. Siehe `deferred-items.md`, Plan 09.1-07, Befund 4.
+
 ---
 
 ## [1.9.1] - 2026-08-28

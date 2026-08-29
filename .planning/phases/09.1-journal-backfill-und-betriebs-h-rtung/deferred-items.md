@@ -83,3 +83,35 @@ Funde außerhalb des Scopes der jeweiligen Pläne. Nicht behoben, nur dokumentie
    Migrations-Nachweis `DATABASE_PATH=/home/ubuntu/TimeTracking-Green/server/database/development.db`
    explizit vor `npm run migrate:prod` in `deploy-staging.yml` setzen, oder den Schritt ganz
    entfernen, da `runMigrations(db)` beim Serverstart ohnehin greift.
+
+## Plan 09.1-07
+
+4. **`deploy-server.yml` wartet nach dem PM2-Neustart nur 5 Sekunden, bevor der Health-Check
+   `curl` gegen `localhost:3000/api/health` ausführt.** Gemessen beim Produktions-Deployment
+   (Lauf `33270724872`, 29.08.2026, Commit `e4866a4`): Der Schritt „Waiting for server to
+   start..." (`sleep 5`) endete um `19:28:25.144` UTC, `curl` scheiterte unmittelbar danach mit
+   Exitcode 7 (Verbindung abgelehnt). Der Serverprozess selbst protokollierte
+   `"msg":"📡 Listening on http://0.0.0.0:3000"` erst um `19:28:27.032` UTC — zwei Sekunden
+   später. `npm install` brauchte in diesem Lauf mit ca. vier Minuten ungewöhnlich lange
+   (`🔧 Fixing npm corruption` löste eine npm-Neuinstallation aus), wodurch die ohnehin knapp
+   bemessene 5-Sekunden-Wartezeit erstmals sichtbar spät nicht ausreichte — die
+   Server-Initialisierung (u. a. fünf Jahre Feiertags-API-Aufrufe) läuft nach dem PM2-Start
+   noch mehrere Sekunden.
+   **Ursache nicht diese Phase:** Die `sleep 5`-Wartezeit ist Bestandteil des unveränderten
+   `deploy-server.yml`-Ablaufs, nicht Gegenstand von Phase 9.1. Der eigentliche
+   Deployment-Inhalt (Migration, crontab-Bereinigung, PM2-Neustart, Scheduler/Anlauf) lief
+   vollständig und fehlerfrei durch — der Workflow brach erst am Health-Check-Schritt ab,
+   nachdem alle inhaltlichen Schritte bereits erfolgreich waren.
+   **Auswirkung eingeordnet:** Kein Datenverlust, keine Beeinträchtigung der Produktion — der
+   Server lief ab `19:28:27` UTC gesund weiter, bestätigt durch eigene und durch unabhängige
+   Nachprüfung des Orchestrators um `19:29:55` bzw. `19:31:48` UTC (`HTTP 200`). Der
+   GitHub-Actions-Lauf bleibt formal `failure` markiert, obwohl der ausgelieferte Zustand
+   korrekt ist — das ist für künftige „letzter Lauf = success"-Prüfungen (z. B.
+   `gh run list --workflow=... --limit 1`) irreführend, solange der Fund nicht behoben ist.
+   **Nicht behoben:** Eine Verlängerung der Wartezeit oder ein Retry-Loop im Health-Check ist
+   eine Änderung des Deployment-Workflows außerhalb des Umfangs dieses Plans (Auslieferung +
+   Messung, keine Workflow-Änderung) und verdient einen eigenen kleinen Plan.
+   **Empfehlung:** `sleep 5` durch eine Poll-Schleife ersetzen (z. B. bis zu 30 Sekunden in
+   1-Sekunden-Schritten gegen `/api/health` prüfen, erst danach `exit 1`), damit ein
+   langsamerer `npm install`- oder Initialisierungslauf den Workflow nicht fälschlich als
+   `failure` markiert.

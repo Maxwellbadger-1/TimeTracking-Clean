@@ -1,6 +1,7 @@
 # TimeTracking System — Entwicklungsleitlinien
 
-**Stand:** 2026-08-28 · Milestone v3.0 ausgeliefert · Desktop v1.9.1 · Server `bbaac01`
+**Stand:** 2026-08-29 · Milestone v3.0 ausgeliefert · Desktop v1.9.1 · Server `e4866a4`
+(Phase 9.1 Betriebs-Härtung, Beobachtung D-17 läuft noch)
 
 ---
 
@@ -89,12 +90,20 @@ arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offe
    nur eine vom Dateisystem **abgehängte** WAL — sie hängt dann allein am offenen
    Dateizeiger des Prozesses und verschwindet mit ihm.
 
-   **Die Ursache ist der Nachtlauf, nicht nur manuelle Fremdzugriffe** (gemessen 28.08.2026):
-   Der Cron um 03:00 startet `scripts/fix-overtime.ts` als **eigenen** `npx tsx`-Prozess auf
-   `production.db` und ruft am Ende `db.close()`. SQLite räumt WAL und SHM beim Schließen auf,
-   sobald der schließende Prozess kurz die exklusive Sperre bekommt — nachts um 03:00 ist der
-   Server idle, also bekommt er sie. Danach schreibt der Serverprozess in eine gelöste Datei.
-   **Das passiert jede Nacht.** Behebung ist Umfang der Phase 9.1 (WR-05/WR-03).
+   **Die Ursache war der Nachtlauf, nicht nur manuelle Fremdzugriffe** (gemessen 28.08.2026):
+   Der Cron um 03:00 startete `scripts/fix-overtime.ts` als **eigenen** `npx tsx`-Prozess auf
+   `production.db` und rief am Ende `db.close()` auf. SQLite räumt WAL und SHM beim Schließen
+   auf, sobald der schließende Prozess kurz die exklusive Sperre bekommt — nachts um 03:00 war
+   der Server idle, also bekam er sie. Danach schrieb der Serverprozess in eine gelöste Datei.
+
+   **Zwischenstand (29.08.2026, Phase 9.1):** Der externe Nachtlauf ist mit dem
+   Server-Deployment `e4866a4` entfallen; die Neuberechnung läuft seit diesem Zeitpunkt im
+   Serverprozess selbst um 03:15 Uhr Europe/Berlin über dieselbe Verbindung wie der übrige
+   Betrieb — es gibt keinen externen `npx tsx`-Prozess mehr, der sich die exklusive Sperre
+   holen und die WAL abhängen könnte. Nach dem Deployment waren die Dateizeiger erstmals seit
+   dem 27.08. wieder regulär verknüpft (kein `(deleted)`). **Der Nachweis über mindestens zwei
+   Nächte läuft noch** und wird in `09.1-NACHWEIS-BEOBACHTUNG.md` (Plan 09.1-08) geführt —
+   erst danach gilt die Ursache als abschließend beseitigt.
 
    Vor Neustart/Deployment prüfen (lesend):
    ```bash
