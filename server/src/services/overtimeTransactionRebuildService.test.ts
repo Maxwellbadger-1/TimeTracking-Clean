@@ -375,3 +375,145 @@ describe('Gleichlauf Aggregat/kanonischer Weg bei allen Abwesenheitsarten (Befun
     expect(mit.actualHours).toBeCloseTo(ohne.actualHours, 2); // keine Gutschrift
   });
 });
+
+/**
+ * WR-02, D-12 (09-REVIEW.md:197-209): `handleAbsenceDay()` und
+ * `updateOvertimeBalanceForMonth()` sind modulprivat — dieser Block prueft sie deshalb
+ * ausschliesslich ueber den einzigen exportierten Einstieg `rebuildOvertimeTransactionsForMonth()`.
+ *
+ * Fixtures werden pro Test frisch angelegt und nicht von development.db-Bestandsdaten
+ * abgeleitet (WR-07-Vermeidung, D-13): eigener Nutzer, eigene Periode ueber
+ * `insertTestWorkPeriod()`, keine `time_entries` aus dem Bestand.
+ *
+ * Fachliche Quelle: REQ-19 / 09-REVIEW.md:197-209 — `overtime_comp` wird aus dem
+ * Ueberstundenkonto selbst bezahlt und darf deshalb KEINE zweite, neutralisierende
+ * Journalzeile erhalten (im Gegensatz zu vacation/sick/special und unpaid).
+ */
+describe('handleAbsenceDay / updateOvertimeBalanceForMonth — overtime_comp isoliert (WR-02, D-12)', () => {
+  let testUserId: number;
+  const MONTH = '2026-05';
+  const ABSENCE_DATE = '2026-05-12'; // Dienstag, Werktag, kein Feiertag (siehe Plan-Interfaces-Block)
+
+  beforeEach(() => {
+    const result = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_rebuild_otcomp',
+      'test@rebuildotcomp.com',
+      'Test',
+      'RebuildOtComp',
+      'hash',
+      'employee',
+      40, // 40h / 5 Tage = 8h/Werktag
+      '2026-01-01'
+    );
+    testUserId = result.lastInsertRowid as number;
+
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-01-01', weeklyHours: 40 });
+    // Keine time_entries: der gesamte Monat bleibt ohne Ist-Stunden, das isoliert die
+    // Wirkung des einen Abwesenheitstags.
+  });
+
+  afterEach(() => {
+    db.prepare('DELETE FROM users WHERE id = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_transactions WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM absence_requests WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM time_entries WHERE userId = ?').run(testUserId);
+  });
+
+  /**
+   * Legt einen genehmigten Abwesenheitsantrag des uebergebenen Typs fuer einen Tag an,
+   * fuehrt den Rebuild fuer MONTH aus und liefert die Journalzeilen des Tages sowie die
+   * Monatszeile aus overtime_balance zurueck.
+   */
+  function runAbsenceDay(type: string, date: string) {
+    db.prepare(`
+      INSERT INTO absence_requests (userId, type, startDate, endDate, status, days)
+      VALUES (?, ?, ?, ?, 'approved', 1)
+    `).run(testUserId, type, date, date);
+
+    rebuildOvertimeTransactionsForMonth(testUserId, MONTH);
+
+    const transactions = db.prepare(`
+      SELECT type, hours, referenceType, description
+      FROM overtime_transactions
+      WHERE userId = ? AND date = ?
+    `).all(testUserId, date) as Array<{
+      type: string;
+      hours: number;
+      referenceType: string | null;
+      description: string;
+    }>;
+
+    const balance = db.prepare(`
+      SELECT targetHours, actualHours FROM overtime_balance WHERE userId = ? AND month = ?
+    `).get(testUserId, MONTH) as { targetHours: number; actualHours: number } | undefined;
+
+    return { transactions, balance };
+  }
+
+  it('overtime_comp erzeugt genau eine Journalzeile und keine Gutschrift', () => {
+    const { transactions } = runAbsenceDay('overtime_comp', ABSENCE_DATE);
+
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0].type).toBe('time_entry');
+    expect(transactions[0].hours).toBe(-8);
+    expect(transactions[0].referenceType).toBe('absence');
+    expect(transactions[0].description).toBe('Abwesenheit (overtime_comp): Soll/Ist-Differenz');
+
+    const creditRows = db.prepare(`
+      SELECT id FROM overtime_transactions
+      WHERE userId = ? AND type = 'overtime_comp_credit' AND date LIKE ?
+    `).all(testUserId, `${MONTH}-%`);
+    expect(creditRows).toHaveLength(0);
+  });
+
+  it('Gegenprobe vacation: der Test erreicht handleAbsenceDay() tatsaechlich (zwei Zeilen, Gutschrift)', () => {
+    const { transactions } = runAbsenceDay('vacation', ABSENCE_DATE);
+
+    expect(transactions).toHaveLength(2);
+
+    const earned = transactions.find(t => t.type === 'time_entry');
+    const credit = transactions.find(t => t.type === 'vacation_credit');
+
+    expect(earned).toBeDefined();
+    expect(earned!.hours).toBe(-8);
+    expect(credit).toBeDefined();
+    expect(credit!.hours).toBe(8);
+    expect(credit!.description.startsWith('Urlaubs-Gutschrift')).toBe(true);
+  });
+
+  it('updateOvertimeBalanceForMonth behandelt overtime_comp, vacation und unpaid unterschiedlich (Differenzen, nicht absolute Monatssummen)', () => {
+    function cleanupDay(): void {
+      db.prepare('DELETE FROM absence_requests WHERE userId = ? AND startDate = ?').run(testUserId, ABSENCE_DATE);
+      db.prepare('DELETE FROM overtime_transactions WHERE userId = ? AND date LIKE ?').run(testUserId, `${MONTH}-%`);
+      db.prepare('DELETE FROM overtime_balance WHERE userId = ? AND month = ?').run(testUserId, MONTH);
+    }
+
+    const otComp = runAbsenceDay('overtime_comp', ABSENCE_DATE).balance;
+    cleanupDay();
+
+    const vacation = runAbsenceDay('vacation', ABSENCE_DATE).balance;
+    cleanupDay();
+
+    const unpaid = runAbsenceDay('unpaid', ABSENCE_DATE).balance;
+    cleanupDay();
+
+    expect(otComp).toBeDefined();
+    expect(vacation).toBeDefined();
+    expect(unpaid).toBeDefined();
+
+    // overtime_comp reduziert das Soll NICHT — targetHours gleich wie bei vacation.
+    expect(otComp!.targetHours).toBeCloseTo(vacation!.targetHours, 2);
+    // unbezahlter Urlaub reduziert das Soll um die Sollstunden des Tages (8h).
+    expect(unpaid!.targetHours).toBeCloseTo(otComp!.targetHours - 8, 2);
+    // nur vacation schreibt eine Ist-Gutschrift (+8h gegenueber overtime_comp).
+    expect(vacation!.actualHours).toBeCloseTo(otComp!.actualHours + 8, 2);
+    // unpaid schreibt keine Ist-Gutschrift — actualHours identisch zu overtime_comp.
+    expect(unpaid!.actualHours).toBeCloseTo(otComp!.actualHours, 2);
+  });
+});
