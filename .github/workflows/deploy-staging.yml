@@ -106,21 +106,26 @@ jobs:
             NODE_ENV=staging npm run validate:schema || true
             echo "✅ Schema validation completed"
 
-            # Fix overtime calculations (ensure all months exist)
-            echo "📊 Fixing overtime calculations..."
-            NODE_ENV=staging npx tsx scripts/fix-overtime.ts || {
-              echo "⚠️  Overtime fix had issues, but continuing deployment..."
-            }
-            echo "✅ Overtime calculations updated"
+            # Ueberstunden-Neuberechnung nach Deployment: seit Phase 9.1 (D-04) entfallen.
+            # Der Lauf geschieht jetzt einmalig und nicht blockierend im Serverprozess nach
+            # runMigrations(db) — vollstaendige Begruendung im Kopfkommentar von
+            # server/src/server.ts.
 
-            # Setup automatic daily cron job (runs at 3 AM every day)
-            echo "⏰ Setting up automatic daily overtime recalculation..."
-            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Green/server && NODE_ENV=staging npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
-            mkdir -p /home/ubuntu/logs
-            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
-              echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+            # Bereinigung: alten externen Cronjob-Eintrag entfernen (Phase 9.1, D-03).
+            # Der naechtliche Neuberechnungslauf laeuft seit Phase 9.1 im Serverprozess ueber
+            # den In-Prozess-Scheduler (server/src/services/cronService.ts) statt als externer
+            # Cronjob. Ein externer Cron auf das ehemalige Handbetriebs-Skript war die Ursache
+            # der taeglich abgehaengten WAL (.planning/debug/wal-abgehaengt-20260827.md).
+            # Dieser Schritt entfernt einen ggf. noch vorhandenen alten Eintrag, damit sich
+            # der Server beim naechsten Deployment selbst bereinigt. Der Filter unten bleibt
+            # bewusst eng gefasst — auf demselben Server steht ein weiterer, woechentlicher
+            # crontab-Eintrag fuer den DB-Sync-Job, den ein breiterer Filter mitloeschen
+            # wuerde (siehe 14-AUSLIEFERUNG.md).
+            echo "🧹 Removing legacy overtime cron entry (Phase 9.1, D-03)..."
+            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts") | crontab - || {
+              echo "⚠️  Cron cleanup failed, continuing..."
             }
-            echo "✅ Cron job setup attempted"
+            echo "✅ Cron cleanup attempted"
 
             # Create .env file if it doesn't exist
             echo "🔐 Setting up environment..."
