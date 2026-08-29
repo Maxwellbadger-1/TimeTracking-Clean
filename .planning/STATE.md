@@ -4,12 +4,12 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Phase 9.1 context gathered
-last_updated: "2026-08-29T02:20:09.171Z"
-last_activity: 2026-08-26
+last_updated: "2026-08-29T03:21:59.283Z"
+last_activity: 2026-08-29 -- Phase 09.1 planning complete
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 72
+  total_plans: 80
   completed_plans: 72
   percent: 89
 ---
@@ -448,7 +448,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-26
+Last activity: 2026-08-29 -- Phase 09.1 planning complete
 
 ## Operator Next Steps
 
