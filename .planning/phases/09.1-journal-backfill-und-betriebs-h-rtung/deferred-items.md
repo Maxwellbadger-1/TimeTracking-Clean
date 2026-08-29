@@ -27,3 +27,22 @@ Funde außerhalb des Scopes der jeweiligen Pläne. Nicht behoben, nur dokumentie
    **Empfehlung:** Vor der nächsten Phase, die sich auf `vitest run` als Regressionsnetz
    verlässt, `npm run <ein-holiday-seed-werkzeug>` oder einen echten Serverstart gegen jede
    Worktree-Kopie von `development.db` laufen lassen, um die Feiertagsdaten wiederherzustellen.
+
+2. **`server/src/scripts/validateSchema.ts` — `EXPECTED_SCHEMA` ist gegenüber dem
+   tatsächlichen Schema veraltet und meldet `npm run validate:schema` mit Exitcode 1**,
+   obwohl das Werkzeug fehlerfrei lädt und einen vollständigen Bericht ausgibt (Task 3,
+   Schritt 2). Gemessen: 8 von 20 Tabellen mit „Missing"/„Extra"-Abweichungen (u. a.
+   `absence_requests` erwartet `approverId`, tatsächlich `approvedBy`; `overtime_balance`
+   erwartet `overtime`/`carryover`/`balance`, tatsächlich `carryoverFromPreviousYear`;
+   `time_entries` erwartet `projectId`/`activityId`, tatsächlich `startTime`/`endTime`/
+   `activity`/`project`; 9 Tabellen ganz ohne Schemadefinition, darunter
+   `user_work_periods` und `work_time_accounts` — beide erst nach v3.0 entstanden).
+   **Ursache nicht dieser Plan:** `git show` auf den Verschiebungs-Commit dieses Plans zeigt
+   an `validateSchema.ts` ausschließlich die Änderung der Importzeile
+   (`'../src/config/database.js'` → `'../config/database.js'`) — der `EXPECTED_SCHEMA`-Block
+   ist zeichengleich. Die Datei ist seit Migrationen/Perioden-Refactorings (Phasen 9–11)
+   nicht nachgezogen worden.
+   **Nicht behoben:** Eine Aktualisierung von `EXPECTED_SCHEMA` wäre eine inhaltliche
+   Überarbeitung des Validierungswerkzeugs, keine Pfadkorrektur — außerhalb von D-09/D-11.
+   Die Plan-Abnahme für diesen Schritt verlangt nur „läuft durch, kein
+   Modulauflösungsfehler, Schemabericht in der Ausgabe" (nicht Exitcode 0) — das ist erfüllt.
