@@ -114,17 +114,27 @@ jobs:
             echo "✅ Schema validation completed"
 
             # HINWEIS: Der Schritt "Fix overtime calculations" stand frueher an dieser Stelle.
-            # Er ist bewusst hinter den PM2-Start und den Health-Check verschoben worden —
-            # Begruendung dort.
+            # Er ist seit Phase 9.1 (D-04) entfallen — Begruendung weiter unten beim
+            # Bereinigungsschritt und im Kopfkommentar von server/src/server.ts.
 
-            # Setup automatic daily cron job (runs at 3 AM every day)
-            echo "⏰ Setting up automatic daily overtime recalculation..."
-            CRON_COMMAND="0 3 * * * cd /home/ubuntu/TimeTracking-Clean/server && DATABASE_PATH=/home/ubuntu/databases/production.db NODE_ENV=production npx tsx scripts/fix-overtime.ts >> /home/ubuntu/logs/overtime-fix.log 2>&1"
-            mkdir -p /home/ubuntu/logs
-            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts"; echo "$CRON_COMMAND") | crontab - || {
-              echo "⚠️  Cron setup failed, continuing without automatic recalculation..."
+            # Bereinigung: alten externen Cronjob-Eintrag entfernen (Phase 9.1, D-03).
+            # Der naechtliche Neuberechnungslauf laeuft seit Phase 9.1 im Serverprozess ueber
+            # den In-Prozess-Scheduler (server/src/services/cronService.ts) statt als externer
+            # Cronjob. Ein externer Cron auf das ehemalige Handbetriebs-Skript war die Ursache
+            # der taeglich abgehaengten WAL (.planning/debug/wal-abgehaengt-20260827.md): er
+            # oeffnete eine eigene Verbindung auf production.db und schloss sie am Ende
+            # selbst, wodurch SQLite WAL/SHM des laufenden Serverprozesses mit aufraeumte.
+            # Dieser Schritt entfernt einen ggf. noch vorhandenen alten Eintrag, damit sich
+            # der Server beim naechsten Deployment selbst bereinigt und kein manueller
+            # Eingriff auf dem Server noetig ist. Der Filter unten bleibt bewusst eng gefasst —
+            # auf demselben Server steht ein weiterer, woechentlicher crontab-Eintrag fuer
+            # den DB-Sync-Job, den ein breiterer Filter mitloeschen wuerde (siehe
+            # 14-AUSLIEFERUNG.md).
+            echo "🧹 Removing legacy overtime cron entry (Phase 9.1, D-03)..."
+            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts") | crontab - || {
+              echo "⚠️  Cron cleanup failed, continuing..."
             }
-            echo "✅ Cron job setup attempted"
+            echo "✅ Cron cleanup attempted"
 
             # Create .env file if it doesn't exist
             echo "🔐 Setting up environment..."
@@ -179,34 +189,12 @@ jobs:
               exit 1
             fi
 
-            # Fix overtime calculations (ensure all months exist)
-            #
-            # STELLUNG IM ABLAUF IST NICHT BELIEBIG (Plan 14-08, Befund aus 14-URTEIL-PHASE-9.1.md):
-            # Dieser Schritt MUSS nach dem PM2-Start und nach dem Health-Check laufen, nicht davor.
-            #
-            # Grund: Die TypeScript-Migrationen 008-015 laufen NICHT in "Running database
-            # migrations" — `npm run migrate:prod` (scripts/migrate.ts) filtert auf `.sql` und
-            # liest nur aus server/database/migrations. Die TypeScript-Migrationen laufen erst
-            # beim Serverstart ueber `runMigrations(db)` in server/src/server.ts:215.
-            #
-            # scripts/fix-overtime.ts importiert seit Plan 09-05 `ensureOvertimeBalanceEntries`,
-            # das ueber unifiedOvertimeService.calculateMonthlyOvertime() je Tag
-            # getDailyTargetHours() ruft — und das loest seit Phase 11 ueber die Tabelle
-            # `user_work_periods` auf. Diese Tabelle entsteht erst durch Migration 008/009.
-            # An der alten Position lief das Skript also gegen eine halbmigrierte Datenbank,
-            # in der `user_work_periods` noch nicht existiert, und schreibt dabei per UPSERT
-            # in `overtime_balance`.
-            #
-            # Das `||`-Konstrukt bleibt erhalten: der Schritt darf das Deployment weiterhin
-            # nicht abbrechen (fix-overtime.ts hat laut Befund WR-05 der Phase 9 keine
-            # Fehlerisolierung je Nutzer — ein Fehler beim ersten Nutzer bricht den ganzen
-            # Lauf ab).
-            echo "📊 Fixing overtime calculations..."
-            cd /home/ubuntu/TimeTracking-Clean/server
-            DATABASE_PATH=$DATABASE_PATH NODE_ENV=production npx tsx scripts/fix-overtime.ts || {
-              echo "⚠️  Overtime fix had issues, but continuing deployment..."
-            }
-            echo "✅ Overtime calculations updated"
+            # Ueberstunden-Neuberechnung nach Deployment: seit Phase 9.1 (D-04) entfallen.
+            # Der Lauf geschieht jetzt einmalig und nicht blockierend im Serverprozess nach
+            # runMigrations(db) — die vollstaendige Begruendung fuer die vormalige Position
+            # in diesem Ablauf (nach PM2-Start und Health-Check, wegen der TypeScript-
+            # Migrationen ueber user_work_periods) steht im Kopfkommentar von
+            # server/src/server.ts.
 
       - name: Verify DB path post-deploy
         uses: appleboy/ssh-action@v1.0.3
