@@ -199,7 +199,7 @@ Plans:
 - [x] 09.1-02-PLAN.md — WR-02: `overtime_comp` isoliert gegen den Rebuild-Weg, `ensureOvertimeBalanceEntries()` abdecken (Welle 2, nach 09.1-01)
 - [x] 09.1-03-PLAN.md — WR-04: `server/scripts/` auflösen, 13 Legacy-Skripte entfernen, Aufrufpfade nachziehen (Welle 2, nach 09.1-01)
 - [x] 09.1-04-PLAN.md — WR-05: Nachtlauf in den Serverprozess (03:15 Europe/Berlin), Fehlerisolierung je Nutzer (Welle 2, nach 09.1-01)
-- [ ] 09.1-05-PLAN.md — WR-05: Werkzeug härten und verschieben, beide crontab-Einträge und Post-Deploy-Läufe entfernen (Welle 3)
+- [x] 09.1-05-PLAN.md — WR-05: Werkzeug härten und verschieben, beide crontab-Einträge und Post-Deploy-Läufe entfernen (Welle 3)
 - [ ] 09.1-06-PLAN.md — Auslieferung Staging (Green, Port 3001) mit Wirkungsnachweis (Welle 4)
 - [ ] 09.1-07-PLAN.md — Auslieferung Produktion (Blue, Port 3000) nach Freigabe, Kerndokumentation nachziehen (Welle 5)
 - [ ] 09.1-08-PLAN.md — Beobachtungsnachweis über mindestens zwei Nächte, Phasenabschluss (Welle 6)
