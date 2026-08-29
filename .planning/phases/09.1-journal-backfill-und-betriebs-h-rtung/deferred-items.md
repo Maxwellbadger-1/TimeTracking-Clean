@@ -46,3 +46,40 @@ Funde außerhalb des Scopes der jeweiligen Pläne. Nicht behoben, nur dokumentie
    Überarbeitung des Validierungswerkzeugs, keine Pfadkorrektur — außerhalb von D-09/D-11.
    Die Plan-Abnahme für diesen Schritt verlangt nur „läuft durch, kein
    Modulauflösungsfehler, Schemabericht in der Ausgabe" (nicht Exitcode 0) — das ist erfüllt.
+
+## Plan 09.1-06
+
+3. **`deploy-staging.yml` lässt `npm run migrate:prod` auf dem Green-Server gegen die
+   falsche Datei laufen.** Gemessen beim Deployment auf `origin/staging` (Lauf `33234698132`,
+   29.08.2026): Der Workflow-Schritt „Running database migrations" protokolliert
+   `📁 Database: /home/ubuntu/TimeTracking-Green/server/database.db`, während die
+   anschließende `validate:schema`-Prüfung und die Dateizeiger-Prüfung des laufenden
+   PM2-Prozesses (`ls -l /proc/<pid>/fd`) übereinstimmend
+   `/home/ubuntu/TimeTracking-Green/server/database/development.db` als tatsächlich vom
+   Server offengehaltene Datenbank ausweisen — zwei verschiedene Dateien. `ls -la` bestätigt:
+   `server/database.db` trägt den Zeitstempel 2. April, `development.db-wal`/`-shm` wurden
+   exakt beim gemessenen Deployment (04:54 UTC) neu beschrieben.
+   **Ursache nicht dieser Plan:** `git blame` auf die betroffene Zeile in `deploy-staging.yml`
+   zeigt Commit `ab51e858` vom 2026-02-10 — acht Monate vor Phase 9.1. Der Aufruf setzt kein
+   `DATABASE_PATH`; `src/scripts/migrate.ts` fällt im `prod`-Zweig auf
+   `databaseConfig.productionPath` zurück (`server/src/config/database.ts:41-43`, hartkodiert
+   auf `server/database.db`, unabhängig von `NODE_ENV`), während der laufende Serverprozess
+   über `NODE_ENV=staging` und `getDatabasePath()` korrekt auf `development.db` zeigt. Auf
+   Blue (Produktion) tritt dieser Mismatch nicht auf, da dort `DATABASE_PATH` in der
+   PM2-Konfiguration immer explizit gesetzt ist und in `migrate.ts` Vorrang vor
+   `productionPath` hat.
+   **Auswirkung eingeordnet:** Kein Schaden, kein D-16-Verstoß (die berührte Datei ist nicht
+   `production.db`), keine Auswirkung auf Produktion. Die tatsächlich wirksame
+   Schema-Aktualisierung für Green geschieht unabhängig davon beim Serverstart über
+   `runMigrations(db)` (`server/src/database/migrationRunner.ts`, aufgerufen aus
+   `server.ts:217`) — im selben Deployment gemessen: 9 ausstehende TS-Migrationen wurden dort
+   fehlerfrei gegen die reale `development.db` angewendet. Der `migrate:prod`-Schritt in
+   `deploy-staging.yml` ist für Green faktisch wirkungslos, aber nicht schädlich.
+   **Nicht behoben:** Eine Korrektur (z. B. `DATABASE_PATH` als Prefix vor `migrate:prod` in
+   `deploy-staging.yml` ergänzen) wäre eine Änderung des Deployment-Workflows außerhalb des
+   von Plan 09.1-06 vorgesehenen Umfangs (Auslieferung + Messung, keine Workflow-Änderung) und
+   eine Architekturentscheidung über den vorgesehenen Umgang mit Green-Datenbanken.
+   **Empfehlung:** Vor einer nächsten Nutzung von Green als aussagekräftiger
+   Migrations-Nachweis `DATABASE_PATH=/home/ubuntu/TimeTracking-Green/server/database/development.db`
+   explizit vor `npm run migrate:prod` in `deploy-staging.yml` setzen, oder den Schritt ganz
+   entfernen, da `runMigrations(db)` beim Serverstart ohnehin greift.
