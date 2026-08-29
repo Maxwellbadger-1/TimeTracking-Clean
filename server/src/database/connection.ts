@@ -10,6 +10,12 @@ import { databaseConfig } from '../config/database.js';
 const DB_PATH = databaseConfig.path;
 const env = process.env.NODE_ENV || 'development';
 
+// WR-03 (09-REVIEW.md) / D-07 (09.1-CONTEXT.md): Ohne dieses Pragma scheitert ein
+// Schreibkonflikt zwischen zwei Verbindungen auf dieselbe Datei sofort mit SQLITE_BUSY,
+// statt zu warten. Genau das traf auf den naechtlichen Neuberechnungslauf und den
+// Serverprozess zu, die getrennte Verbindungen auf dieselbe production.db hielten.
+const BUSY_TIMEOUT_MS = 5000;
+
 // Ensure database directory exists
 const dbDir = dirname(DB_PATH);
 if (!existsSync(dbDir)) {
@@ -38,6 +44,21 @@ function initializeConnection(): Database.Database {
       ? (message?: unknown, ...additionalArgs: unknown[]) => logger.debug({ message, additionalArgs }, 'Database query')
       : undefined,
   });
+
+  // WR-03 / D-07: busy_timeout VOR initializeDatabase() setzen - initializeDatabase()
+  // fuehrt 14 CREATE TABLE, mehrere ALTER TABLE und eine bedingte users-Migration aus;
+  // genau diese DDL soll den Timeout bereits tragen.
+  database.pragma('busy_timeout = ' + BUSY_TIMEOUT_MS);
+
+  // CRITICAL: Gegenlesen statt stillschweigend vertrauen - ein nicht gesetztes Pragma
+  // ist genau der Zustand, den WR-03 beschreibt; er darf nicht unbemerkt zurueckkehren.
+  const busyTimeoutStatus = database.pragma('busy_timeout', { simple: true }) as number;
+  if (busyTimeoutStatus !== BUSY_TIMEOUT_MS) {
+    throw new Error(
+      `❌ CRITICAL: busy_timeout nicht gesetzt! Erwartet ${BUSY_TIMEOUT_MS}, gelesen ${busyTimeoutStatus}.`
+    );
+  }
+  logger.info({ busyTimeoutMs: BUSY_TIMEOUT_MS }, '✅ busy_timeout ENABLED and VERIFIED');
 
   // Initialize schema
   initializeDatabase(database);
