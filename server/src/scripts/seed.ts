@@ -14,12 +14,12 @@ import { readdirSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
-import { databaseConfig } from '../src/config/database.js';
+import { databaseConfig } from '../config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SEEDS_DIR = path.join(__dirname, '../database/seeds');
+const SEEDS_DIR = path.join(__dirname, '../../database/seeds');
 
 /**
  * Safety check - only allow seeding in development
