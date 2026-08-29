@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Phase 9.1 context gathered
-last_updated: "2026-08-29T03:21:59.283Z"
-last_activity: 2026-08-29 -- Phase 09.1 planning complete
+last_updated: "2026-08-29T03:36:20.415Z"
+last_activity: 2026-08-29 -- Phase 09.1 execution started
 progress:
   total_phases: 9
   completed_phases: 8
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-21)
 
 **Core value:** Eine Stundenumstellung verschiebt keine Vergangenheit — was bis zum Stichtag gerechnet wurde, bleibt stehen.
-**Current focus:** Milestone-Abschluss v3.0 — Audit gelaufen, offen ist nur noch die Entscheidung zu Phase 9.1 (Code-Härtung WR-02 bis WR-05), siehe `.planning/v3.0-MILESTONE-AUDIT.md`, Abschnitt 7
+**Current focus:** Phase 09.1 — journal-backfill-und-betriebs-h-rtung
 
 ## Current Status
 
@@ -433,9 +433,9 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 ## Current Position
 
-Phase: 14.2 (restbefunde-der-abnahme-schliessen) — EXECUTING
-Plan: 13 of 13
-Status: Ready to execute
+Phase: 09.1 (journal-backfill-und-betriebs-h-rtung) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 09.1
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
         ist durchgefuehrt und einzeln rueckgaengig machbar; die Sicherung liegt unter
@@ -448,7 +448,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-29 -- Phase 09.1 planning complete
+Last activity: 2026-08-29 -- Phase 09.1 execution started
 
 ## Operator Next Steps
 

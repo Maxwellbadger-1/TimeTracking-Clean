@@ -194,7 +194,8 @@ Code-Härtung WR-02 bis WR-05 — der Backfill ist am 26.08.2026 im Fenster der 
 WR-07 hat Plan 14-02 geschlossen)
 
 Plans:
-- [ ] 09.1-01-PLAN.md — WR-03: `busy_timeout` zentral setzen, echter Nebenläufigkeitstest mit Gegenprobe (Welle 1)
+
+- [x] 09.1-01-PLAN.md — WR-03: `busy_timeout` zentral setzen, echter Nebenläufigkeitstest mit Gegenprobe (Welle 1)
 - [ ] 09.1-02-PLAN.md — WR-02: `overtime_comp` isoliert gegen den Rebuild-Weg, `ensureOvertimeBalanceEntries()` abdecken (Welle 2, nach 09.1-01)
 - [ ] 09.1-03-PLAN.md — WR-04: `server/scripts/` auflösen, 13 Legacy-Skripte entfernen, Aufrufpfade nachziehen (Welle 2, nach 09.1-01)
 - [ ] 09.1-04-PLAN.md — WR-05: Nachtlauf in den Serverprozess (03:15 Europe/Berlin), Fehlerisolierung je Nutzer (Welle 2, nach 09.1-01)
