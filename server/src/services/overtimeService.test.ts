@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../database/connection.js';
-import { ensureAbsenceTransactions } from './overtimeService.js';
+import { ensureAbsenceTransactions, ensureOvertimeBalanceEntries } from './overtimeService.js';
 import { insertTestWorkPeriod } from '../test-support/workPeriodFixtures.js';
 
 /**
@@ -116,5 +116,89 @@ describe('ensureAbsenceTransactions — REQ-19 Schreibpfad', () => {
     `).all(testUserId) as Array<{ date: string }>;
 
     expect(creditRows.map(r => r.date)).toContain('2026-07-31');
+  });
+});
+
+/**
+ * ENSURE OVERTIME BALANCE ENTRIES — kanonischer Aufrufer des Nachtlaufs (WR-02, D-12)
+ *
+ * ensureOvertimeBalanceEntries() ist der Einstieg, den der bisherige fix-overtime.ts-
+ * Nachtlauf aufruft und den der In-Prozess-Scheduler aus Plan 09.1-04 uebernehmen wird.
+ * Fixtures werden pro Test frisch angelegt (D-13), nicht von development.db-Bestandsdaten
+ * abgeleitet.
+ */
+describe('ensureOvertimeBalanceEntries — kanonischer Aufrufer des Nachtlaufs (WR-02, D-12)', () => {
+  let testUserId: number;
+
+  beforeEach(() => {
+    const result = db.prepare(`
+      INSERT INTO users (
+        username, email, firstName, lastName, password, role,
+        weeklyHours, hireDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'testuser_ensurebalance',
+      'test@ensurebalance.com',
+      'Test',
+      'EnsureBalance',
+      'hash',
+      'employee',
+      40,
+      '2026-03-10'
+    );
+    testUserId = result.lastInsertRowid as number;
+
+    insertTestWorkPeriod(testUserId, { validFrom: '2026-03-10', weeklyHours: 40 });
+  });
+
+  afterEach(() => {
+    db.prepare('DELETE FROM users WHERE id = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_balance WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM overtime_transactions WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM time_entries WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM absence_requests WHERE userId = ?').run(testUserId);
+    db.prepare('DELETE FROM work_time_accounts WHERE userId = ?').run(testUserId);
+
+    const remaining = db.prepare('SELECT COUNT(*) as count FROM overtime_balance WHERE userId = ?')
+      .get(testUserId) as { count: number };
+    expect(remaining.count).toBe(0);
+  });
+
+  it('erzeugt eine lueckenlose Monatskette ab dem Einstellungsmonat', async () => {
+    await ensureOvertimeBalanceEntries(testUserId, '2026-05');
+
+    const rows = db.prepare(`
+      SELECT month FROM overtime_balance WHERE userId = ? ORDER BY month ASC
+    `).all(testUserId) as Array<{ month: string }>;
+
+    expect(rows).toHaveLength(3);
+    expect(rows.map(r => r.month)).toEqual(['2026-03', '2026-04', '2026-05']);
+  });
+
+  it('ist idempotent: ein zweiter Aufruf veraendert weder Zeilenzahl noch Werte', async () => {
+    await ensureOvertimeBalanceEntries(testUserId, '2026-05');
+
+    const before = db.prepare(`
+      SELECT month, targetHours, actualHours FROM overtime_balance WHERE userId = ? ORDER BY month ASC
+    `).all(testUserId) as Array<{ month: string; targetHours: number; actualHours: number }>;
+
+    await ensureOvertimeBalanceEntries(testUserId, '2026-05');
+
+    const after = db.prepare(`
+      SELECT month, targetHours, actualHours FROM overtime_balance WHERE userId = ? ORDER BY month ASC
+    `).all(testUserId) as Array<{ month: string; targetHours: number; actualHours: number }>;
+
+    expect(after).toHaveLength(3);
+    expect(after).toEqual(before);
+  });
+
+  it('bricht bei unbekanntem Nutzer klar mit "User not found:" ab', async () => {
+    const maxId = db.prepare('SELECT MAX(id) as maxId FROM users').get() as { maxId: number };
+    const unknownUserId = maxId.maxId + 100000;
+
+    const exists = db.prepare('SELECT id FROM users WHERE id = ?').get(unknownUserId);
+    expect(exists).toBeUndefined();
+
+    await expect(ensureOvertimeBalanceEntries(unknownUserId, '2026-05')).rejects.toThrow('User not found:');
   });
 });
