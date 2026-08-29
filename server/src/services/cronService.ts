@@ -1,6 +1,7 @@
 import * as cron from 'node-cron';
 import { createBackup } from './backupService.js';
 import { performYearEndRollover } from './yearEndRolloverService.js';
+import { runOvertimeRecalcForAllUsers } from './overtimeRecalcRunner.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -10,6 +11,7 @@ import logger from '../utils/logger.js';
 
 let backupTask: cron.ScheduledTask | null = null;
 let yearEndRolloverTask: cron.ScheduledTask | null = null;
+let overtimeRecalcTask: cron.ScheduledTask | null = null;
 
 /**
  * Start automated backup scheduler
@@ -139,6 +141,74 @@ export function getYearEndRolloverSchedulerStatus(): {
   return {
     running: yearEndRolloverTask !== null,
     schedule: '5 0 1 1 * (January 1st at 00:05 AM)',
+    timezone: 'Europe/Berlin',
+  };
+}
+
+/**
+ * Start overtime recalculation scheduler (WR-05, D-01, D-02)
+ *
+ * URSACHE (gemessen 28.08.2026, `.planning/debug/wal-abgehaengt-20260827.md`): Der
+ * nächtliche Neuberechnungslauf lief bisher als eigener `npx tsx`-Prozess mit einer
+ * zweiten Verbindung auf die Produktionsdatenbank und beendete diese Verbindung am Ende
+ * selbst. SQLite räumte dabei WAL und SHM auf, sobald der beendende Prozess kurz die
+ * exklusive Sperre bekam (nachts, wenn der Server idle ist) — der Serverprozess schrieb
+ * danach in eine aus dem Dateisystem gelöste Datei. Das passierte jede Nacht. Dieser
+ * Scheduler löst das, indem der Lauf im Serverprozess selbst über die geteilte
+ * Verbindung (`overtimeRecalcRunner.ts`) stattfindet (D-01).
+ *
+ * ZEITWAHL: Genau 03:15, nicht 03:00 — um 03:00 läuft im selben Prozess bereits die
+ * Feiertags-Aktualisierung (`server.ts`). Getrennte Uhrzeiten halten das Protokoll
+ * eindeutig lesbar (D-02). Die Zeitzone `Europe/Berlin` ist zwingend, sonst liefe der
+ * Lauf auf einem Server mit UTC-Systemzeit zwei Stunden verschoben.
+ */
+export function startOvertimeRecalcScheduler(): void {
+  if (overtimeRecalcTask) {
+    logger.warn('⚠️  Overtime recalc scheduler already running');
+    return;
+  }
+
+  overtimeRecalcTask = cron.schedule(
+    '15 3 * * *',
+    async () => {
+      try {
+        await runOvertimeRecalcForAllUsers({ anlass: 'nachtlauf' });
+      } catch (error) {
+        logger.error({ err: error }, '❌ Overtime recalc scheduler run failed');
+      }
+    },
+    {
+      timezone: 'Europe/Berlin', // CRITICAL: German timezone!
+    }
+  );
+
+  logger.info(
+    '✅ Overtime recalc scheduler started (daily at 03:15 AM Europe/Berlin)'
+  );
+}
+
+/**
+ * Stop overtime recalculation scheduler
+ */
+export function stopOvertimeRecalcScheduler(): void {
+  if (overtimeRecalcTask) {
+    overtimeRecalcTask.stop();
+    overtimeRecalcTask = null;
+    logger.info('🛑 Overtime recalc scheduler stopped');
+  }
+}
+
+/**
+ * Get overtime recalc scheduler status
+ */
+export function getOvertimeRecalcSchedulerStatus(): {
+  running: boolean;
+  schedule: string;
+  timezone: string;
+} {
+  return {
+    running: overtimeRecalcTask !== null,
+    schedule: '15 3 * * * (täglich 03:15)',
     timezone: 'Europe/Berlin',
   };
 }
