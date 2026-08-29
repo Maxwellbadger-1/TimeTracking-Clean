@@ -189,19 +189,19 @@ Bestandsdaten ausdrücklich einer eigenen Phase zu, sobald er über eine reine C
 hinausgeht — genau der hier vorliegende Fall. D5 verbietet den nötigen
 Produktionsschreibzugriff in Phase 9.
 
-**Plans:** 8 Pläne, 5 Wellen (geplant 2026-08-29; Umfang nach `09.1-CONTEXT.md`: nur die
+**Plans:** 8 Pläne, 6 Wellen (geplant 2026-08-29; Umfang nach `09.1-CONTEXT.md`: nur die
 Code-Härtung WR-02 bis WR-05 — der Backfill ist am 26.08.2026 im Fenster der Phase 14 gelaufen,
 WR-07 hat Plan 14-02 geschlossen)
 
 Plans:
 - [ ] 09.1-01-PLAN.md — WR-03: `busy_timeout` zentral setzen, echter Nebenläufigkeitstest mit Gegenprobe (Welle 1)
-- [ ] 09.1-02-PLAN.md — WR-02: `overtime_comp` isoliert gegen den Rebuild-Weg, `ensureOvertimeBalanceEntries()` abdecken (Welle 1)
+- [ ] 09.1-02-PLAN.md — WR-02: `overtime_comp` isoliert gegen den Rebuild-Weg, `ensureOvertimeBalanceEntries()` abdecken (Welle 2, nach 09.1-01)
 - [ ] 09.1-03-PLAN.md — WR-04: `server/scripts/` auflösen, 13 Legacy-Skripte entfernen, Aufrufpfade nachziehen (Welle 1)
-- [ ] 09.1-04-PLAN.md — WR-05: Nachtlauf in den Serverprozess (03:15 Europe/Berlin), Fehlerisolierung je Nutzer (Welle 1)
-- [ ] 09.1-05-PLAN.md — WR-05: Werkzeug härten und verschieben, beide crontab-Einträge und Post-Deploy-Läufe entfernen (Welle 2)
-- [ ] 09.1-06-PLAN.md — Auslieferung Staging (Green, Port 3001) mit Wirkungsnachweis (Welle 3)
-- [ ] 09.1-07-PLAN.md — Auslieferung Produktion (Blue, Port 3000) nach Freigabe, Kerndokumentation nachziehen (Welle 4)
-- [ ] 09.1-08-PLAN.md — Beobachtungsnachweis über mindestens zwei Nächte, Phasenabschluss (Welle 5)
+- [ ] 09.1-04-PLAN.md — WR-05: Nachtlauf in den Serverprozess (03:15 Europe/Berlin), Fehlerisolierung je Nutzer (Welle 2, nach 09.1-01)
+- [ ] 09.1-05-PLAN.md — WR-05: Werkzeug härten und verschieben, beide crontab-Einträge und Post-Deploy-Läufe entfernen (Welle 3)
+- [ ] 09.1-06-PLAN.md — Auslieferung Staging (Green, Port 3001) mit Wirkungsnachweis (Welle 4)
+- [ ] 09.1-07-PLAN.md — Auslieferung Produktion (Blue, Port 3000) nach Freigabe, Kerndokumentation nachziehen (Welle 5)
+- [ ] 09.1-08-PLAN.md — Beobachtungsnachweis über mindestens zwei Nächte, Phasenabschluss (Welle 6)
 
 ---
 
@@ -767,7 +767,7 @@ Archiv: `.planning/milestones/v2.0-ROADMAP.md`, `.planning/milestones/v2.0-phase
 | 7. Saldo aus Buchungen + Backfill | v2.0 | 3/3 | Complete | 2026-08-19 |
 | 8. Kontoauszug | v2.0 | 5/5 | Complete | 2026-08-20 |
 | 9. Ein Maßstab, ein Weg | v3.0 | 5/5 | Complete | 2026-08-22 |
-| 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/8 | **Aufgeteilt (Plan 14-07): Backfill in Plan 14-10 erledigt (26.08.2026), WR-07 durch Plan 14-02 geschlossen. Code-Härtung WR-02–WR-05 geplant am 29.08.2026 — 8 Pläne in 5 Wellen, noch nicht ausgeführt** | — |
+| 9.1 Journal-Backfill und Betriebs-Härtung | v3.0 | 0/8 | **Aufgeteilt (Plan 14-07): Backfill in Plan 14-10 erledigt (26.08.2026), WR-07 durch Plan 14-02 geschlossen. Code-Härtung WR-02–WR-05 geplant am 29.08.2026 — 8 Pläne in 6 Wellen, noch nicht ausgeführt** | — |
 | 10. Perioden-Fundament | v3.0 | 6/6 | Complete — verifiziert 4/4, REQ-20 bis REQ-22 | 2026-08-22 |
 | 11. Datumsabhängige Berechnung | v3.0 | 11/11 | Complete — Review 2 Iterationen / 33 Fixes, verifiziert 10/10, REQ-23 bis REQ-25 | 2026-08-22 |
 | 12. Stundenwechsel bedienen | v3.0 | 9/9 | Complete — verifiziert 20/20, menschliche Abnahme gebündelt in Phase 14 | 2026-08-22 |
