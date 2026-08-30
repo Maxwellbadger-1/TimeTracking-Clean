@@ -220,9 +220,16 @@ curl http://129.159.8.19:3001/api/health
 ```bash
 ssh -i .ssh/oracle_server.key ubuntu@129.159.8.19
 cd /home/ubuntu/TimeTracking-Staging/server
-npm run validate:schema
-# Expected: All checks pass ✅
+DATABASE_PATH=<pfad> npx tsx src/scripts/protectedTablesChecksum.ts
+# Expected: Zeilenzahl und SHA-256 der geschuetzten Tabellen wie vor dem Deployment
 ```
+
+> `npm run validate:schema` stand hier bis 30.08.2026 mit dem Vermerk
+> "Expected: All checks pass ✅". Das konnte nie eintreten — das Erwartungsschema des
+> Skripts war seit Februar 2026 nicht nachgezogen und meldete bei jedem Lauf
+> "VALIDATION FAILED", auch gegen nachweislich intakte Datenbanken. Skript und
+> Deployment-Aufrufe sind entfernt; den Schema-Schutz leistet der blockierende
+> Migrationsschritt im Deployment.
 
 ---
 

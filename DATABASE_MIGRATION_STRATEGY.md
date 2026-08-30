@@ -29,7 +29,7 @@ Nach umfassender Analyse des Systems haben wir folgende Struktur:
   - `npm run migrate:prod` - Production Umgebung
   - `npm run migrate:create <name>` - Neue Migration erstellen
 - **Migration Tracking**: `migrations` Tabelle in jeder DB
-- **Schema Validation**: `npm run validate:schema` (verfügbar!)
+- **Schema Validation**: entfallen am 30.08.2026 — `validateSchema.ts` prüfte gegen ein Erwartungsschema von vor Februar 2026 und meldete auch gegen intakte Datenbanken "VALIDATION FAILED". Schutz liegt beim blockierenden `migrate:prod`.
 
 ### 3. Aktuelles Problem ❌
 **GREEN DB fehlt `position` Column** → 500 Error beim `/api/auth/me` Call
@@ -335,7 +335,7 @@ sqlite3 database.db ".restore backup.db"
 ## 📚 Zusätzliche Dokumentation
 
 - **Vollständiger Fix-Plan**: [BLUE_GREEN_FIX_PLAN.md](BLUE_GREEN_FIX_PLAN.md) (~700 Zeilen, Schritt-für-Schritt)
-- **Schema Validation**: `server/scripts/validateSchema.ts`
+- **Unverändertheitsnachweis**: `server/src/scripts/protectedTablesChecksum.ts` (Zeilenzahl + SHA-256 der geschützten Tabellen, öffnet readonly)
 - **Migration System**: `server/scripts/migrate.ts`
 - **Migration Files**: `server/database/migrations/*.sql`
 - **GitHub Workflow**: `.github/workflows/deploy-server.yml` (bereits korrekt!)

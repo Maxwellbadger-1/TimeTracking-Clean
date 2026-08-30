@@ -188,10 +188,17 @@ jobs:
             }
             echo "✅ Migrations completed successfully"
 
-            # Validate database schema (non-blocking, Server ist weiterhin gestoppt)
-            echo "🔍 Validating database schema..."
-            NODE_ENV=staging npm run validate:schema || true
-            echo "✅ Schema validation completed"
+            # An dieser Stelle stand bis 30.08.2026 ein Schema-Validierungsschritt
+            # (`npm run validate:schema`). Er ist ersatzlos entfallen: sein Erwartungsschema
+            # beschrieb das Datenmodell von vor Februar 2026 und meldete deshalb bei JEDEM
+            # Lauf "VALIDATION FAILED" - 9 der 22 Tabellen kannte es gar nicht, bei 12
+            # meldete es Abweichungen, nur `users` war gruen. Durch "|| true" wurde der
+            # Fehlschlag geschluckt und von der folgenden echo-Zeile mit einem gruenen Haken
+            # ueberschrieben: das Deployment-Log zeigte Erfolg, wo die Pruefung fehlschlug.
+            # Gegenprobe gegen eine bekannt intakte Sicherung
+            # (DB-Backups/production.POST-DATENKORREKTUR_20260818.db) ergab dieselben
+            # Meldungen - das Skript war der Defekt, nicht die Datenbank.
+            # Den Schutz leistet der blockierende Migrationsschritt darueber (exit 1).
 
             # Erfolgspfad: Server wieder starten
             echo "🚀 Starting PM2..."

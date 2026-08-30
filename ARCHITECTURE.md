@@ -1925,8 +1925,12 @@ npm run migrate
 
 # Production (via CI/CD)
 npm run migrate:prod
-npm run validate:schema  # Verify schema integrity
 ```
+
+> `npm run validate:schema` stand hier bis 30.08.2026. Das Skript ist entfernt: sein
+> Erwartungsschema beschrieb das Datenmodell von vor Februar 2026 und meldete auch gegen
+> nachweislich intakte Datenbanken "VALIDATION FAILED". Den Schema-Schutz leistet der
+> blockierende `migrate:prod`-Schritt im Deployment.
 
 **Key Principles:**
 - ✅ Migrations MUST be idempotent

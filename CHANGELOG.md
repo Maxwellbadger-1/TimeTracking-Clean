@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🛠️ Changed
 
+#### Entfernt: toter Schema-Validierungsschritt im Deployment
+**Was:** `server/src/scripts/validateSchema.ts` und die zugehörigen Aufrufe in
+`deploy-server.yml` und `deploy-staging.yml` sind ersatzlos entfallen.
+
+**Warum:** Das Erwartungsschema des Skripts beschrieb das Datenmodell von vor Februar 2026.
+Von 22 Tabellen kannte es 9 gar nicht, bei 12 meldete es Abweichungen, nur `users` war grün —
+es endete deshalb bei **jedem** Lauf mit `❌ VALIDATION FAILED`. Im Deployment war der Aufruf
+mit `|| true` abgesichert und die unmittelbar folgende Zeile schrieb
+`echo "✅ Schema validation completed"`: das Log meldete Erfolg, wo die Prüfung fehlschlug.
+
+**Nachweis, dass das Skript der Defekt war und nicht die Datenbank:** Gegenprobe gegen die
+bekannt intakte Sicherung `DB-Backups/production.POST-DATENKORREKTUR_20260818.db`
+(`integrity_check: ok`) ergab dieselben Meldungen — identische „fehlende" Spalten in
+`absence_requests`, `time_entries`, `notifications`, `vacation_balance`.
+
+**Was den Schutz jetzt leistet:** der blockierende Migrationsschritt darüber
+(`npm run migrate:prod`, bricht das Deployment mit `exit 1` ab). Für
+Unverändertheitsnachweise steht `server/src/scripts/protectedTablesChecksum.ts` bereit.
+
+**Mitgezogen:** `server/package.json` (Skripteintrag), `ARCHITECTURE.md`,
+`DATABASE_MIGRATION_STRATEGY.md`, `.claude/commands/sync-green.md` — letzteres nannte den
+Aufruf als Staging-Prüfschritt mit dem Vermerk „Expected: All checks pass ✅", der nie
+eintreten konnte.
+
 #### Betriebs-Härtung: Nachtlauf, Nebenläufigkeit und Skripte (Phase 9.1)
 **Was:** Die nächtliche Überstunden-Neuberechnung lief bisher als eigener `npx tsx`-Prozess
 über einen externen Cronjob (`fix-overtime.ts`, 03:00 Uhr). Dieser Prozess öffnete
