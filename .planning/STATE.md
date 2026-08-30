@@ -365,6 +365,23 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
   loest denselben Build auf derselben Maschine aus.** Naheliegende Abhilfe (nicht umgesetzt,
   eigener Vorgang): `tsc` in den GitHub-Runner ziehen und nur das fertige `dist/` uebertragen.
 
+- **2026-08-30 Swap auf der Produktionsmaschine eingerichtet (Vorsorge, erledigt):** 2 GB Swapfile
+  (`/swapfile`, `fallocate`, `chmod 600`, `mkswap`, `swapon`), Eintrag `\/swapfile none swap sw 0 0`
+  in `/etc/fstab`, `vm.swappiness=10` dauerhaft ueber `/etc/sysctl.d/99-swappiness.conf`.
+  **Anlass:** Die Instanz hat 956 MB RAM und hatte **0 MB Swap**; jeder Deploy startet auf
+  derselben Maschine `npm install` (449 Pakete) und einen vollen `tsc`-Lauf, waehrend Produktion
+  und Staging dort laufen. Ohne Swap endet Speichermangel nicht in Langsamkeit, sondern im
+  Stillstand — genau das war der Ausfall vom 30.08. **Der fstab-Eintrag ist geprueft, nicht nur
+  geschrieben:** `swapoff` gefolgt von `swapon -a` (liest ausschliesslich `/etc/fstab`) brachte
+  den Swap zurueck — ein Boot-Fehler durch eine falsche Zeile ist damit ausgeschlossen. Sicherung
+  der alten Datei unter `/etc/fstab.bak-vor-swap-20260830`. **Ohne Betriebsunterbrechung:** beide
+  pm2-Prozesse behielten ihre PIDs (926 Produktion, 920 Staging), Health 3000 durchgehend
+  HTTP 200. Endzustand: 465 MB RAM verfuegbar, 2047 MB Swap frei.
+  **Damit nicht erledigt:** Der Build laeuft weiterhin auf der Produktionsmaschine
+  (`deploy-server.yml:94` `npm run build`). Swap verwandelt den Totalausfall in eine zaehe Phase,
+  beseitigt die Ursache aber nicht. Naechster Schritt dafuer (eigener Vorgang): `tsc` in den
+  GitHub-Runner ziehen und nur das fertige `dist/` uebertragen.
+
 ## Performance Metrics
 
 | Phase | Plan | Duration | Notes |
