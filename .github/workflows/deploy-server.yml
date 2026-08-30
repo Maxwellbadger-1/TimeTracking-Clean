@@ -27,6 +27,15 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           port: 22
           script_stop: true  # Stop on first error
+          # appleboy/ssh-action bricht ohne diesen Wert nach 10 Minuten mit
+          # "Run Command Timeout" ab - das traf den Staging-Lauf 33309624652 am
+          # 30.08.2026 mitten im tsc-Build (npm install allein 4 min). Seit CR-03
+          # liegen Migration und Schemapruefung zwischen "pm2 stop" und
+          # "start_server"; ein Timeout in diesem Fenster liesse den Server
+          # gestoppt zurueck. Der lange Build liegt zwar davor, aber das Limit
+          # gehoert trotzdem oberhalb der realen Laufzeit statt knapp darunter
+          # (letzter gruener Lauf: 5m54s = 59% des Defaults).
+          command_timeout: 20m
           script: |
             set -e  # Exit on error
 
