@@ -345,13 +345,23 @@ cp backups/pre-restore/database_pre_restore_20250115_120000.db server/database.d
 
 ---
 
-### `setup-cron.sh` - Cronjob Setup
+### Nächtliche Überstunden-Neuberechnung — kein Cronjob
 
-```bash
-./scripts/database/setup-cron.sh
-```
+Hier stand bis Phase 9.1 ein Skript, das dafür einen crontab-Eintrag einrichtete. Es ist entfernt.
 
-Richtet automatische Backup-Cronjobs ein (Daily + Weekly + Monthly).
+Die nächtliche Überstunden-Neuberechnung läuft seit Phase 9.1 **im Serverprozess selbst**,
+über `server/src/services/cronService.ts`, Funktion `startOvertimeRecalcScheduler()`
+(`cronService.ts:165`). Zeitplan: täglich um **03:15 Uhr Europe/Berlin**
+(`'15 3 * * *'`, `cronService.ts:172`). Sie nutzt dieselbe Datenbankverbindung wie der
+übrige Betrieb — es wird kein zweiter Prozess gestartet.
+
+Es gibt bewusst **keinen crontab-Eintrag mehr.** Ein eigener Prozess auf `production.db`
+hängt beim Schließen die WAL-Datei des laufenden Servers ab: SQLite räumt WAL und SHM auf,
+sobald der schließende Prozess kurz die exklusive Sperre bekommt — nachts um 03:00 war der
+Server idle, also bekam er sie. Der Vorfall ist protokolliert in
+`.planning/debug/wal-abgehaengt-20260827.md`.
+
+Ein Setup-Schritt ist nicht nötig: Der Scheduler startet mit dem Server.
 
 ---
 

@@ -340,8 +340,10 @@ BACKUP_MONTHLY_RETENTION=12     # Keep 12 monthly backups
 
 **Used by:**
 - `scripts/database/backup.sh`
-- `scripts/database/setup-cron.sh`
 - Automated backup cronjobs
+
+> Die nächtliche Überstunden-Neuberechnung läuft **nicht** über crontab, sondern im
+> Serverprozess — siehe `scripts/README.md`.
 
 ---
 
