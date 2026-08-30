@@ -111,21 +111,16 @@ jobs:
             # runMigrations(db) — vollstaendige Begruendung im Kopfkommentar von
             # server/src/server.ts.
 
-            # Bereinigung: alten externen Cronjob-Eintrag entfernen (Phase 9.1, D-03).
-            # Der naechtliche Neuberechnungslauf laeuft seit Phase 9.1 im Serverprozess ueber
-            # den In-Prozess-Scheduler (server/src/services/cronService.ts) statt als externer
-            # Cronjob. Ein externer Cron auf das ehemalige Handbetriebs-Skript war die Ursache
-            # der taeglich abgehaengten WAL (.planning/debug/wal-abgehaengt-20260827.md).
-            # Dieser Schritt entfernt einen ggf. noch vorhandenen alten Eintrag, damit sich
-            # der Server beim naechsten Deployment selbst bereinigt. Der Filter unten bleibt
-            # bewusst eng gefasst — auf demselben Server steht ein weiterer, woechentlicher
-            # crontab-Eintrag fuer den DB-Sync-Job, den ein breiterer Filter mitloeschen
-            # wuerde (siehe 14-AUSLIEFERUNG.md).
-            echo "🧹 Removing legacy overtime cron entry (Phase 9.1, D-03)..."
-            (crontab -l 2>/dev/null | grep -v "fix-overtime.ts") | crontab - || {
-              echo "⚠️  Cron cleanup failed, continuing..."
-            }
-            echo "✅ Cron cleanup attempted"
+            # An dieser Stelle stand bis Phase 9.1 ein crontab-Bereinigungsschritt, der einen
+            # alten externen Cronjob-Eintrag auf fix-overtime.ts entfernte. Er war eine
+            # Einmal-Migration (D-03) und hat seinen Zweck erfuellt: 09.1-NACHWEIS-PRODUKTION.md:215
+            # und 09.1-NACHWEIS-STAGING.md:165 belegen je "grep -c fix-overtime" = 0; der crontab
+            # traegt dort nur noch den woechentlichen sync-prod-to-staging.sh.
+            # Er entfaellt ersatzlos statt gehaertet zu werden, weil "crontab -" den GESAMTEN
+            # crontab durch stdin ersetzt: scheitert "crontab -l" oder filtert "grep -v" alles
+            # weg, installiert der Schritt still einen leeren crontab, ohne dass der ||-Zweig
+            # greift (Befund CR-01, 09.1-REVIEW.md:75).
+            # Hier steht bewusst nichts mehr - kein Deployment fasst den crontab noch an.
 
             # Create .env file if it doesn't exist
             echo "🔐 Setting up environment..."
