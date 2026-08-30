@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Phase 9.1 context gathered
-last_updated: "2026-08-29T03:36:20.415Z"
-last_activity: 2026-08-29 -- Phase 09.1 execution started
+last_updated: "2026-08-30T07:20:00.000Z"
+last_activity: 2026-08-30 -- Quick Task 260830-cg6 (CR-01, CR-03, WR-16) abgeschlossen
 progress:
   total_phases: 9
   completed_phases: 8
@@ -303,6 +303,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-08-30 | cr-01-und-cr-03-aus-09-1-review-md-schli | CR-01, CR-03 und WR-16 aus `09.1-REVIEW.md` geschlossen — drei unvermischte Commits (`ff02de5`, `66f0867`, `aa46319`), **nicht gepusht**. **CR-01:** Der crontab-Bereinigungsblock ist aus beiden Deploy-Workflows ersatzlos gestrichen (Entscheidung des Anwenders, nicht die im Review vorgeschlagene Härtung) — `crontab`-Aufrufe je Datei 1 → **0**, an seiner Stelle steht ein Kommentar mit der Begründung und den beiden Belegstellen. Die Prämisse ist belegt, nicht angenommen: `09.1-NACHWEIS-PRODUKTION.md:215` und `09.1-NACHWEIS-STAGING.md:165` zeigen beide `grep -c fix-overtime` = 0. **WR-16:** `scripts/database/setup-cron.sh` entfernt (38 Zeilen), `scripts/README.md` und `ENV.md` auf den In-Prozess-Scheduler umgeschrieben — 0 Verweise auf `setup-cron`/`fix-overtime` in beiden Dateien. **CR-03:** `migrate:prod` und `validate:schema` stehen jetzt hinter `pm2 stop`/`pm2 delete`; gemessene Reihenfolge server 169 < 180 < 190 < 195, staging 163 < 174 < 184 < 189 (vorher stand `migrate` 52 bzw. 51 Zeilen **vor** `pm2 stop`). Der Startaufruf ist zur Shell-Funktion `start_server()` zusammengezogen und wird aus Erfolgs- **und** Fehlerpfad gerufen: schlägt die Migration bei gestopptem Server fehl, wird der Server wieder gestartet und der Lauf endet trotzdem mit `exit 1` — ein fehlgeschlagenes Deployment erzeugt so keinen Ausfall. `pm2 start` steht je Datei genau **einmal** im Quelltext. `migrate.ts` und `validateSchema.ts` tragen den Kopfkommentar „nur bei gestopptem Server", bei `validateSchema.ts` ausdrücklich einschließlich `readonly`. **Verifiziert ohne Ausführung:** YAML parst, `bash -n` grün über 188 bzw. 163 Skriptzeilen, `tsc --noEmit` sauber, `.ts`-Diff ausschließlich Kommentarzeilen. **Die Workflows wurden nicht gefahren** — die Änderungen werden beim nächsten regulären Deployment zum ersten Mal scharf. Restrisiken benannt in `260830-cg6-SUMMARY.md`: verlängertes Wartungsfenster, Start auf einem Stand mit fehlgeschlagener Migration, Staging-Backup auf dem Altbestand (IN-07, nicht im Umfang). Siehe `.planning/quick/260830-cg6-cr-01-und-cr-03-aus-09-1-review-md-schli/`. |
 | 2026-08-27 | claude-md-verschlanken | `.claude/CLAUDE.md` 801 → 303 Zeilen (28,4 → 13,5 KB). Entfernt: Selbst-Changelog, Verweise auf CLAUDE.md.backup, generische Windows-Einrichtungsanleitung, ausführliches Halluzinations-Beispiel. Korrigiert: 11 → 21 Tabellen, falscher Verweis PROJECT_SPEC 6.2, `validate:overtime` läuft in `server/`. Ergänzt: Produktions-DB-Regel (Vorfall 27.08.), `user_work_periods` als Quelle des Arbeitszeitmodells, Binärdownload-Fehler, `.planning/STATE.md` als Einstiegspunkt. |
 | 2026-08-18 | urlaubskonto-korrektheit | 5 Bugfixes deployed + Produktionsdaten korrigiert. Urlaubstage gingen beim Ablehnen genehmigter Anträge verloren (Carmen 6, Benedikt 10); `0 \|\| 30` gab 6 Mitarbeitern je 30 statt 0 Tage. Gesamt Verbleibend 257,5 → 98 Tage. Siehe `.planning/quick/20260818-urlaubskonto-korrektheit/SUMMARY.md` |
 
