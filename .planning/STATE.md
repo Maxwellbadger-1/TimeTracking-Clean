@@ -323,7 +323,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 - **Offen daraus:** Staging-Sync (`Permission denied`), Symlink `server/database.db` auflösen,
   Quarantäne nach Bewährungszeit löschen.
   ~~Cron-Reaktivierung mit `DATABASE_PATH`~~ — erledigt sich von selbst, siehe Richtigstellung oben.
-- **2026-08-30 Server nicht mehr ansprechbar nach zwei Staging-Deploys (offen):** Im Rahmen von
+- **2026-08-30 Server nicht mehr ansprechbar nach zwei Staging-Deploys (behoben):** Im Rahmen von
   Quick Task `260830-cg6` wurden zwei Staging-Deploys angestossen (Laeufe `33309624652` und
   `33322533657`), um den Umbau aus CR-03 vor der Produktion zu erproben. **Die Annahme, Staging
   sei eine eigene Maschine, war falsch:** `deploy-server.yml:25` und `deploy-staging.yml:37`
@@ -341,6 +341,29 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
   ausgeloest** (`origin/main` unveraendert auf `e4866a4`). Naechster Schritt liegt ausserhalb
   dieser Sitzung: Oracle Cloud Console (Serial Console fuer `ps`/`pkill -f tsc`, oder Neustart —
   sanft, wegen des WAL-Pruefpunkts bei SIGTERM seit Phase 9.1).
+  **Beendet 30.08.2026 21:11 UTC durch Reboot ueber die Oracle Cloud Console (Anwender).** Der
+  Weg dorthin war erzwungen: kein OCI-CLI und keine Cloud-Zugangsdaten auf dem Arbeitsrechner,
+  nur der SSH-Schluessel — und genau SSH war blockiert (fuenf Versuche a 90 s, jedes Mal
+  `banner exchange`). **Nachgemessen nach dem Neustart, alles sauber:** `free -m` 956 MB gesamt,
+  445 MB verfuegbar; **keine** `tsc`/`npm`/`tsx`-Prozesse mehr; `pm2` beide Dienste `online`
+  (Produktion PID 926, Staging PID 920, je 0 Neustarts); Health lokal **HTTP 200 in 2,9 ms**
+  (3000) und 17,9 ms (3001). **Datenlage unversehrt:** `production.db` 1.740.800 B mit WAL
+  (1.627.432 B) und SHM — die Dateizeiger von PID 926 (fd 19/20/21) verweisen auf **existierende**
+  Dateien, **kein `(deleted)`** wie beim Vorfall vom 27.08. `dist/server.js` der Produktion traegt
+  unveraendert den Stand vom 29.08. 19:27 — die abgebrochenen Builds liefen in
+  `TimeTracking-Green` und haben die Produktion nicht beruehrt. crontab weiterhin genau eine
+  Zeile (sync-prod-to-staging), CR-01-Zustand unveraendert. **Einschraenkung:** Die Abschiedszeile
+  „Server beendet" fehlt im Log vom 30.08. — der Shutdown lief vermutlich nicht vollstaendig
+  graceful; erkennbare Folgen hat das keine (SQLite-WAL-Recovery beim Start, Neuberechnungslauf
+  15/15 ohne Fehler). Die Datenbank wurde **nicht** aus einem eigenen Prozess geoeffnet, ein
+  `integrity_check` steht daher aus.
+  **Ursache benannt:** Die Instanz ist eine Always-Free-Micro (`timetracking-server`,
+  eu-frankfurt-1, Ubuntu 22.04) mit **956 MB RAM und 0 MB Swap**. Darauf laufen Produktion und
+  Staging gleichzeitig (zusammen ~232 MB) — und jeder Deploy startet zusaetzlich `npm install`
+  ueber 449 Pakete plus einen vollen `tsc`-Lauf. Ohne Swap endet Speichermangel nicht in
+  Langsamkeit, sondern im Stillstand. **Folgerung fuer den naechsten Produktions-Deploy: er
+  loest denselben Build auf derselben Maschine aus.** Naheliegende Abhilfe (nicht umgesetzt,
+  eigener Vorgang): `tsc` in den GitHub-Runner ziehen und nur das fertige `dist/` uebertragen.
 
 ## Performance Metrics
 
