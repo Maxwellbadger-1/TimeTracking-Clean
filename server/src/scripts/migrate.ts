@@ -10,6 +10,13 @@
  *   npm run migrate:prod         # Run migrations on production DB
  *   npm run migrate:create       # Create a new migration file
  */
+//
+// CR-03: Gegen production.db darf dieses Skript NUR bei gestopptem Serverprozess laufen.
+// Es oeffnet eine eigene Verbindung (new Database(dbPath), :135) und schliesst sie am Ende
+// selbst (db.close() im finally, :172). SQLite raeumt dabei WAL und SHM auf, sobald es kurz
+// die exklusive Sperre bekommt - bei laufendem Server haengt das dessen WAL ab
+// (.planning/debug/wal-abgehaengt-20260827.md). Die Deploy-Workflows rufen dieses Skript
+// deshalb seit CR-03 erst nach "pm2 stop"/"pm2 delete" auf.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';

@@ -92,19 +92,9 @@ jobs:
               exit 1
             fi
 
-            # Run database migrations
-            echo "🗄️  Running database migrations..."
-            NODE_ENV=staging npm run migrate:prod || {
-              echo "❌ Migration failed! Deployment aborted."
-              echo "💡 Database backup available: server/database.backup.*.db"
-              exit 1
-            }
-            echo "✅ Migrations completed successfully"
-
-            # Validate database schema (non-blocking)
-            echo "🔍 Validating database schema..."
-            NODE_ENV=staging npm run validate:schema || true
-            echo "✅ Schema validation completed"
+            # Migration und Schemapruefung standen bis CR-03 an dieser Stelle - also noch
+            # BEVOR der Serverprozess gestoppt wurde. Sie sind bewusst nach unten hinter
+            # "pm2 stop"/"pm2 delete" gewandert; die Begruendung steht dort.
 
             # Ueberstunden-Neuberechnung nach Deployment: seit Phase 9.1 (D-04) entfallen.
             # Der Lauf geschieht jetzt einmalig und nicht blockierend im Serverprozess nach
@@ -143,23 +133,60 @@ jobs:
 
             echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
 
-            # Restart PM2
-            echo "🔄 Restarting PM2..."
+            # Set ALLOWED_ORIGINS for CORS (muss gesetzt sein, bevor start_server laeuft)
+            export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+
+            # Serverstart als Funktion statt als zwei Kopien: der Aufruf traegt sechs
+            # Umgebungsvariablen und vier PM2-Optionen. Zwei Kopien driften auseinander,
+            # sobald jemand eine Variable ergaenzt - und vergessen wuerde mit hoher
+            # Wahrscheinlichkeit die im Fehlerpfad, weil sie im Normalbetrieb nie laeuft.
+            # Die Funktion wird aus zwei Pfaden gerufen: aus dem Fehlerzweig der Migration
+            # und aus dem Erfolgspfad. "pm2 save" gehoert mit hinein, damit beide Pfade
+            # PM2 in demselben wiederherstellbaren Zustand verlassen.
+            # PORT must be passed as prefix — PM2 does NOT load .env files
+            # (see ENV.md Green Server Critical Notes for full explanation)
+            start_server() {
+              TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS PORT=3001 \
+                pm2 start dist/server.js \
+                --name timetracking-staging \
+                --cwd /home/ubuntu/TimeTracking-Green/server \
+                --time \
+                --update-env
+              pm2 save
+            }
+
+            # Server anhalten, BEVOR ein Fremdprozess die Datenbank anfasst (CR-03,
+            # .planning/debug/wal-abgehaengt-20260827.md). Ein zweiter Halter auf der Datei
+            # ist genau der Mechanismus, der die WAL des laufenden Serverprozesses abhaengt;
+            # .claude/CLAUDE.md verbietet ihn einschliesslich readonly.
+            echo "🔄 Stopping PM2 before database access..."
             pm2 stop timetracking-staging || true
             pm2 delete timetracking-staging || true
 
-            # Set ALLOWED_ORIGINS for CORS
-            export ALLOWED_ORIGINS='tauri://localhost,https://tauri.localhost,http://tauri.localhost,http://localhost:1420'
+            # Schlaegt die Migration fehl, wird der Server wieder gestartet, damit ein
+            # fehlgeschlagenes Deployment keinen Ausfall erzeugt. Gestartet wird dann aber
+            # auf einem Code-Stand, dessen Migration NICHT durchlief - deshalb danach
+            # "exit 1", damit der Lauf sichtbar rot ist und jemand hinsieht.
+            # Schlaegt auch start_server fehl, bleibt es bei "exit 1": "set -e" ist im
+            # rechten Zweig eines "||" ausgesetzt, der Ausstiegscode ist deshalb
+            # unabhaengig vom Erfolg des Neustarts.
+            echo "🗄️  Running database migrations (server stopped)..."
+            NODE_ENV=staging npm run migrate:prod || {
+              echo "❌ Migration failed! Deployment aborted."
+              echo "💡 Database backup available: server/database.backup.*.db"
+              start_server
+              exit 1
+            }
+            echo "✅ Migrations completed successfully"
 
-            # PORT must be passed as prefix — PM2 does NOT load .env files
-            # (see ENV.md Green Server Critical Notes for full explanation)
-            TZ=Europe/Berlin NODE_ENV=staging SESSION_SECRET=$SESSION_SECRET ALLOWED_ORIGINS=$ALLOWED_ORIGINS PORT=3001 \
-              pm2 start dist/server.js \
-              --name timetracking-staging \
-              --cwd /home/ubuntu/TimeTracking-Green/server \
-              --time \
-              --update-env
-            pm2 save
+            # Validate database schema (non-blocking, Server ist weiterhin gestoppt)
+            echo "🔍 Validating database schema..."
+            NODE_ENV=staging npm run validate:schema || true
+            echo "✅ Schema validation completed"
+
+            # Erfolgspfad: Server wieder starten
+            echo "🚀 Starting PM2..."
+            start_server
 
             # Wait for server to start
             echo "⏳ Waiting for server to start..."

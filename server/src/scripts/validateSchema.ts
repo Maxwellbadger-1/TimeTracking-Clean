@@ -9,6 +9,15 @@
  *   npm run validate:schema
  *   npx tsx scripts/validateSchema.ts
  */
+//
+// CR-03: Gegen production.db darf dieses Skript NUR bei gestopptem Serverprozess laufen.
+// Auch readonly genuegt NICHT - .claude/CLAUDE.md schliesst den lesenden Zugriff
+// ausdruecklich ein.
+// Es oeffnet eine eigene Verbindung (new Database(dbPath, { readonly: true }), :165) und
+// schliesst sie am Ende selbst (db.close(), :230). SQLite raeumt dabei WAL und SHM auf,
+// sobald es kurz die exklusive Sperre bekommt - bei laufendem Server haengt das dessen
+// WAL ab (.planning/debug/wal-abgehaengt-20260827.md). Die Deploy-Workflows rufen dieses
+// Skript deshalb seit CR-03 erst nach "pm2 stop"/"pm2 delete" auf.
 
 import Database from 'better-sqlite3';
 import { databaseConfig } from '../config/database.js';
