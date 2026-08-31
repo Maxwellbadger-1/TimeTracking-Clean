@@ -6,24 +6,25 @@
  * This ensures Development DB is always a recent copy of Production
  *
  * Usage:
- *   npm run db:sync              # Sync from local production.db
- *   npm run db:sync:remote       # Sync from Oracle Cloud server (SSH)
+ *   npm run db:sync              # Sync from a local production DB copy (SYNC_SOURCE_DB)
+ *
+ * WR-02 (09.1-REVIEW.md, Restbefunde-Quick-Task 260831-t5j): Der frühere Fernabruf per SSH
+ * (`db:sync:remote` / `syncRemote()`) ist ersatzlos entfernt worden, nicht nur der
+ * Schlüsselname korrigiert. Begründung (siehe SUMMARY der Quick-Task für Details):
+ * `syncRemote()` war seit dem Verschieben nach `src/` funktionsloser Code (der referenzierte
+ * SSH-Schlüsselpfad zeigte auf eine Datei, die im Projekt nie existierte - der tatsächliche
+ * Schlüssel liegt unter einem anderen Namen), transportierte die Datenbank per rohem `scp`
+ * (WAL-Risiko, siehe Kommentar in `scripts/sync-dev-db.sh`) und duplizierte damit einen Weg,
+ * den `.claude/CLAUDE.md` bereits kanonisch benennt: `npm run sync-dev-db`
+ * (`scripts/sync-dev-db.sh`) - mit dem korrekten Schlüsselnamen aus `ENV.md`,
+ * `VACUUM INTO`-Snapshot statt rohem `scp` und `integrity_check`-Prüfung vor der
+ * Installation. Für den Fernabruf gilt ausschließlich dieser Weg; `db:sync`
+ * (`syncLocal()`) bleibt für eine bereits lokal vorhandene Produktionskopie erhalten.
  */
 
 import { copyFileSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { databaseConfig } from '../config/database.js';
 import { formatDate } from '../utils/timezone.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const ORACLE_HOST = '129.159.8.19';
-const ORACLE_USER = 'ubuntu';
-const ORACLE_KEY_PATH = path.join(__dirname, '../../../.ssh/oracle_key');
-const ORACLE_DB_PATH = '/home/ubuntu/TimeTracking-Clean/server/database.db';
 
 /**
  * Sync database from local production to development
@@ -96,71 +97,5 @@ async function syncLocal(): Promise<void> {
   }
 }
 
-/**
- * Sync database from Oracle Cloud server (SSH)
- */
-async function syncRemote(): Promise<void> {
-  console.log('🔄 Syncing Production → Development (Remote via SSH)...\n');
-
-  const developmentPath = databaseConfig.developmentPath;
-
-  if (!existsSync(ORACLE_KEY_PATH)) {
-    console.error(`❌ SSH key not found: ${ORACLE_KEY_PATH}`);
-    console.error('   Please ensure .ssh/oracle_key exists in project root');
-    process.exit(1);
-  }
-
-  console.log(`📡 Remote:      ${ORACLE_USER}@${ORACLE_HOST}:${ORACLE_DB_PATH}`);
-  console.log(`📁 Local:       ${developmentPath}\n`);
-
-  try {
-    // Create backup of current development database
-    if (existsSync(developmentPath)) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-      const backupPath = developmentPath.replace('.db', `.backup.${timestamp}.db`);
-      copyFileSync(developmentPath, backupPath);
-      console.log(`💾 Backed up existing development DB to: ${backupPath}`);
-    }
-
-    // Download database from Oracle Cloud via SCP
-    console.log('⬇️  Downloading database from Oracle Cloud...');
-    const scpCommand = `scp -i "${ORACLE_KEY_PATH}" ${ORACLE_USER}@${ORACLE_HOST}:${ORACLE_DB_PATH} "${developmentPath}"`;
-
-    execSync(scpCommand, {
-      stdio: 'inherit',
-      encoding: 'utf-8',
-    });
-
-    console.log('✅ Database downloaded successfully!\n');
-
-    // Show database info
-    const Database = (await import('better-sqlite3')).default;
-    const db = new Database(developmentPath, { readonly: true });
-
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-    const entryCount = db.prepare('SELECT COUNT(*) as count FROM time_entries').get() as { count: number };
-    const absenceCount = db.prepare('SELECT COUNT(*) as count FROM absence_requests').get() as { count: number };
-
-    db.close();
-
-    console.log('📊 Database Statistics:');
-    console.log(`   Users:            ${userCount.count}`);
-    console.log(`   Time Entries:     ${entryCount.count}`);
-    console.log(`   Absence Requests: ${absenceCount.count}\n`);
-
-    console.log('✅ Development database is now up-to-date with Production (Oracle Cloud)!');
-  } catch (error) {
-    console.error('❌ Remote sync failed:', error);
-    process.exit(1);
-  }
-}
-
 // Main
-const args = process.argv.slice(2);
-const isRemote = args.includes('--remote') || args.includes('-r');
-
-if (isRemote) {
-  syncRemote();
-} else {
-  syncLocal();
-}
+syncLocal();
