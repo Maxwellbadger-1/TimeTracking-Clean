@@ -23,6 +23,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { databaseConfig } from '../config/database.js';
+import { formatDate } from '../utils/timezone.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -199,7 +200,13 @@ function createMigration(name: string): void {
     process.exit(1);
   }
 
-  const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  // WR-03 (09.1-REVIEW.md): das zuvor hier verwendete Muster (UTC-ISO-String, davon nur den
+  // Datumsteil vor dem "T") verschiebt das Datum ueber UTC - nach 22:00/23:00 Ortszeit trug
+  // eine neue Migration das Datum des Folgetags. Da die Migrationen alphabetisch ueber genau
+  // diesen Dateinamen sortiert werden (getMigrationFiles() oben), konnte das die
+  // Ausfuehrungsreihenfolge gegenueber der Absicht des Entwicklers verschieben. formatDate()
+  // rechnet stattdessen in der Projekt-Zeitzone (.claude/CLAUDE.md).
+  const timestamp = formatDate(new Date(), 'yyyyMMdd');
   const filename = `${timestamp}_${name.replace(/\s+/g, '_')}.sql`;
   const filePath = path.join(MIGRATIONS_DIR, filename);
 

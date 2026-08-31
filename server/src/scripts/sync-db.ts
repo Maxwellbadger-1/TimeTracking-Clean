@@ -55,12 +55,12 @@ async function syncLocal(): Promise<void> {
   try {
     // Create backup of current development database
     if (existsSync(developmentPath)) {
-      // CR-04: Sicherungsname jetzt mit Uhrzeit statt nur Datum - split('T')[0] verwarf den
-      // Zeitanteil komplett, wodurch ein zweiter Lauf am selben Tag die einzige gute
-      // Sicherung ueberschrieb (Lauf 1 sichert die gute development.db, Lauf 2 sichert
-      // bereits den Altbestand unter demselben Namen). formatDate() statt
-      // toISOString().split('T')[0] vermeidet zusaetzlich die in .claude/CLAUDE.md
-      // ausdruecklich verbotene UTC-Verschiebung (WR-03).
+      // CR-04: Sicherungsname jetzt mit Uhrzeit statt nur Datum - das zuvor verwendete Muster
+      // (UTC-ISO-String, davon nur den Datumsteil vor dem "T") verwarf den Zeitanteil
+      // komplett, wodurch ein zweiter Lauf am selben Tag die einzige gute Sicherung
+      // ueberschrieb (Lauf 1 sichert die gute development.db, Lauf 2 sichert bereits den
+      // Altbestand unter demselben Namen). formatDate() vermeidet zusaetzlich die in
+      // .claude/CLAUDE.md ausdruecklich verbotene UTC-Verschiebung (WR-03).
       const timestamp = formatDate(new Date(), 'yyyy-MM-dd_HH-mm-ss');
       const backupPath = developmentPath.replace(/\.db$/, `.backup.${timestamp}.db`);
       if (existsSync(backupPath)) {
