@@ -15,6 +15,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { databaseConfig } from '../config/database.js';
+import { formatDate } from '../utils/timezone.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,10 +31,19 @@ const ORACLE_DB_PATH = '/home/ubuntu/TimeTracking-Clean/server/database.db';
 async function syncLocal(): Promise<void> {
   console.log('🔄 Syncing Production → Development (Local)...\n');
 
-  const productionPath = databaseConfig.productionPath;
+  // CR-04 (09.1-REVIEW.md): databaseConfig.productionPath zeigt fest auf
+  // server/database.db - den unmigrierten Altbestand vom April 2026 (kein Symlink mehr
+  // seit 20.08.2026, siehe .claude/CLAUDE.md: "server/database.db ist NICHT die
+  // Arbeitsdatenbank"). Quelle deshalb ausschliesslich ueber eine explizit gesetzte
+  // Umgebungsvariable - kein stiller Rueckfall auf den Altbestand.
+  const productionPath = process.env.SYNC_SOURCE_DB;
+  if (!productionPath) {
+    console.error('❌ SYNC_SOURCE_DB nicht gesetzt (z. B. /home/ubuntu/databases/production.db).');
+    process.exit(2);
+  }
   const developmentPath = databaseConfig.developmentPath;
 
-  if (!existsSync(productionPath)) {
+  if (!existsSync(productionPath!)) {
     console.error(`❌ Production database not found: ${productionPath}`);
     process.exit(1);
   }
@@ -44,14 +54,24 @@ async function syncLocal(): Promise<void> {
   try {
     // Create backup of current development database
     if (existsSync(developmentPath)) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-      const backupPath = developmentPath.replace('.db', `.backup.${timestamp}.db`);
+      // CR-04: Sicherungsname jetzt mit Uhrzeit statt nur Datum - split('T')[0] verwarf den
+      // Zeitanteil komplett, wodurch ein zweiter Lauf am selben Tag die einzige gute
+      // Sicherung ueberschrieb (Lauf 1 sichert die gute development.db, Lauf 2 sichert
+      // bereits den Altbestand unter demselben Namen). formatDate() statt
+      // toISOString().split('T')[0] vermeidet zusaetzlich die in .claude/CLAUDE.md
+      // ausdruecklich verbotene UTC-Verschiebung (WR-03).
+      const timestamp = formatDate(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+      const backupPath = developmentPath.replace(/\.db$/, `.backup.${timestamp}.db`);
+      if (existsSync(backupPath)) {
+        console.error(`❌ Sicherung existiert bereits: ${backupPath}`);
+        process.exit(1);
+      }
       copyFileSync(developmentPath, backupPath);
       console.log(`💾 Backed up existing development DB to: ${backupPath}`);
     }
 
     // Copy production to development
-    copyFileSync(productionPath, developmentPath);
+    copyFileSync(productionPath!, developmentPath);
     console.log('✅ Database synced successfully!\n');
 
     // Show database info
