@@ -181,11 +181,25 @@ function runSeeders(reset: boolean = false): void {
     console.log(`   Time Entries:     ${entryCount.count}`);
     console.log(`   Absence Requests: ${absenceCount.count}\n`);
   } catch (error) {
+    // WR-07 (09.1-REVIEW.md): das Fehlerobjekt wurde bisher nie ausgegeben - Fehler beim
+    // Anwenden eines Seed-Files verschwanden spurlos statt im Protokoll zu landen.
     console.error('\n❌ Seeding failed!');
     console.error('   Please review the error and fix the seed file.\n');
+    console.error(error);
+    // WR-07: Close-Verhalten in Erfolgs- und Fehlerpfad vereinheitlicht. Vorher beendete
+    // process.exit(1) im try-Block den Prozess, bevor das finally { db.close() } lief - der
+    // Fehlerpfad schloss die Verbindung also nie, ohne dass das beabsichtigt war.
+    //
+    // Ein Close ist hier - anders als in fixOvertime.ts (CR-02) - richtig: seed.ts laeuft nur
+    // gegen die lokale Entwicklungsdatenbank (checkEnvironment() oben verweigert
+    // NODE_ENV=production), also ohne konkurrierenden Serverprozess auf derselben Datei.
+    // sqlite3_close raeumt WAL/SHM dort gefahrlos auf.
+    db.close();
     process.exit(1);
   } finally {
-    db.close();
+    // Erfolgsfall: hier laeuft der Code nur durch, wenn der try-Block ohne process.exit()
+    // im catch-Zweig durchlief (also nie nach dem Fehlerpfad oben).
+    if (db.open) db.close();
   }
 }
 

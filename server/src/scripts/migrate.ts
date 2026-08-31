@@ -165,11 +165,26 @@ function runMigrations(isProduction: boolean = false): void {
 
     console.log(`✅ All migrations applied successfully! (${pendingMigrations.length}/${allMigrations.length} total)\n`);
   } catch (error) {
+    // WR-07 (09.1-REVIEW.md): das Fehlerobjekt wurde bisher nie ausgegeben - Fehler aus
+    // initMigrationsTable()/getAppliedMigrations() (z.B. SQLITE_BUSY, siehe WR-01, oder ein
+    // korruptes Schema) verschwanden spurlos, genau im Deploy-Protokoll, wo man sie braucht.
     console.error('\n❌ Migration failed! Database may be in an inconsistent state.');
     console.error('   Please review the error and fix the migration file.\n');
+    console.error(error);
+    // WR-07: Close-Verhalten in Erfolgs- und Fehlerpfad vereinheitlicht. Vorher beendete
+    // process.exit(1) im try-Block den Prozess, bevor das finally { db.close() } lief - der
+    // Fehlerpfad schloss die Verbindung also nie, ohne dass das beabsichtigt war.
+    //
+    // Ein Close ist hier - anders als in fixOvertime.ts (CR-02) - richtig: migrate.ts laeuft
+    // seit CR-03 im Deploy ausschliesslich hinter "pm2 stop"/"pm2 delete", also ohne
+    // konkurrierenden Serverprozess auf derselben Datei. sqlite3_close raeumt WAL/SHM dort
+    // gefahrlos auf, weil kein zweiter Prozess dieselben Dateizeiger haelt.
+    db.close();
     process.exit(1);
   } finally {
-    db.close();
+    // Erfolgsfall: hier laeuft der Code nur durch, wenn der try-Block ohne process.exit()
+    // im catch-Zweig durchlief (also nie nach dem Fehlerpfad oben).
+    if (db.open) db.close();
   }
 }
 
