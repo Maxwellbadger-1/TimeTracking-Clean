@@ -216,7 +216,23 @@ jobs:
 
             # Health check
             echo "🏥 Running health check..."
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+            # Der Server braucht auf dieser Maschine rund sieben Sekunden bis "Listening":
+            # der Ueberstunden-Neuberechnungslauf beim Start dauert allein ~3,3 s. Ein
+            # einzelner Versuch nach "sleep 5" kam am 31.08.2026 (Lauf 33352481708) exakt
+            # EINE Sekunde zu frueh (Check 03:06:49, "Listening" 03:06:50) und liess den
+            # Deploy rot enden, obwohl er erfolgreich war - derselbe Mechanismus wie am
+            # 29.08. (Lauf 33270724872).
+            # "|| echo 000" ist nicht optional: ohne es endet curl bei fehlender Verbindung
+            # mit Exit 7, und "script_stop: true" bricht das Skript ab, BEVOR die Auswertung
+            # unten laeuft - die Fehlerbehandlung darunter waere toter Code.
+            # "if ... then break" statt "[ ... ] && break": ein fehlschlagender Test setzt
+            # den Exitcode der &&-Liste auf 1, was unter "set -e" die Schleife beenden wuerde.
+            HTTP_CODE="000"
+            for i in $(seq 1 20); do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:3000/api/health || echo "000")
+              if [ "$HTTP_CODE" = "200" ]; then break; fi
+              sleep 3
+            done
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Deployment successful! Server is healthy"
               pm2 status
