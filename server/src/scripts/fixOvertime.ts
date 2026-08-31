@@ -4,8 +4,8 @@
  *
  * ABLÖSUNG VON `server/scripts/fix-overtime.ts`: Jenes Skript importierte statisch aus dem
  * kompilierten Ausgabeverzeichnis (faktisch `any`, WR-04) und öffnete beim bloßen Modulladen
- * bereits eine eigene Datenbankverbindung — ohne Produktionsschutz, ohne `db.close()` im
- * Fehlerpfad. Genau dieser
+ * bereits eine eigene Datenbankverbindung — ohne Produktionsschutz, ohne kontrolliertes
+ * Schließen der Verbindung im Fehlerpfad. Genau dieser
  * tägliche Cronjob-Lauf war die Ursache der abgehängten WAL
  * (`.planning/debug/wal-abgehaengt-20260827.md`): ein eigener `npx tsx`-Prozess öffnete
  * `production.db`, schloss die Verbindung am Ende selbst, und SQLite räumte dabei WAL und SHM
@@ -141,29 +141,36 @@ async function main(): Promise<void> {
 
   console.log('');
 
-  // Erst JETZT, nach dem Guard, werden DB-berührende Module geladen.
-  const { db } = await import('../database/connection.js');
+  // Erst JETZT, nach dem Guard, werden DB-berührende Module geladen. Das Laden von
+  // connection.js reicht - die Verbindung wird ausschließlich über die geteilte Instanz
+  // genutzt, die runOvertimeRecalcForAllUsers() selbst importiert.
+  await import('../database/connection.js');
   const { runOvertimeRecalcForAllUsers } = await import('../services/overtimeRecalcRunner.js');
 
   let exitCode = 0;
-  try {
-    const bilanz = await runOvertimeRecalcForAllUsers({
-      anlass: 'handbetrieb',
-      userIds: args.userIds.length > 0 ? args.userIds : undefined,
-    });
+  const bilanz = await runOvertimeRecalcForAllUsers({
+    anlass: 'handbetrieb',
+    userIds: args.userIds.length > 0 ? args.userIds : undefined,
+  });
 
-    console.log(
-      `Bilanz: gesamt=${bilanz.gesamt} verarbeitet=${bilanz.verarbeitet} fehlgeschlagen=${bilanz.fehlgeschlagen} dauerMs=${bilanz.dauerMs}`
-    );
-    for (const eintrag of bilanz.fehler) {
-      console.error(`  Fehler bei userId ${eintrag.userId}: ${eintrag.meldung}`);
-    }
-
-    exitCode = bilanz.fehlgeschlagen > 0 ? 1 : 0;
-  } finally {
-    db.close();
+  console.log(
+    `Bilanz: gesamt=${bilanz.gesamt} verarbeitet=${bilanz.verarbeitet} fehlgeschlagen=${bilanz.fehlgeschlagen} dauerMs=${bilanz.dauerMs}`
+  );
+  for (const eintrag of bilanz.fehler) {
+    console.error(`  Fehler bei userId ${eintrag.userId}: ${eintrag.meldung}`);
   }
 
+  exitCode = bilanz.fehlgeschlagen > 0 ? 1 : 0;
+
+  // Verbindung wird hier bewusst NICHT geschlossen: sqlite3_close raeumt WAL und SHM auf,
+  // sobald der schliessende Prozess kurz die exklusive Sperre bekommt - und haengt damit die
+  // WAL eines gleichzeitig laufenden Serverprozesses ab
+  // (.planning/debug/wal-abgehaengt-20260827.md). Beim harten process.exit() laeuft
+  // sqlite3_close ohnehin nicht; die Dateizeiger des Servers bleiben intakt.
+  // shutdownDatabase() waere hier ebenso falsch - dessen wal_checkpoint(TRUNCATE) ist fuer
+  // den Eigentuemer der Verbindung richtig, fuer einen Zweitprozess auf derselben Datei aber
+  // genau der Ausloeser. Kontrast: migrate.ts/seed.ts schliessen ihre Verbindung bewusst
+  // (WR-07) - die laufen seit CR-03 hinter `pm2 stop`, also ohne konkurrierenden Serverprozess.
   process.exit(exitCode);
 }
 
