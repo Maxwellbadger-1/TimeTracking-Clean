@@ -140,12 +140,19 @@ jobs:
               echo "PORT=3000" >> .env
             fi
 
-            # Extract SESSION_SECRET (simple and safe)
-            SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2 || echo "")
+            # Extract SESSION_SECRET (WR-14, 09.1-REVIEW.md: -f2 statt -f2- schnitt jedes
+            # Secret mit einem "=" im Wert - z.B. Base64-Auffuellung - still am ersten "="
+            # ab; der Server liefe dann mit einem kuerzeren, schwaecheren Secret als
+            # hinterlegt, ohne jede Warnung)
+            SESSION_SECRET=$(grep "^SESSION_SECRET=" .env | head -1 | cut -d= -f2- || echo "")
 
             if [ -z "$SESSION_SECRET" ]; then
-              echo "⚠️  SESSION_SECRET empty, generating new one..."
+              # WR-14: fehlt die Zeile, wurde bisher bei JEDEM Deployment ein neues Secret
+              # erzeugt und NICHT zurueckgeschrieben - alle Sitzungen aller Nutzer wurden
+              # dadurch bei jedem Deployment ungueltig, ohne erkennbare Ursache im Log.
+              echo "⚠️  SESSION_SECRET fehlt in .env - erzeuge und PERSISTIERE ein neues"
               SESSION_SECRET=$(openssl rand -hex 32)
+              echo "SESSION_SECRET=$SESSION_SECRET" >> .env
             fi
 
             echo "✅ Environment ready (SESSION_SECRET length: ${#SESSION_SECRET})"
