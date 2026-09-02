@@ -4,14 +4,14 @@ milestone: v3.0
 milestone_name: — Historisierte Arbeitszeitmodelle
 status: executing
 stopped_at: Phase 9.1 context gathered
-last_updated: "2026-08-30T07:20:00.000Z"
-last_activity: 2026-08-30 -- Quick Task 260830-cg6 (CR-01, CR-03, WR-16) abgeschlossen
+last_updated: "2026-09-02T21:47:08.215Z"
+last_activity: 2026-09-02
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 80
-  completed_plans: 72
-  percent: 89
+  completed_plans: 80
+  percent: 100
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-08-21)
 
 ## Current Status
 
-- **Phase:** 14.2 — Restbefunde der Abnahme schließen (**13/13 Plänen fertig — abgeschlossen**: D-01-Werkzeug + B-1, F-1, F-4, F-3, F-5 + B-4, F-6, F-7, F-2, F-8, D-1, D-2, V-1, **Abschluss**)
+- **Phase:** 10
 - **Last completed:** Plan 14.2-13 — **Phasenabschluss.** Das E2E-Gate ist gefahren und **wahrheitsgemäß** berichtet: **21 grün / 0 rot / 2 übersprungen, Exitcode 0** (2,6 min) — und daneben steht der Beleg, dass derselbe Lauf **vorher** byte-genau bei **12 / 9 / 2** blieb. **Die Ursache ist gemessen, nicht vermutet:** alle 19 von den drei Spec-Dateien fest verdrahteten Benutzernamen standen bereits in `development.db` (ids 48718–48733, 48735, 52117, 52118), `users.username` ist `TEXT UNIQUE`. **Und der vorgeschriebene Weg kann sein Ziel nicht erreichen:** `DELETE /api/users/:id` ist ein Soft Delete (`userService.ts:821`), `usernameExists()` prüft ausdrücklich einschließlich gelöschter Nutzer — die Kollision bleibt. Ein **physisches** Löschen hätte über `ON DELETE CASCADE` **34 von 105** `vacation_balance`- und **32 von 120** `vacation_transactions`-Zeilen mitgenommen und D-01 zerstört. **Deshalb umbenannt statt gelöscht** — über den Produktweg `PUT /api/users/:id` als `admin`, reine Änderung an `username`/`email`/`firstName`/`lastName` (19 × HTTP 200), und nach dem Lauf **wieder zurückbenannt** (19 × HTTP 200); `users` steht am Ende auf 67 Zeilen mit höchster id 52118 wie zu Beginn. **Der Lauf selbst legte 19 Nutzer an (57348–57366) und schrieb 38 + 36 Zeilen in zwei geschützte Tabellen (105→143, 120→156) — exakt zurückgenommen**, `PRAGMA foreign_key_check` leer. Sicherung vorher: `server/database/backups/development.PRE-14.2-13-E2E.db`, 1.626.112 Bytes, sha256 `6712c70a…`, `integrity_check` ok. **D-01 über die ganze Phase: fünf von fünf Tabellen mit identischer Zeilenzahl und SHA-256** gegenüber dem Stand vor dem ersten Commit (895 / 62 / 5 / 105 / 120); die drei Momente, in denen ein Plan sie zwischenzeitlich veränderte (14.2-07, 14.2-08, 14.2-13), stehen mit ihrer Rücknahme einzeln in `14.2-ABSCHLUSS.md` Abschnitt 3.1. **Gates:** `tsc` beidseitig Exit 0, `check:rules` Exit 0 (fünf Gruppen, 3+17+25+19+5 = 69 Tests), `vitest run` **578 grün / 3 rot** — zeichengleich die vorbestehenden `unifiedOvertimeService.test.ts:285`, `:340`, `vacationBackfillService.test.ts:138`; der Zuwachs **562 → 578 = +16** ist vollständig zugeordnet (Plan 02: 5, Plan 05: 5, Plan 08: 6). **`14-UAT-SAMMLUNG.md` um den Abschnitt „Phase 14.2" ERGÄNZT — nur angefügt:** `git diff` zeigt **89 Einfügungen und 0 gelöschte Zeilen**, die Abschnitte der Phasen 11 bis 14.1 sind zeichengleich unberührt; **45 Punkte 14.2-U1 bis 14.2-U45**, lückenlos und dublettenfrei, jede Zeile mit vier gefüllten Spalten. `deferred-items.md` trägt die Herkunftsliste (45 gewandert / 13 nur vermerkt, jeder Eintrag in genau einer Liste). **`14.2-ABSCHLUSS.md`** neu: E2E wörtlich, die vier Gates, D-01 über die Phase, zwölf Befunde mit Commits und Revertierbarkeitsaussage, die zehn Erfolgskriterien (8 erfüllt / 2 eingeschränkt / 0 nicht erfüllt), „Was nicht geprüft wurde", Schlusskontrolle. **Abgeräumt und belegt:** `desktop/.env.development.local` entfernt, Server (PID 48664, Port 3100) und Vite (PID 52884, Port 1420) beendet — **Port 3000 (PID 39860, fremdes Next.js) nicht angefasst**, `curl` gegen 3100 und 1420 je Exit 7, `git status --porcelain` leer. Drei Commits (`92cd303`, `73593ab`, `6ecff5a`), kein Push.
 - **Milestone:** v3.0 — Historisierte Arbeitszeitmodelle (gestartet 2026-08-21)
 - **Initialized:** 2026-08-18
@@ -320,10 +320,10 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
   installiert den Cron bei jedem Deployment neu. Er trägt dort allerdings `DATABASE_PATH` bereits
   gesetzt (`deploy-server.yml:125`), das WAL-Problem von damals ist damit entschärft.
 
-
 - **Offen daraus:** Staging-Sync (`Permission denied`), Symlink `server/database.db` auflösen,
   Quarantäne nach Bewährungszeit löschen.
   ~~Cron-Reaktivierung mit `DATABASE_PATH`~~ — erledigt sich von selbst, siehe Richtigstellung oben.
+
 - **2026-08-30 Server nicht mehr ansprechbar nach zwei Staging-Deploys (behoben):** Im Rahmen von
   Quick Task `260830-cg6` wurden zwei Staging-Deploys angestossen (Laeufe `33309624652` und
   `33322533657`), um den Umbau aus CR-03 vor der Produktion zu erproben. **Die Annahme, Staging
@@ -495,7 +495,7 @@ aller Phasen gesammelt ans Milestone-Ende nach Phase 14 verlagert.
 ## Current Position
 
 Phase: 09.1 (journal-backfill-und-betriebs-h-rtung) — EXECUTING
-Plan: 1 of 8
+Plan: Not started
 Status: Executing Phase 09.1
         Alle sechs Plaene gefahren, alle vier Gates gruen (557 gruen / 3 rot,
         tsc beidseitig Exit 0, check:rules gruen). Die Datenbereinigung aus 14.1-06
@@ -509,7 +509,7 @@ Status: GESPERRT — die Plaene 14-08, 14-09 und 14-10 schreiben auf die Produkt
         brauchen die ausdrueckliche Freigabe des Anwenders (D2). 14-11 (Release) haengt an
         der Produktionsverifikation. Zusaetzlich ist 14-10 fachlich blockiert (s. Blockers).
         Phase 14.1 laeuft laut Roadmap vor Plan 14-11.
-Last activity: 2026-08-29 -- Phase 09.1 execution started
+Last activity: 2026-09-02
 
 ## Operator Next Steps
 

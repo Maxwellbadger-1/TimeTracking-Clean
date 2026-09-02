@@ -190,11 +190,14 @@ Produktionsschreibzugriff in Phase 9.
 - „Nach dem Backfill zeigt `validate:overtime:detailed` keine Transaktions-Abweichung mehr" —
   bereits am 26.08.2026 im Fenster der Phase 14 erledigt, Beleg
   `14-BACKFILL-PRODUKTION.md`; **nicht Umfang dieser Phase** (`09.1-CONTEXT.md` `<domain>`).
+
 - „`fix-overtime.ts` verarbeitet einen einzelnen defekten Datensatz mit Fehlerprotokoll, ohne
   die übrige Belegschaft zu blockieren" — erfüllt. Beleg: `overtimeRecalcRunner.test.ts`
   Fall 1 (Plan 09.1-04) und der Fehlerpfadlauf des Werkzeugs (Plan 09.1-05).
+
 - „Ein `PRAGMA busy_timeout` ist gesetzt und mit einem echten Nebenläufigkeitstest belegt" —
   erfüllt. Beleg: `connection.busyTimeout.test.ts` (Plan 09.1-01).
+
 - „`server/scripts/**` läuft unter `tsc --noEmit`" — erfüllt. `server/scripts/` enthält
   keine TypeScript-Datei mehr; die fünf aktiven Skripte liegen typisiert unter
   `server/src/scripts/` (Pläne 09.1-03 und 09.1-05).
@@ -207,7 +210,7 @@ unabhängige Prozessstarts seit der Auslieferung blieb die WAL durchgehend regul
 kein `(deleted)`. Vollständiger Nachweis mit Rohausgaben, Messtabelle und Urteil:
 `09.1-NACHWEIS-BEOBACHTUNG.md`. Grenzen der Beobachtung dort in Abschnitt 6 benannt.
 
-**Plans:** 8 Pläne, 6 Wellen (geplant 2026-08-29; Umfang nach `09.1-CONTEXT.md`: nur die
+**Plans:** 8/8 plans complete
 Code-Härtung WR-02 bis WR-05 — der Backfill ist am 26.08.2026 im Fenster der Phase 14 gelaufen,
 WR-07 hat Plan 14-02 geschlossen)
 
