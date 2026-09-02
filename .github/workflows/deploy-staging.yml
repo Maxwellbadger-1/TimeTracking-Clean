@@ -57,7 +57,7 @@ jobs:
             if [ ! -d "/home/ubuntu/TimeTracking-Green" ]; then
               echo "📥 Repository not found. Cloning..."
               cd /home/ubuntu
-              git -c protocol.version=0 clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git TimeTracking-Green
+              git -c http.version=HTTP/1.1 clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git TimeTracking-Green
             fi
 
             cd /home/ubuntu/TimeTracking-Green
@@ -68,15 +68,20 @@ jobs:
 
             # Pull latest code from staging branch
             echo "📥 Pulling latest code from GitHub (staging branch)..."
-            # Git-Protokoll v2 scheitert zwischen git 2.34.1 (Ubuntu 22.04 auf diesem Server) und
-            # GitHub: der Aushandlungsschritt bricht mit "expected flush after ref listing" ab, git
-            # faellt daraufhin auf eine Anmeldeabfrage zurueck ("could not read Username") und
-            # beendet sich mit Status 128 — obwohl das Repository oeffentlich ist. Nachgemessen am
-            # 02.09.2026: `curl` auf denselben Endpunkt liefert HTTP 200 mit gueltiger
-            # Protokollantwort, `git ls-remote` scheitert, `git -c protocol.version=0 ls-remote`
-            # gelingt. Am 31.08. lief derselbe Schritt noch durch (Lauf 33371111657), die Aenderung
-            # liegt also auf GitHub-Seite. Deployment-Lauf 33687054408 ist daran gescheitert.
-            git -c protocol.version=0 fetch origin staging
+            # git 2.34.1 (Ubuntu 22.04 auf diesem Server) scheitert gegen GitHub, sobald es den
+            # POST auf git-upload-pack ueber HTTP/2 fuehrt: git bricht ab und faellt auf eine
+            # Anmeldeabfrage zurueck ("could not read Username"), Status 128 — obwohl das
+            # Repository oeffentlich ist. Am 02.09.2026 auf dem Server eingegrenzt (rein lesend,
+            # mit --dry-run):
+            #   git ls-remote                                  -> scheitert   (nur GET info/refs)
+            #   git -c protocol.version=0 ls-remote            -> gelingt
+            #   git -c http.version=HTTP/1.1 fetch --dry-run      -> scheitert   (POST upload-pack)
+            #   git -c http.version=HTTP/1.1 fetch --dry-run   -> GELINGT
+            # Das GET geht also durch, erst der POST bricht — die Protokollversion ist nicht die
+            # Ursache, HTTP/2 ist es. Lauf 33371111657 (31.08.) lief noch durch, die Aenderung
+            # liegt auf GitHub-Seite. Die Laeufe 33687054408 und 33687346784 sind daran gescheitert,
+            # beide VOR "pm2 stop" und vor jedem Datenbankzugriff.
+            git -c http.version=HTTP/1.1 fetch origin staging
             git reset --hard origin/staging
 
             # Clean up old files
