@@ -57,7 +57,7 @@ jobs:
             if [ ! -d "/home/ubuntu/TimeTracking-Green" ]; then
               echo "📥 Repository not found. Cloning..."
               cd /home/ubuntu
-              git clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git TimeTracking-Green
+              git -c protocol.version=0 clone https://github.com/Maxwellbadger-1/TimeTracking-Clean.git TimeTracking-Green
             fi
 
             cd /home/ubuntu/TimeTracking-Green
@@ -68,7 +68,15 @@ jobs:
 
             # Pull latest code from staging branch
             echo "📥 Pulling latest code from GitHub (staging branch)..."
-            git fetch origin staging
+            # Git-Protokoll v2 scheitert zwischen git 2.34.1 (Ubuntu 22.04 auf diesem Server) und
+            # GitHub: der Aushandlungsschritt bricht mit "expected flush after ref listing" ab, git
+            # faellt daraufhin auf eine Anmeldeabfrage zurueck ("could not read Username") und
+            # beendet sich mit Status 128 — obwohl das Repository oeffentlich ist. Nachgemessen am
+            # 02.09.2026: `curl` auf denselben Endpunkt liefert HTTP 200 mit gueltiger
+            # Protokollantwort, `git ls-remote` scheitert, `git -c protocol.version=0 ls-remote`
+            # gelingt. Am 31.08. lief derselbe Schritt noch durch (Lauf 33371111657), die Aenderung
+            # liegt also auf GitHub-Seite. Deployment-Lauf 33687054408 ist daran gescheitert.
+            git -c protocol.version=0 fetch origin staging
             git reset --hard origin/staging
 
             # Clean up old files
