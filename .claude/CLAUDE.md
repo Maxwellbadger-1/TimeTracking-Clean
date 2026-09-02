@@ -1,7 +1,7 @@
 # TimeTracking System — Entwicklungsleitlinien
 
-**Stand:** 2026-08-29 · Milestone v3.0 ausgeliefert · Desktop v1.9.1 · Server `e4866a4`
-(Phase 9.1 Betriebs-Härtung, Beobachtung D-17 läuft noch)
+**Stand:** 2026-09-02 · Milestone v3.0 ausgeliefert · Desktop v1.9.1 · Server `e4866a4`
+(Phase 9.1 Betriebs-Härtung abgeschlossen, D-17 belegt)
 
 ---
 
@@ -96,14 +96,25 @@ arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offe
    auf, sobald der schließende Prozess kurz die exklusive Sperre bekommt — nachts um 03:00 war
    der Server idle, also bekam er sie. Danach schrieb der Serverprozess in eine gelöste Datei.
 
-   **Zwischenstand (29.08.2026, Phase 9.1):** Der externe Nachtlauf ist mit dem
-   Server-Deployment `e4866a4` entfallen; die Neuberechnung läuft seit diesem Zeitpunkt im
-   Serverprozess selbst um 03:15 Uhr Europe/Berlin über dieselbe Verbindung wie der übrige
-   Betrieb — es gibt keinen externen `npx tsx`-Prozess mehr, der sich die exklusive Sperre
-   holen und die WAL abhängen könnte. Nach dem Deployment waren die Dateizeiger erstmals seit
-   dem 27.08. wieder regulär verknüpft (kein `(deleted)`). **Der Nachweis über mindestens zwei
-   Nächte läuft noch** und wird in `09.1-NACHWEIS-BEOBACHTUNG.md` (Plan 09.1-08) geführt —
-   erst danach gilt die Ursache als abschließend beseitigt.
+   **Endstand (02.09.2026, Plan 09.1-08 — belegt):** Der externe Nachtlauf ist mit dem
+   Server-Deployment `e4866a4` (29.08.2026) entfallen; die Neuberechnung läuft seit diesem
+   Zeitpunkt im Serverprozess selbst um 03:15 Uhr Europe/Berlin über dieselbe Verbindung wie
+   der übrige Betrieb — es gibt keinen externen `npx tsx`-Prozess mehr, der sich die
+   exklusive Sperre holen und die WAL abhängen könnte. Über zwei vollständige Nächte unter
+   derselben PID (4911, seit dem Deployment vom 31.08.2026 ohne Neustart im Lauf — Nacht zum
+   01.09. und Nacht zum 02.09.2026) trug kein Dateizeiger `(deleted)`, die Verzeichnis-mtime
+   von `databases/` zeigte keinen 03:00-Stempel mehr, und der In-Prozess-Nachtlauf feuerte
+   beide Nächte fehlerfrei (15/15 verarbeitet). Zusätzlich war die WAL nach drei voneinander
+   unabhängigen Prozessstarts seit der Auslieferung (Deployment 29.08., Kalt-Reboot 30.08.,
+   Deployment 31.08.) jeweils regulär verknüpft. Strukturell beseitigt: der externe Cron ist
+   entfernt (D-03), `setup-cron.sh` gelöscht, sodass er sich nicht reinstallieren kann
+   (WR-16), Migration und Schemaprüfung laufen im Deploy hinter `pm2 stop` statt neben dem
+   laufenden Server (CR-03). Vollständiger Nachweis mit Rohausgaben und Urteil:
+   `.planning/phases/09.1-journal-backfill-und-betriebs-h-rtung/09.1-NACHWEIS-BEOBACHTUNG.md`.
+   Grenzen der Beobachtung (siehe dort Abschnitt 6): für die Nächte zum 30.08./31.08. liegt
+   nur die Positivmessung vor, nicht die beiden D-17-Messgrößen selbst; die Messungen der
+   Nächte zum 01.09./02.09. erfolgten am Folgetag, nicht unmittelbar nach dem Nachtlauf. Die
+   Rettungsanweisung unten gilt unverändert weiter, sollte doch wieder `(deleted)` auftreten.
 
    Vor Neustart/Deployment prüfen (lesend):
    ```bash

@@ -166,10 +166,6 @@ Produktionsschreibzugriff, den D5 in Phase 9 ausdrücklich verbietet.
 
 **Abhängigkeit:** Phase 9
 
-> **⚠ Ausführungsfenster — nicht überlesen.** Diese Phase hat noch keine Pläne. Werkzeuge,
-> die den Fortschritt aus der Zahl offener Pläne ableiten, melden sie deshalb fälschlich als
-> „complete" (0 von 0 offen). Sie ist **nicht** erledigt.
->
 > **Festgelegt am 22.08.2026:** Der Backfill schreibt in die Produktionsdatenbank und wird
 > deshalb **gemeinsam mit dem Produktionslauf der Phase 14** ausgeführt — ein Wartungsfenster,
 > ein Backup, eine Verifikation. Die reinen Codeanteile (WR-02 bis WR-05, WR-07) können
@@ -189,6 +185,28 @@ Bestandsdaten ausdrücklich einer eigenen Phase zu, sobald er über eine reine C
 hinausgeht — genau der hier vorliegende Fall. D5 verbietet den nötigen
 Produktionsschreibzugriff in Phase 9.
 
+**Ergebnis je Erfolgskriterium (Phasenabschluss 02.09.2026, Plan 09.1-08):**
+
+- „Nach dem Backfill zeigt `validate:overtime:detailed` keine Transaktions-Abweichung mehr" —
+  bereits am 26.08.2026 im Fenster der Phase 14 erledigt, Beleg
+  `14-BACKFILL-PRODUKTION.md`; **nicht Umfang dieser Phase** (`09.1-CONTEXT.md` `<domain>`).
+- „`fix-overtime.ts` verarbeitet einen einzelnen defekten Datensatz mit Fehlerprotokoll, ohne
+  die übrige Belegschaft zu blockieren" — erfüllt. Beleg: `overtimeRecalcRunner.test.ts`
+  Fall 1 (Plan 09.1-04) und der Fehlerpfadlauf des Werkzeugs (Plan 09.1-05).
+- „Ein `PRAGMA busy_timeout` ist gesetzt und mit einem echten Nebenläufigkeitstest belegt" —
+  erfüllt. Beleg: `connection.busyTimeout.test.ts` (Plan 09.1-01).
+- „`server/scripts/**` läuft unter `tsc --noEmit`" — erfüllt. `server/scripts/` enthält
+  keine TypeScript-Datei mehr; die fünf aktiven Skripte liegen typisiert unter
+  `server/src/scripts/` (Pläne 09.1-03 und 09.1-05).
+
+**Nachtrag vom 28.08.2026 (abgehängte WAL, WR-05) — Ergebnis:** **belegt.** Der externe
+Nachtlauf, der die WAL zweimal (18.08., 27.08.) vom laufenden Serverprozess abhängte, ist mit
+Plan 09.1-04/09.1-05/09.1-07 entfallen und durch einen In-Prozess-Lauf ersetzt. Über zwei
+vollständige Nächte unter derselben PID (01.09./02.09.2026, PID 4911) sowie drei voneinander
+unabhängige Prozessstarts seit der Auslieferung blieb die WAL durchgehend regulär verknüpft,
+kein `(deleted)`. Vollständiger Nachweis mit Rohausgaben, Messtabelle und Urteil:
+`09.1-NACHWEIS-BEOBACHTUNG.md`. Grenzen der Beobachtung dort in Abschnitt 6 benannt.
+
 **Plans:** 8 Pläne, 6 Wellen (geplant 2026-08-29; Umfang nach `09.1-CONTEXT.md`: nur die
 Code-Härtung WR-02 bis WR-05 — der Backfill ist am 26.08.2026 im Fenster der Phase 14 gelaufen,
 WR-07 hat Plan 14-02 geschlossen)
@@ -202,7 +220,7 @@ Plans:
 - [x] 09.1-05-PLAN.md — WR-05: Werkzeug härten und verschieben, beide crontab-Einträge und Post-Deploy-Läufe entfernen (Welle 3)
 - [x] 09.1-06-PLAN.md — Auslieferung Staging (Green, Port 3001) mit Wirkungsnachweis (Welle 4)
 - [x] 09.1-07-PLAN.md — Auslieferung Produktion (Blue, Port 3000) nach Freigabe, Kerndokumentation nachziehen (Welle 5)
-- [ ] 09.1-08-PLAN.md — Beobachtungsnachweis über mindestens zwei Nächte, Phasenabschluss (Welle 6)
+- [x] 09.1-08-PLAN.md — Beobachtungsnachweis über mindestens zwei Nächte, Phasenabschluss (Welle 6)
 
 ---
 
