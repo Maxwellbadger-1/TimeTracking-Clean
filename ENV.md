@@ -327,20 +327,22 @@ chmod 644 .ssh/oracle_server.key.pub
 
 ### 5. Backup Configuration
 
-```bash
-BACKUP_SCHEDULE=0 2 * * *       # Cron: Daily at 2 AM
-BACKUP_RETENTION_DAYS=30        # Delete backups older than 30 days
-BACKUP_DIR=./backups
+**Es gibt keine Backup-Umgebungsvariablen.** Zeitplan, Ablageort und Rotation stehen fest
+im Code:
 
-# GFS Rotation (Grandfather-Father-Son)
-BACKUP_DAILY_RETENTION=7        # Keep 7 daily backups
-BACKUP_WEEKLY_RETENTION=4       # Keep 4 weekly backups
-BACKUP_MONTHLY_RETENTION=12     # Keep 12 monthly backups
-```
+| Was | Wo | Wert |
+|---|---|---|
+| Zeitplan | `server/src/services/cronService.ts` | `0 2 * * *`, `timezone: 'Europe/Berlin'` |
+| Verzeichnis | `server/src/services/backupService.ts` | `<cwd>/../backups` |
+| Rotation | `cleanOldBackups()` | die letzten 30 Sicherungen |
+
+Früher standen hier `BACKUP_SCHEDULE`, `BACKUP_RETENTION_DAYS`, `BACKUP_DIR` und drei
+`BACKUP_*_RETENTION`-Variablen für eine GFS-Staffelung. Keine davon wurde je von einer
+Codezeile gelesen — sie gehörten zu `scripts/database/backup.sh`, das nie eingeplant war
+und am 03.09.2026 entfernt wurde.
 
 **Used by:**
-- `scripts/database/backup.sh`
-- Automated backup cronjobs
+- niemandem — der Backup-Zeitplan läuft im Serverprozess, nicht über crontab
 
 > Die nächtliche Überstunden-Neuberechnung läuft **nicht** über crontab, sondern im
 > Serverprozess — siehe `scripts/README.md`.

@@ -198,49 +198,27 @@ chmod +x scripts/production/auto-setup.sh
 
 ## 🗄️ Database Scripts (`scripts/database/`)
 
-### `backup.sh` - Enterprise-Grade Backup
+### Backups — kein Skript, sondern der Serverprozess
 
-```bash
-./scripts/database/backup.sh [daily|weekly|monthly]
-```
+**Es gibt hier bewusst kein `backup.sh` mehr.** Backups entstehen im laufenden Server:
 
-**Features:**
-- GFS Rotation (Grandfather-Father-Son)
-- SQLite Online Backup API (sicher während Server läuft!)
-- Integrity Checks (PRAGMA integrity_check)
-- Email Notifications (optional)
-- Health Check Logging
+| Was | Wo |
+|---|---|
+| Erzeugung | `createBackup()` in `server/src/services/backupService.ts` |
+| Zeitplan | `startBackupScheduler()` in `server/src/services/cronService.ts` — täglich 02:00 Europe/Berlin |
+| Manuell | Admin → „Datenbank Backups" → „Backup erstellen" |
+| Ablage | `<projekt>/../backups/`, flach, `database-backup-<YYYY-MM-DD_HH-mm-ss>.db` (Ortszeit) |
+| Rotation | `cleanOldBackups()` behält die letzten 30 |
 
-**Retention:**
-- Daily: 7 Tage
-- Weekly: 4 Wochen
-- Monthly: 12 Monate
+**Warum kein Skript:** Ein eigener Prozess, der `production.db` öffnet und wieder schließt,
+räumt beim Schließen WAL und SHM auf und hängt die WAL des laufenden Servers ab. Genau das
+ist zweimal passiert (`.planning/debug/db-stabilisierung-20260818.md`,
+`.planning/debug/wal-abgehaengt-20260827.md`). `createBackup()` setzt den
+`wal_checkpoint(TRUNCATE)` deshalb auf der **eigenen** Verbindung des Servers ab.
 
-**Cronjob Setup:**
-```bash
-# Daily (2 AM)
-0 2 * * * /path/to/scripts/database/backup.sh daily
-
-# Weekly (Sunday 3 AM)
-0 3 * * 0 /path/to/scripts/database/backup.sh weekly
-
-# Monthly (1st of month, 4 AM)
-0 4 1 * * /path/to/scripts/database/backup.sh monthly
-```
-
-**Backup-Verzeichnisse:**
-```
-backups/
-├── daily/
-│   ├── database_daily_20250115_020000.db
-│   └── ...
-├── weekly/
-│   ├── database_week02_2025.db
-│   └── ...
-└── monthly/
-    ├── database_2025-01.db
-    └── ...
-```
+Das frühere `backup.sh` (GFS-Rotation, `sqlite3 "$DB_PATH" ".backup"`) wurde am 03.09.2026
+entfernt: Es stand in keinem crontab und keinem systemd-Timer, lief also nie — und sein
+`DB_PATH` zeigte auf `server/database.db`, den unmigrierten Altbestand von April 2026.
 
 ---
 
@@ -263,7 +241,7 @@ backups/
 ./scripts/database/restore.sh --list
 
 # Restore
-./scripts/database/restore.sh database_daily_20250115_020000.db
+./scripts/database/restore.sh database-backup-2026-09-03_08-14-22.db
 ```
 
 **Rollback bei Problemen:**
@@ -508,7 +486,7 @@ ssh -i .ssh/oracle_server.key ubuntu@129.159.8.19 "ss -tulpn | grep :3000"
 
 **Database Management:**
 ```bash
-./scripts/database/backup.sh daily       # Backup erstellen
+# Backup erstellen: Admin → „Datenbank Backups" in der App (kein Skript)
 ./scripts/database/restore.sh --list     # Backups anzeigen
 ./scripts/database/sync-prod.sh          # Prod → Dev sync
 ```

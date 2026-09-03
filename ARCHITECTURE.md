@@ -168,7 +168,7 @@ graph TB
 
     subgraph "Data Layer"
         I[SQLite WAL Mode]
-        J[GFS Backup System]
+        J[Backup Service - in-process, taeglich 02:00]
     end
 
     A --> D
@@ -1641,33 +1641,43 @@ localhost:3000     database-staging.db    database-shared.db
 ### 7.6 Backup Strategy
 
 **Automated Backups:**
-- **Script:** `scripts/database/backup.sh`
-- **Schedule:** Daily at 2 AM (systemd timer or cron)
-- **Method:** SQLite Online Backup API (safe during operation)
+- **Wo:** im Serverprozess selbst — `createBackup()` in
+  `server/src/services/backupService.ts`, ausgelöst von `startBackupScheduler()`
+  (`server/src/services/cronService.ts`). **Kein externes Skript, kein crontab-Eintrag.**
+- **Schedule:** täglich 02:00 Europe/Berlin (Zeitzone im Scheduler explizit gesetzt)
+- **Method:** `wal_checkpoint(TRUNCATE)` auf der **eigenen** Verbindung des Servers,
+  danach `fs.copyFileSync`. Bewusst kein Fremdprozess: ein zweiter Prozess, der die
+  Datenbank öffnet und schließt, hat zweimal die WAL abgehängt (siehe `.claude/CLAUDE.md`,
+  `.planning/debug/wal-abgehaengt-20260827.md`).
+- **Manuell:** Admin → „Datenbank Backups" → „Backup erstellen" ruft dieselbe Funktion auf.
 
-**GFS Rotation:**
+**Ablage — flaches Verzeichnis, keine GFS-Rotation:**
 ```
 /home/ubuntu/TimeTracking-Clean/backups/
-├── daily/
-│   ├── database_daily_20260115_020000.db  (keep 7 days)
-│   ├── database_daily_20260114_020000.db
-│   └── ...
-├── weekly/
-│   ├── database_week02_2026.db  (keep 4 weeks)
-│   ├── database_week01_2026.db
-│   └── ...
-└── monthly/
-    ├── database_2026-01.db  (keep 12 months)
-    ├── database_2025-12.db
-    └── ...
+├── database-backup-2026-09-03_08-14-22.db
+├── database-backup-2026-09-02_02-00-00.db
+├── database-before-restore-2026-08-30_11-02-17.db   (nur bei Restore)
+└── ...
 ```
+- **Namensschema:** `database-backup-<YYYY-MM-DD_HH-mm-ss>.db` in **deutscher Ortszeit**
+  (`formatDate`). Dateien von vor dem 03.09.2026 tragen noch das alte UTC-ISO-Schema
+  `database-backup-2026-09-02T21-33-37-052Z.db` — bei diesen liegt der Name in der
+  Sommerzeit zwei Stunden vor der angezeigten Erstellzeit.
+- **Rotation:** `cleanOldBackups()` behält die **letzten 30** `database-backup-*.db`,
+  gemessen an `birthtime`. Kein daily/weekly/monthly.
+
+**Zusätzlich vor jedem Deployment:** `deploy-server.yml` legt eigenständig
+`/home/ubuntu/databases/backups/production.predeploy_<YYYYMMDD_HHMMSS>.db` per `cp` an —
+unabhängig vom Scheduler und mit eigenem Namensschema.
 
 **Backup Verification:**
-- Integrity check after each backup: `PRAGMA integrity_check`
+- `PRAGMA integrity_check` läuft in `validateBackupIntegrity()` **vor einem Restore**,
+  nicht nach jedem Backup. Ein frisch erzeugtes Backup wird nicht automatisch geprüft.
 - Test restore monthly on development environment
 
 **Off-Site Backup:**
-- Manual download via `scripts/production/backup-db.sh`
+- Über die App: Admin → „Datenbank Backups" → Download (`GET /api/backup/download/:filename`)
+- Ersatzweise `scp` gemäß `.claude/CLAUDE.md`
 - Encrypted with GPG (future enhancement)
 
 ---

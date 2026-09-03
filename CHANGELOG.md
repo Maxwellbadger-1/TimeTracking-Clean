@@ -70,6 +70,42 @@ in `.planning/debug/backup-download-name-format.md`.
 
 ### 🛠️ Changed
 
+#### Aufgeräumt: totes Backup-Skript, toter Cronjob, Doku auf den Ist-Stand
+Beim Untersuchen des Dateinamen-Fehlers fielen drei Dinge auf, die alle dasselbe Muster
+haben — sie beschreiben oder planen etwas, das nicht stattfindet:
+
+**1. `scripts/database/backup.sh` entfernt.** Das Skript versprach GFS-Rotation und rief
+`sqlite3 "$DB_PATH" ".backup"` auf — also genau der Fremdprozess-Zugriff, der zweimal die
+WAL abgehängt hat. Es stand in keinem crontab und keinem systemd-Timer, lief also nie; sein
+`DB_PATH` zeigte zudem auf `server/database.db`, den unmigrierten Altbestand von April 2026.
+Gefährlich wäre es erst geworden, wenn jemand es „reaktiviert" hätte.
+
+**2. Toter Cronjob auf dem Server entfernt.** `0 2 * * 0 sync-prod-to-staging.sh` scheiterte
+bei jedem Lauf mit `Permission denied` — die Datei ist nicht ausführbar. Ihr Quellpfad
+`/home/ubuntu/database-production.db` existiert überdies gar nicht (die Datenbank liegt
+unter `/home/ubuntu/databases/production.db`), das Skript hätte also auch mit Ausführrecht
+nur einen Fehler erzeugt. Der crontab des Servers ist jetzt leer; Sicherung des vorherigen
+Stands unter `/home/ubuntu/crontab.backup-20260903.txt`.
+
+**3. Backup-Dokumentation an vier Stellen berichtigt.** `ARCHITECTURE.md` 7.6,
+`PROJECT_SPEC.md` 9.4 und NFR-REL-003, `scripts/README.md` und `PROJECT_STATUS.md`
+beschrieben eine GFS-Staffelung mit `daily/`-, `weekly/`- und `monthly/`-Unterordnern und
+Namen wie `database_daily_20260115_020000.db`. Tatsächlich ist das Verzeichnis flach, die
+Dateien heißen `database-backup-*.db`, und die Rotation behält schlicht die letzten 30.
+Ebenfalls berichtigt: `PRAGMA integrity_check` läuft **vor einem Restore**, nicht nach
+jedem Backup.
+
+**Am wichtigsten:** Die Recovery-Anleitung in `PROJECT_SPEC.md` 9.4 kopierte das Backup
+nach `server/database.db` — nicht die Arbeitsdatenbank, sondern der Altbestand von April.
+Wer im Ernstfall dieser Anleitung gefolgt wäre, hätte ins Leere wiederhergestellt und den
+Ausfall dabei für behoben gehalten. Die Anleitung nennt jetzt den Weg über die App
+(Hot-Swap, mit Sicherung und Integritätsprüfung) und für den Notfall
+`/home/ubuntu/databases/production.db` bei gestopptem Server.
+
+**Mitgezogen:** `ENV.md` listete sechs `BACKUP_*`-Umgebungsvariablen, die keine Codezeile
+je gelesen hat — sie gehörten zu `backup.sh`. Der Abschnitt nennt jetzt die tatsächlichen
+Fundstellen im Code.
+
 #### Entfernt: toter Schema-Validierungsschritt im Deployment
 **Was:** `server/src/scripts/validateSchema.ts` und die zugehörigen Aufrufe in
 `deploy-server.yml` und `deploy-staging.yml` sind ersatzlos entfallen.

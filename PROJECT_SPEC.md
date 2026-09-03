@@ -630,13 +630,11 @@ Employee ID,Name,Date,Hours,Location,Project,Activity,Notes
 - Backup strategy: See NFR-REL-003
 
 **NFR-REL-003: Backup & Recovery**
-- Automated daily backups: 2 AM UTC (cron job)
-- GFS rotation:
-  - Daily: 7 days retention
-  - Weekly: 4 weeks retention
-  - Monthly: 12 months retention
+- Automated daily backups: 02:00 **Europe/Berlin**, im Serverprozess (kein cron job)
+- Rotation: die letzten 30 Sicherungen (`cleanOldBackups()`), keine GFS-Staffelung
 - Backup location: `/home/ubuntu/TimeTracking-Clean/backups/`
-- Backup verification: SQLite integrity check (`PRAGMA integrity_check`)
+- Backup verification: SQLite integrity check (`PRAGMA integrity_check`) — läuft vor einem
+  Restore, nicht nach jedem Backup
 - Recovery time objective (RTO): < 1 hour
 - Recovery point objective (RPO): < 24 hours
 
@@ -2249,42 +2247,51 @@ pm2 startup
 ### 9.4 Backup Strategy
 
 **Automated Backups:**
-- Script: `scripts/database/backup.sh`
-- Schedule: Daily at 2 AM (cron job)
-- Method: SQLite Online Backup API (safe during server operation)
+- Ort: im Serverprozess — `createBackup()` (`server/src/services/backupService.ts`),
+  ausgelöst von `startBackupScheduler()` (`server/src/services/cronService.ts`).
+  Kein externes Skript, kein crontab-Eintrag.
+- Schedule: täglich 02:00 Europe/Berlin
+- Method: `wal_checkpoint(TRUNCATE)` auf der eigenen Verbindung des Servers, danach
+  `fs.copyFileSync` — bewusst kein Fremdprozess (WAL-Risiko, siehe `.claude/CLAUDE.md`)
 
-**GFS Rotation (Grandfather-Father-Son):**
+**Ablage — flach, keine GFS-Rotation:**
 ```
 backups/
-├── daily/
-│   ├── database_daily_20260115_020000.db (7 days retention)
-│   └── ...
-├── weekly/
-│   ├── database_week02_2026.db (4 weeks retention)
-│   └── ...
-└── monthly/
-    ├── database_2026-01.db (12 months retention)
-    └── ...
+├── database-backup-2026-09-03_08-14-22.db     ← Ortszeit (seit 03.09.2026)
+├── database-backup-2026-09-02T21-33-37-052Z.db ← Altbestand, UTC-Schema
+├── database-before-restore-2026-08-30_11-02-17.db (nur bei Restore)
+└── ...
 ```
+- Namensschema: `database-backup-<YYYY-MM-DD_HH-mm-ss>.db`, deutsche Ortszeit
+- Rotation: `cleanOldBackups()` behält die letzten 30, gemessen an `birthtime`
 
 **Backup Verification:**
-- Integrity check: `PRAGMA integrity_check`
+- `PRAGMA integrity_check` in `validateBackupIntegrity()` — läuft **vor einem Restore**,
+  nicht nach jedem Backup
 - Test restore: Monthly test on dev environment
 
 **Off-Site Backup:**
-- Manual download: `scripts/production/backup-db.sh`
+- Über die App: Admin → „Datenbank Backups" → Download
 - Store in secure location (encrypted)
 
 **Recovery Procedure:**
+
+Regelweg ist die App: Admin → „Datenbank Backups" → „Wiederherstellen". `restoreBackup()`
+prüft die Integrität, legt vorher eine Sicherung `database-before-restore-*.db` an und
+tauscht die Datenbank im laufenden Betrieb (Hot-Swap) — **kein Serverneustart nötig**.
+
+Nur falls die App nicht erreichbar ist:
 ```bash
-# 1. Stop server
+# 1. Stop server — sonst schreibt der laufende Prozess in die ersetzte Datei
 pm2 stop timetracking-server
 
-# 2. Restore backup
-cp backups/daily/database_daily_20260115_020000.db server/database.db
+# 2. Restore backup — Ziel ist die Produktionsdatenbank unter ~/databases/,
+#    NICHT server/database.db (unmigrierter Altbestand von April 2026)
+cp /home/ubuntu/TimeTracking-Clean/backups/database-backup-2026-09-03_08-14-22.db \
+   /home/ubuntu/databases/production.db
 
-# 3. Verify integrity
-sqlite3 server/database.db "PRAGMA integrity_check;"
+# 3. Verify integrity — zulässig, weil der Server gestoppt ist
+sqlite3 /home/ubuntu/databases/production.db "PRAGMA integrity_check;"
 
 # 4. Restart server
 pm2 start timetracking-server

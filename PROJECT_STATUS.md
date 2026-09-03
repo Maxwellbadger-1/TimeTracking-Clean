@@ -418,7 +418,7 @@ geschlossen durch Plan 14-02, siehe `14-WR07-ENTSCHEIDUNG.md`.
 | Database | 🟢 Healthy | SQLite WAL mode, 48 MB |
 | Session Management | 🟢 Healthy | bcrypt + HttpOnly cookies |
 | WebSocket | 🟢 Healthy | Real-time sync active |
-| Backups | 🟢 Healthy | GFS rotation, last: 2026-01-15 02:00 |
+| Backups | 🟢 Healthy | In-Process-Scheduler, täglich 02:00 Europe/Berlin, letzte 30 |
 
 ### Desktop Apps
 | Platform | Status | Version | Details |
