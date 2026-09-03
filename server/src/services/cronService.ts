@@ -23,20 +23,30 @@ export function startBackupScheduler(): void {
     return;
   }
 
-  // Schedule: Every day at 2:00 AM
+  // Schedule: Every day at 2:00 AM Europe/Berlin
   // Cron format: minute hour day month weekday
   // "0 2 * * *" = At 02:00 every day
-  backupTask = cron.schedule('0 2 * * *', () => {
-    logger.info('🔄 Automated backup started...');
-    try {
-      createBackup();
-      logger.info('✅ Automated backup completed');
-    } catch (error) {
-      logger.error({ err: error }, '❌ Automated backup failed');
+  //
+  // timezone explizit: Das war der einzige der drei Zeitpläne ohne Angabe und lief damit
+  // in der Zeitzone des Prozesses. Solange TZ=Europe/Berlin gesetzt ist, stimmt die Zeit —
+  // fällt die Variable weg, feuerte das Backup in UTC, also 04:00 statt 02:00 Ortszeit.
+  backupTask = cron.schedule(
+    '0 2 * * *',
+    () => {
+      logger.info('🔄 Automated backup started...');
+      try {
+        createBackup();
+        logger.info('✅ Automated backup completed');
+      } catch (error) {
+        logger.error({ err: error }, '❌ Automated backup failed');
+      }
+    },
+    {
+      timezone: 'Europe/Berlin', // CRITICAL: German timezone!
     }
-  });
+  );
 
-  logger.info('✅ Backup scheduler started (daily at 2:00 AM)');
+  logger.info('✅ Backup scheduler started (daily at 2:00 AM Europe/Berlin)');
 }
 
 /**
@@ -56,7 +66,7 @@ export function stopBackupScheduler(): void {
 export function getSchedulerStatus(): { running: boolean; schedule: string } {
   return {
     running: backupTask !== null,
-    schedule: '0 2 * * * (Daily at 2:00 AM)',
+    schedule: '0 2 * * * (Daily at 2:00 AM Europe/Berlin)',
   };
 }
 

@@ -9,6 +9,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed
+
+#### Backup-Dateinamen trugen UTC statt Ortszeit — nachts den Vortag
+**Was:** `createBackup()` bildete den Dateinamen über `new Date().toISOString()`. Die
+Backup-Liste in der App zeigt denselben Zeitpunkt über `toLocaleString('de-DE')` in
+Ortszeit. Dasselbe Backup trug dadurch zwei verschiedene Zeiten — in der Sommerzeit zwei
+Stunden auseinander — und ein Backup zwischen 00:00 und 02:00 Ortszeit bekam den **Vortag**
+in den Namen. Genau in diesem Fenster feuert der nächtliche Cron um 02:00.
+
+**Warum das auffiel:** Der Anwender lud am 03.09.2026 ein Backup herunter und fand
+`database-backup-2026-09-02T21-33-37-052Z.db` im Download-Ordner — die Datei war am
+02.09. um 23:33 Uhr Ortszeit entstanden.
+
+**Jetzt:** `formatDate(date, 'yyyy-MM-dd_HH-mm-ss')` wie überall sonst im Projekt —
+`database-backup-2026-09-03_08-14-22.db`. `toISOString()` zur Datumsbildung ist in
+`.claude/CLAUDE.md` ausdrücklich verboten; diese Stelle war übersehen worden. Der Name
+bezeichnet weiterhin den **Erstellzeitpunkt**, nicht den Downloadzeitpunkt — sonst hieße
+ein vier Tage alter Stand nach dem Herunterladen „heute" und würde im Ernstfall für
+aktuell gehalten.
+
+**Mitgezogen:** Der Zeitstempel löst nur noch auf Sekunden auf, deshalb hängt
+`uniqueBackupPath()` bei Kollision `-2`, `-3`, … an. Cronlauf und ein gleichzeitiger Klick
+auf „Jetzt Backup erstellen" hätten sonst denselben Namen bekommen und `copyFileSync`
+hätte das erste stillschweigend überschrieben.
+
+#### Pfad-Traversal in allen drei Backup-Routen
+**Was:** `getBackupPath()` verkettete `req.params.filename` ungeprüft mit dem
+Backup-Verzeichnis; Download, Restore und Delete reichten den Parameter ungefiltert durch.
+`GET /api/backup/download/..%2f..%2fdatabases%2fproduction.db` hätte die
+Produktionsdatenbank ausgeliefert, `DELETE` steht unmittelbar vor einem `fs.unlinkSync`.
+Die als „Security check" kommentierte Zeile prüfte nur Existenz, nicht Lage. Abgeschirmt
+war das allein durch `requireAuth` + `requireAdmin`.
+
+**Jetzt:** `resolveBackupPath()` prüft, dass der Name sein eigener Basename ist, auf `.db`
+endet und unterhalb des Backup-Verzeichnisses liegt. Abgelehnte Namen antworten 400 statt
+500, damit ein Traversal-Versuch im Log nicht wie ein Ausfall der Anwendung aussieht.
+Gegen 17 Fälle geprüft (Traversal mit `/` und `\`, absolute Pfade, `.db-shm`/`.db-wal`,
+leerer Name).
+
+**Vorbestehend, nicht neu** — gefunden bei der Untersuchung des Dateinamen-Fehlers.
+
+#### Backup-Cron ohne Zeitzonenangabe
+**Was:** `startBackupScheduler()` war der einzige der drei Zeitpläne ohne `timezone` und
+lief damit in der Zeitzone des Prozesses. Solange `TZ=Europe/Berlin` gesetzt ist, stimmt
+die Zeit; fällt die Variable weg, feuert das Backup um 04:00 statt 02:00 Ortszeit.
+**Jetzt:** `timezone: 'Europe/Berlin'` wie bei Jahreswechsel- und Überstunden-Nachtlauf.
+
+#### `split('/')` auf einem Windows-Pfad
+`POST /api/backup` bildete den Rückgabe-Dateinamen mit `backupPath.split('/').pop()` — auf
+Windows-Pfaden mit Backslashes ergab das den kompletten Pfad statt des Dateinamens. Jetzt
+`path.basename()`. Auf dem Linux-Server war das folgenlos.
+
+**Kein Fehler, zur Klarstellung:** Die `.db-shm`/`.db-wal`-Dateien, die dem Anwender im
+Download-Ordner auffielen, stammen nicht aus dem Download. Die Desktop-App hat keinen
+SQLite-Codepfad (kein `rusqlite`, kein SQL-Plugin); die Dateien entstehen, wenn eine
+bereits heruntergeladene `.db` später als SQLite-Datenbank geöffnet wird — hier durch die
+Integritätsprüfungen vom 27.08. und die Gegenprüfung vom 02.09.2026. Vollständiger Beleg
+in `.planning/debug/backup-download-name-format.md`.
+
 ### 🛠️ Changed
 
 #### Entfernt: toter Schema-Validierungsschritt im Deployment
