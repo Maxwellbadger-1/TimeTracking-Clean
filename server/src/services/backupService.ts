@@ -3,6 +3,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import db, { reconnectDatabase } from '../database/connection.js';
 import { databaseConfig } from '../config/database.js';
+import { formatDate } from '../utils/timezone.js';
 
 // Backup directory (outside server folder)
 const BACKUP_DIR = path.join(process.cwd(), '../backups');
@@ -24,6 +25,89 @@ function ensureBackupDir(): void {
 }
 
 /**
+ * Ein vom Client gelieferter Backup-Dateiname ist unbrauchbar.
+ * Eigene Klasse, damit die Routen 400 statt 500 antworten können.
+ */
+export class InvalidBackupFilenameError extends Error {
+  constructor(filename: string) {
+    super(`Ungültiger Backup-Dateiname: ${filename}`);
+    this.name = 'InvalidBackupFilenameError';
+  }
+}
+
+/**
+ * Löst einen Backup-Dateinamen zu einem Pfad im Backup-Verzeichnis auf — und nur dorthin.
+ *
+ * WARUM: Alle drei Backup-Routen (Download, Restore, Delete) reichen `req.params.filename`
+ * durch. Ein blankes `path.join(BACKUP_DIR, filename)` verlässt bei `../` das Verzeichnis;
+ * `/api/backup/download/..%2f..%2fdatabases%2fproduction.db` hätte die Produktionsdatenbank
+ * ausgeliefert, und `DELETE` steht direkt vor einem `fs.unlinkSync`. Die bisherige, als
+ * "Security check" kommentierte Prüfung testete nur Existenz, nicht Lage.
+ *
+ * Drei Schranken, jede für sich ausreichend:
+ *   1. Der Name muss sein eigener Basename sein — schließt Trennzeichen und `..` aus.
+ *   2. Endung `.db` — Begleitdateien (`-shm`/`-wal`) und alles andere sind kein Ziel.
+ *   3. Der aufgelöste Pfad muss unterhalb von BACKUP_DIR liegen (Gürtel und Hosenträger,
+ *      fängt auch Symlink-freie Sonderfälle wie `C:` unter Windows ab).
+ *
+ * Siehe `.planning/debug/backup-download-name-format.md`.
+ */
+function resolveBackupPath(filename: string): string {
+  if (!filename || path.basename(filename) !== filename) {
+    throw new InvalidBackupFilenameError(filename);
+  }
+
+  if (!filename.endsWith('.db')) {
+    throw new InvalidBackupFilenameError(filename);
+  }
+
+  const resolvedDir = path.resolve(BACKUP_DIR);
+  const resolvedPath = path.resolve(resolvedDir, filename);
+
+  if (resolvedPath !== path.join(resolvedDir, filename)) {
+    throw new InvalidBackupFilenameError(filename);
+  }
+
+  return resolvedPath;
+}
+
+/**
+ * Zeitstempel für Backup-Dateinamen in deutscher Ortszeit (Europe/Berlin).
+ *
+ * WARUM NICHT `toISOString()`: Das liefert UTC. Die Backup-Liste in der App zeigt den
+ * Erstellzeitpunkt dagegen über `toLocaleString('de-DE')` in Ortszeit
+ * (`desktop/src/pages/BackupPage.tsx`, Spalte „Erstellt am"). Ein und dasselbe Backup
+ * trug dadurch zwei verschiedene Zeiten — bei MESZ zwei Stunden auseinander — und ein
+ * Backup zwischen 00:00 und 02:00 Berliner Zeit bekam sogar den Vortag in den Namen.
+ * Genau an dieser Grenze feuert der nächtliche Cron (02:00, `cronService.ts`).
+ * `toISOString()` zur Datumsbildung ist in `.claude/CLAUDE.md` ausdrücklich verboten.
+ *
+ * Format: `2026-09-03_08-14-22` — sortierbar, ohne für Windows verbotene Zeichen.
+ * Siehe `.planning/debug/backup-download-name-format.md`.
+ */
+function backupTimestamp(): string {
+  return formatDate(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+}
+
+/**
+ * Erzeugt einen im Backup-Verzeichnis noch nicht vergebenen Dateipfad.
+ *
+ * Der Zeitstempel löst auf Sekunden auf (vorher: Millisekunden). Zwei Backups in
+ * derselben Sekunde — etwa der Cronlauf und ein gleichzeitiger Klick auf „Jetzt Backup
+ * erstellen" — bekämen sonst denselben Namen, und `fs.copyFileSync` überschriebe das
+ * erste stillschweigend. Bei Kollision wird `-2`, `-3`, … angehängt.
+ */
+function uniqueBackupPath(baseName: string): string {
+  let candidate = path.join(BACKUP_DIR, `${baseName}.db`);
+  let counter = 2;
+  while (fs.existsSync(candidate)) {
+    candidate = path.join(BACKUP_DIR, `${baseName}-${counter}.db`);
+    counter++;
+  }
+  return candidate;
+}
+
+/**
  * Create database backup
  * Returns: backup file path
  */
@@ -31,10 +115,9 @@ export function createBackup(): string {
   try {
     ensureBackupDir();
 
-    // Generate backup filename with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupFilename = `database-backup-${timestamp}.db`;
-    const backupPath = path.join(BACKUP_DIR, backupFilename);
+    // Dateiname mit Zeitstempel in deutscher Ortszeit (siehe backupTimestamp)
+    const backupPath = uniqueBackupPath(`database-backup-${backupTimestamp()}`);
+    const backupFilename = path.basename(backupPath);
 
     // Force checkpoint to write WAL to main database
     db.pragma('wal_checkpoint(TRUNCATE)');
@@ -115,7 +198,7 @@ function validateBackupIntegrity(backupPath: string): boolean {
  */
 export function restoreBackup(backupFilename: string): void {
   try {
-    const backupPath = path.join(BACKUP_DIR, backupFilename);
+    const backupPath = resolveBackupPath(backupFilename);
 
     if (!fs.existsSync(backupPath)) {
       throw new Error(`Backup file not found: ${backupFilename}`);
@@ -128,8 +211,10 @@ export function restoreBackup(backupFilename: string): void {
     }
 
     // Step 2: Create safety backup of current database
-    const safetyBackupFilename = `database-before-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.db`;
-    const safetyBackupPath = path.join(BACKUP_DIR, safetyBackupFilename);
+    // Zeitstempel wie beim regulären Backup in deutscher Ortszeit, damit beide
+    // Dateisorten im selben Verzeichnis dieselbe Zeitbasis haben.
+    const safetyBackupPath = uniqueBackupPath(`database-before-restore-${backupTimestamp()}`);
+    const safetyBackupFilename = path.basename(safetyBackupPath);
 
     console.log('💾 Creating safety backup...');
     // Force checkpoint to ensure WAL is written
@@ -212,7 +297,7 @@ export function getBackupStats(): {
  * @returns Full path to backup file
  */
 export function getBackupPath(filename: string): string {
-  return path.join(BACKUP_DIR, filename);
+  return resolveBackupPath(filename);
 }
 
 /**
@@ -220,7 +305,7 @@ export function getBackupPath(filename: string): string {
  */
 export function deleteBackup(backupFilename: string): void {
   try {
-    const backupPath = path.join(BACKUP_DIR, backupFilename);
+    const backupPath = resolveBackupPath(backupFilename);
 
     if (!fs.existsSync(backupPath)) {
       throw new Error(`Backup file not found: ${backupFilename}`);

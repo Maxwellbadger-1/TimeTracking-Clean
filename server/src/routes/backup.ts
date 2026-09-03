@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import {
   createBackup,
@@ -9,11 +10,22 @@ import {
   deleteBackup,
   getBackupStats,
   getBackupPath,
+  InvalidBackupFilenameError,
 } from '../services/backupService.js';
 import { getSchedulerStatus } from '../services/cronService.js';
 import type { ApiResponse } from '../types/index.js';
 
 const router = Router();
+
+/**
+ * HTTP-Status für einen Fehler aus dem Backup-Service.
+ *
+ * Ein abgelehnter Dateiname ist ein Client-Fehler (400), kein Serverfehler (500) —
+ * sonst sähe ein Traversal-Versuch in den Logs wie ein Ausfall der Anwendung aus.
+ */
+function backupErrorStatus(error: unknown): number {
+  return error instanceof InvalidBackupFilenameError ? 400 : 500;
+}
 
 /**
  * GET /api/backup
@@ -90,10 +102,11 @@ router.get(
         return;
       }
 
-      // Get full path to backup file
+      // Pfad auflösen — wirft InvalidBackupFilenameError, wenn der Name das
+      // Backup-Verzeichnis verlassen würde (siehe resolveBackupPath im backupService)
       const backupPath = getBackupPath(filename);
 
-      // Security check: File must exist
+      // Existenzprüfung — die Lage im Verzeichnis hat resolveBackupPath bereits sichergestellt
       if (!fs.existsSync(backupPath)) {
         res.status(404).json({
           success: false,
@@ -120,7 +133,7 @@ router.get(
       });
     } catch (error) {
       console.error('❌ Failed to download backup:', error);
-      res.status(500).json({
+      res.status(backupErrorStatus(error)).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to download backup',
       });
@@ -139,7 +152,9 @@ router.post(
   (_req: Request, res: Response<ApiResponse<{ filename: string }>>) => {
     try {
       const backupPath = createBackup();
-      const filename = backupPath.split('/').pop() || '';
+      // path.basename statt split('/'): unter Windows liefert path.join Backslashes,
+      // split('/') gab dort den kompletten Pfad statt des Dateinamens zurück.
+      const filename = path.basename(backupPath);
 
       res.json({
         success: true,
@@ -185,7 +200,7 @@ router.post(
       });
     } catch (error) {
       console.error('❌ Failed to restore backup:', error);
-      res.status(500).json({
+      res.status(backupErrorStatus(error)).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to restore backup',
       });
@@ -221,7 +236,7 @@ router.delete(
       });
     } catch (error) {
       console.error('❌ Failed to delete backup:', error);
-      res.status(500).json({
+      res.status(backupErrorStatus(error)).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete backup',
       });
