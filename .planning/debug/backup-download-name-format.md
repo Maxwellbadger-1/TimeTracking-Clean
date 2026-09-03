@@ -1,6 +1,6 @@
 ---
 slug: backup-download-name-format
-status: awaiting_human_verify
+status: resolved
 trigger: "wenn ich ein backup downloade, zeigt er im titel den falschen namen. also nicht heutiges datum. zudem sind es nun verschiedene Dateiformate. das muss funktionieren. einwandfrei. Sieh im download ordner nach. da habe ich die letzten backups gedownloaded. C:\\Users\\maxfe\\Downloads"
 created: 2026-09-03
 updated: 2026-09-03
@@ -486,3 +486,59 @@ validieren. Kleinste ausreichende Massnahme: `path.basename(filename)` als Guard
 - Korrektur am Investigator-Text: das Fehlerfenster "22:00-24:00" ist UTC; in Ortszeit
   ist es 00:00-02:00 (MESZ) bzw. 00:00-01:00 (MEZ). Der Code-Kommentar
   (`backupService.ts:33-34`) hat es richtig.
+
+---
+
+## Abschluss 03.09.2026
+
+**Ausgeliefert.** Deploy-Run 33793269845 (`completed success`, 5m38s), Health-Endpunkt
+`status: ok`, und das Produktionslog bestätigt den Code live:
+`✅ Backup scheduler started (daily at 2:00 AM Europe/Berlin)`.
+
+fix:
+  - `backupService.ts` — `backupTimestamp()` über `formatDate(date, 'yyyy-MM-dd_HH-mm-ss')`
+    statt `toISOString()`; `uniqueBackupPath()` gegen Namenskollision in derselben Sekunde;
+    `resolveBackupPath()` schließt den Pfad-Traversal für Download, Restore und Delete.
+  - `routes/backup.ts` — `path.basename()` statt `split('/')`; abgelehnte Dateinamen
+    antworten 400 statt 500.
+  - `cronService.ts` — Backup-Zeitplan explizit `timezone: 'Europe/Berlin'`.
+  - Commits `09edab8`, `5f0f865`, `bd16530`.
+
+verification:
+  - `npx tsc --noEmit` (server) Exitcode 0.
+  - `resolveBackupPath` gegen 17 Fälle geprüft (Traversal mit Slash und Backslash, absolute
+    Pfade, `/home/ubuntu/databases/production.db`, `.db-shm`/`.db-wal`, leerer Name,
+    `backup.db/../../../etc/passwd`) — alle wie erwartet.
+  - Deploy verifiziert wie in `.claude/CLAUDE.md` gefordert: Run-Status, Health-Endpunkt,
+    Scheduler-Zeile im Produktionslog.
+  - NICHT geprüft: ein echter Download aus der laufenden Desktop-App. Der erste manuell
+    erzeugte Sicherungspunkt nach diesem Deploy zeigt, ob der neue Name greift.
+
+**Korrektur eines Review-Befunds:** Der Specialist-Review nannte eine prozessübergreifende
+Race-Condition zwischen `deploy-server.yml:73-74`, `scripts/production/backup-db.sh:19` und
+`createBackup()`, die alle ins selbe `backups/` schrieben. Nachgeprüft: der Deploy-Workflow
+schreibt nach `/home/ubuntu/databases/backups/production.predeploy_*.db`, und `backup-db.sh`
+läuft auf dem Entwicklerrechner und legt die per `scp` geholte Kopie im **lokalen**
+Projektordner als `database-*.db` ab. Drei verschiedene Verzeichnisse, drei verschiedene
+Präfixe — die Race existiert nicht.
+
+**Miterledigt beim Aufräumen (Commit `bd16530`):**
+  - `scripts/database/backup.sh` entfernt — versprach GFS-Rotation, rief
+    `sqlite3 "$DB_PATH" ".backup"` auf (Fremdprozess-Zugriff), stand aber in keinem Cron
+    und keinem Timer und zeigte auf den Altbestand `server/database.db`.
+  - Cronjob `0 2 * * 0 sync-prod-to-staging.sh` vom Server entfernt: scheiterte bei jedem
+    Lauf mit `Permission denied`, und sein Quellpfad `/home/ubuntu/database-production.db`
+    existiert nicht. Sicherung: `/home/ubuntu/crontab.backup-20260903.txt`.
+  - Backup-Doku an fünf Stellen berichtigt. Am wichtigsten: die Recovery-Anleitung in
+    `PROJECT_SPEC.md` 9.4 kopierte das Backup nach `server/database.db` — nicht die
+    Arbeitsdatenbank. Wer ihr im Ernstfall gefolgt wäre, hätte ins Leere wiederhergestellt.
+
+**Offen, bewusst nicht angefasst** (alle vorbestehend, keiner blockiert):
+  - `database-before-restore-*.db` fällt durch den `startsWith`-Filter in `listBackups()`,
+    wird nie gelistet und nie von `cleanOldBackups()` abgeräumt — wächst unbegrenzt.
+  - Der Rollback-Block in `restoreBackup()` enthält nur Kommentare, keinen Code. Er
+    suggeriert eine Absicherung, die es nicht gibt.
+  - `getTodayString()`, `getCurrentMonth()` und `getCurrentISOWeek()` in `timezone.ts`
+    schieben ein bereits per `toZonedTime` konvertiertes Datum erneut durch `formatDate`.
+    Unsichtbar solange `TZ=Europe/Berlin` gesetzt ist; ohne die Variable liefern sie abends
+    den Folgetag. Das System hängt damit weiterhin an `TZ`.

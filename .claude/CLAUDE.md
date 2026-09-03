@@ -123,7 +123,7 @@ arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offe
    ```
    Bei `(deleted)`: **nicht neu starten.** Erst in der App über „Datenbank Backups" →
    „Backup erstellen" einen Prüfpunkt erzwingen — `createBackup()`
-   (`server/src/services/backupService.ts:39-41`) führt `wal_checkpoint(TRUNCATE)` auf der
+   (`server/src/services/backupService.ts:123`) führt `wal_checkpoint(TRUNCATE)` auf der
    *eigenen* Verbindung des Servers aus und ist der einzige Weg, der eine abgehängte WAL
    noch rettet. Danach muss `stat -L -c%s /proc/$PID/fd/20` den Wert `0` liefern.
 4. **Prepared Statements** — Pflicht (SQL-Injection).
