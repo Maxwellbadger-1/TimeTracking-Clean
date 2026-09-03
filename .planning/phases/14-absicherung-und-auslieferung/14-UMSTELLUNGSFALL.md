@@ -110,3 +110,72 @@ Tatsächlich lief der Backfill am 26.08.2026, also **einen Tag vorher** — sieh
 Die Umkehrung hat keinen Schaden angerichtet: Zum Zeitpunkt des Backfills existierte noch
 keine einzige `model_change`-Zeile in der Produktion (der Zähler des Werkzeugs meldet 0 vor
 und 0 nach dem Lauf), und der Backfill hat den sichtbaren Saldo keines Nutzers bewegt.
+
+---
+
+## 7. Nachtrag 02.09.2026 — die zwei offenen Punkte aus Abschnitt 5 sind geschlossen
+
+Quelle aller Zahlen: `database-backup-2026-09-02T21-33-37-052Z.db` — eine über die
+Backup-Funktion der Anwendung erzeugte Sicherung (Prüfpunkt im Serverprozess, danach Kopie),
+byte-identisch zum Serverstand (`md5 5a0960086a28e9a56da19fa1b94405cd`, beidseitig geprüft),
+`integrity_check: ok`, 22 Tabellen. Ausgewertet wurde die **lokale Kopie** — `production.db`
+wurde zu keinem Zeitpunkt geöffnet.
+
+### 7.1 „Genau ein Nutzer betroffen" — jetzt gemessen statt plausibel
+
+Abschnitt 5 führte als nicht belegt, dass sich der Saldo genau eines Nutzers unterscheidet.
+Drei unabhängige Zählungen über den Gesamtbestand belegen es nun:
+
+| Messung | Ergebnis |
+|---|---|
+| Journalzeilen mit `createdAt LIKE '2026-08-27 11:33%'` | **1** — `userId 16`, `model_change`, −28 h, datiert `2026-08-01` |
+| `model_change`-Buchungen im **gesamten** Journal | **1** |
+| Nutzer mit mehr als einer aktiven Periode (`deletedAt IS NULL`) | **1** — `userId 16`; von 20 Nutzern haben 19 genau eine |
+
+Das ist stärker als der ursprünglich geplante Vorher/Nachher-Snapshot: Statt zwei Zeitpunkte
+zu vergleichen, ist über den vollständigen Bestand gezählt, dass überhaupt nur ein einziger
+Modellwechsel existiert und nur ein einziges Konto eine zweite Periode trägt.
+
+### 7.2 Der Wortlaut der Pflichtbegründung — jetzt festgehalten
+
+Abschnitt 5 vermerkte, der Wortlaut sei nirgends festgehalten. Er lautet:
+
+```
+Stundenwechsel ab 01.08.2026: 30,0 → 40,0 h/Woche (Grund: Arbeitszeitanpassung laut Arbeitsvertrag.)
+```
+
+`overtime_transactions.id = 37955`, `type = model_change`, `hours = -28`,
+`date = 2026-08-01`, `createdAt = 2026-08-27 11:33:54`.
+Die Begründung des Anwenders steht zusätzlich als `note` an der Periode selbst
+(`user_work_periods.id = 21`): „Arbeitszeitanpassung laut Arbeitsvertrag."
+
+Betrag und Vorzeichen sind damit ebenfalls belegt (**−28 h**), was die vierte Muss-Aussage des
+Plans („Kontoauszug zeigt eine Modellwechsel-Zeile mit Betrag, Vorzeichen und Begründung")
+auf Datenebene vollständig einlöst. Die Sichtprüfung im Kontoauszug der App bleibt Teil der
+Abnahme.
+
+### 7.3 Die Periodenkette
+
+| Periode | gültig von | gültig bis | Wochenstunden | Herkunft |
+|---|---|---|---|---|
+| `id 5` | 2026-01-01 | 2026-08-01 | 30 | `[MIGRATION-009]` Bestandsüberführung |
+| `id 21` | 2026-08-01 | offen | **40** | Eintrag des Anwenders, 27.08.2026 11:33:54 |
+
+Lückenlos und überlappungsfrei: das `validTo` der ersten Periode ist exakt das `validFrom`
+der zweiten.
+
+### 7.4 Der Kernwert des Milestones, an echten Daten
+
+Monatssoll des Nutzers 16 über das Jahr, aus `overtime_balance`:
+
+| Monat | Soll | Arbeitstage × Tagessoll | gerechnet mit |
+|---|---|---|---|
+| 2026-07 | 138 h | 23 × 6 h | 30 h/Woche |
+| 2026-08 | **168 h** | 21 × 8 h | **40 h/Woche** |
+| 2026-09 (angebrochen) | 16 h | 2 × 8 h | 40 h/Woche |
+
+Gegenprobe: Wäre die Umstellung rückwirkend angewandt worden, stünde im Juli 23 × 8 = 184 h.
+Wäre sie gar nicht angekommen, stünde im August 21 × 6 = 126 h. Es steht 138 und 168.
+
+**Eine Stundenumstellung verschiebt keine Vergangenheit** — hier zum ersten Mal an einem
+realen Produktionskonto belegt, nicht an einem Prüfnutzer.

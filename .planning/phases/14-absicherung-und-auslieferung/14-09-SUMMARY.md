@@ -37,9 +37,11 @@ deviations:
   - "Der Plan sah einen skriptgefuehrten Ablauf mit Trockenlauf und Vorher/Nachher-Snapshots vor. Tatsaechlich hat der Anwender den Wechsel am 27.08.2026 in der App eingetragen. Die Belege stammen deshalb aus der forensischen Auswertung in .planning/debug/wal-abgehaengt-20260827.md, nicht aus einem geplanten Protokoll."
   - "Dieses SUMMARY wurde am 28.08.2026 nachtraeglich erstellt, angestossen durch /gsd:audit-milestone. Der Plan lief nie als Plan."
 
-open:
-  - "Kein Vorher/Nachher-Snapshot ueber alle Nutzer fuer den 27.08.2026 — dass sich der Saldo genau eines Nutzers unterscheidet, ist plausibel, aber nicht gemessen"
-  - "Der Wortlaut der Pflichtbegruendung der model_change-Buchung ist nirgends festgehalten"
+open: []
+
+closed-later:
+  - "GESCHLOSSEN 02.09.2026: 'genau ein Nutzer betroffen' ist jetzt gemessen statt plausibel — im gesamten Journal existiert genau EINE model_change-Buchung (userId 16), genau EINE Journalzeile entstand am 27.08.2026 11:33, und von 20 Nutzern tragen 19 genau eine aktive Periode. Belege in 14-UMSTELLUNGSFALL.md Abschnitt 7.1"
+  - "GESCHLOSSEN 02.09.2026: Der Wortlaut lautet 'Stundenwechsel ab 01.08.2026: 30,0 → 40,0 h/Woche (Grund: Arbeitszeitanpassung laut Arbeitsvertrag.)', overtime_transactions.id 37955, hours -28. Belege in 14-UMSTELLUNGSFALL.md Abschnitt 7.2"
 
 requirements-completed: [REQ-33]
 
