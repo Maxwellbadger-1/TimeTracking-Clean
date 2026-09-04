@@ -118,9 +118,14 @@ arbeiten. Gilt sinngemäß für jede SQLite-Datei, die ein laufender Dienst offe
 
    Vor Neustart/Deployment prüfen (lesend):
    ```bash
-   PID=$(pm2 jlist | jq -r '.[]|select(.name=="timetracking-server").pid')
+   # kein jq auf dem Server — pm2 pid liefert die PID direkt (geprüft 04.09.2026)
+   PID=$(pm2 pid timetracking-server | tr -d '[:space:]')
    ls -l /proc/$PID/fd | grep production.db     # steht "(deleted)" dabei → STOPP
    ```
+   **Nicht** `pgrep -f timetracking-server` verwenden: Der PM2-Daemon führt den Namen in
+   seiner eigenen Kommandozeile und wird zuerst gefunden — man misst dann den falschen
+   Prozess. Gegenprobe: `tr '\0' ' ' < /proc/$PID/cmdline` muss
+   `node …/server/dist/server.js` zeigen.
    Bei `(deleted)`: **nicht neu starten.** Erst in der App über „Datenbank Backups" →
    „Backup erstellen" einen Prüfpunkt erzwingen — `createBackup()`
    (`server/src/services/backupService.ts:123`) führt `wal_checkpoint(TRUNCATE)` auf der
