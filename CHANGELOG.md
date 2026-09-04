@@ -34,6 +34,32 @@ aktuell gehalten.
 auf „Jetzt Backup erstellen" hätten sonst denselben Namen bekommen und `copyFileSync`
 hätte das erste stillschweigend überschrieben.
 
+#### Doppelte Zeitzonen-Konvertierung in `getTodayString()` und Geschwistern
+**Was:** `getTodayString()`, `getCurrentMonth()` und `getCurrentISOWeek()` riefen
+`formatDate(getCurrentDate(), …)`. Beide Funktionen wenden `toZonedTime` an — das Datum
+wurde also zweimal nach Europe/Berlin verschoben.
+
+**Auswirkung im Betrieb: keine.** `TZ=Europe/Berlin` ist im Produktionsprozess gesetzt
+(nachgeprüft am 04.09.2026 über `/proc/<pid>/environ` und `pm2 env`), und dort ist die
+zweite Verschiebung ein No-Op. Der Fehler war ausschließlich latent.
+
+**Warum trotzdem behoben:** Fehlt `TZ` — etwa nach einem `pm2 restart` ohne
+`--update-env` —, läuft der Prozess in der Systemzeitzone des Servers, und die ist
+`Etc/UTC`. Dann lieferte `getTodayString()` ab 22:00 Ortszeit (Sommerzeit; 23:00 in der
+Winterzeit) den **Folgetag**. Bei 58 Aufrufstellen quer durch Überstunden-, Urlaubs- und
+Arbeitszeitmodell-Dienste wäre das ein stiller Datumsfehler gewesen, der genau dann
+zuschlägt, wenn ohnehin etwas anderes schiefgelaufen ist.
+
+**Jetzt:** Die drei Funktionen übergeben `new Date()` direkt an `formatDate`, das die
+Konvertierung ohnehin vornimmt. `getCurrentYear()` bleibt bewusst unverändert — dort liest
+`getFullYear()` die lokalen Felder des verschobenen Datums und ist in beiden Zeitzonen
+richtig; ein Kommentar hält das fest, damit es niemand „mitfixt".
+
+**Abgesichert:** neuer Regressionstest `server/src/utils/timezone.test.ts` (14 Fälle rund
+um die Tages-, Monats- und Jahresgrenzen, inklusive Winter- und Sommerzeit). Er läuft
+grün in `Europe/Berlin`, `UTC` und `America/New_York` — vor dem Fix wäre er in UTC
+durchgefallen.
+
 #### Sicherheitskopien vor Restores wurden nie abgeräumt
 **Was:** `restoreBackup()` legt vor dem Überschreiben eine Kopie
 `database-before-restore-*.db` an. `listBackups()` filtert aber auf das Präfix

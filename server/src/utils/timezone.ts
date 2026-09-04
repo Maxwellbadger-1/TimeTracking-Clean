@@ -38,7 +38,13 @@ export function getCurrentDate(): Date {
  * const today = getTodayString(); // "2025-11-13"
  */
 export function getTodayString(): string {
-  return formatDate(getCurrentDate(), 'yyyy-MM-dd');
+  // `new Date()` statt `getCurrentDate()`: `formatDate` ruft selbst `toZonedTime` auf.
+  // Mit `getCurrentDate()` wurde zweimal konvertiert. Bei `TZ=Europe/Berlin` — dem
+  // dokumentierten Sollzustand — ist die zweite Konvertierung ein No-Op und der Fehler
+  // damit unsichtbar. Fehlt `TZ` (Systemzone UTC), verschob die doppelte Anwendung um
+  // weitere zwei Stunden: ab 22:00 Ortszeit kam der Folgetag heraus. Gemessen am
+  // 04.09.2026 gegen date-fns-tz. Gilt genauso für getCurrentMonth und getCurrentISOWeek.
+  return formatDate(new Date(), 'yyyy-MM-dd');
 }
 
 /**
@@ -77,6 +83,10 @@ export function parseDate(dateString: string): Date {
 
 /**
  * Get current year in Berlin timezone
+ *
+ * Hier ist `getCurrentDate()` richtig und darf nicht wie in `getTodayString()` durch
+ * `new Date()` ersetzt werden: `getFullYear()` liest die lokalen Felder des bereits
+ * verschobenen Datums und liefert damit das Berliner Jahr — unabhängig von `TZ`.
  */
 export function getCurrentYear(): number {
   return getCurrentDate().getFullYear();
@@ -86,14 +96,16 @@ export function getCurrentYear(): number {
  * Get current month in YYYY-MM format (Berlin timezone)
  */
 export function getCurrentMonth(): string {
-  return formatDate(getCurrentDate(), 'yyyy-MM');
+  // siehe getTodayString: formatDate konvertiert bereits selbst
+  return formatDate(new Date(), 'yyyy-MM');
 }
 
 /**
  * Get ISO week string in YYYY-WXX format (Berlin timezone)
  */
 export function getCurrentISOWeek(): string {
-  return formatDate(getCurrentDate(), "yyyy-'W'II");
+  // siehe getTodayString: formatDate konvertiert bereits selbst
+  return formatDate(new Date(), "yyyy-'W'II");
 }
 
 /**
