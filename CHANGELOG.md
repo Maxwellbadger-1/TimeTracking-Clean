@@ -34,6 +34,33 @@ aktuell gehalten.
 auf „Jetzt Backup erstellen" hätten sonst denselben Namen bekommen und `copyFileSync`
 hätte das erste stillschweigend überschrieben.
 
+#### Sicherheitskopien vor Restores wurden nie abgeräumt
+**Was:** `restoreBackup()` legt vor dem Überschreiben eine Kopie
+`database-before-restore-*.db` an. `listBackups()` filtert aber auf das Präfix
+`database-backup-`, und `cleanOldBackups()` arbeitete auf dieser Liste — die
+Sicherheitskopien fielen also durch den Filter, wurden nie gelistet und nie gelöscht. Das
+Backup-Verzeichnis wuchs bei jedem Restore unbegrenzt weiter.
+
+**Jetzt:** `cleanOldBackups()` räumt beide Sorten ab, jede mit eigenem Kontingent — 30
+planmäßige Sicherungen, 10 Sicherheitskopien. Getrennt gezählt, damit eine Kette von
+Restore-Versuchen nicht die regulären Sicherungen aus dem Kontingent verdrängt.
+`listBackups()` liefert weiterhin nur die planmäßigen: Sicherheitskopien gehören nicht in
+die Auswahlliste der Oberfläche, sonst könnte man sie als Wiederherstellungsziel anklicken.
+
+#### Der Rollback in `restoreBackup()` bestand nur aus Kommentaren
+**Was:** Der `catch`-Block enthielt `console.log('⏪ Attempting rollback...')` und zwei
+Kommentarzeilen — sonst nichts. Scheiterte das Ersetzen der Datenbankdatei zwischen
+`db.close()` und `reconnectDatabase()`, blieb der Server auf einer möglicherweise halb
+überschriebenen Datei ohne offene Verbindung sitzen, während das Log einen Rollback
+ankündigte, den es nicht gab.
+
+**Jetzt:** Der Rollback spielt die Sicherheitskopie zurück und baut die Verbindung neu auf.
+Er greift nur, wenn die Datenbankdatei überhaupt schon angefasst wurde — scheitert der
+Vorgang vorher (unbekannter Dateiname, defektes Backup), ist nichts passiert und ein
+Dateitausch wäre nur zusätzliches Risiko. Scheitert auch der Rollback, nennt die
+Fehlermeldung den vollständigen `cp`-Befehl mit beiden Pfaden, statt den Suchenden im
+Ernstfall im Blindflug zu lassen.
+
 #### Pfad-Traversal in allen drei Backup-Routen
 **Was:** `getBackupPath()` verkettete `req.params.filename` ungeprüft mit dem
 Backup-Verzeichnis; Download, Restore und Delete reichten den Parameter ungefiltert durch.

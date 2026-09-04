@@ -137,28 +137,44 @@ export function createBackup(): string {
   }
 }
 
+/** Präfix der planmäßigen Sicherungen (Scheduler und „Backup erstellen") */
+const BACKUP_PREFIX = 'database-backup-';
+/** Präfix der Sicherheitskopien, die `restoreBackup()` vor dem Überschreiben anlegt */
+const PRE_RESTORE_PREFIX = 'database-before-restore-';
+
+type BackupEntry = { filename: string; size: number; created: Date };
+
+/**
+ * Listet die Dateien eines Präfixes, neueste zuerst.
+ *
+ * Sortiert nach `birthtime` und nicht nach dem Namen: Der Name ist zwar seit dem
+ * Ortszeit-Umbau lexikografisch sortierbar, aber die Altbestände im UTC-ISO-Schema
+ * sortieren sich dazwischen falsch ein, und `-2`-Suffixe aus `uniqueBackupPath()`
+ * würden vor der Datei ohne Suffix landen.
+ */
+function listBackupFiles(prefix: string): BackupEntry[] {
+  ensureBackupDir();
+
+  return fs
+    .readdirSync(BACKUP_DIR)
+    .filter((file) => file.startsWith(prefix) && file.endsWith('.db'))
+    .map((file) => {
+      const stats = fs.statSync(path.join(BACKUP_DIR, file));
+      return { filename: file, size: stats.size, created: stats.birthtime };
+    })
+    .sort((a, b) => b.created.getTime() - a.created.getTime());
+}
+
 /**
  * List all backups (sorted by date, newest first)
+ *
+ * Liefert bewusst nur die planmäßigen Sicherungen — die Sicherheitskopien vor einem
+ * Restore gehören nicht in die Auswahlliste der Oberfläche, sonst könnte man sie als
+ * Wiederherstellungsziel anklicken.
  */
-export function listBackups(): Array<{ filename: string; size: number; created: Date }> {
+export function listBackups(): BackupEntry[] {
   try {
-    ensureBackupDir();
-
-    const files = fs.readdirSync(BACKUP_DIR);
-    const backups = files
-      .filter((file) => file.startsWith('database-backup-') && file.endsWith('.db'))
-      .map((file) => {
-        const filePath = path.join(BACKUP_DIR, file);
-        const stats = fs.statSync(filePath);
-        return {
-          filename: file,
-          size: stats.size,
-          created: stats.birthtime,
-        };
-      })
-      .sort((a, b) => b.created.getTime() - a.created.getTime());
-
-    return backups;
+    return listBackupFiles(BACKUP_PREFIX);
   } catch (error) {
     console.error('❌ Failed to list backups:', error);
     return [];
@@ -197,6 +213,12 @@ function validateBackupIntegrity(backupPath: string): boolean {
  * WARNING: This will overwrite the current database!
  */
 export function restoreBackup(backupFilename: string): void {
+  // Der Rollback braucht beides: den Pfad der Sicherheitskopie und die Information, ob
+  // die Datenbankdatei überhaupt schon angefasst wurde. Scheitert der Vorgang vor
+  // `db.close()`, ist nichts passiert und ein Rollback wäre nur ein unnötiger Dateitausch.
+  let safetyBackupPath: string | null = null;
+  let databaseTouched = false;
+
   try {
     const backupPath = resolveBackupPath(backupFilename);
 
@@ -213,7 +235,7 @@ export function restoreBackup(backupFilename: string): void {
     // Step 2: Create safety backup of current database
     // Zeitstempel wie beim regulären Backup in deutscher Ortszeit, damit beide
     // Dateisorten im selben Verzeichnis dieselbe Zeitbasis haben.
-    const safetyBackupPath = uniqueBackupPath(`database-before-restore-${backupTimestamp()}`);
+    safetyBackupPath = uniqueBackupPath(`${PRE_RESTORE_PREFIX}${backupTimestamp()}`);
     const safetyBackupFilename = path.basename(safetyBackupPath);
 
     console.log('💾 Creating safety backup...');
@@ -225,6 +247,9 @@ export function restoreBackup(backupFilename: string): void {
     // Step 3: Close old database connection
     console.log('🔌 Closing database connection...');
     db.close();
+    // Ab hier ist der Server ohne Verbindung und die Datei wird gleich überschrieben —
+    // jeder Fehler von hier an braucht den Rollback.
+    databaseTouched = true;
 
     // Step 4: Replace database file
     console.log('📋 Replacing database file...');
@@ -239,36 +264,63 @@ export function restoreBackup(backupFilename: string): void {
   } catch (error) {
     console.error('❌ Restore failed:', error);
 
-    // Rollback: Try to restore safety backup
-    try {
-      console.log('⏪ Attempting rollback...');
-      // Note: In production, you'd want more sophisticated rollback logic
-      // Find latest safety backup and restore it
-    } catch (rollbackError) {
-      console.error('❌ Rollback failed:', rollbackError);
+    if (databaseTouched && safetyBackupPath) {
+      // Die Datenbankdatei ist möglicherweise halb überschrieben und die Verbindung ist
+      // zu. Ohne Rollback bliebe der Server auf einer kaputten Datei sitzen, bis jemand
+      // von Hand eingreift. Bis zum 04.09.2026 stand hier nur ein Kommentar.
+      try {
+        console.log('⏪ Rollback: Sicherheitskopie wird zurückgespielt...');
+        fs.copyFileSync(safetyBackupPath, DB_PATH);
+        reconnectDatabase();
+        console.log(`✅ Rollback erfolgreich — Stand vor dem Restore ist wieder aktiv.`);
+      } catch (rollbackError) {
+        // Schlimmstmöglicher Ausgang: Wiederherstellung UND Rollback gescheitert. Die
+        // Meldung muss den Pfad nennen, denn ohne ihn sucht man im Ernstfall im Blindflug.
+        console.error('❌ Rollback fehlgeschlagen:', rollbackError);
+        console.error(
+          `🚨 Datenbank in unklarem Zustand. Server stoppen und von Hand zurückspielen:\n` +
+            `   cp "${safetyBackupPath}" "${DB_PATH}"`
+        );
+      }
     }
 
     throw error;
   }
 }
 
+/** Wie viele planmäßige Sicherungen aufgehoben werden */
+const KEEP_BACKUPS = 30;
 /**
- * Delete old backups (keep last 30)
+ * Wie viele Sicherheitskopien vor Restores aufgehoben werden.
+ *
+ * Deutlich weniger als bei den planmäßigen Sicherungen: Diese Dateien entstehen nur bei
+ * einer Wiederherstellung — ein seltener, manuell ausgelöster Vorgang. Zehn decken jede
+ * realistische Kette von Rückholversuchen ab.
+ */
+const KEEP_PRE_RESTORE = 10;
+
+/**
+ * Räumt alte Sicherungen ab — beide Sorten, jede mit eigenem Kontingent.
+ *
+ * Die Sicherheitskopien werden getrennt gezählt und nicht gemeinsam mit den planmäßigen:
+ * sonst verdrängte eine Kette von Restore-Versuchen die regulären Sicherungen aus dem
+ * Kontingent. Bis zum 04.09.2026 fielen sie durch den Präfix-Filter und wurden überhaupt
+ * nie abgeräumt — das Verzeichnis wuchs unbegrenzt.
  */
 function cleanOldBackups(): void {
-  try {
-    const backups = listBackups();
-
-    // Keep last 30 backups
-    const backupsToDelete = backups.slice(30);
-
-    for (const backup of backupsToDelete) {
-      const filePath = path.join(BACKUP_DIR, backup.filename);
-      fs.unlinkSync(filePath);
-      console.log(`🗑️  Deleted old backup: ${backup.filename}`);
+  for (const { prefix, keep, label } of [
+    { prefix: BACKUP_PREFIX, keep: KEEP_BACKUPS, label: 'Backup' },
+    { prefix: PRE_RESTORE_PREFIX, keep: KEEP_PRE_RESTORE, label: 'Sicherheitskopie' },
+  ]) {
+    try {
+      for (const backup of listBackupFiles(prefix).slice(keep)) {
+        fs.unlinkSync(path.join(BACKUP_DIR, backup.filename));
+        console.log(`🗑️  ${label} abgeräumt: ${backup.filename}`);
+      }
+    } catch (error) {
+      // Aufräumen darf das Backup selbst nie scheitern lassen — es ist bereits geschrieben.
+      console.error(`⚠️  Aufräumen fehlgeschlagen (${label}):`, error);
     }
-  } catch (error) {
-    console.error('⚠️  Failed to clean old backups:', error);
   }
 }
 
